@@ -34,21 +34,11 @@
       "app/**/*"
     ],
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"],
-          "artifactName": "心镜-XinJing-setup-${version}.exe"
-        },
-        {
-          "target": "portable",
-          "arch": ["x64"],
-          "artifactName": "心镜-XinJing-portable-${version}.exe"
-        }
-      ],
+      "target": ["nsis", "portable"],
       "icon": "build/icon.ico"
     },
     "nsis": {
+      "artifactName": "心镜-XinJing-setup-${version}.exe",
       "useZip": true,
       "oneClick": false,
       "perMachine": false,
@@ -58,6 +48,9 @@
       "shortcutName": "心镜 XinJing",
       "menuCategory": false,
       "license": null
+    },
+    "portable": {
+      "artifactName": "心镜-XinJing-portable-${version}.exe"
     }
   },
   "dependencies": {
