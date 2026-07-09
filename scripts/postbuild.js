@@ -6,7 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const dist = path.join(__dirname, '..', 'dist');
-const pkg = require('./package.json');
+const pkg = require('../package.json');
 const version = pkg.version;
 
 if (!fs.existsSync(dist)) {
