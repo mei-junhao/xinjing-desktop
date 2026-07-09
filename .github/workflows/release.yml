@@ -28,7 +28,6 @@ jobs:
         shell: pwsh
         run: |
           echo "ELECTRON_MIRROR=https://cdn.npmmirror.com/binaries/electron/" >> $env:GITHUB_ENV
-          echo "ELECTRON_CUSTOM_DIR={{ version }}" >> $env:GITHUB_ENV
           echo "ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries" >> $env:GITHUB_ENV
           npm config set registry https://registry.npmmirror.com
 
