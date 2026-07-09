@@ -209,6 +209,54 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false;        // 先询问，再下载
   autoUpdater.autoInstallOnAppQuit = true; // 退出时若已下载则自动安装
 
+  // 便携版（绿色免安装单文件）：走独立的 latest-portable.yml 更新通道，并就地自我替换
+  // electron-updater 6.x 不识别 portable 通道，也不具备 exe 自替换能力，这里手动补齐
+  const isPortable = !!process.env.PORTABLE_EXECUTABLE_FILE;
+  if (isPortable) {
+    autoUpdater.channel = 'latest-portable'; // 读取 latest-portable.yml 而非 latest.yml
+    const fsMod = require('fs');
+    const osMod = require('os');
+    const { spawn } = require('child_process');
+    // 覆盖安装逻辑：下载完成后，退出前派生一个 detached 批处理，
+    // 等本进程退出（解锁 exe）后把新文件覆盖到运行中的 portable exe 路径，再重启
+    autoUpdater.doInstall = () => {
+      const helper = autoUpdater.downloadedUpdateHelper;
+      const newExe = helper && helper.file;
+      const curExe = process.env.PORTABLE_EXECUTABLE_FILE;
+      if (!newExe || !curExe) return false;
+      const oldExe = curExe + '.old';
+      const bat = path.join(osMod.tmpdir(), `xj-portable-update-${Date.now()}.bat`);
+      const BOM = '﻿'; // UTF-8 BOM，确保 cmd 正确解析中文路径
+      const lines = [
+        '@echo off',
+        'chcp 65001 >nul',
+        'setlocal',
+        ':wait',
+        `tasklist /fi "PID eq ${process.pid}" | find " ${process.pid} " >nul`,
+        'if %errorlevel%==0 (',
+        '  timeout /t 1 /nobreak >nul',
+        '  goto wait',
+        ')',
+        `if exist "${oldExe}" del /f /q "${oldExe}"`,
+        `move /y "${curExe}" "${oldExe}"`,
+        `copy /y "${newExe}" "${curExe}"`,
+        `start "" "${curExe}"`,
+        'endlocal',
+      ];
+      try {
+        fsMod.writeFileSync(bat, BOM + lines.join('\r\n') + '\r\n');
+        const child = spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true });
+        child.unref();
+        app.isQuiting = true;
+        app.quit();
+        return true;
+      } catch (e) {
+        console.error('[auto-updater] portable self-replace failed:', e && e.message);
+        return false;
+      }
+    };
+  }
+
   autoUpdater.on('update-available', (info) => {
     if (!mainWindow) return;
     const notes = typeof info.releaseNotes === 'string'

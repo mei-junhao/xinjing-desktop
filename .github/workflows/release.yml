@@ -1,6 +1,6 @@
 name: Release
 
-# 打 tag（如 v1.0.1）并 push 到 GitHub 时，自动构建并发布到 Releases
+# 打 tag（如 v1.0.2）并 push 到 GitHub 时，自动构建并发布到 Releases
 on:
   push:
     tags:
@@ -35,9 +35,31 @@ jobs:
         shell: pwsh
         run: npm ci
 
-      - name: Build and publish to GitHub Releases
+      # 构建但不让 electron-builder 自动发布：文件名与更新文件由 postbuild.js 精确控制
+      - name: Build (no publish)
         shell: pwsh
-        run: npm run release
+        run: npm run dist -- --publish never
+
+      # 重命名为中文资产名 + 生成 latest-portable.yml（portable 增量更新）
+      - name: Post-build (中文名 + portable 更新文件)
+        shell: pwsh
+        run: node scripts/postbuild.js
+
+      # 用 gh 精确上传中文名安装包 / 便携版 / latest.yml / latest-portable.yml
+      - name: Create GitHub Release
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $assets = @()
+          $assets += Get-ChildItem dist\*.exe -Recurse | ForEach-Object { $_.FullName }
+          $assets += Get-ChildItem dist\*.blockmap -Recurse | ForEach-Object { $_.FullName }
+          $assets += "dist\latest.yml"
+          $assets += "dist\latest-portable.yml"
+          gh release create $tag `
+            --repo mei-junhao/xinjing-desktop `
+            --title "心镜 XinJing $tag" `
+            --notes "心镜 XinJing 桌面版 $tag 自动更新发布" `
+            --latest `
+            @assets
         env:
-          # Actions 自动注入的 token，拥有 contents:write 权限，足够创建/上传 Release
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
