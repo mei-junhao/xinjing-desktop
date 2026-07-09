@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心镜 · 设置</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="layout">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <header class="main-header">
+        <div id="page-header"></div>
+      </header>
+      <div class="content">
+        <!-- 外观 -->
+        <div class="section-title">外观</div>
+        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
+          <div class="form-row" style="display:flex;align-items:center;justify-content:space-between;gap:var(--gap)">
+            <div>
+              <div style="font-family:var(--sans);font-weight:600;color:var(--text)">深色模式</div>
+              <div style="font-size:12px;color:var(--muted);font-family:var(--sans);margin-top:2px">切换为暖棕夜间配色</div>
+            </div>
+            <button id="theme-toggle" class="theme-switch" role="switch" aria-checked="false" onclick="toggleTheme()" aria-label="切换深色模式"></button>
+          </div>
+        </div>
+
+        <!-- API 配置 -->
+        <div class="section-title">AI 接口配置</div>
+        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
+          <div class="form-row">
+            <label class="form-label">API 端点 (Base URL)</label>
+            <input class="form-control" id="api-baseurl" placeholder="https://your-api-endpoint/v1">
+          </div>
+          <div class="form-row">
+            <label class="form-label">API 密钥</label>
+            <input class="form-control" id="api-key" type="password" placeholder="sk-...">
+          </div>
+          <div class="form-row">
+            <label class="form-label">默认模型</label>
+            <select class="form-control" id="api-model">
+              <option value="deepseek-pro">DeepSeek Pro</option>
+              <option value="deepseek-flash">DeepSeek Flash</option>
+              <option value="minimax-m3">MiniMax M3</option>
+              <option value="agnes">Agnes</option>
+            </select>
+          </div>
+          <div class="form-row" style="display:flex;gap:var(--gap)">
+            <button class="btn btn-primary" onclick="saveApiConfig()">保存配置</button>
+            <button class="btn btn-ghost" onclick="testApi()">测试连接</button>
+          </div>
+          <p style="font-size:12px;color:var(--muted);font-family:var(--sans)">密钥仅存于本地浏览器，不会上传到任何服务器。</p>
+        </div>
+
+        <!-- 数据管理 -->
+        <div class="section-title">数据管理</div>
+        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
+          <div class="form-row">
+            <label class="form-label">存储用量估算</label>
+            <div style="background:var(--accent-soft);border-radius:var(--radius-sm);height:8px;overflow:hidden">
+              <div id="storage-bar" style="height:100%;background:var(--accent);width:0%;transition:var(--transition)"></div>
+            </div>
+            <div id="storage-text" style="font-size:12px;color:var(--muted);font-family:var(--sans);margin-top:4px">计算中...</div>
+          </div>
+          <div class="form-row" style="display:flex;gap:var(--gap);flex-wrap:wrap">
+            <button class="btn btn-ghost" onclick="backupData()">备份数据</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('restore-file').click()">恢复数据</button>
+            <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)">
+            <button class="btn btn-danger" onclick="clearAllData()">清除所有数据</button>
+          </div>
+          <p id="backup-time" style="font-size:12px;color:var(--muted);font-family:var(--sans)"></p>
+        </div>
+
+        <!-- 关于 -->
+        <div class="section-title">关于</div>
+        <div class="list-card" style="padding:var(--gap-lg);cursor:default">
+          <p style="font-size:14px;font-family:var(--sans);line-height:1.8">
+            心镜 XinJing v1.0<br>
+            心理咨询个案管理系统（本地版）<br>
+            纯前端 · 数据存于本机浏览器 · 不上云
+          </p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header"><h2>确认</h2></div>
+      <div class="modal-body"><p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
+        <button class="btn btn-primary" id="confirm-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/settings.js"></script>
+</body>
+</html>

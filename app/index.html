@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心镜 · 工作台</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="layout">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <header class="main-header">
+        <div id="page-header"></div>
+      </header>
+      <div class="content">
+        <!-- 统计卡片 -->
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat-card">
+            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M16.6 13.4A5.4 5.4 0 0 1 20.4 19"/></svg></div>
+            <div class="num" id="stat-clients">0</div>
+            <div class="label">咨询中的来访者</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-4 9 4-9 4-9-4z"/><path d="M7 11v4c0 1.5 2.2 2.6 5 2.6s5-1.1 5-2.6v-4"/><path d="M21 9v5.5"/></svg></div>
+            <div class="num" id="stat-supervision">0</div>
+            <div class="label">督导记录</div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg></div>
+            <div class="num" id="stat-reports">0</div>
+            <div class="label">近期报告</div>
+          </div>
+        </div>
+
+        <!-- 两栏：最近会谈 / 最近报告 -->
+        <div class="two-column">
+          <div>
+            <div class="section-title">最近会谈 <span class="count" id="recent-sessions-count"></span></div>
+            <div id="recent-sessions"></div>
+          </div>
+          <div>
+            <div class="section-title">最近报告 <span class="count" id="recent-reports-count"></span></div>
+            <div id="recent-reports"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 新建来访者模态框 -->
+  <div class="modal-overlay" id="client-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>新建来访者</h2>
+        <button class="close" onclick="App.closeModal('client-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <label class="form-label">姓名 / 化名 <span style="color:var(--red)">*</span></label>
+          <input class="form-control" id="c-name" placeholder="如：小A / 阿拉伯">
+        </div>
+        <div class="form-row two">
+          <div>
+            <label class="form-label">性别</label>
+            <select class="form-control" id="c-gender">
+              <option value="unknown">未填</option>
+              <option value="female">女</option>
+              <option value="male">男</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">出生日期</label>
+            <input class="form-control" id="c-birth" type="date">
+          </div>
+        </div>
+        <div class="form-row two">
+          <div>
+            <label class="form-label">联系电话</label>
+            <input class="form-control" id="c-phone" placeholder="选填">
+          </div>
+          <div>
+            <label class="form-label">首访日期</label>
+            <input class="form-control" id="c-firstvisit" type="date">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">标签（逗号分隔）</label>
+          <input class="form-control" id="c-tags" placeholder="如：成人个体, 焦虑">
+        </div>
+        <div class="form-row">
+          <label class="form-label">备注</label>
+          <textarea class="form-control" id="c-notes" placeholder="背景信息摘要、转介来源等"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('client-modal')">取消</button>
+        <button class="btn btn-primary" onclick="saveNewClient()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认对话框 -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header">
+        <h2>确认</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
+        <button class="btn btn-primary" id="confirm-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

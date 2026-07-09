@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心镜 · 数据迁移</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .sync-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+    .sync-card h2 {
+      font-size: 16px;
+      font-family: var(--serif);
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .sync-card p { font-family: var(--sans); font-size: 13.5px; line-height: 1.7; color: var(--text-soft); }
+    .step-list { margin: 8px 0 0; padding-left: 0; list-style: none; counter-reset: step; }
+    .step-list li {
+      position: relative; padding: 8px 0 8px 34px; font-family: var(--sans);
+      font-size: 13.5px; color: var(--text-soft); border-bottom: 1px dashed var(--border);
+    }
+    .step-list li:last-child { border-bottom: none; }
+    .step-list li::before {
+      counter-increment: step; content: counter(step);
+      position: absolute; left: 0; top: 8px; width: 22px; height: 22px;
+      background: var(--accent); color: #fff; border-radius: 50%;
+      font-size: 12px; display: flex; align-items: center; justify-content: center;
+    }
+    .step-list code { background: rgba(139,111,92,0.1); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+    .file-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .file-row input[type="file"] {
+      font-family: var(--sans); font-size: 13px; padding: 8px; flex: 1; min-width: 200px;
+      border: 1.5px dashed var(--border); border-radius: 10px; background: var(--bg-soft);
+    }
+    .hint { font-family: var(--sans); font-size: 12px; color: var(--text-faint); margin-top: 8px; }
+    .preview-summary {
+      display: flex; gap: 18px; flex-wrap: wrap; margin: 6px 0 14px; font-family: var(--sans);
+    }
+    .preview-summary .pill {
+      background: var(--bg-soft); border: 1px solid var(--border); border-radius: 20px;
+      padding: 6px 14px; font-size: 13px; color: var(--text);
+    }
+    .preview-summary .pill b { color: var(--accent); font-size: 15px; margin-right: 4px; }
+    .preview-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+    .preview-table th {
+      text-align: left; padding: 8px 10px; color: var(--text-faint); font-weight: 600;
+      font-size: 11.5px; border-bottom: 1.5px solid var(--border); background: var(--bg-soft);
+    }
+    .preview-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .preview-table .new { color: #2e7d32; }
+    .preview-table .skip { color: var(--text-faint); }
+    .preview-table .tag {
+      display: inline-block; padding: 1px 8px; border-radius: 12px; font-size: 11px;
+      background: var(--bg-soft); border: 1px solid var(--border); color: var(--text-soft);
+    }
+    .preview-table .tag.new { background: #e8f5e9; border-color: #c8e6c9; color: #2e7d32; }
+    .preview-table .tag.skip { background: #f5f5f5; border-color: #e0e0e0; color: var(--text-faint); }
+    #importBtn { margin-top: 14px; }
+    .muted { color: var(--text-faint); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <header class="main-header">
+        <div id="page-header"></div>
+      </header>
+      <div class="content">
+
+        <div class="sync-card">
+          <h2>数据迁移（一次性）</h2>
+          <p>将「心理咨询记账系统」中的来访者与咨询时间导入心镜。数据全部保留在本地，不上传任何云端。</p>
+          <ol class="step-list">
+            <li>用<strong>录入记账数据的同一个浏览器</strong>打开心镜目录里的 <code>export-billing.html</code>，导出 <code>记账系统导出_日期.json</code>。</li>
+            <li>或在记账系统中点「📥 导出」按钮，导出 CSV（信息略少，但同样可用）。</li>
+            <li>在下方选择导出的 JSON / CSV 文件，点「解析并预览」。</li>
+            <li>确认预览无误后，点「确认导入」——按姓名匹配已有来访者，按记录去重，不会重复创建。</li>
+          </ol>
+          <p class="hint">说明：记账系统不记录咨询时长与逐字稿，导入的每节咨询默认时长为 0、无正文，可后续在心镜中补充。</p>
+        </div>
+
+        <div class="sync-card">
+          <h2>选择文件</h2>
+          <div class="file-row">
+            <input type="file" id="fileInput" accept=".json,.csv" />
+            <button class="btn btn-primary" id="parseBtn">解析并预览</button>
+          </div>
+          <p class="hint">支持 JSON（推荐，含单价/结算方式/状态）与 CSV（记账系统自带导出）。</p>
+        </div>
+
+        <div class="sync-card" id="previewCard" style="display:none;">
+          <h2>导入预览</h2>
+          <div class="preview-summary" id="previewSummary"></div>
+          <div id="previewTableWrap"></div>
+          <button class="btn btn-primary" id="importBtn">确认导入</button>
+          <p class="hint" id="previewNote"></p>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 确认对话框 -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header">
+        <h2>确认导入</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
+        <button class="btn btn-primary" id="confirm-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/sync.js"></script>
+</body>
+</html>

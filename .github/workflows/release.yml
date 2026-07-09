@@ -1,0 +1,44 @@
+name: Release
+
+# 打 tag（如 v1.0.1）并 push 到 GitHub 时，自动构建并发布到 Releases
+on:
+  push:
+    tags:
+      - 'v*'
+
+# 发布 Releases 需要写仓库内容的权限
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build & Publish (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Configure mirrors (npmmirror 加速 Electron 二进制下载)
+        shell: pwsh
+        run: |
+          echo "ELECTRON_MIRROR=https://cdn.npmmirror.com/binaries/electron/" >> $env:GITHUB_ENV
+          echo "ELECTRON_CUSTOM_DIR={{ version }}" >> $env:GITHUB_ENV
+          echo "ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries" >> $env:GITHUB_ENV
+          npm config set registry https://registry.npmmirror.com
+
+      - name: Install dependencies
+        shell: pwsh
+        run: npm ci
+
+      - name: Build and publish to GitHub Releases
+        shell: pwsh
+        run: npm run release
+        env:
+          # Actions 自动注入的 token，拥有 contents:write 权限，足够创建/上传 Release
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

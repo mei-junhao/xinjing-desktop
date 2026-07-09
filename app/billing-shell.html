@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心镜 · 记账</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    #billing-frame {
+      width: 100%;
+      height: calc(100vh - 138px);
+      min-height: 540px;
+      border: none;
+      border-radius: var(--radius);
+      background: #f0f4f9;
+      display: block;
+    }
+    .import-hint {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted);
+      font-family: var(--sans);
+      background: var(--bg-alt);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .import-hint code {
+      background: var(--bg);
+      padding: 1px 6px;
+      border-radius: 5px;
+      font-size: 12px;
+    }
+    #import-json {
+      width: 100%;
+      min-height: 140px;
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 12px;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      resize: vertical;
+      background: var(--bg);
+    }
+    #import-result { font-size: 12.5px; color: var(--text-soft); margin-top: 8px; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <header class="main-header">
+        <div id="page-header"></div>
+      </header>
+      <div class="content">
+        <iframe id="billing-frame" title="记账系统" src="about:blank"></iframe>
+      </div>
+    </main>
+  </div>
+
+  <!-- 导入旧数据模态框 -->
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-header">
+        <h2>导入旧记账数据</h2>
+        <button class="close" onclick="App.closeModal('import-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-hint">
+          你的旧记账数据原本存在浏览器本地（<code>file://</code> 或旧地址）。心镜现已以
+          <strong>同一份数据</strong>运行，导入即把旧记录写进心镜的本地数据库：<br>
+          1. 用<strong>原来打开记账系统的那个浏览器</strong>打开本目录的 <code>export-billing.html</code>，一键下载 JSON；<br>
+          2. 把下载的 JSON 内容粘贴到下方，点「导入」。导入后自动刷新记账页。
+        </div>
+        <textarea id="import-json" placeholder="在此粘贴导出的 JSON（含 clients / records / monthlyPayments）"></textarea>
+        <div id="import-result"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('import-modal')">取消</button>
+        <button class="btn btn-primary" onclick="doImport()">导入并刷新</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确认对话框（initPage 需要） -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header"><h2>确认</h2></div>
+      <div class="modal-body">
+        <p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
+        <button class="btn btn-primary" id="confirm-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/billing-sync.js"></script>
+  <script>
+    App.initPage({
+      title: '记账',
+      subtitle: '你的记账系统已与心镜共用同一份数据',
+      actions: '<button class="btn btn-outline btn-sm" onclick="openImport()">导入旧数据</button>',
+      onReady: function () {
+        // Store 已在本页 hydrate；iframe 内的桥接层会把记账读写落到这份 Store
+        document.getElementById('billing-frame').src = 'billing.html';
+      }
+    });
+
+    function openImport() {
+      document.getElementById('import-json').value = '';
+      document.getElementById('import-result').textContent = '';
+      App.openModal('import-modal');
+    }
+
+    function doImport() {
+      const raw = document.getElementById('import-json').value.trim();
+      if (!raw) { App.showToast('请先粘贴导出的 JSON', 'warning'); return; }
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch (e) { App.showToast('JSON 格式错误，请检查', 'warning'); return; }
+
+      if (typeof window.BillingSync === 'undefined') {
+        App.showToast('桥接层未加载', 'warning'); return;
+      }
+      // 直接翻译进心镜 Store（单一真相源），按 id 幂等，可重复导入
+      window.BillingSync.psycToStore(window.Store, {
+        clients: parsed.clients || [],
+        records: parsed.records || [],
+        monthlyPayments: parsed.monthlyPayments || [],
+      });
+      document.getElementById('billing-frame').src = 'billing.html';
+      App.closeModal('import-modal');
+      App.showToast('导入完成 · 已写入心镜本地数据库', 'success');
+    }
+  </script>
+</body>
+</html>

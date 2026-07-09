@@ -1,0 +1,72 @@
+{
+  "name": "xinjing",
+  "version": "1.0.0",
+  "description": "心镜 XinJing — 心理咨询本地管理工作台（桌面版）",
+  "author": "Mei",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "icon": "node generate-icon.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "release": "electron-builder --publish always"
+  },
+  "build": {
+    "appId": "com.xinjing.desktop",
+    "productName": "心镜 XinJing",
+    "copyright": "Copyright © 2026 Mei",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mei-junhao",
+        "repo": "xinjing-desktop"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "license-core.js",
+      "app/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"],
+          "artifactName": "心镜-XinJing-setup-${version}.exe"
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"],
+          "artifactName": "心镜-XinJing-portable-${version}.exe"
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "useZip": true,
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "心镜 XinJing",
+      "menuCategory": false,
+      "license": null
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^3.0.2",
+    "pngjs": "^7.0.0"
+  }
+}

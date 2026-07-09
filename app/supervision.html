@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心镜 · 督导</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="layout">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <header class="main-header">
+        <div id="page-header"></div>
+      </header>
+      <div class="content">
+        <div class="toolbar">
+          <div class="filter-group" id="sup-type-filter">
+            <span class="flabel">类型</span>
+            <span class="pill active" data-type="all" onclick="setSupType('all')">全部</span>
+            <span class="pill" data-type="individual" onclick="setSupType('individual')">个体督导</span>
+            <span class="pill" data-type="group" onclick="setSupType('group')">团体督导</span>
+          </div>
+        </div>
+        <div id="sup-list"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 新增/编辑督导模态框 -->
+  <div class="modal-overlay" id="sup-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="sup-modal-title">新增督导记录</h2>
+        <button class="close" onclick="App.closeModal('sup-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="sv-id">
+        <div class="form-row two">
+          <div>
+            <label class="form-label">类型</label>
+            <select class="form-control" id="sv-type">
+              <option value="individual">个体督导</option>
+              <option value="group">团体督导</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">督导师</label>
+            <input class="form-control" id="sv-supervisor" placeholder="督导师姓名">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">日期</label>
+          <input class="form-control" id="sv-date" type="date">
+        </div>
+        <div class="form-row">
+          <label class="form-label">关联会话（可多选）</label>
+          <div id="sv-sessions" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--gap-sm)"></div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">督导内容</label>
+          <textarea class="form-control" id="sv-content" style="min-height:120px" placeholder="督导要点、讨论过程..."></textarea>
+        </div>
+        <div class="form-row">
+          <label class="form-label">督导结论</label>
+          <textarea class="form-control" id="sv-conclusion" placeholder="督导给出的结论与建议"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('sup-modal')">取消</button>
+        <button class="btn btn-primary" onclick="saveSupervision()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header"><h2>确认</h2></div>
+      <div class="modal-body"><p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
+        <button class="btn btn-primary" id="confirm-ok">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/supervision.js"></script>
+</body>
+</html>

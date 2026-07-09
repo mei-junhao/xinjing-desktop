@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心镜 · 意见建议</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="layout">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <header class="main-header">
+        <div id="page-header"></div>
+      </header>
+      <div class="content">
+        <div class="list-card" style="padding:var(--gap-lg);cursor:default">
+          <div class="section-title">意见建议</div>
+          <p style="font-family:var(--sans);font-size:14px;color:var(--muted);line-height:1.8;margin-bottom:var(--gap)">
+            心镜是一个本地运行的个人工具。如果你有功能建议或发现问题，可以通过以下方式反馈：
+          </p>
+          <div style="font-family:var(--sans);font-size:14px;line-height:2">
+            • 微信联系开发者<br>
+            • 邮件：<a href="mailto:985729106@qq.com" style="color:var(--accent)">985729106@qq.com</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    App.initPage({
+      title: '意见建议',
+      subtitle: '你的反馈让心镜更好',
+      actions: '',
+    });
+  </script>
+</body>
+</html>

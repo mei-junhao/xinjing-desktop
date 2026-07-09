@@ -1,0 +1,34 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+
+# 缓存（体积大，且本机相关）
+.builder-cache/
+.electron-cache/
+.npm-cache/
+
+# 机密：主密钥与已生成的激活码，绝不入库
+.license-secret
+keys.log
+
+# 日志
+*.log
+pack.log
+pack-fix.log
+pack-debug.log
+npm-debug.log
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 临时
+zip-green.py
+build-pack.cmd
+noop-sign.js
+
+# 沙箱调试残留（含死代理配置，不入库）
+dl.js
+proxy.js

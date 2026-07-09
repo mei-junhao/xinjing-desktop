@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>激活 · 心镜 XinJing</title>
+<style>
+  :root{
+    --clay:#9c5a3c; --clay-dark:#7e4830; --ink:#2b2622; --paper:#f6f1ea;
+    --line:rgba(43,38,34,.12); --muted:#8a7f74;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",serif;
+    background:radial-gradient(120% 120% at 50% 0%,#fbf7f1 0%,var(--paper) 100%);
+    color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .card{
+    width:min(480px,100%);background:#fff;border-radius:20px;padding:36px 32px;
+    box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 18px 50px rgba(43,38,34,.16);
+    border:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .disc{width:34px;height:34px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#c98b6a,#9c5a3c 70%);
+    box-shadow:0 0 0 4px rgba(156,90,60,.12);}
+  .brand b{font-size:18px;letter-spacing:.5px;}
+  h1{font-size:22px;margin:14px 0 6px;}
+  p.sub{color:var(--muted);font-size:13px;margin:0 0 22px;line-height:1.6;}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.4px;}
+  textarea{
+    width:100%;min-height:92px;resize:vertical;border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;font:600 15px/1.5 ui-monospace,"SFMono-Regular",Menlo,monospace;
+    letter-spacing:1px;color:var(--ink);background:#fcfaf6;outline:none;
+  }
+  textarea:focus{border-color:var(--clay);box-shadow:0 0 0 3px rgba(156,90,60,.12);}
+  .actions{display:flex;gap:12px;margin-top:20px;}
+  button{
+    flex:1;border:0;border-radius:999px;padding:13px 0;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  .primary{background:var(--clay);color:#fff;}
+  .primary:disabled{opacity:.5;cursor:default;}
+  .ghost{background:transparent;color:var(--muted);border:1px solid var(--line);}
+  .msg{margin-top:16px;font-size:13px;min-height:20px;line-height:1.5;}
+  .msg.ok{color:#3f7d4f;font-weight:700;}
+  .msg.err{color:#b23b2e;font-weight:700;}
+  .hint{margin-top:18px;font-size:11px;color:var(--muted);line-height:1.6;border-top:1px dashed var(--line);padding-top:14px;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand"><div class="disc"></div><b>心镜 XinJing</b></div>
+    <h1>输入激活码</h1>
+    <p class="sub">激活后将解锁完整功能并移除水印与导出限制。激活码由开发者提供，离线即可验证。</p>
+    <label for="code">激活码（格式 XJ-XXXX-XXXX-…）</label>
+    <textarea id="code" placeholder="XJ-XXXX-XXXX-XXXX-XXXX" spellcheck="false"></textarea>
+    <div class="actions">
+      <button class="ghost" id="cancel">取消</button>
+      <button class="primary" id="activate">激活</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="hint">未激活可使用 90 天试用，期间功能不受限；到期后进入受限模式，仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印。激活信息仅保存在本机用户目录，不会上传。</div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const ta = $('code'), msg = $('msg'), btn = $('activate');
+  $('cancel').onclick = () => window.__XJ_API__.done && window.close();
+  ta.addEventListener('input', () => { msg.className='msg'; msg.textContent=''; });
+  btn.onclick = async () => {
+    const code = ta.value.trim();
+    if (!code) { msg.className='msg err'; msg.textContent='请输入激活码。'; return; }
+    btn.disabled = true; msg.className='msg'; msg.textContent='正在验证…';
+    try {
+      const r = await window.__XJ_API__.activate(code);
+      if (r && r.ok) {
+        msg.className='msg ok';
+        msg.textContent = '激活成功！授权给：' + r.identity + '\n正在重启…';
+        setTimeout(() => window.__XJ_API__.done(), 800);
+      } else {
+        msg.className='msg err';
+        msg.textContent = (r && r.error) ? r.error : '激活码无效，请核对后重试。';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.className='msg err'; msg.textContent='验证失败：' + e.message;
+      btn.disabled = false;
+    }
+  };
+</script>
+</body>
+</html>

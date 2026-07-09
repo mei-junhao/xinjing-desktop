@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>记账数据导出器</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      max-width: 680px; margin: 48px auto; padding: 0 18px; color: #1e293b; line-height: 1.6;
+    }
+    h1 { font-size: 20px; margin-bottom: 6px; }
+    .sub { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+      padding: 18px 20px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+    }
+    .card h2 { font-size: 15px; margin-bottom: 10px; }
+    #status { font-size: 14px; font-weight: 600; color: #0f172a; }
+    textarea {
+      width: 100%; min-height: 120px; margin-top: 8px; padding: 10px 12px;
+      border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 12px;
+      font-family: 'Menlo', 'Consolas', monospace; resize: vertical;
+    }
+    button {
+      padding: 9px 18px; border: none; border-radius: 40px; font-size: 13px; font-weight: 600;
+      cursor: pointer; margin-right: 8px; transition: all 0.15s;
+    }
+    .btn-primary { background: #0ea5e9; color: #fff; }
+    .btn-primary:hover { background: #0284c7; }
+    .btn-primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .btn-secondary { background: #f1f5f9; color: #475569; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .hint { font-size: 12px; color: #94a3b8; margin-top: 8px; }
+    code { background: #f1f5f9; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>记账数据导出器</h1>
+  <div class="sub">把「心理咨询记账系统」的数据导出为标准 JSON，供心镜导入</div>
+
+  <div class="card">
+    <h2>① 自动读取（推荐）</h2>
+    <p class="hint">请用<strong>录入记账数据的同一个浏览器</strong>打开本页面（双击即可）。系统会尝试自动读取本地存储。</p>
+    <div id="status">正在读取…</div>
+    <div style="margin-top:12px;">
+      <button class="btn-primary" id="downloadBtn" disabled>下载 JSON</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 手动粘贴（备选）</h2>
+    <p class="hint">若自动读取失败（例如换过浏览器），请到记账系统页面按 <code>F12</code> 打开控制台，执行：<br />
+      <code>localStorage.getItem('psyc_billing_v8')</code><br /> 复制结果，粘贴到下面，再点「从粘贴内容读取」。</p>
+    <textarea id="pasteBox" placeholder="在此粘贴 localStorage 中的 JSON 文本…"></textarea>
+    <div style="margin-top:10px;">
+      <button class="btn-secondary" id="loadPaste">从粘贴内容读取</button>
+    </div>
+  </div>
+
+  <script>
+    let data = null;
+
+    function setStatus(msg, hasData) {
+      document.getElementById('status').textContent = msg;
+      document.getElementById('downloadBtn').disabled = !hasData;
+    }
+
+    function show(dataObj) {
+      const clients = (dataObj && dataObj.clients) || [];
+      const records = (dataObj && dataObj.records) || [];
+      setStatus(`已读取：来访者 ${clients.length} 人，咨询记录 ${records.length} 条`, !!dataObj);
+    }
+
+    function tryAutoLoad() {
+      try {
+        const raw = localStorage.getItem('psyc_billing_v8');
+        if (raw) {
+          data = JSON.parse(raw);
+          show(data);
+        } else {
+          setStatus('当前浏览器未找到 psyc_billing_v8（请用录入数据的浏览器打开，或使用下方粘贴）', false);
+        }
+      } catch (e) {
+        setStatus('读取失败：' + e.message, false);
+      }
+    }
+
+    document.getElementById('loadPaste').addEventListener('click', () => {
+      try {
+        const txt = document.getElementById('pasteBox').value.trim();
+        if (!txt) { alert('请先粘贴内容'); return; }
+        data = JSON.parse(txt);
+        show(data);
+      } catch (e) {
+        alert('JSON 解析失败：' + e.message);
+      }
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!data) return;
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '记账系统导出_' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    tryAutoLoad();
+  </script>
+</body>
+</html>

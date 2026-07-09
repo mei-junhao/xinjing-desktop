@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 重构预览</title>
+<style>
+  :root{
+    --paper:#FBF8F3; --paper-2:#FFFDF9; --sidebar:#F4EDE3; --shell:#F4EDE3;
+    --ink:#2A2420; --ink-2:#6F655C; --ink-3:#9A8F82; --hair:#ECE3D8;
+    --accent:#9E5A3C; --accent-2:#874A2E; --accent-soft:#F1E4DA; --accent-line:#C99A82;
+    --sage:#6E7E62; --sage-soft:#ECEFE6;
+    --serif:"Noto Serif SC","Songti SC","STSong",serif;
+    --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    --mono:"JetBrains Mono","SF Mono",ui-monospace,monospace;
+    --r-shell:20px; --r-core:15px; --r-btn:999px; --r-ctl:12px;
+    --shadow:0 1px 2px rgba(42,36,32,.04),0 10px 30px rgba(42,36,32,.05);
+    --shadow-soft:0 1px 2px rgba(42,36,32,.04);
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--paper);
+    -webkit-font-smoothing:antialiased; line-height:1.6;
+  }
+  .grain{position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:1;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+  .layout{display:flex;min-height:100vh;position:relative;z-index:2}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{width:240px;flex-shrink:0;background:var(--sidebar);
+    border-right:1px solid var(--hair);padding:28px 18px;display:flex;flex-direction:column;gap:30px}
+  .brand{display:flex;align-items:center;gap:12px;padding:0 6px}
+  .brand .mark{width:38px;height:38px;border-radius:12px;background:var(--accent);
+    display:grid;place-items:center;color:#fff;font-family:var(--serif);font-size:19px;
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.25)}
+  .brand .name{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:.02em}
+  .brand .en{font-size:9px;letter-spacing:.32em;color:var(--ink-3);text-transform:uppercase;margin-top:1px}
+  .nav{display:flex;flex-direction:column;gap:3px}
+  .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;
+    color:var(--ink-2);text-decoration:none;font-size:14px;position:relative;transition:background .2s var(--ease),color .2s var(--ease)}
+  .nav a svg{width:18px;height:18px;flex-shrink:0}
+  .nav a:hover{background:rgba(42,36,32,.04);color:var(--ink)}
+  .nav a.active{background:var(--accent-soft);color:var(--accent)}
+  .nav a.active::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;
+    border-radius:3px;background:var(--accent)}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .header{display:flex;align-items:center;justify-content:space-between;gap:20px;
+    padding:34px 40px 22px;flex-wrap:wrap}
+  .header h1{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:.01em}
+  .header .sub{font-size:13px;color:var(--ink-2);margin-top:4px}
+  .btn-primary{background:var(--accent);color:#fff;border:none;border-radius:var(--r-btn);
+    padding:12px 14px 12px 22px;font-family:var(--sans);font-size:14px;font-weight:600;
+    display:inline-flex;align-items:center;gap:12px;cursor:pointer;
+    transition:transform .12s var(--ease),background .2s var(--ease),box-shadow .3s var(--ease);
+    box-shadow:0 6px 18px rgba(158,90,60,.28)}
+  .btn-primary:hover{background:var(--accent-2)}
+  .btn-primary:active{transform:scale(.98)}
+  .btn-primary .trail{width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.16);
+    display:grid;place-items:center;transition:transform .25s var(--ease)}
+  .btn-primary:hover .trail{transform:translateX(2px) translateY(-1px)}
+
+  .content{padding:8px 40px 44px;max-width:1080px}
+  .section-title{font-family:var(--serif);font-size:17px;font-weight:600;margin:26px 4px 14px;
+    display:flex;align-items:baseline;gap:8px}
+  .section-title .count{font-family:var(--sans);font-size:12px;color:var(--ink-3);font-weight:400}
+
+  /* ---------- Double-bezel stat cards ---------- */
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .shell{background:var(--shell);border:1px solid var(--hair);border-radius:var(--r-shell);padding:6px;
+    transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+  .shell:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .core{background:var(--paper-2);border-radius:var(--r-core);padding:22px 24px;
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.7);height:100%}
+  .stat-core .ic{width:40px;height:40px;border-radius:11px;background:var(--accent-soft);
+    color:var(--accent);display:grid;place-items:center;margin-bottom:16px}
+  .stat-core .num{font-family:var(--mono);font-size:30px;font-weight:500;letter-spacing:-.02em}
+  .stat-core .label{font-size:13px;color:var(--ink-2);margin-top:3px}
+
+  /* ---------- Two-column lists ---------- */
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  .col{}
+  .list{border-top:1px solid var(--hair)}
+  .row{display:flex;align-items:center;gap:14px;padding:15px 6px;border-bottom:1px solid var(--hair);
+    transition:padding .2s var(--ease)}
+  .row:hover{padding-left:12px}
+  .row .dot{width:9px;height:9px;border-radius:999px;background:var(--sage);flex-shrink:0}
+  .row .dot.clay{background:var(--accent)}
+  .row .body{flex:1;min-width:0}
+  .row .t{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .m{font-size:12px;color:var(--ink-3);font-family:var(--mono);margin-top:2px}
+  .row .arrow{color:var(--ink-3);transition:transform .25s var(--ease),color .2s}
+  .row:hover .arrow{transform:translateX(3px);color:var(--accent)}
+
+  /* ---------- Empty state ---------- */
+  .empty{text-align:center;padding:46px 20px;border:1px dashed var(--hair);border-radius:var(--r-core);
+    background:var(--paper-2)}
+  .empty .ic{width:46px;height:46px;border-radius:14px;background:var(--accent-soft);color:var(--accent);
+    display:grid;place-items:center;margin:0 auto 14px}
+  .empty .tx{font-size:14px;color:var(--ink-2)}
+  .empty .ac{margin-top:14px;display:inline-flex;align-items:center;gap:8px;color:var(--accent);
+    font-size:13px;font-weight:500;cursor:pointer}
+
+  .preview-tag{position:fixed;top:14px;right:16px;z-index:5;background:var(--ink);color:#fff;
+    font-size:11px;letter-spacing:.12em;padding:6px 12px;border-radius:999px;font-family:var(--sans)}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="preview-tag">REDESIGN PREVIEW · 静态稿</div>
+<div class="layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark">心</div>
+      <div>
+        <div class="name">心镜</div>
+        <div class="en">Xinjing</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="active" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 9.5V20h14V9.5"/></svg>工作台</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M16.5 13.4A5.5 5.5 0 0 1 20.5 19"/></svg>来访者</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-4 9 4-9 4-9-4z"/><path d="M7 11v4c0 1.5 2.2 2.6 5 2.6s5-1.1 5-2.6v-4"/></svg>督导</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg>报告中心</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13"/><path d="M4 8V6h13v2"/><circle cx="18" cy="8" r="2.4"/><path d="M4 16h7"/><path d="M4 16v-2h7v2"/><circle cx="13" cy="16" r="2.4"/></svg>记账</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/></svg>会议同步</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="7"/></svg>设置</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <header class="header">
+      <div>
+        <h1>工作台</h1>
+        <div class="sub">下午好，梅。今天有 2 位来访者待跟进。</div>
+      </div>
+      <button class="btn-primary">
+        新建来访者
+        <span class="trail"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+      </button>
+    </header>
+
+    <div class="content">
+      <div class="stat-grid">
+        <div class="shell"><div class="core stat-core">
+          <div class="ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M16.5 13.4A5.5 5.5 0 0 1 20.5 19"/></svg></div>
+          <div class="num">14</div>
+          <div class="label">咨询中的来访者</div>
+        </div></div>
+        <div class="shell"><div class="core stat-core">
+          <div class="ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-4 9 4-9 4-9-4z"/><path d="M7 11v4c0 1.5 2.2 2.6 5 2.6s5-1.1 5-2.6v-4"/></svg></div>
+          <div class="num">9</div>
+          <div class="label">督导记录</div>
+        </div></div>
+        <div class="shell"><div class="core stat-core">
+          <div class="ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg></div>
+          <div class="num">23</div>
+          <div class="label">近期报告</div>
+        </div></div>
+      </div>
+
+      <div class="two-col">
+        <div class="col">
+          <div class="section-title">最近会谈 <span class="count">4</span></div>
+          <div class="list">
+            <div class="row"><span class="dot clay"></span><div class="body"><div class="t">小A · 第 12 次会谈</div><div class="m">2026-07-07 · 50 min</div></div><svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="row"><span class="dot"></span><div class="body"><div class="t">林女士 · 第 5 次会谈</div><div class="m">2026-07-05 · 50 min</div></div><svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="row"><span class="dot"></span><div class="body"><div class="t">陈先生 · 第 3 次会谈</div><div class="m">2026-07-02 · 50 min</div></div><svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="row"><span class="dot"></span><div class="body"><div class="t">阿拉伯 · 初始评估</div><div class="m">2026-06-28 · 80 min</div></div><svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="section-title">最近报告 <span class="count">3</span></div>
+          <div class="list">
+            <div class="row"><span class="dot clay"></span><div class="body"><div class="t">小A · 阶段进展报告</div><div class="m">2026-07-07</div></div><svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="row"><span class="dot"></span><div class="body"><div class="t">林女士 · 评估小结</div><div class="m">2026-07-04</div></div><svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="row"><span class="dot"></span><div class="body"><div class="t">陈先生 · 会谈纪要</div><div class="m">2026-06-30</div></div><svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="empty" style="margin-top:14px">
+              <div class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+              <div class="tx">还没有更多报告</div>
+              <div class="ac">撰写一份报告 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
