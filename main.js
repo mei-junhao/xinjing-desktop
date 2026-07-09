@@ -208,6 +208,10 @@ function enableAutoStart() {
 function setupAutoUpdater() {
   autoUpdater.autoDownload = false;        // 先询问，再下载
   autoUpdater.autoInstallOnAppQuit = true; // 退出时若已下载则自动安装
+  // 关闭差分(增量)更新：NSIS 差分重组偶发写出损坏安装包，
+  // 表现为 "Failed to decompress files / Error opening ZIP file"。
+  // 本项目安装包仅约 73MB，整包下载换取更新可靠性，值得。
+  autoUpdater.disableDifferentialDownload = true;
 
   // 便携版（绿色免安装单文件）：走独立的 latest-portable.yml 更新通道，并就地自我替换
   // electron-updater 6.x 不识别 portable 通道，也不具备 exe 自替换能力，这里手动补齐
