@@ -213,6 +213,11 @@ function setupAutoUpdater() {
   // 本项目安装包仅约 73MB，整包下载换取更新可靠性，值得。
   autoUpdater.disableDifferentialDownload = true;
 
+  // 更新源迁移到腾讯云 COS（国内节点，下载比 GitHub 快）：
+  // 用 generic provider 指向 COS 桶默认域名，latest.yml / latest-portable.yml / exe 平铺在桶根，
+  // 路径与 electron-updater 的请求模型完全匹配，自动更新改走国内链路
+  autoUpdater.setFeedURL({ provider: 'generic', url: 'https://xinjing-1439314927.cos.ap-guangzhou.myqcloud.com/' });
+
   // 便携版（绿色免安装单文件）：走独立的 latest-portable.yml 更新通道，并就地自我替换
   // electron-updater 6.x 不识别 portable 通道，也不具备 exe 自替换能力，这里手动补齐
   const isPortable = !!process.env.PORTABLE_EXECUTABLE_FILE;
