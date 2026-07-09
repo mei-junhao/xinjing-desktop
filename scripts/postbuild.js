@@ -51,14 +51,14 @@ function renameIf(srcBase, dstBase) {
 const finalNsis = renameIf(nsisExe, nsisName);
 const finalPortable = renameIf(portableExe, portableName);
 // blockmap 同步重命名（nsis 由 electron-builder 生成，portable 下文按需生成）
-renameIf(nsisExe && `${nsisExe}.blockmap`, `${nisName}.blockmap`);
+renameIf(nsisExe && `${nsisExe}.blockmap`, `${nsisName}.blockmap`);
 renameIf(portableExe && `${portableExe}.blockmap`, `${portableName}.blockmap`);
 
 // 修正 nsis 的 latest.yml 里的路径/url 为中文名
 const latestYml = path.join(dist, 'latest.yml');
 if (fs.existsSync(latestYml) && nsisExe) {
   let c = fs.readFileSync(latestYml, 'utf8');
-  c = c.split(nsisExe).join(nisName);
+  c = c.split(nsisExe).join(nsisName);
   fs.writeFileSync(latestYml, c);
   console.log('patched latest.yml path ->', nsisName);
 }
