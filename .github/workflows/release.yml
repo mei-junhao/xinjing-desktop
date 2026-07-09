@@ -49,19 +49,26 @@ jobs:
         env:
           LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
 
-      # 重命名为中文资产名 + 生成 latest-portable.yml（portable 增量更新）
-      - name: Post-build (中文名 + portable 更新文件)
+      # 重命名为稳定 ASCII 资产名（中文前缀会被 GitHub 资产名吞掉致更新 404）+ 生成 latest-portable.yml（portable 增量更新）
+      - name: Post-build (资产重命名 + portable 更新文件)
         shell: pwsh
         run: node scripts/postbuild.js
 
-      # 用 gh 精确上传中文名安装包 / 便携版 / latest.yml / latest-portable.yml
+      # 用 gh 精确上传安装包 / 便携版 / latest.yml / latest-portable.yml（发布资产统一 ASCII，与 yml 逐字节一致）
       - name: Create GitHub Release
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
+          # 幂等保护：若同 tag 已存在发布（如重跑），先删除再建，避免 "release already exists"
+          $existing = gh release view $tag --repo mei-junhao/xinjing-desktop 2>$null
+          if ($existing) {
+            Write-Host "已存在 $tag 发布，先删除再重建"
+            gh release delete $tag --repo mei-junhao/xinjing-desktop --yes
+          }
           $assets = @()
-          $assets += Get-ChildItem dist\*.exe -Recurse | ForEach-Object { $_.FullName }
-          $assets += Get-ChildItem dist\*.blockmap -Recurse | ForEach-Object { $_.FullName }
+          $assets += Get-ChildItem dist\xinjing-setup-*.exe | ForEach-Object { $_.FullName }
+          $assets += Get-ChildItem dist\xinjing-portable-*.exe | ForEach-Object { $_.FullName }
+          $assets += Get-ChildItem dist\*.blockmap | ForEach-Object { $_.FullName }
           $assets += "dist\latest.yml"
           $assets += "dist\latest-portable.yml"
           gh release create $tag `

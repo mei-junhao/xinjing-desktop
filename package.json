@@ -41,7 +41,7 @@
       "icon": "build/icon.ico"
     },
     "nsis": {
-      "artifactName": "心镜-XinJing-setup-${version}.exe",
+      "artifactName": "xinjing-setup-${version}.exe",
       "useZip": true,
       "oneClick": false,
       "perMachine": false,
@@ -53,7 +53,7 @@
       "license": null
     },
     "portable": {
-      "artifactName": "心镜-XinJing-portable-${version}.exe"
+      "artifactName": "xinjing-portable-${version}.exe"
     }
   },
   "dependencies": {

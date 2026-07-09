@@ -1,6 +1,12 @@
 'use strict';
 // postbuild: 在 electron-builder 构建完成后、发布前执行
-// 职责：把默认名 exe 重命名为中文、修正 latest.yml 路径、生成 latest-portable.yml 与 portable 的 blockmap（portable 增量更新）
+// 职责：把默认名 exe 重命名为稳定 ASCII 名（避免 GitHub 资产名吞掉中文前缀导致更新 404）、
+//       修正 latest.yml 路径、生成 latest-portable.yml 与 portable 的 blockmap（portable 增量更新）
+//
+// 说明：GitHub Releases 资产名对中文等 Unicode 前缀支持不稳定（上传时可能被吞/损坏），
+//       而自动更新要求 latest*.yml 中引用的文件名必须与实际上传资产名逐字节一致，
+//       否则客户端下载 404。因此发布资产统一用 ASCII 文件名；中文品牌保留在
+//       Release 标题（心镜 XinJing vX.Y.Z）与安装器界面（productName）。
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -16,26 +22,31 @@ if (!fs.existsSync(dist)) {
 
 const sha512 = (buf) => crypto.createHash('sha512').update(buf).digest('base64');
 
-// 从 package.json 的 artifactName 模板展开（单一来源，避免硬编码漂移）
+// 发布资产统一用 ASCII 文件名（单一来源，避免硬编码漂移，且与 latest*.yml 逐字节一致）
 const expand = (tpl) =>
   tpl
     .replace(/\$\{version\}/g, version)
     .replace(/\$\{name\}/g, pkg.name || 'xinjing')
     .replace(/\$\{productName\}/g, (pkg.build && pkg.build.productName) || pkg.name || 'xinjing');
 
-const nsisTpl =
-  (pkg.build && pkg.build.nsis && pkg.build.nsis.artifactName) ||
-  `心镜-XinJing-setup-${version}.exe`;
-const portableTpl =
-  (pkg.build && pkg.build.portable && pkg.build.portable.artifactName) ||
-  `心镜-XinJing-portable-${version}.exe`;
+const nsisTpl = `xinjing-setup-${version}.exe`;
+const portableTpl = `xinjing-portable-${version}.exe`;
 const nsisName = expand(nsisTpl);
 const portableName = expand(portableTpl);
 
 const entries = fs.readdirSync(dist);
-// nsis 安装包含 "setup"，portable 单文件不含
+// nsis 安装包含 "setup"（或 "Setup"），portable 单文件不含
 const nsisExe = entries.find((f) => f.endsWith('.exe') && /setup/i.test(f));
 const portableExe = entries.find((f) => f.endsWith('.exe') && !/setup/i.test(f));
+
+if (!nsisExe) {
+  console.error('未找到 nsis 安装包 exe（dist 中应含带 "setup" 的 exe）。dist 内容：', entries);
+  process.exit(1);
+}
+if (!portableExe) {
+  console.error('未找到 portable 绿色版 exe（dist 中除 setup 外的 exe）。dist 内容：', entries);
+  process.exit(1);
+}
 
 function renameIf(srcBase, dstBase) {
   if (!srcBase || srcBase === dstBase) return dstBase;
@@ -51,10 +62,10 @@ function renameIf(srcBase, dstBase) {
 const finalNsis = renameIf(nsisExe, nsisName);
 const finalPortable = renameIf(portableExe, portableName);
 // blockmap 同步重命名（nsis 由 electron-builder 生成，portable 下文按需生成）
-renameIf(nsisExe && `${nsisExe}.blockmap`, `${nsisName}.blockmap`);
-renameIf(portableExe && `${portableExe}.blockmap`, `${portableName}.blockmap`);
+renameIf(`${nsisExe}.blockmap`, `${nsisName}.blockmap`);
+renameIf(`${portableExe}.blockmap`, `${portableName}.blockmap`);
 
-// 修正 nsis 的 latest.yml 里的路径/url 为中文名
+// 修正 nsis 的 latest.yml 里的路径/url 为最终发布名
 const latestYml = path.join(dist, 'latest.yml');
 if (fs.existsSync(latestYml) && nsisExe) {
   let c = fs.readFileSync(latestYml, 'utf8');
