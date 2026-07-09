@@ -1,7 +1,7 @@
 # cnb-build.ps1 - build Windows app and upload release assets to Tencent COS
 #
 # Runs on CNB self-hosted Windows runner (triggered by tag_push), or locally.
-# Env (CNB: injected via imports / Local: export these before running):
+# Env (CNB: from self-hosted runner environment / Local: export these before running):
 #   COS_SECRET_ID, COS_SECRET_KEY, COS_BUCKET, COS_REGION, LICENSE_SECRET
 #
 # ASCII-only comments to avoid PowerShell 5.1 GBK decode issues.
