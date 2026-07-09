@@ -11,8 +11,16 @@
 
 const crypto = require('crypto');
 
-// 主密钥（构建时已嵌入；请勿外泄，泄露等同于可伪造任意激活码）
-const SECRET = '7675d56ce4c632996f63292d265a9dc4c532c6037c4853ddd281792384efcfb3';
+// 主密钥：本文件不再硬编码任何密钥。
+// 构建/运行时由 scripts/codegen-secret.js 从 .license-secret（gitignored）或环境变量 LICENSE_SECRET
+// 注入到 secret.generated.js（gitignored），再在此处读取。源码仓库与 git 历史中均不含密钥字面量。
+let SECRET = '';
+try { SECRET = require('./secret.generated').SECRET; } catch (e) { /* 开发态可能尚未生成 */ }
+if (!SECRET) { try { SECRET = require('./.license-secret').SECRET; } catch (e) { /* 本机持有 */ } }
+if (!SECRET) { SECRET = process.env.LICENSE_SECRET || ''; }
+if (!SECRET) {
+  throw new Error('[license-core] 未找到 LICENSE_SECRET：请先运行 node scripts/codegen-secret.js，或在 .license-secret / 环境变量中提供');
+}
 
 const TRIAL_DAYS = 90;
 

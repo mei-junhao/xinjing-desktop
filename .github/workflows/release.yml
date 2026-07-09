@@ -35,10 +35,19 @@ jobs:
         shell: pwsh
         run: npm ci
 
+      # 构建期注入 LICENSE_SECRET（来自 repo secret），生成 secret.generated.js（gitignored，不入库）
+      - name: Generate license secret
+        shell: pwsh
+        run: node scripts/codegen-secret.js
+        env:
+          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
+
       # 构建但不让 electron-builder 自动发布：文件名与更新文件由 postbuild.js 精确控制
       - name: Build (no publish)
         shell: pwsh
         run: npm run dist -- --publish never
+        env:
+          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
 
       # 重命名为中文资产名 + 生成 latest-portable.yml（portable 增量更新）
       - name: Post-build (中文名 + portable 更新文件)

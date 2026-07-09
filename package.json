@@ -9,6 +9,9 @@
     "start": "electron .",
     "icon": "node generate-icon.js",
     "pack": "electron-builder --dir",
+    "codegen:secret": "node scripts/codegen-secret.js",
+    "predist": "node scripts/codegen-secret.js",
+    "prestart": "node scripts/codegen-secret.js",
     "dist": "electron-builder",
     "release": "electron-builder --publish always"
   },
