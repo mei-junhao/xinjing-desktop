@@ -15,9 +15,15 @@ $ProgressPreference = 'SilentlyContinue'
 $repo   = "mei-junhao/xinjing-desktop"
 $bucket = "xinjing-1439314927"
 $region = "ap-guangzhou"
-# Local-only keys; they never enter the git repo.
-$id     = "COS_SECRET_ID_REMOVED"
-$key    = "COS_SECRET_KEY_REMOVED"
+# Local-only keys; never in git. From env vars, or gitignored scripts/.cos-secret.ps1.
+$secretFile = Join-Path $PSScriptRoot ".cos-secret.ps1"
+if ((-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) -and (Test-Path $secretFile)) { . $secretFile }
+$id     = $env:COS_SECRET_ID
+$key    = $env:COS_SECRET_KEY
+if (-not $id -or -not $key) {
+  Write-Error "COS 密钥缺失：请设置环境变量 COS_SECRET_ID / COS_SECRET_KEY，或在 scripts\.cos-secret.ps1 中填写（该文件已 gitignore）。"
+  exit 1
+}
 
 if ($AssetsDir -eq "") {
   $AssetsDir = Join-Path (Split-Path $PSScriptRoot -Parent) "cos-assets"

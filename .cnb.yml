@@ -8,8 +8,8 @@
 #      （仓库设置 -> Runner -> 新建 Runner -> 选 Windows -> 按提示在本机运行注册命令，标签填 windows）
 #   2. 在这台 Windows 机器上设置 5 个环境变量（系统变量或 runner 服务环境均可），
 #      cnb-build.ps1 会直接读取它们，无需额外密钥仓库：
-#        COS_SECRET_ID:  COS_SECRET_ID_REMOVED
-#        COS_SECRET_KEY: COS_SECRET_KEY_REMOVED
+#        COS_SECRET_ID:  <在此填入腾讯云 SecretId（勿提交到仓库）>
+#        COS_SECRET_KEY: <在此填入腾讯云 SecretKey（勿提交到仓库）>
 #        COS_BUCKET:     xinjing-1439314927
 #        COS_REGION:     ap-guangzhou
 #        LICENSE_SECRET: <在此填入你的许可证密钥（与 GitHub Secrets 中一致）>

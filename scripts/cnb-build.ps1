@@ -12,11 +12,15 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-# --- defaults (hardcoded for one-command local run; env overrides) ---
-if (-not $env:COS_SECRET_ID)  { $env:COS_SECRET_ID  = 'COS_SECRET_ID_REMOVED' }
-if (-not $env:COS_SECRET_KEY) { $env:COS_SECRET_KEY = 'COS_SECRET_KEY_REMOVED' }
+# --- defaults (env overrides; COS keys from gitignored scripts/.cos-secret.ps1) ---
+$cosSecretFile = Join-Path $PSScriptRoot '.cos-secret.ps1'
+if ((-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) -and (Test-Path $cosSecretFile)) { . $cosSecretFile }
 if (-not $env:COS_BUCKET)     { $env:COS_BUCKET     = 'xinjing-1439314927' }
 if (-not $env:COS_REGION)     { $env:COS_REGION     = 'ap-guangzhou' }
+if (-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) {
+    Write-Error "COS 密钥缺失：请设置环境变量 COS_SECRET_ID / COS_SECRET_KEY，或在 scripts\.cos-secret.ps1 中填写（该文件已 gitignore）。"
+    exit 1
+}
 if (-not $env:LICENSE_SECRET) {
     $ls = Join-Path (Split-Path $PSScriptRoot -Parent) '.license-secret'
     if (Test-Path $ls) { $env:LICENSE_SECRET = (Get-Content $ls -Raw).Trim() }

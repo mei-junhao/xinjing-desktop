@@ -15,6 +15,10 @@ secret.generated.js
 version.generated.js
 keys.log
 
+# 机密：腾讯云 COS 密钥（本机专用，cnb-build.ps1 / sync-cos.ps1 dot-source 读取）
+scripts/.cos-secret.ps1
+.cos-secret.ps1
+
 # 激活码管理工具（开发者本地）：密钥与已发码记录、打包产物，不入库
 tools/license-admin/tool-config.json
 tools/license-admin/issued-codes.json
