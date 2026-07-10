@@ -98,8 +98,29 @@ App.initPage({
   }
 
   // ---------- 操作 ----------
-  window.newSession = async function () {
-    const session = await Store.createSession({ clientId });
+  // 新增会话：先让用户自定义「第X节」序号（默认 = 当前最大节数+1）
+  window.newSession = function () {
+    const input = document.getElementById('new-session-number');
+    if (input) {
+      const next = (typeof Store.nextSessionNumber === 'function') ? Store.nextSessionNumber(clientId) : 1;
+      input.value = next;
+    }
+    App.openModal('session-number-modal');
+    setTimeout(() => { if (input) input.focus(); }, 50);
+  };
+
+  window.createSessionWithNumber = async function () {
+    const input = document.getElementById('new-session-number');
+    let num = 1;
+    if (input && input.value) {
+      num = parseInt(input.value, 10);
+      if (!Number.isFinite(num) || num < 1) {
+        App.showToast('节数必须为正整数', 'error');
+        return;
+      }
+    }
+    const session = await Store.createSession({ clientId, sessionNumber: num });
+    App.closeModal('session-number-modal');
     location.href = 'session.html?id=' + session.id;
   };
 

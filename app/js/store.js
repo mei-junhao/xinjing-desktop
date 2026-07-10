@@ -23,6 +23,7 @@ const Store = (() => {
     clients: [],
     sessions: [],
     supervisions: [],
+    supervisorIdentities: [],
     settings: { apiConfig: {}, version: '1.0.0' },
   };
   let hydrated = false;
@@ -150,15 +151,17 @@ const Store = (() => {
   async function hydrate() {
     if (hydrated) return;
     await migrateFromLocalStorage();
-    const [clients, sessions, supervisions, settings] = await Promise.all([
+    const [clients, sessions, supervisions, supervisorIdentities, settings] = await Promise.all([
       idbGet('clients'),
       idbGet('sessions'),
       idbGet('supervisions'),
+      idbGet('supervisorIdentities'),
       idbGet('settings'),
     ]);
     cache.clients = Array.isArray(clients) ? clients : [];
     cache.sessions = Array.isArray(sessions) ? sessions : [];
     cache.supervisions = Array.isArray(supervisions) ? supervisions : [];
+    cache.supervisorIdentities = Array.isArray(supervisorIdentities) ? supervisorIdentities : [];
     cache.settings =
       settings && typeof settings === 'object'
         ? Object.assign({ apiConfig: {}, version: '1.0.0' }, settings)
@@ -206,6 +209,16 @@ const Store = (() => {
       }
     } catch (e) {}
     return 'free'; // full / trial / web 版
+  }
+
+  // AI 助手（含 AI 督导）是否解锁：仅受限模式且未激活 AI 时锁定
+  function aiUnlocked() {
+    try {
+      if (typeof window !== 'undefined' && window.__XJ__) {
+        return window.__XJ__.aiUnlocked !== false;
+      }
+    } catch (e) {}
+    return true; // 非桌面环境（web/演示）默认放开
   }
 
   function licenseRank(arr, id) {
@@ -315,8 +328,13 @@ const Store = (() => {
     // 内容已完整存在于对象中，直接返回（保持 async 兼容旧调用）
     return getSession(id);
   }
+  // 下一节序号 = 已有最大序号 + 1（用户可自定义到任意数值，之后顺延）。
+  // 例：已有 1、2、3 → 4；用户把某新建节设成 135 → 之后新建的自动从 136 顺延。
   function nextSessionNumber(clientId) {
-    return getSessionsByClient(clientId).length + 1;
+    const list = getSessionsByClient(clientId);
+    if (!list.length) return 1;
+    const max = list.reduce((m, s) => Math.max(m, Number(s.sessionNumber) || 0), 0);
+    return max + 1;
   }
   function saveSession(session) {
     const idx = cache.sessions.findIndex((s) => s.id === session.id);
@@ -413,6 +431,47 @@ const Store = (() => {
   }
 
   // ============================================================
+  // 督导师身份（AI 督导用，付费功能）
+  // 每个身份 = { id, name, prompt, builtin, createdAt }
+  // builtin=true 为内置温尼科特取向默认身份，不可删除。
+  // ============================================================
+  function getSupervisorIdentities() {
+    return cache.supervisorIdentities;
+  }
+  function getSupervisorIdentity(id) {
+    return cache.supervisorIdentities.find((s) => s.id === id) || null;
+  }
+  function createSupervisorIdentity(obj) {
+    const identity = {
+      id: obj.id || genId('sup'),
+      name: (obj.name || '未命名督导师').trim(),
+      prompt: obj.prompt || '',
+      builtin: !!obj.builtin,
+      createdAt: obj.createdAt || nowISO(),
+    };
+    cache.supervisorIdentities.push(identity);
+    persist('supervisorIdentities');
+    return identity;
+  }
+  function updateSupervisorIdentity(obj) {
+    const idx = cache.supervisorIdentities.findIndex((s) => s.id === obj.id);
+    if (idx < 0) return null;
+    cache.supervisorIdentities[idx] = Object.assign({}, cache.supervisorIdentities[idx], {
+      name: (obj.name || '').trim() || cache.supervisorIdentities[idx].name,
+      prompt: obj.prompt != null ? obj.prompt : cache.supervisorIdentities[idx].prompt,
+    });
+    persist('supervisorIdentities');
+    return cache.supervisorIdentities[idx];
+  }
+  function deleteSupervisorIdentity(id) {
+    const target = cache.supervisorIdentities.find((s) => s.id === id);
+    if (target && target.builtin) return false; // 内置身份不可删
+    cache.supervisorIdentities = cache.supervisorIdentities.filter((s) => s.id !== id);
+    persist('supervisorIdentities');
+    return true;
+  }
+
+  // ============================================================
   // 设置
   // ============================================================
   function getSettings() {
@@ -464,6 +523,7 @@ const Store = (() => {
         clients: cache.clients,
         sessions: cache.sessions,
         supervisions: cache.supervisions,
+        supervisorIdentities: cache.supervisorIdentities,
         settings: cache.settings,
       },
       null,
@@ -475,6 +535,7 @@ const Store = (() => {
     if (Array.isArray(data.clients)) cache.clients = data.clients;
     if (Array.isArray(data.sessions)) cache.sessions = data.sessions;
     if (Array.isArray(data.supervisions)) cache.supervisions = data.supervisions;
+    if (Array.isArray(data.supervisorIdentities)) cache.supervisorIdentities = data.supervisorIdentities;
     if (data.settings) cache.settings = Object.assign({ apiConfig: {}, version: '1.0.0' }, data.settings);
     persist('clients');
     persist('sessions');
@@ -519,6 +580,9 @@ const Store = (() => {
     nextSessionNumber,
     // 督导
     getSupervisions, getSupervision, createSupervision, updateSupervision, deleteSupervision,
+    // 督导师身份（AI 督导，付费）
+    getSupervisorIdentities, getSupervisorIdentity,
+    createSupervisorIdentity, updateSupervisorIdentity, deleteSupervisorIdentity,
     // 设置
     getSettings, saveSettings,
     // 统计
@@ -527,6 +591,8 @@ const Store = (() => {
     exportAll, importAll,
     // 诊断
     storageInfo,
+    // 授权闸门
+    licenseMode, aiUnlocked,
   };
 })();
 

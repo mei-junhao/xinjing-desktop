@@ -176,6 +176,125 @@ App.initPage({
     App.showToast('备份设置已保存', 'success');
   };
 
+  // ---------- 督导师（AI 督导）管理 ----------
+  let editingSupId = null;
+  function loadSupervisorUI() {
+    const unlocked = typeof Store.aiUnlocked === 'function' ? Store.aiUnlocked() : true;
+    const lockNote = document.getElementById('supervisor-lock-note');
+    const listEl = document.getElementById('supervisor-list');
+    const addBtn = document.getElementById('add-supervisor-btn');
+    const formEl = document.getElementById('supervisor-form');
+    if (!unlocked) {
+      if (lockNote) lockNote.classList.remove('hidden');
+      if (listEl) listEl.innerHTML = '';
+      if (addBtn) addBtn.classList.add('hidden');
+      if (formEl) formEl.classList.add('hidden');
+      return;
+    }
+    if (lockNote) lockNote.classList.add('hidden');
+    if (addBtn) addBtn.classList.remove('hidden');
+    renderSupervisorList();
+  }
+  function renderSupervisorList() {
+    const listEl = document.getElementById('supervisor-list');
+    if (!listEl) return;
+    const list = (typeof Store.getSupervisorIdentities === 'function') ? Store.getSupervisorIdentities() : [];
+    if (!list.length) {
+      listEl.innerHTML = '<div style="font-size:12px;color:var(--muted);font-family:var(--sans)">还没有自定义督导师，可点击下方按钮添加。</div>';
+      return;
+    }
+    listEl.innerHTML = list.map((s) => {
+      const builtin = !!s.builtin;
+      const actions = builtin
+        ? '<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="viewSupervisor(\'' + s.id + '\')">查看</button>'
+        : '<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="showSupervisorForm(\'' + s.id + '\')">编辑</button>' +
+          '<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="deleteSupervisor(\'' + s.id + '\')">删除</button>';
+      const tag = builtin ? '<span style="font-size:11px;color:var(--accent);font-family:var(--sans);background:var(--accent-soft);border-radius:4px;padding:1px 6px;margin-left:6px">内置</span>' : '';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--accent-soft);border-radius:var(--radius-sm);padding:8px 10px">' +
+        '<span style="font-size:13px;color:var(--text);font-family:var(--sans)">' + App.escapeHtml(s.name) + tag + '</span>' +
+        '<div style="display:flex;gap:6px">' + actions + '</div>' +
+      '</div>';
+    }).join('');
+  }
+  window.showSupervisorForm = function (id) {
+    const formEl = document.getElementById('supervisor-form');
+    const nameEl = document.getElementById('sup-name');
+    const promptEl = document.getElementById('sup-prompt');
+    if (formEl) formEl.classList.remove('hidden');
+    editingSupId = id || null;
+    if (id) {
+      const s = (typeof Store.getSupervisorIdentity === 'function') ? Store.getSupervisorIdentity(id) : null;
+      if (s) { nameEl.value = s.name; promptEl.value = s.prompt || ''; }
+    } else {
+      nameEl.value = '';
+      promptEl.value = '';
+    }
+    if (nameEl) nameEl.focus();
+  };
+  window.hideSupervisorForm = function () {
+    const formEl = document.getElementById('supervisor-form');
+    if (formEl) formEl.classList.add('hidden');
+    editingSupId = null;
+  };
+  window.viewSupervisor = function (id) {
+    const s = (typeof Store.getSupervisorIdentity === 'function') ? Store.getSupervisorIdentity(id) : null;
+    if (!s) return;
+    const nameEl = document.getElementById('sup-name');
+    const promptEl = document.getElementById('sup-prompt');
+    const fileEl = document.getElementById('sup-prompt-file');
+    if (nameEl) { nameEl.value = s.name; nameEl.readOnly = true; }
+    if (promptEl) { promptEl.value = s.prompt || ''; promptEl.readOnly = true; }
+    if (fileEl) fileEl.disabled = true;
+    const formEl = document.getElementById('supervisor-form');
+    if (formEl) formEl.classList.remove('hidden');
+    const saveBtn = document.querySelector('#supervisor-form .btn-primary');
+    if (saveBtn) { saveBtn.textContent = '关闭'; saveBtn.onclick = function () { window.hideSupervisorForm(); }; }
+  };
+  window.loadSupPromptFile = function () {
+    const fileEl = document.getElementById('sup-prompt-file');
+    const promptEl = document.getElementById('sup-prompt');
+    if (!fileEl || !fileEl.files || !fileEl.files[0]) {
+      App.showToast('请先选择文件', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      if (promptEl) promptEl.value = e.target.result;
+      App.showToast('已读取提示词文件', 'success');
+    };
+    reader.onerror = function () { App.showToast('读取文件失败', 'error'); };
+    reader.readAsText(fileEl.files[0], 'utf-8');
+  };
+  window.saveSupervisor = function () {
+    const nameEl = document.getElementById('sup-name');
+    const promptEl = document.getElementById('sup-prompt');
+    const name = (nameEl && nameEl.value || '').trim();
+    const prompt = (promptEl && promptEl.value || '').trim();
+    if (promptEl && promptEl.readOnly) { window.hideSupervisorForm(); return; } // 查看态：仅关闭
+    if (!name) { App.showToast('请填写督导师名称', 'error'); return; }
+    if (!prompt) { App.showToast('请填写方法论提示词（或上传 .txt/.md）', 'error'); return; }
+    try {
+      if (editingSupId) {
+        Store.updateSupervisorIdentity({ id: editingSupId, name: name, prompt: prompt });
+      } else {
+        Store.createSupervisorIdentity({ name: name, prompt: prompt, builtin: false });
+      }
+    } catch (e) {
+      App.showToast('保存失败：' + (e.message || e), 'error');
+      return;
+    }
+    App.showToast('已保存督导师', 'success');
+    window.hideSupervisorForm();
+    renderSupervisorList();
+  };
+  window.deleteSupervisor = function (id) {
+    App.confirmDialog('确定删除该督导师身份？此操作不可撤销。', function () {
+      try { Store.deleteSupervisorIdentity(id); } catch (e) { App.showToast('删除失败：' + (e.message || e), 'error'); return; }
+      App.showToast('已删除', 'success');
+      renderSupervisorList();
+    });
+  };
+
   // 外观：深色模式切换（偏好存于 localStorage，app.js 启动时统一应用）
   function isThemeDark() {
     return localStorage.getItem('xj_theme') === 'dark';
@@ -197,6 +316,7 @@ App.initPage({
     calcStorage();
     updateBackupTime();
     loadBackupConfigUI();
+    loadSupervisorUI();
     initThemeToggle();
   },
 });

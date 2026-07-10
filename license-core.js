@@ -24,6 +24,33 @@ if (!SECRET) {
 
 const TRIAL_DAYS = 90;
 
+// 付费分层（Freemium）：
+//   pro    = 标准付费版（解锁 AI 助手 / 多位置备份等拓展功能）
+//   custom = 定制旗舰版（在 pro 基础上叠加定制功能，如内嵌多大师对话引擎）
+//   full   = 旧激活码（无 tier 前缀，祖父条款，权益等同 pro）
+//   free   = 未激活（基础功能免费，AI 助手锁定）
+const PAID_TIERS = ['pro', 'custom', 'full'];
+
+// 从 identity 字符串解析 tier（'pro:xxx' / 'custom:xxx' / 'xxx'）
+function parseTier(identity) {
+  if (!identity) return 'free';
+  const idx = identity.indexOf(':');
+  if (idx === -1) return 'full'; // 旧激活码无前缀 = 完整解锁（祖父条款）
+  const t = identity.slice(0, idx).toLowerCase();
+  if (t === 'pro' || t === 'custom') return t;
+  return 'full'; // 未知前缀按旧版完整解锁处理
+}
+
+// 拆分 tier 与真实展示标识（去掉 tier 前缀）
+function splitIdentity(identity) {
+  if (!identity) return { tier: 'free', identity: '' };
+  const idx = identity.indexOf(':');
+  if (idx === -1) return { tier: 'full', identity };
+  const t = identity.slice(0, idx).toLowerCase();
+  if (t === 'pro' || t === 'custom') return { tier: t, identity: identity.slice(idx + 1) };
+  return { tier: 'full', identity };
+}
+
 // ---------- base32（手动实现，兼容 Electron 内置 Node 18） ----------
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -73,9 +100,11 @@ function cleanKeyInput(key) {
 }
 
 // ---------- 对外 API ----------
-function encodeKey(identity) {
-  const id = String(identity || '').trim().slice(0, 64);
+function encodeKey(identity, tier) {
+  let id = String(identity || '').trim().slice(0, 64);
   if (!id) throw new Error('身份标识不能为空');
+  const t = (tier || '').toLowerCase();
+  if (t === 'pro' || t === 'custom') id = t + ':' + id; // 把 tier 编码进 identity 前缀
   const sig = hmacHex(id).slice(0, 32);
   const raw = Buffer.from(id + '\n' + sig, 'utf8');
   const grouped = base32Encode(raw).match(/.{1,4}/g).join('-');
@@ -85,17 +114,19 @@ function encodeKey(identity) {
 function verifyKey(key) {
   try {
     const clean = cleanKeyInput(key);
-    if (!clean) return { valid: false, identity: '' };
+    if (!clean) return { valid: false, identity: '', tier: 'free' };
     const text = base32Decode(clean).toString('utf8');
     const nl = text.indexOf('\n');
-    if (nl === -1) return { valid: false, identity: '' };
-    const identity = text.slice(0, nl);
+    if (nl === -1) return { valid: false, identity: '', tier: 'free' };
+    const rawIdentity = text.slice(0, nl);
     const sig = text.slice(nl + 1);
-    if (!identity || !sig) return { valid: false, identity: '' };
-    const expected = hmacHex(identity).slice(0, 32);
-    return { valid: sig === expected, identity };
+    if (!rawIdentity || !sig) return { valid: false, identity: '', tier: 'free' };
+    const expected = hmacHex(rawIdentity).slice(0, 32);
+    const valid = sig === expected;
+    const sp = splitIdentity(rawIdentity);
+    return { valid, identity: sp.identity, tier: valid ? sp.tier : 'free' };
   } catch (e) {
-    return { valid: false, identity: '' };
+    return { valid: false, identity: '', tier: 'free' };
   }
 }
 
@@ -116,8 +147,11 @@ function overallMode(activated, trial) {
 module.exports = {
   SECRET,
   TRIAL_DAYS,
+  PAID_TIERS,
   encodeKey,
   verifyKey,
   trialStatus,
-  overallMode
+  overallMode,
+  parseTier,
+  splitIdentity
 };

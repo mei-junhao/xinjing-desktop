@@ -1,6 +1,6 @@
 {
   "name": "xinjing",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "心镜 XinJing — 心理咨询本地管理工作台（桌面版）",
   "author": "Mei",
   "main": "main.js",
@@ -10,8 +10,9 @@
     "icon": "node generate-icon.js",
     "pack": "electron-builder --dir",
     "codegen:secret": "node scripts/codegen-secret.js",
-    "predist": "node scripts/codegen-secret.js",
-    "prestart": "node scripts/codegen-secret.js",
+    "codegen:version": "node scripts/codegen-version.js",
+    "predist": "node scripts/codegen-secret.js && node scripts/codegen-version.js",
+    "prestart": "node scripts/codegen-secret.js && node scripts/codegen-version.js",
     "dist": "electron-builder",
     "release": "electron-builder --publish always"
   },
@@ -36,6 +37,7 @@
       "confirm-close-preload.js",
       "license-core.js",
       "secret.generated.js",
+      "version.generated.js",
       "app/**/*",
       "build/**/*"
     ],

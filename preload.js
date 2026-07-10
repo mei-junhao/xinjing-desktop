@@ -13,12 +13,18 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// 构建期注入的真实版本（version.generated.js，由 scripts/codegen-version.js 生成并打进 exe）。
+// 设置页「关于」版本号优先读此值，与安装包强制绑定，根治「装新包后版本号不更新」的脆弱链路。
+let BUILD_VERSION = '0.0.0';
+try { BUILD_VERSION = require('./version.generated.js').VERSION || BUILD_VERSION; } catch (e) { /* dev 期无该文件则回退 0.0.0 */ }
+
 // 桥接 API 用闭包常量保存：preload 内部只通过 api.* 调用，
 // 渲染页通过 contextBridge 暴露的 window.__XJ_API__ 访问。
 const api = {
   openActivation: () => ipcRenderer.send('xj:openActivation'),
   getState: () => ipcRenderer.invoke('xj:getState'),
-  getVersion: () => ipcRenderer.invoke('xj:getVersion'),
+  // 返回构建期注入的版本（不再经 IPC，避免运行时桥接失败退回写死兜底）
+  getVersion: () => BUILD_VERSION,
   activate: (code) => ipcRenderer.invoke('xj:activate', code),
   done: () => ipcRenderer.send('xj:activationDone'),
   saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
@@ -32,7 +38,7 @@ try {
   console.error('[XJ] exposeInMainWorld __XJ_API__ FAILED:', (e && e.message) || e);
 }
 
-const stateRef = { mode: null, daysLeft: null, identity: null };
+const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false };
 try {
   contextBridge.exposeInMainWorld('__XJ__', stateRef);
 } catch (e) {
@@ -103,8 +109,8 @@ try {
     bar.id = 'xj-banner';
     if (state.mode === 'limited') bar.classList.add('limited');
     const txt = state.mode === 'limited'
-      ? '试用已到期 · 受限模式：仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印 · 输入激活码解锁'
-      : `试用版 · 剩余 ${state.daysLeft} 天 · 功能不受限 · 输入激活码可永久解锁`;
+      ? '受限模式：仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印，AI 助手锁定 · 输入激活码解锁'
+      : `免费版 · 剩余 ${state.daysLeft} 天 · 基础功能可用，AI 助手等拓展功能需激活后解锁`;
     bar.innerHTML = `<span class="xj-txt">${txt}</span>`;
     const btn = document.createElement('button');
     btn.textContent = '激活';
@@ -164,11 +170,17 @@ try {
   function injectSettingsPanel(state) {
     const p = location.pathname;
     if (!p.includes('settings')) return;
+    const tierLabel = (function (t) {
+      if (t === 'pro') return '标准版 (Pro)';
+      if (t === 'custom') return '定制旗舰版 (Custom)';
+      if (t === 'full') return '完整版（旧激活码）';
+      return '';
+    })(state.tier);
     const title = state.mode === 'limited' ? '受限模式（未激活）' : `试用版（剩余 ${state.daysLeft} 天）`;
     const detail = state.mode === 'limited'
-      ? '仅可管理前 5 位来访者与 50 条督导记录（超出只读），禁止导出/打印，界面含水印。'
-      : '试用期内功能不受限；到期后将进入受限模式。';
-    const who = state.identity ? `授权给：${state.identity}` : '尚未激活';
+      ? '仅可管理前 5 位来访者与 50 条督导记录（超出只读），禁止导出/打印，AI 助手锁定。'
+      : '免费版：基础个案管理可用，AI 助手等拓展功能需激活后解锁。';
+    const who = state.identity ? `授权给：${state.identity}${tierLabel ? ' · ' + tierLabel : ''}` : '尚未激活';
     const box = document.createElement('div');
     box.id = 'xj-lic-panel';
     box.innerHTML =

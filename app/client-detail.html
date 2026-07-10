@@ -115,6 +115,28 @@
     </div>
   </div>
 
+  <!-- 新增会话：自定义节数 -->
+  <div class="modal-overlay" id="session-number-modal">
+    <div class="modal" style="max-width:380px">
+      <div class="modal-header">
+        <h2>新增会话</h2>
+        <button class="close" onclick="App.closeModal('session-number-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:10px">
+          可自定义本次会谈为「第几节」。留空或保持默认时，自动顺延为当前最大节数 + 1（如已存在第 135 节，则默认为 136）。
+        </p>
+        <div class="form-row">
+          <label class="form-label">第 <input class="form-control" id="new-session-number" type="number" min="1" style="width:90px;display:inline-block;margin:0 6px"> 节</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="App.closeModal('session-number-modal')">取消</button>
+        <button class="btn btn-primary" onclick="createSessionWithNumber()">创建</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
   <script src="js/client-detail.js"></script>

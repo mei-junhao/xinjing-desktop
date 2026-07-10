@@ -12,6 +12,7 @@ dist/
 # 机密：主密钥与已生成的激活码，绝不入库
 .license-secret
 secret.generated.js
+version.generated.js
 keys.log
 
 # 日志

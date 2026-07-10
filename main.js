@@ -105,9 +105,15 @@ function computeState() {
   const trial = license.trialStatus(ensureTrial(), Date.now());
   const lic = readLicense();
   const activated = !!(lic && lic.identity && lic.activatedAt);
+  // 旧 license.json（升级前）无 tier 字段 → 视为完整版（祖父条款，权益等同 pro）
+  const tier = (lic && lic.tier) ? lic.tier : (activated ? 'full' : 'free');
+  // AI 解锁条件：已激活且为付费分层（pro / custom / 旧 full）。免费/受限模式锁定 AI 助手。
+  const aiUnlocked = activated;
   licenseState = {
     mode: license.overallMode(activated, trial),
     identity: activated ? lic.identity : '',
+    tier,
+    aiUnlocked,
     daysLeft: trial.daysLeft,
     activated,
     trialDays: license.TRIAL_DAYS,
@@ -511,13 +517,13 @@ ipcMain.handle('xj:activate', (e, code) => {
   try {
     fs.writeFileSync(
       path.join(userDataDir(), 'license.json'),
-      JSON.stringify({ identity: v.identity, activatedAt: Date.now() }, null, 2)
+      JSON.stringify({ identity: v.identity, tier: v.tier, activatedAt: Date.now() }, null, 2)
     );
   } catch (err) {
     return { ok: false, error: '保存激活信息失败：' + err.message };
   }
   computeState();
-  return { ok: true, identity: v.identity };
+  return { ok: true, identity: v.identity, tier: v.tier };
 });
 
 ipcMain.on('xj:activationDone', () => {

@@ -133,6 +133,34 @@
     .ai-msg.ai .bubble { background: var(--accent-soft); color: var(--text); }
     .ai-input-row { display: flex; gap: var(--gap-sm); }
     .ai-input-row input { flex: 1; }
+
+    .ai-mode-bar {
+      display: flex; gap: var(--gap-sm); margin-bottom: var(--gap);
+      align-items: center; flex-wrap: wrap;
+    }
+    .ai-mode-bar .seg {
+      display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden;
+    }
+    .ai-mode-bar .seg button {
+      border: 0; background: transparent; padding: 6px 16px; font-family: var(--sans);
+      font-size: 13px; color: var(--muted); cursor: pointer;
+    }
+    .ai-mode-bar .seg button.active { background: var(--accent); color: #fff; }
+    .ai-sup-row { display: flex; gap: var(--gap-sm); align-items: center; margin-bottom: var(--gap); flex-wrap: wrap; }
+    .ai-sup-row select { flex: 1; min-width: 180px; }
+    .ai-custom-prompt { margin-bottom: var(--gap); }
+    .ai-custom-prompt textarea { width: 100%; min-height: 90px; }
+    .ai-lock {
+      position: absolute; inset: 0; background: rgba(246,241,234,.96);
+      border-radius: var(--radius); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: var(--gap-lg);
+      gap: var(--gap-sm);
+    }
+    .ai-lock .lock-emoji { font-size: 34px; }
+    .ai-lock .lock-title { font-weight: 700; color: var(--accent); font-family: var(--sans); }
+    .ai-lock .lock-sub { font-size: 13px; color: var(--muted); font-family: var(--sans); max-width: 280px; line-height: 1.6; }
+    .ai-panel { position: relative; }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -160,6 +188,10 @@
           <div class="field">
             <label>时长(分钟)</label>
             <input class="form-control" id="s-duration" type="number" min="0">
+          </div>
+          <div class="field">
+            <label>第几节</label>
+            <input class="form-control" id="s-session-number" type="number" min="1">
           </div>
         </div>
 
@@ -229,7 +261,34 @@
         <!-- AI 助手 -->
         <div class="tab-panel" id="panel-ai">
           <div class="ai-panel">
-            <div style="font-weight:600;margin-bottom:var(--gap-sm)">快捷操作</div>
+            <div class="ai-mode-bar">
+              <div class="seg">
+                <button id="mode-general" class="active" onclick="switchAiMode('general')">通用助手</button>
+                <button id="mode-supervise" onclick="switchAiMode('supervise')">AI 督导</button>
+              </div>
+            </div>
+
+            <!-- AI 督导专属区 -->
+            <div id="ai-supervise-area" class="hidden">
+              <div class="ai-sup-row">
+                <select id="ai-supervisor" class="form-control"></select>
+                <button class="btn btn-primary btn-sm" onclick="aiSupervise()">生成督导意见</button>
+              </div>
+              <div class="ai-custom-prompt">
+                <details>
+                  <summary style="cursor:pointer;font-size:13px;color:var(--muted);font-family:var(--sans)">自定义本次督导师提示词（可选，覆盖所选身份，不保存）</summary>
+                  <div style="margin-top:8px">
+                    <div style="display:flex;gap:8px;margin-bottom:6px">
+                      <input type="file" id="ai-prompt-file" accept=".txt,.md,.text" style="font-size:12px;flex:1">
+                      <button class="btn btn-ghost btn-sm" onclick="loadPromptFile()">读取文件</button>
+                    </div>
+                    <textarea id="ai-custom-prompt" class="form-control" placeholder="粘贴或输入自定义督导师的方法论/角色设定，本次生成有效..."></textarea>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <div style="font-weight:600;margin:var(--gap-sm) 0">快捷操作</div>
             <div class="ai-quick">
               <button class="btn btn-ghost btn-sm" onclick="aiGenerate('soap')">生成 SOAP</button>
               <button class="btn btn-ghost btn-sm" onclick="aiGenerate('summary')">生成总结</button>
@@ -242,6 +301,14 @@
             <div class="ai-input-row">
               <input class="form-control" id="ai-input" placeholder="输入问题，回车发送" onkeydown="if(event.key==='Enter')aiSend()">
               <button class="btn btn-primary" onclick="aiSend()">发送</button>
+            </div>
+
+            <!-- 免费版锁定的遮罩 -->
+            <div class="ai-lock hidden" id="ai-lock">
+              <div class="lock-emoji">🔒</div>
+              <div class="lock-title">AI 助手为付费功能</div>
+              <div class="lock-sub">基础个案管理免费可用；AI 助手（含通用助手与 AI 督导）需激活后解锁。请到「设置 → 关于」输入激活码升级。</div>
+              <button class="btn btn-primary btn-sm" onclick="openActivation()">去激活</button>
             </div>
           </div>
         </div>
@@ -274,6 +341,7 @@
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
   <script src="js/ai.js"></script>
+  <script src="js/supervisors.js"></script>
   <script src="js/session.js"></script>
 </body>
 </html>

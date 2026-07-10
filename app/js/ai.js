@@ -1,23 +1,37 @@
 /* ============================================================
    心镜 XinJing — AI 集成模块
    职责：
-   - 调用外部 API 生成 SOAP / 总结 / 分析
-   - 四层降级策略（复用 winnicott-chat 模式）
+   - 调用外部 API 生成 SOAP / 总结 / 分析 / AI 督导
+   - 四层降级策略（复用 winnicott-chat 的模式骨架，但密钥体系完全独立）
    - 从设置读取 API 配置
-   注意：API 密钥仅存于 localStorage（个人本地工具），不在页面明文显示
+   密钥安全（硬约束）：
+   - API 密钥的唯一合法来源是用户在「设置」页自行填写的 apiConfig.apiKey，
+     仅存于本机 localStorage（个人本地工具），不在页面明文显示。
+   - 本模块绝不沿用 winnicott-chat 项目的任何密钥、不读取任何环境变量、
+     不读取任何外部密钥文件、不在代码中硬编码任何 key。
+   - 下方 assertNoHardcodedKey() 在加载期强制校验，杜绝误引入 chat 密钥。
    ============================================================ */
 
 const AI = (() => {
   'use strict';
 
   // 四层 API 端点（可在设置中覆盖 baseUrl）
-  // 默认走 OpenAI 兼容接口格式
+  // 默认走 OpenAI 兼容接口格式。注意：此处严禁出现 key / apiKey / token 字段。
   const DEFAULT_TIERS = [
     { name: 'deepseek-pro', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Pro' },
     { name: 'deepseek-flash', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Flash' },
     { name: 'minimax-m3', path: '/v1/chat/completions', model: 'MiniMax-M3', label: 'MiniMax M3' },
     { name: 'agnes', path: '/v1/chat/completions', model: 'agnes', label: 'Agnes' },
   ];
+
+  // 安全断言：本模块严禁内置任何密钥。若有人误在 DEFAULT_TIERS 写入 key 字段，立即拒绝加载。
+  (function assertNoHardcodedKey() {
+    const bad = DEFAULT_TIERS.filter((t) => t && (t.key || t.apiKey || t.token));
+    if (bad.length) {
+      console.error('[AI] 安全断言失败：DEFAULT_TIERS 中检测到疑似密钥字段，已拒绝加载', bad.map((b) => b.name));
+      throw new Error('AI 模块不允许内置密钥');
+    }
+  })();
 
   // 角色设定：温尼科特取向心理咨询师
   const SYSTEM_PROMPT = `你是一位资深心理咨询师，精通心理动力学与温尼科特理论取向。
@@ -66,6 +80,8 @@ const AI = (() => {
   // 四层降级调用
   async function callWithFallback(messages) {
     const config = getConfig();
+    // 密钥唯一来源：用户在设置页填写的 apiConfig.apiKey（本机 localStorage）。
+    // 不读取任何 chat 项目密钥 / 环境变量 / 外部文件。
     const apiKey = config.apiKey;
     if (!apiKey) {
       return { error: '未配置 API 密钥，请到"设置"页配置' };
@@ -175,9 +191,31 @@ ${transcript}
     });
   }
 
+  // AI 督导：用指定督导师身份的提示词 + 会谈材料生成督导意见。
+  // supervisorPrompt：督导师身份的方法论提示词（来自 Supervisors）；context：会谈材料文本。
+  // 密钥来源同 chat —— 仅用户在设置页填写的 apiConfig.apiKey（不沿用 chat 项目密钥）。
+  function supervise(supervisorPrompt, context, callback) {
+    const system =
+      (supervisorPrompt || SYSTEM_PROMPT) +
+      '\n\n你是进行中的个案督导，请基于下方提供的会谈材料给出督导意见。';
+    const userContent = '以下是本次会谈的材料：\n\n' + (context || '');
+    const messages = [
+      { role: 'system', content: system },
+      { role: 'user', content: userContent },
+    ];
+    callWithFallback(messages).then((res) => {
+      if (res.error) {
+        callback({ error: res.error });
+        return;
+      }
+      callback({ content: res.content });
+    });
+  }
+
   return {
     generateSoapFromTranscript,
     chat,
+    supervise,
   };
 })();
 

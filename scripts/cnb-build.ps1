@@ -35,6 +35,11 @@ $env:ELECTRON_BUILDER_BINARIES_MIRROR = 'https://npmmirror.com/mirrors/electron-
 # (auto-update only triggers when the server version is higher than local)
 $env:XJ_PROJ = $proj
 node -e "const fs=require('fs');const p=process.env.XJ_PROJ+'/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const v=j.version.split('.');v[2]=String((+v[2])+1);j.version=v.join('.');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');console.log('bumped version ->',j.version);"
+# 立即生成构建期版本文件（version.generated.js），与 bump 后的 package.json 同步；
+# npm run dist 的 predist 钩子也会再生成一次，此处为防御性确保文件已存在。
+Push-Location $proj
+node scripts/codegen-version.js
+Pop-Location
 
 # --- 2-4. clean rebuild (dist MUST match the bumped version) + postbuild ---
 # always remove old dist so electron-builder emits the new versioned assets

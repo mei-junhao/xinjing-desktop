@@ -34,6 +34,9 @@ App.initPage({
     );
     App.bindModalClose('confirm-modal');
 
+    if (window.Supervisors) Supervisors.ensureSeed();
+    populateSupervisors();
+    applyAiLock();
     fillForm();
   }
 
@@ -42,6 +45,8 @@ App.initPage({
     document.getElementById('s-start').value = session.startTime || '';
     document.getElementById('s-end').value = session.endTime || '';
     document.getElementById('s-duration').value = session.durationMinutes || '';
+    const numEl = document.getElementById('s-session-number');
+    if (numEl) numEl.value = session.sessionNumber || 1;
     document.getElementById('t-transcript').value = session.transcript || '';
     document.getElementById('soap-s').value = (session.soap && session.soap.subjective) || '';
     document.getElementById('soap-o').value = (session.soap && session.soap.objective) || '';
@@ -117,6 +122,10 @@ App.initPage({
       },
       reflection: document.getElementById('t-reflection').value,
       isConfirmed: document.getElementById('s-confirmed').checked,
+      sessionNumber: (function () {
+        const n = parseInt(document.getElementById('s-session-number').value, 10);
+        return Number.isFinite(n) && n >= 1 ? n : session.sessionNumber;
+      })(),
     };
     await Store.updateSessionFull(updated);
     session = updated;
@@ -130,7 +139,65 @@ App.initPage({
   };
 
   // ---- AI 助手 ----
+  function aiUnlocked() {
+    try { return !!(window.__XJ__ && window.__XJ__.aiUnlocked); } catch (e) { return false; }
+  }
+
+  // 免费版锁定 AI 助手（含通用助手与 AI 督导）。重复校验以兼容授权状态异步加载。
+  function applyAiLock() {
+    const apply = () => {
+      const lock = document.getElementById('ai-lock');
+      if (!lock) return;
+      if (aiUnlocked()) lock.classList.add('hidden');
+      else lock.classList.remove('hidden');
+    };
+    apply();
+    setTimeout(apply, 400);
+    setTimeout(apply, 1200);
+  }
+
+  function openActivation() {
+    if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation();
+  }
+
+  function switchAiMode(mode) {
+    const gen = document.getElementById('mode-general');
+    const sup = document.getElementById('mode-supervise');
+    const area = document.getElementById('ai-supervise-area');
+    if (mode === 'supervise') {
+      gen.classList.remove('active'); sup.classList.add('active'); area.classList.remove('hidden');
+    } else {
+      gen.classList.add('active'); sup.classList.remove('active'); area.classList.add('hidden');
+    }
+  }
+
+  function populateSupervisors() {
+    const sel = document.getElementById('ai-supervisor');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const list = (window.Supervisors && Supervisors.list()) || [];
+    list.forEach((s) => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name + (s.builtin ? '（内置）' : '');
+      sel.appendChild(opt);
+    });
+  }
+
+  function buildContext() {
+    const t = document.getElementById('t-transcript').value;
+    const soap = [
+      document.getElementById('soap-s').value,
+      document.getElementById('soap-o').value,
+      document.getElementById('soap-a').value,
+      document.getElementById('soap-p').value,
+    ].join('\n');
+    const refl = document.getElementById('t-reflection').value;
+    return '【逐字稿】\n' + t + '\n\n【SOAP】\n' + soap + '\n\n【咨询师反思】\n' + refl;
+  }
+
   window.aiGenerate = function (type) {
+    if (!aiUnlocked()) { applyAiLock(); App.showToast('AI 助手为付费功能，请先激活', 'error'); return; }
     const transcript = document.getElementById('t-transcript').value.trim();
     if (!transcript && type !== 'next') {
       App.showToast('请先填写逐字稿', 'error');
@@ -149,6 +216,7 @@ App.initPage({
   };
 
   window.aiSend = function () {
+    if (!aiUnlocked()) { applyAiLock(); App.showToast('AI 助手为付费功能，请先激活', 'error'); return; }
     const input = document.getElementById('ai-input');
     const text = input.value.trim();
     if (!text) return;
@@ -159,6 +227,38 @@ App.initPage({
       addAiMessage(reply, false);
     });
   };
+
+  // AI 督导：用所选督导师身份（或自定义提示词）基于会谈材料生成督导意见
+  window.aiSupervise = function () {
+    if (!aiUnlocked()) { applyAiLock(); App.showToast('AI 督导为付费功能，请先激活', 'error'); return; }
+    const sel = document.getElementById('ai-supervisor');
+    const custom = document.getElementById('ai-custom-prompt').value.trim();
+    const sup = sel ? Supervisors.getById(sel.value) : null;
+    const prompt = custom || (sup && sup.prompt) || '';
+    if (!prompt) { App.showToast('请选择督导师或填写自定义提示词', 'error'); return; }
+    const context = buildContext();
+    if (!context.replace(/\s/g, '')) { App.showToast('请先填写逐字稿等会谈材料', 'error'); return; }
+    switchTab('ai');
+    addAiMessage('（AI 督导 · ' + (sup ? sup.name : '自定义督导师') + '）正在生成督导意见…', false);
+    AI.supervise(prompt, context, (res) => {
+      if (res.error) { App.showToast('督导生成失败：' + res.error, 'error'); return; }
+      addAiMessage(res.content, false);
+    });
+  };
+
+  window.loadPromptFile = function () {
+    const fileInput = document.getElementById('ai-prompt-file');
+    const ta = document.getElementById('ai-custom-prompt');
+    const f = fileInput && fileInput.files && fileInput.files[0];
+    if (!f) { App.showToast('请先选择 .txt/.md 文件', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = () => { ta.value = reader.result || ''; App.showToast('已读取提示词文件', 'success'); };
+    reader.onerror = () => App.showToast('读取文件失败', 'error');
+    reader.readAsText(f);
+  };
+
+  window.switchAiMode = switchAiMode;
+  window.openActivation = openActivation;
 
   function addAiMessage(text, isUser) {
     const chat = document.getElementById('ai-chat');
