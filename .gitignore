@@ -39,3 +39,7 @@ noop-sign.js
 # 沙箱调试残留（含死代理配置，不入库）
 dl.js
 proxy.js
+
+# 本地发布产物（cnb-build.ps1 生成：上传 COS 的临时资产、coscli 二进制，不入库）
+cos-assets/
+scripts/coscli.exe
