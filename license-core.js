@@ -23,6 +23,9 @@ if (!SECRET) {
 }
 
 const TRIAL_DAYS = 90;
+// AI 助手 / AI 督导 的免费试用窗口：安装后 30 天内无限制免费使用（此后需激活）。
+// 与 90 天基础试用相互独立：0~30 天 AI 免费 + 基础可用；31~90 天 AI 锁定 + 基础可用；90 天后受限。
+const AI_TRIAL_DAYS = 30;
 
 // 付费分层（Freemium）：
 //   pro    = 标准付费版（解锁 AI 助手 / 多位置备份等拓展功能）
@@ -185,6 +188,16 @@ function trialStatus(firstLaunchTs, nowTs) {
     : { state: 'expired', daysLeft: 0 };
 }
 
+// AI 免费试用状态：基于「真正的首次安装时间」（跨重装稳定，见 main.js resolveFirstInstall）
+function aiTrialStatus(firstInstallTs, nowTs) {
+  const now = nowTs || Date.now();
+  const daysPassed = Math.floor((now - firstInstallTs) / 86400000);
+  const daysLeft = AI_TRIAL_DAYS - daysPassed;
+  return daysLeft > 0
+    ? { active: true, daysLeft }
+    : { active: false, daysLeft: 0 };
+}
+
 function overallMode(activated, trial) {
   if (activated) return 'full';
   return trial.state === 'active' ? 'trial' : 'limited';
@@ -193,10 +206,12 @@ function overallMode(activated, trial) {
 module.exports = {
   SECRET,
   TRIAL_DAYS,
+  AI_TRIAL_DAYS,
   PAID_TIERS,
   encodeKey,
   verifyKey,
   trialStatus,
+  aiTrialStatus,
   overallMode,
   parseTier,
   splitIdentity

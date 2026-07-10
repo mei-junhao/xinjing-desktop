@@ -191,14 +191,45 @@ ${transcript}
     });
   }
 
+  // 通用发送：接受一个完整的 messages 数组（可携带自定义 system 提示词、历史与摘要上下文）。
+  // 大师对话 / 圆桌即使用此接口，传入大师人格 system prompt + 长时记忆摘要 + 对话历史。
+  function send(messages, callback) {
+    if (!Array.isArray(messages) || !messages.length) {
+      callback({ error: '空消息' });
+      return;
+    }
+    callWithFallback(messages).then((res) => {
+      if (res.error) {
+        callback({ error: res.error });
+        return;
+      }
+      callback({ content: res.content, tier: res.tier });
+    });
+  }
+
   // AI 督导：用指定督导师身份的提示词 + 会谈材料生成督导意见。
-  // supervisorPrompt：督导师身份的方法论提示词（来自 Supervisors）；context：会谈材料文本。
+  // supervisorPrompt：督导师身份的方法论提示词（来自 Supervisors）；context：本次会谈材料文本。
+  // history：（可选）该来访者既往督导记录摘要，注入后督导可给出「长时程成长视角」。
+  //          兼容旧签名 supervise(prompt, context, callback)：history 传函数时视为 callback。
   // 密钥来源同 chat —— 仅用户在设置页填写的 apiConfig.apiKey（不沿用 chat 项目密钥）。
-  function supervise(supervisorPrompt, context, callback) {
-    const system =
+  function supervise(supervisorPrompt, context, history, callback) {
+    if (typeof history === 'function') { callback = history; history = ''; }
+    const hasHistory = history && history.replace(/\s/g, '');
+    let system =
       (supervisorPrompt || SYSTEM_PROMPT) +
-      '\n\n你是进行中的个案督导，请基于下方提供的会谈材料给出督导意见。';
-    const userContent = '以下是本次会谈的材料：\n\n' + (context || '');
+      '\n\n你是进行中的个案督导。';
+    if (hasHistory) {
+      system += '下方会先提供该来访者【既往督导记录】，再提供【本次会谈材料】。' +
+        '请在给出本次督导意见的同时，纵向对照既往记录，指出来访者与咨询工作的变化、进展与反复，' +
+        '为咨询师提供长时程的成长视角（如反复出现的主题、防御模式的松动、移情的演变、督导建议的落实情况）。';
+    } else {
+      system += '请基于下方提供的会谈材料给出督导意见。';
+    }
+    let userContent = '';
+    if (hasHistory) {
+      userContent += '【既往督导记录（由旧到新）】\n' + history + '\n\n';
+    }
+    userContent += '【本次会谈材料】\n' + (context || '');
     const messages = [
       { role: 'system', content: system },
       { role: 'user', content: userContent },
@@ -215,6 +246,7 @@ ${transcript}
   return {
     generateSoapFromTranscript,
     chat,
+    send,
     supervise,
   };
 })();

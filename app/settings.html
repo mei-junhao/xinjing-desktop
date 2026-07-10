@@ -163,12 +163,15 @@
   <script src="js/supervisors.js"></script>
   <script src="js/settings.js"></script>
   <script>
-    // 填充真实版本号（来自 package.json，经主进程桥接）
+    // 填充真实版本号（来自 version.generated.js，经 preload 桥接）
+    // 注意：getVersion() 现在直接返回字符串（非 Promise），用 Promise.resolve 归一化，
+    // 修复此前对字符串调用 .then() 抛错导致版本号一直显示 v?.?.? 的 bug。
     (function () {
       try {
         var el = document.getElementById('app-version');
         if (el && window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
-          window.__XJ_API__.getVersion().then(function (v) { el.textContent = 'v' + v; })
+          Promise.resolve(window.__XJ_API__.getVersion())
+            .then(function (v) { if (v) el.textContent = 'v' + v; })
             .catch(function () { /* 保留兜底版本号 */ });
         }
       } catch (e) { /* ignore */ }

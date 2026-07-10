@@ -24,6 +24,7 @@ const Store = (() => {
     sessions: [],
     supervisions: [],
     supervisorIdentities: [],
+    masterConversations: [],
     settings: { apiConfig: {}, version: '1.0.0' },
   };
   let hydrated = false;
@@ -151,17 +152,19 @@ const Store = (() => {
   async function hydrate() {
     if (hydrated) return;
     await migrateFromLocalStorage();
-    const [clients, sessions, supervisions, supervisorIdentities, settings] = await Promise.all([
+    const [clients, sessions, supervisions, supervisorIdentities, masterConversations, settings] = await Promise.all([
       idbGet('clients'),
       idbGet('sessions'),
       idbGet('supervisions'),
       idbGet('supervisorIdentities'),
+      idbGet('masterConversations'),
       idbGet('settings'),
     ]);
     cache.clients = Array.isArray(clients) ? clients : [];
     cache.sessions = Array.isArray(sessions) ? sessions : [];
     cache.supervisions = Array.isArray(supervisions) ? supervisions : [];
     cache.supervisorIdentities = Array.isArray(supervisorIdentities) ? supervisorIdentities : [];
+    cache.masterConversations = Array.isArray(masterConversations) ? masterConversations : [];
     cache.settings =
       settings && typeof settings === 'object'
         ? Object.assign({ apiConfig: {}, version: '1.0.0' }, settings)
@@ -430,6 +433,96 @@ const Store = (() => {
     return true;
   }
 
+  // 取某来访者的既往督导记录（按创建时间由旧到新）。
+  // 关联方式：督导记录 sessionIds[] 命中该来访者的任一会谈，或记录自带 clientId。
+  function getSupervisionsByClient(clientId) {
+    if (!clientId) return [];
+    const sessionIdSet = new Set(getSessionsByClient(clientId).map((s) => s.id));
+    return cache.supervisions
+      .filter((sv) => sv.clientId === clientId || (sv.sessionIds || []).some((sid) => sessionIdSet.has(sid)))
+      .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  }
+
+  // 构建「长时程成长视角」上下文：把该来访者既往督导记录浓缩成文本，供 AI 督导纵向对照。
+  // excludeSessionId：排除当前会谈自身的记录（避免把本次刚生成的内容当历史）。
+  // 最多取最近 maxItems 条，每条正文/结论截断，控制 token。
+  function buildSupervisionGrowthContext(clientId, excludeSessionId, maxItems) {
+    const cap = maxItems || 6;
+    let list = getSupervisionsByClient(clientId);
+    if (excludeSessionId) {
+      list = list.filter((sv) => !((sv.sessionIds || []).length === 1 && sv.sessionIds[0] === excludeSessionId));
+    }
+    if (!list.length) return '';
+    const recent = list.slice(-cap);
+    const clip = (s, n) => {
+      s = String(s || '').trim();
+      return s.length > n ? s.slice(0, n) + '…' : s;
+    };
+    return recent.map((sv, i) => {
+      const when = sv.date || (sv.createdAt ? String(sv.createdAt).slice(0, 10) : '');
+      const who = sv.supervisorName || (sv.type === 'ai' ? 'AI 督导' : '督导');
+      const body = clip(sv.conclusion || sv.content, 500);
+      return `— 第${i + 1}次（${when}${who ? ' · ' + who : ''}）\n${body}`;
+    }).join('\n\n');
+  }
+
+  // 把一次 AI 督导输出持久化为督导记录，逐步积累成该来访者的「督导档案」。
+  // 受限模式若已达上限则静默跳过（不阻断当前生成）。返回记录或 null。
+  function saveAiSupervision(data) {
+    try {
+      const sv = Object.assign(
+        {
+          id: genId('sv'),
+          type: 'ai',
+          supervisorName: data.supervisorName || 'AI 督导',
+          clientId: data.clientId || '',
+          date: (data.date || nowISO().slice(0, 10)),
+          sessionIds: data.sessionId ? [data.sessionId] : [],
+          content: data.context || '',
+          conclusion: data.content || '',
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
+        },
+        {}
+      );
+      // 直接入库（绕过 createSupervision 的硬抛错，改为静默跳过上限）
+      licenseGuard('supervision', null);
+      cache.supervisions.push(sv);
+      persist('supervisions');
+      return sv;
+    } catch (e) {
+      console.warn('[Store] AI 督导记录未保存（可能受限模式已达上限）：', (e && e.message) || e);
+      return null;
+    }
+  }
+
+  // ============================================================
+  // 大师对话（1v1 与多大师圆桌）—— 全部存于本地 IndexedDB
+  // 每条对话 = { id, mode:'1v1'|'roundtable', masterKeys:[...], title,
+  //              messages:[{role,content,masterKey?}], summary, createdAt, updatedAt }
+  // summary：自动摘要（长时记忆）——对话过长时由 AI 生成，注入后续上下文，保留跨轮/跨会话要点。
+  // ============================================================
+  function getMasterConversations() {
+    return cache.masterConversations.slice().sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+  }
+  function getMasterConversation(id) {
+    return cache.masterConversations.find((c) => c.id === id) || null;
+  }
+  function saveMasterConversation(conv) {
+    if (!conv || !conv.id) return null;
+    conv.updatedAt = nowISO();
+    const idx = cache.masterConversations.findIndex((c) => c.id === conv.id);
+    if (idx >= 0) cache.masterConversations[idx] = conv;
+    else cache.masterConversations.unshift(conv);
+    persist('masterConversations');
+    return conv;
+  }
+  function deleteMasterConversation(id) {
+    cache.masterConversations = cache.masterConversations.filter((c) => c.id !== id);
+    persist('masterConversations');
+    return true;
+  }
+
   // ============================================================
   // 督导师身份（AI 督导用，付费功能）
   // 每个身份 = { id, name, prompt, builtin, createdAt }
@@ -580,6 +673,9 @@ const Store = (() => {
     nextSessionNumber,
     // 督导
     getSupervisions, getSupervision, createSupervision, updateSupervision, deleteSupervision,
+    getSupervisionsByClient, buildSupervisionGrowthContext, saveAiSupervision,
+    // 大师对话
+    getMasterConversations, getMasterConversation, saveMasterConversation, deleteMasterConversation,
     // 督导师身份（AI 督导，付费）
     getSupervisorIdentities, getSupervisorIdentity,
     createSupervisorIdentity, updateSupervisorIdentity, deleteSupervisorIdentity,

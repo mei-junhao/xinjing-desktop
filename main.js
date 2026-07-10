@@ -96,6 +96,45 @@ function ensureTrial() {
   }
   return ts;
 }
+// ---- 防重装刷新试用：公共目录隐藏标记 ----
+// 记录「真正的首次安装时间」到 %ProgramData%\XinJing\.xjinstall（隐藏、base64 轻混淆）。
+// 该目录随机器存在、卸载不清除、独立于 userData：用户即使卸载重装心镜，也会读回最早的安装时间，
+// 无法通过重装把 30 天 AI 免费试用刷新为满额。标记内绑定机器码，跨机复制无效。
+function programDataMarkerPath() {
+  const base = process.env.ProgramData || process.env.ALLUSERSPROFILE || userDataDir();
+  return path.join(base, 'XinJing', '.xjinstall');
+}
+function readInstallMarker() {
+  try {
+    const raw = fs.readFileSync(programDataMarkerPath(), 'utf8');
+    const j = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+    if (j && j.firstInstall) return j;
+  } catch (e) { /* ignore */ }
+  return null;
+}
+function writeInstallMarker(obj) {
+  try {
+    const p = programDataMarkerPath();
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, Buffer.from(JSON.stringify(obj), 'utf8').toString('base64'));
+    if (process.platform === 'win32') {
+      try { require('child_process').execFileSync('attrib', ['+h', p]); } catch (e) { /* 隐藏失败不影响功能 */ }
+    }
+  } catch (e) { /* ignore */ }
+}
+// 计算真正的首次安装时间戳（跨重装稳定）：取「公共目录标记」与「userData 首次启动」的较早者，并回写标记。
+function resolveFirstInstall() {
+  const mc = getMachineCode();
+  const trialTs = ensureTrial(); // userData 内首次启动（卸载重装会重置）
+  let firstInstall = trialTs;
+  const marker = readInstallMarker();
+  if (marker && marker.firstInstall && (!marker.mc || marker.mc === mc)) {
+    firstInstall = Math.min(firstInstall, marker.firstInstall);
+  }
+  writeInstallMarker({ mc, firstInstall }); // 补齐/修正为更早时间，保证后续重装仍读到最早时间
+  return firstInstall;
+}
+
 function readLicense() {
   try {
     const j = JSON.parse(fs.readFileSync(path.join(userDataDir(), 'license.json'), 'utf8'));
@@ -144,13 +183,19 @@ function computeState() {
   const activated = activatedRaw && !expired;
   // 旧 license.json（升级前）无 tier 字段 → 视为完整版（祖父条款，权益等同 pro）
   const tier = (lic && lic.tier) ? lic.tier : (activated ? 'full' : 'free');
-  // AI 解锁条件：已激活且未过期。免费/受限/过期模式锁定 AI 助手。
-  const aiUnlocked = activated;
+  // AI 免费试用窗口（安装后 30 天，跨重装稳定）
+  const aiTrial = license.aiTrialStatus(resolveFirstInstall(), Date.now());
+  const aiTrialActive = !activated && aiTrial.active; // 已激活用户不再走试用口径
+  // AI 解锁条件：已激活（未过期）或 处于 30 天免费试用窗口内。
+  const aiUnlocked = activated || aiTrialActive;
   licenseState = {
     mode: license.overallMode(activated, trial),
     identity: activated ? lic.identity : '',
     tier,
     aiUnlocked,
+    aiTrialActive,
+    aiTrialDaysLeft: aiTrial.daysLeft,
+    aiTrialDays: license.AI_TRIAL_DAYS,
     daysLeft: trial.daysLeft,
     activated,
     expired,
@@ -242,6 +287,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     show: false,
+    title: '心镜 v' + app.getVersion(), // 顶部窗口标题固定为「心镜 v1.0.X」
     icon: path.join(BUILD_DIR, 'icon.png'),
     backgroundColor: '#f6f1ea',
     webPreferences: {
@@ -254,6 +300,12 @@ function createWindow() {
   });
 
   mainWindow.loadURL(`http://127.0.0.1:${PORT}/index.html`);
+
+  // 顶部窗口标题始终固定为「心镜 v1.0.X」，阻止各页面 document.title 覆盖
+  mainWindow.on('page-title-updated', (e) => {
+    e.preventDefault();
+    if (mainWindow) mainWindow.setTitle('心镜 v' + app.getVersion());
+  });
 
   mainWindow.webContents.on('preload-error', (ev, err) => {
     console.error('[preload-error] main window:', (err && err.stack) || err);
@@ -563,16 +615,25 @@ ipcMain.handle('xj:activate', (e, code) => {
   if (v.expired) {
     return { ok: false, error: '该激活码已过期（有效期至 ' + fmtDate(v.expiresAt) + '），请向开发者索取续费激活码。' };
   }
+  // 激活时叠加剩余的 30 天免费时间：非终身码才有意义（终身码本就无限）。
+  // 例：码有效期 1 年，用户在还剩 20 天免费期时激活 → 实际有效期 = 码有效期 + 20 天。
+  let finalExpires = v.expiresAt || 0;
+  let bonusDays = 0;
+  if (finalExpires !== 0) {
+    const aiTrial = license.aiTrialStatus(resolveFirstInstall(), Date.now());
+    bonusDays = aiTrial.daysLeft || 0;
+    if (bonusDays > 0) finalExpires = finalExpires + bonusDays * 86400000;
+  }
   try {
     fs.writeFileSync(
       path.join(userDataDir(), 'license.json'),
-      JSON.stringify({ identity: v.identity, tier: v.tier, machineCode: mc, activatedAt: Date.now(), expiresAt: v.expiresAt || 0 }, null, 2)
+      JSON.stringify({ identity: v.identity, tier: v.tier, machineCode: mc, activatedAt: Date.now(), expiresAt: finalExpires, codeExpiresAt: v.expiresAt || 0, bonusDays }, null, 2)
     );
   } catch (err) {
     return { ok: false, error: '保存激活信息失败：' + err.message };
   }
   computeState();
-  return { ok: true, identity: v.identity, tier: v.tier, expiresAt: v.expiresAt || 0, expired: false };
+  return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, expired: false };
 });
 
 ipcMain.on('xj:activationDone', () => {

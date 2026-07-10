@@ -238,11 +238,31 @@ App.initPage({
     if (!prompt) { App.showToast('请选择督导师或填写自定义提示词', 'error'); return; }
     const context = buildContext();
     if (!context.replace(/\s/g, '')) { App.showToast('请先填写逐字稿等会谈材料', 'error'); return; }
+    // 既往督导记录 → 长时程成长视角上下文
+    let history = '';
+    try {
+      if (typeof Store.buildSupervisionGrowthContext === 'function') {
+        history = Store.buildSupervisionGrowthContext(clientId, sessionId) || '';
+      }
+    } catch (e) { history = ''; }
+    const supName = sup ? sup.name : '自定义督导师';
     switchTab('ai');
-    addAiMessage('（AI 督导 · ' + (sup ? sup.name : '自定义督导师') + '）正在生成督导意见…', false);
-    AI.supervise(prompt, context, (res) => {
+    addAiMessage('（AI 督导 · ' + supName + (history ? ' · 已载入既往督导记录，将给出成长视角' : '') + '）正在生成督导意见…', false);
+    AI.supervise(prompt, context, history, (res) => {
       if (res.error) { App.showToast('督导生成失败：' + res.error, 'error'); return; }
       addAiMessage(res.content, false);
+      // 持久化为该来访者的督导档案，供后续督导纵向对照（自动积累成长轨迹）
+      try {
+        if (typeof Store.saveAiSupervision === 'function') {
+          Store.saveAiSupervision({
+            clientId: clientId,
+            sessionId: sessionId,
+            supervisorName: supName,
+            context: context,
+            content: res.content,
+          });
+        }
+      } catch (e) { /* 保存失败不影响展示 */ }
     });
   };
 

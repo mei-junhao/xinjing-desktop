@@ -47,7 +47,7 @@ try {
   console.error('[XJ] exposeInMainWorld __XJ_API__ FAILED:', (e && e.message) || e);
 }
 
-const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false, expired: false, expiresAt: 0 };
+const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false, aiTrialActive: false, aiTrialDaysLeft: 0, aiTrialDays: 30, expired: false, expiresAt: 0 };
 try {
   contextBridge.exposeInMainWorld('__XJ__', stateRef);
 } catch (e) {
@@ -122,8 +122,10 @@ try {
       txt = '激活码已过期：完整功能已锁定（含 AI 助手），请向开发者索取续费激活码 · 输入激活码解锁';
     } else if (state.mode === 'limited') {
       txt = '受限模式：仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印，AI 助手锁定 · 输入激活码解锁';
+    } else if (state.aiTrialActive) {
+      txt = `未激活 · AI 助手 / AI 督导 限时免费试用剩余 ${state.aiTrialDaysLeft} 天 · 现在激活可叠加剩余免费天数并长期解锁`;
     } else {
-      txt = `免费版 · 剩余 ${state.daysLeft} 天 · 基础功能可用，AI 助手等拓展功能需激活后解锁`;
+      txt = `免费版 · 剩余 ${state.daysLeft} 天 · AI 免费试用已结束，AI 助手 / 督导需激活后解锁`;
     }
     bar.innerHTML = `<span class="xj-txt">${txt}</span>`;
     const btn = document.createElement('button');
@@ -197,9 +199,12 @@ try {
     } else if (state.mode === 'limited') {
       title = '受限模式（未激活）';
       detail = '仅可管理前 5 位来访者与 50 条督导记录（超出只读），禁止导出/打印，AI 助手锁定。';
+    } else if (state.aiTrialActive) {
+      title = `未激活 · AI 免费试用中（剩余 ${state.aiTrialDaysLeft} 天）`;
+      detail = `安装后 ${state.aiTrialDays} 天内 AI 助手 / AI 督导免费无限制使用。现在激活可把剩余 ${state.aiTrialDaysLeft} 天叠加到激活码有效期，并长期解锁全部功能。`;
     } else {
       title = `试用版（剩余 ${state.daysLeft} 天）`;
-      detail = '免费版：基础个案管理可用，AI 助手等拓展功能需激活后解锁。';
+      detail = '免费版：基础个案管理可用，AI 免费试用已结束，AI 助手 / 督导需激活后解锁。';
     }
     const expText = (state.expiresAt && state.expiresAt !== 0)
       ? '有效期至 ' + fmtDate(state.expiresAt)
