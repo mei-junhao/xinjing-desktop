@@ -28,8 +28,6 @@
   function genId() { return 'mc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function nowISO() { return new Date().toISOString(); }
   function accentOf(master) { return ACCENT_VAR[master.accent] || 'var(--accent)'; }
-  function aiUnlocked() { try { return !!(window.__XJ__ && window.__XJ__.aiUnlocked); } catch (e) { return false; } }
-
   function masterName(key) {
     const m = window.getMasterByKey && getMasterByKey(key);
     return m ? m.name : key;
@@ -162,7 +160,7 @@
   // ---------- 发送 ----------
   window.sendMessage = function () {
     if (busy) return;
-    if (!aiUnlocked()) { applyAiLock(); App.showToast('AI 对话为付费功能，请先激活', 'error'); return; }
+    if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 对话为付费功能，请先激活', 'error'); return; }
 
     const input = $('msg-input');
     const text = (input.value || '').trim();
@@ -329,20 +327,13 @@
 
   // ---------- AI 锁 ----------
   function applyAiLock() {
-    const apply = () => {
-      const lock = $('ai-lock');
-      if (!lock) return;
-      if (aiUnlocked()) lock.classList.add('hidden');
-      else lock.classList.remove('hidden');
-    };
-    apply();
-    setTimeout(apply, 400);
-    setTimeout(apply, 1200);
+    const lock = $('ai-lock');
+    if (!lock) return;
+    if (App.aiUnlocked()) lock.classList.add('hidden');
+    else lock.classList.remove('hidden');
   }
-  // 主进程激活后实时刷新 AI 锁（跨 realm 经桥接方法订阅）
-  if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
-    window.__XJ_API__.onLicenseState(() => { try { applyAiLock(); } catch (e) {} });
-  }
+  // 页面加载时刷新；激活广播后由 App 统一回调刷新
+  App.onLicenseStateChange(() => { try { applyAiLock(); } catch (e) {} });
   function openActivation() {
     if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation();
   }

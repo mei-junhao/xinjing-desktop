@@ -18,6 +18,48 @@ const App = (() => {
     } catch (e) { /* localStorage 不可用时忽略 */ }
   })();
 
+  // 激活档位 → 侧边栏「心」字 logo 变色（pro / 旧完整版 full = 金，custom 旗舰 = 彩）
+  // 注意：preload 暴露的 window.__XJ__ 是初始化快照，激活后不会自动同步；
+  // 我们改成通过 __XJ_API__.getState() 拉取权威状态并缓存，各页读 App.aiUnlocked()/App.getLicenseState()。
+  let licenseStateCache = (window.__XJ__ && typeof window.__XJ__ === 'object' ? { ...window.__XJ__ } : {});
+  const licenseStateCallbacks = [];
+
+  function updateLicenseState(state) {
+    if (state && typeof state === 'object') licenseStateCache = state;
+    applyTierMark();
+    licenseStateCallbacks.forEach((cb) => { try { cb(licenseStateCache); } catch (e) {} });
+  }
+
+  async function refreshLicenseState() {
+    try {
+      if (window.__XJ_API__ && typeof window.__XJ_API__.getState === 'function') {
+        const state = await window.__XJ_API__.getState() || {};
+        updateLicenseState(state);
+      }
+    } catch (e) { console.warn('[App] refreshLicenseState failed', e); }
+  }
+
+  function aiUnlocked() {
+    return !!(licenseStateCache && licenseStateCache.aiUnlocked);
+  }
+
+  function onLicenseStateChange(cb) {
+    if (typeof cb === 'function') licenseStateCallbacks.push(cb);
+  }
+
+  function getLicenseState() {
+    return licenseStateCache;
+  }
+
+  function applyTierMark() {
+    const mark = document.querySelector('.brand .mark');
+    if (!mark) return;
+    const tier = licenseStateCache.tier || 'free';
+    mark.classList.remove('tier-pro', 'tier-custom', 'tier-full');
+    if (tier === 'pro' || tier === 'full') mark.classList.add('tier-pro');
+    else if (tier === 'custom') mark.classList.add('tier-custom');
+  }
+
   const NAV_ITEMS = [
     { key: 'dashboard', label: '工作台', icon: 'home', href: 'index.html' },
     { key: 'clients', label: '来访者', icon: 'clients', href: 'clients.html' },
@@ -118,8 +160,12 @@ const App = (() => {
     opts = opts || {};
     if (opts.title) {
       injectLayout(opts.title, opts.subtitle || '', opts.actions || '');
+      applyTierMark(); // 侧边栏注入后按当前档位给「心」字 logo 上色（初始快照）
     }
     bindModalClose('confirm-modal');
+
+    // 在页面逻辑运行前，通过 IPC 拉取权威授权状态，避免 window.__XJ__ 快照未同步导致 AI 锁误判
+    await refreshLicenseState();
 
     // 确保数据已从 IndexedDB 载入内存缓存（对外仍是同步读写）
     if (window.Store && typeof Store.hydrate === 'function') {
@@ -130,6 +176,11 @@ const App = (() => {
       }
     }
     if (typeof opts.onReady === 'function') opts.onReady();
+
+    // 订阅主进程激活广播，后续状态变化自动刷新缓存并通知各页
+    if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+      window.__XJ_API__.onLicenseState((s) => { updateLicenseState(s); });
+    }
   }
 
   // ---------- 工具函数 ----------
@@ -301,6 +352,9 @@ const App = (() => {
     bindModalClose,
     confirmDialog,
     downloadFile,
+    aiUnlocked,
+    onLicenseStateChange,
+    getLicenseState,
   };
 })();
 

@@ -139,26 +139,14 @@ App.initPage({
   };
 
   // ---- AI 助手 ----
-  function aiUnlocked() {
-    try { return !!(window.__XJ__ && window.__XJ__.aiUnlocked); } catch (e) { return false; }
-  }
-
-  // 免费版锁定 AI 助手（含通用助手与 AI 督导）。重复校验以兼容授权状态异步加载。
   function applyAiLock() {
-    const apply = () => {
-      const lock = document.getElementById('ai-lock');
-      if (!lock) return;
-      if (aiUnlocked()) lock.classList.add('hidden');
-      else lock.classList.remove('hidden');
-    };
-    apply();
-    setTimeout(apply, 400);
-    setTimeout(apply, 1200);
+    const lock = document.getElementById('ai-lock');
+    if (!lock) return;
+    if (App.aiUnlocked()) lock.classList.add('hidden');
+    else lock.classList.remove('hidden');
   }
-  // 主进程激活后实时刷新 AI 锁（跨 realm 经桥接方法订阅）
-  if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
-    window.__XJ_API__.onLicenseState(() => { try { applyAiLock(); } catch (e) {} });
-  }
+  // 页面加载时即刷新一次；激活广播后由 App 统一回调刷新
+  App.onLicenseStateChange(() => { try { applyAiLock(); } catch (e) {} });
 
   function openActivation() {
     if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation();
@@ -201,7 +189,7 @@ App.initPage({
   }
 
   window.aiGenerate = function (type) {
-    if (!aiUnlocked()) { applyAiLock(); App.showToast('AI 助手为付费功能，请先激活', 'error'); return; }
+    if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 助手为付费功能，请先激活', 'error'); return; }
     const transcript = document.getElementById('t-transcript').value.trim();
     if (!transcript && type !== 'next') {
       App.showToast('请先填写逐字稿', 'error');
@@ -220,7 +208,7 @@ App.initPage({
   };
 
   window.aiSend = function () {
-    if (!aiUnlocked()) { applyAiLock(); App.showToast('AI 助手为付费功能，请先激活', 'error'); return; }
+    if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 助手为付费功能，请先激活', 'error'); return; }
     const input = document.getElementById('ai-input');
     const text = input.value.trim();
     if (!text) return;
@@ -234,7 +222,7 @@ App.initPage({
 
   // AI 督导：用所选督导师身份（或自定义提示词）基于会谈材料生成督导意见
   window.aiSupervise = function () {
-    if (!aiUnlocked()) { applyAiLock(); App.showToast('AI 督导为付费功能，请先激活', 'error'); return; }
+    if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 督导为付费功能，请先激活', 'error'); return; }
     const sel = document.getElementById('ai-supervisor');
     const custom = document.getElementById('ai-custom-prompt').value.trim();
     const sup = sel ? Supervisors.getById(sel.value) : null;

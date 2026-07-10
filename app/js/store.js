@@ -207,6 +207,11 @@ const Store = (() => {
 
   function licenseMode() {
     try {
+      if (typeof window !== 'undefined' && window.App && typeof window.App.getLicenseState === 'function') {
+        const state = window.App.getLicenseState();
+        if (state && state.mode === 'limited') return 'limited';
+        return 'free';
+      }
       if (typeof window !== 'undefined' && window.__XJ__ && window.__XJ__.mode === 'limited') {
         return 'limited';
       }
@@ -214,9 +219,12 @@ const Store = (() => {
     return 'free'; // full / trial / web 版
   }
 
-  // AI 助手（含 AI 督导）是否解锁：仅受限模式且未激活 AI 时锁定
+  // AI 助手（含 AI 督导）是否解锁：优先读 App 的权威缓存，避免 preload 快照未同步
   function aiUnlocked() {
     try {
+      if (typeof window !== 'undefined' && window.App && typeof window.App.aiUnlocked === 'function') {
+        return window.App.aiUnlocked();
+      }
       if (typeof window !== 'undefined' && window.__XJ__) {
         return window.__XJ__.aiUnlocked !== false;
       }
