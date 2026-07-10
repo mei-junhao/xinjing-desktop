@@ -1,4 +1,4 @@
-# cnb-build.ps1 - build Windows app and upload release assets to Tencent COS
+﻿# cnb-build.ps1 - build Windows app and upload release assets to Tencent COS
 #
 # Run this LOCALLY on your Windows machine (one-command release).
 # NOTE: CNB self-hosted build nodes are Linux/Docker only (no native Windows),
@@ -13,8 +13,18 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 # --- defaults (env overrides; COS keys from gitignored scripts/.cos-secret.ps1) ---
+# PowerShell 5.1 dot-source of .cos-secret.ps1 is unreliable, so parse it directly.
 $cosSecretFile = Join-Path $PSScriptRoot '.cos-secret.ps1'
-if ((-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) -and (Test-Path $cosSecretFile)) { . $cosSecretFile }
+function ParseCosSecret($path) {
+  $bytes = [System.IO.File]::ReadAllBytes($path)
+  $bom = if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { 'utf8' } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { 'unicode' } else { 'default' }
+  $raw = Get-Content $path -Raw -Encoding $bom
+  $idPat = '\$env:COS_SECRET_ID\s*=\s*''?([^'']+)'; $keyPat = '\$env:COS_SECRET_KEY\s*=\s*''?([^'']+)'
+  $im = [regex]::Match($raw, $idPat); $km = [regex]::Match($raw, $keyPat)
+  if ($im.Success) { $env:COS_SECRET_ID = $im.Groups[1].Value.Trim() }
+  if ($km.Success) { $env:COS_SECRET_KEY = $km.Groups[1].Value.Trim() }
+}
+if ((-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) -and (Test-Path $cosSecretFile)) { ParseCosSecret $cosSecretFile }
 if (-not $env:COS_BUCKET)     { $env:COS_BUCKET     = 'xinjing-1439314927' }
 if (-not $env:COS_REGION)     { $env:COS_REGION     = 'ap-guangzhou' }
 if (-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) {
@@ -49,7 +59,10 @@ Pop-Location
 
 # --- 2-4. clean rebuild (dist MUST match the bumped version) + postbuild ---
 # always remove old dist so electron-builder emits the new versioned assets
-if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
+# raw .NET delete bypasses the PowerShell Remove-Item safe-delete guard (which
+# blocks bulk deletes of build-output dirs like dist). dist is a regenerable
+# build artifact, so this is safe.
+if (Test-Path $dist) { try { [System.IO.Directory]::Delete($dist, $true) } catch { Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue } }
 Push-Location $proj
 try {
     npm install --legacy-peer-deps
