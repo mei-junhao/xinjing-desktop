@@ -155,6 +155,10 @@ App.initPage({
     setTimeout(apply, 400);
     setTimeout(apply, 1200);
   }
+  // 主进程激活后实时刷新 AI 锁（跨 realm 经桥接方法订阅）
+  if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+    window.__XJ_API__.onLicenseState(() => { try { applyAiLock(); } catch (e) {} });
+  }
 
   function openActivation() {
     if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation();

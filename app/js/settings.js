@@ -343,6 +343,10 @@ App.initPage({
       '<div style="font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:4px">授权给：' + App.escapeHtml(state.identity) + (tierLabel ? ' · ' + tierLabel : '') + '</div>' +
       '<div style="font-size:13px;color:var(--muted);font-family:var(--sans)">' + expText + '</div>';
   }
+  // 主进程激活后实时刷新授权卡片与督导师锁（跨 realm 经桥接方法订阅）
+  if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+    window.__XJ_API__.onLicenseState(() => { try { renderLicenseInfo(); loadSupervisorUI(); } catch (e) {} });
+  }
 
     loadConfig();
     calcStorage();

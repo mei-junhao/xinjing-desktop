@@ -633,6 +633,12 @@ ipcMain.handle('xj:activate', (e, code) => {
     return { ok: false, error: '保存激活信息失败：' + err.message };
   }
   computeState();
+  // 实时把最新授权状态广播给所有打开的渲染窗口，使其立即解除 AI 锁定（无需依赖整页 reload）
+  try {
+    BrowserWindow.getAllWindows().forEach((w) => {
+      try { if (w && w.webContents) w.webContents.send('xj:license-state', licenseState); } catch (e) {}
+    });
+  } catch (e) { /* ignore */ }
   return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, expired: false };
 });
 

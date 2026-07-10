@@ -29,8 +29,12 @@ const api = {
   getMachineCode: () => ipcRenderer.invoke('xj:getMachineCode'),
   done: () => ipcRenderer.send('xj:activationDone'),
   saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
-  selectBackupFolder: () => ipcRenderer.invoke('xj:selectBackupFolder')
+  selectBackupFolder: () => ipcRenderer.invoke('xj:selectBackupFolder'),
+  // 订阅主进程激活后的状态广播，renderer 端可据此实时刷新解锁 UI（跨 realm 可用）
+  onLicenseState: (cb) => { if (typeof cb === 'function') stateListeners.push(cb); }
 };
+// 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
+const stateListeners = [];
 
 // 毫秒时间戳 → YYYY-MM-DD（0 视为终身）；与 main.js 的 fmtDate 对齐
 function fmtDate(ms) {
@@ -58,6 +62,9 @@ try {
   const isActivationPage = location.pathname.includes('activation.html');
   if (isActivationPage) return; // 激活页自行管理 UI
 
+  // 受限模式导出/打印锁的句柄，便于激活为完整模式后撤销
+  let lockClickHandler = null, origPrint = null;
+
   window.addEventListener('DOMContentLoaded', async () => {
     let state = {};
     try {
@@ -77,6 +84,46 @@ try {
     }
     if (state.mode !== 'full') injectSettingsPanel(state);
   });
+
+  // 激活成功后由主进程广播最新授权状态：无需整页 reload 即可实时刷新解锁 UI
+  ipcRenderer.on('xj:license-state', (e, s) => {
+    try {
+      if (s && typeof s === 'object') Object.assign(stateRef, s); // 渲染页读 window.__XJ__ 即时可见
+      refreshInjectedUI(s);
+      syncPageLocks(s);
+      stateListeners.forEach((cb) => { try { cb(s); } catch (err) {} });
+    } catch (err) { /* ignore */ }
+  });
+
+  // 直接在共享 DOM 上同步页面级锁（#ai-lock / #supervisor-lock-note）。
+  // contextIsolation 隔离 JS realm，但 DOM 共享，故此处操作对渲染页可见。
+  function syncPageLocks(state) {
+    const unlocked = !!(state && state.aiUnlocked);
+    const lock = document.getElementById('ai-lock');
+    if (lock) lock.classList.toggle('hidden', unlocked);
+    const supLock = document.getElementById('supervisor-lock-note');
+    if (supLock) supLock.classList.toggle('hidden', unlocked);
+  }
+  function removeEl(id) { const el = document.getElementById(id); if (el && el.parentNode) el.parentNode.removeChild(el); }
+  function clearInjected() {
+    ['xj-banner', 'xj-watermark', 'xj-notice', 'xj-lic-panel', 'xj-style'].forEach(removeEl);
+  }
+  function removeLockIfFull() {
+    if (lockClickHandler) { document.removeEventListener('click', lockClickHandler, true); lockClickHandler = null; }
+    if (origPrint) { window.print = origPrint; origPrint = null; }
+  }
+  // 依据新状态重建限制 UI：完整模式→全部移除并撤销导出/打印锁；否则按模式重新注入
+  function refreshInjectedUI(state) {
+    if (!state || typeof state !== 'object') return;
+    clearInjected();
+    removeLockIfFull();
+    if (state.mode === 'full') return;
+    injectStyles();
+    if (state.mode === 'limited') injectWatermark();
+    injectBanner(state);
+    if (state.mode === 'limited') { injectPageNotice(); lockExportPrint(); }
+    if (state.mode !== 'full') injectSettingsPanel(state);
+  }
 
   function injectStyles() {
     const css = `
@@ -109,6 +156,7 @@ try {
       padding:7px 18px;font-weight:700;cursor:pointer;}
     `;
     const tag = document.createElement('style');
+    tag.id = 'xj-style';
     tag.textContent = css;
     document.head.appendChild(tag);
   }
@@ -144,12 +192,13 @@ try {
   }
 
   function lockExportPrint() {
+    if (lockClickHandler) return; // 已加锁，避免重复绑定
     const isBlocked = (el) => {
       if (!el) return false;
       const t = (el.textContent || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '');
       return /导出|打印|export|print/i.test(t);
     };
-    document.addEventListener('click', (e) => {
+    lockClickHandler = (e) => {
       let el = e.target;
       while (el && el !== document.body) {
         if (isBlocked(el)) {
@@ -160,7 +209,9 @@ try {
         }
         el = el.parentElement;
       }
-    }, true);
+    };
+    document.addEventListener('click', lockClickHandler, true);
+    origPrint = window.print;
     window.print = function () {
       alert('当前为受限模式，激活后可打印。');
     };
