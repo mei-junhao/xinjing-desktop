@@ -1,6 +1,6 @@
 {
   "name": "xinjing",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "心镜 XinJing — 心理咨询本地管理工作台（桌面版）",
   "author": "Mei",
   "main": "main.js",
@@ -33,16 +33,22 @@
     "files": [
       "main.js",
       "preload.js",
+      "confirm-close-preload.js",
       "license-core.js",
-      "app/**/*"
+      "secret.generated.js",
+      "app/**/*",
+      "build/**/*"
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
       "artifactName": "xinjing-setup-${version}.exe",
-      "useZip": true,
+      "useZip": false,
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,

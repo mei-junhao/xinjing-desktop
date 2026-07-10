@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const license = require('./license-core');
 const http = require('http');
@@ -23,10 +23,63 @@ let tray = null;
 let server = null;
 let PORT = 0;
 let activationWindow = null;
+let closeConfirmWin = null;
 let licenseState = null; // {mode, identity, daysLeft, activated, trialDays, version}
 
 // ---- 授权与试用状态 ----
 function userDataDir() { return app.getPath('userData'); }
+
+// 读取备份配置（渲染进程通过 IPC 写入 userData/backup-config.json）
+function loadBackupConfig() {
+  try {
+    const p = path.join(userDataDir(), 'backup-config.json');
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8')) || {};
+  } catch (e) { /* ignore */ }
+  return { locations: [], email: '', emailEnabled: false };
+}
+
+// 导出当前用户数据到「文档/心镜备份」+ 用户自定义多位置（多份容灾），用于退出/常驻时备份
+function exportBackup() {
+  try {
+    const src = userDataDir();                       // AppData\Local\XinJing（含 IndexedDB/激活/日记）
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const cfg = loadBackupConfig();
+    const targets = [];
+
+    // 1) 默认位置：文档\心镜备份（与安装目录隔离）
+    try {
+      const docs = app.getPath('documents');
+      const def = path.join(docs, '心镜备份', 'XinJing-' + ts);
+      fs.mkdirSync(path.dirname(def), { recursive: true });
+      fs.cpSync(src, def, { recursive: true });
+      targets.push(def);
+    } catch (e) { console.error('[backup] 默认位置失败:', (e && e.message) || e); }
+
+    // 2) 自定义多位置（多份容灾）
+    (cfg.locations || []).forEach((loc) => {
+      try {
+        const d = path.join(loc, 'XinJing-' + ts);
+        fs.mkdirSync(path.dirname(d), { recursive: true });
+        fs.cpSync(src, d, { recursive: true });
+        targets.push(d);
+      } catch (e) { console.error('[backup] 自定义位置失败:', loc, (e && e.message) || e); }
+    });
+
+    console.log('[backup] exported ->', targets.join(' | '));
+
+    // 3) 邮件提醒（mailto 兜底；真正的 SMTP 自动发送需 nodemailer + 邮箱 SMTP 凭据，见说明）
+    if (cfg.emailEnabled && cfg.email) {
+      try {
+        const body = encodeURIComponent('心镜数据已自动备份（' + ts + '）：\n' + targets.join('\n'));
+        shell.openExternal('mailto:' + cfg.email + '?subject=' + encodeURIComponent('心镜自动备份通知') + '&body=' + body);
+      } catch (e) { console.error('[backup] 邮件提醒失败:', (e && e.message) || e); }
+    }
+    return targets;
+  } catch (e) {
+    console.error('[backup] failed:', (e && e.message) || e);
+    return null;
+  }
+}
 function readTrialFirstLaunch() {
   try {
     const j = JSON.parse(fs.readFileSync(path.join(userDataDir(), 'trial.json'), 'utf8'));
@@ -117,7 +170,22 @@ function startStaticServer() {
         res.end('Internal Error');
       }
     });
-    server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+    // 固定端口：IndexedDB/localStorage 按 origin(含端口) 隔离，随机端口会导致每次启动数据"丢失"
+    const FIXED_PORT = 18765;
+    const onErr = (err) => {
+      if (err && err.code === 'EADDRINUSE') {
+        console.warn('[server] 固定端口 ' + FIXED_PORT + ' 被占用，回退随机端口（数据可能无法跨重启持久化）');
+        server.removeListener('error', onErr);
+        server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+      } else {
+        console.error('[server] 静态服务启动失败', err);
+      }
+    };
+    server.on('error', onErr);
+    server.listen(FIXED_PORT, '127.0.0.1', () => {
+      server.removeListener('error', onErr);
+      resolve(FIXED_PORT);
+    });
   });
 }
 
@@ -134,6 +202,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false, // preload 需用 require('electron')，须关闭沙箱（默认即 false，显式兜底）
       webSecurity: false, // 允许 AI 功能向外部 API 发请求（本地单用户工具，可接受）
       preload: path.join(__dirname, 'preload.js')
     }
@@ -141,16 +210,44 @@ function createWindow() {
 
   mainWindow.loadURL(`http://127.0.0.1:${PORT}/index.html`);
 
+  mainWindow.webContents.on('preload-error', (ev, err) => {
+    console.error('[preload-error] main window:', (err && err.stack) || err);
+  });
+
   mainWindow.once('ready-to-show', () => {
     if (mainWindow) mainWindow.show();
   });
 
-  // 关闭 → 最小化到托盘，而非退出
+  // 关闭 → 弹出美化版确认窗：后台常驻 or 完全退出
+  // 顶部自定义 ✕ 与 Alt+F4 均等同「后台常驻」（拒绝退出）
   mainWindow.on('close', (e) => {
-    if (!app.isQuiting && mainWindow) {
-      e.preventDefault();
-      mainWindow.hide();
-    }
+    if (app.isQuiting) return;            // 明确退出（托盘"退出"/确认选"完全退出"）不拦截
+    e.preventDefault();
+    if (closeConfirmWin) { try { closeConfirmWin.focus(); } catch (_) {} return; }
+    closeConfirmWin = new BrowserWindow({
+      width: 360,
+      height: 252,
+      parent: mainWindow,
+      modal: true,
+      frame: false,
+      resizable: false,
+      show: false,
+      backgroundColor: '#f6f1ea',
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        preload: path.join(__dirname, 'confirm-close-preload.js')
+      }
+    });
+    closeConfirmWin.webContents.on('preload-error', (ev, err) => {
+      console.error('[preload-error] close-confirm:', (err && err.stack) || err);
+    });
+    closeConfirmWin.loadURL(`http://127.0.0.1:${PORT}/confirm-close.html`);
+    closeConfirmWin.once('ready-to-show', () => { if (closeConfirmWin) closeConfirmWin.show(); });
+    // 用户直接关掉确认窗（Alt+F4 等）→ 等同「取消退出」：主窗口保持打开，不隐藏、不退
+    closeConfirmWin.on('close', () => { /* 取消退出由抉择逻辑处理，主窗口保持打开 */ });
+    closeConfirmWin.on('closed', () => { closeConfirmWin = null; });
   });
 
   mainWindow.on('show', () => {
@@ -179,6 +276,7 @@ function createTray() {
     {
       label: '退出',
       click: () => {
+        exportBackup();   // 托盘「退出」也是完全退出，同样先备份
         app.isQuiting = true;
         app.quit();
       }
@@ -218,9 +316,14 @@ function setupAutoUpdater() {
   // 路径与 electron-updater 的请求模型完全匹配，自动更新改走国内链路
   autoUpdater.setFeedURL({ provider: 'generic', url: 'https://xinjing-1439314927.cos.ap-guangzhou.myqcloud.com/' });
 
-  // 便携版（绿色免安装单文件）：走独立的 latest-portable.yml 更新通道，并就地自我替换
-  // electron-updater 6.x 不识别 portable 通道，也不具备 exe 自替换能力，这里手动补齐
-  const isPortable = !!process.env.PORTABLE_EXECUTABLE_FILE;
+  // 版本类型判定（决定走哪个更新通道）：
+  //   安装版（NSIS）→ 不设 channel → 读 latest.yml（其中 path 指向 xinjing-setup-x.y.z.exe）
+  //   便携版（绿色单文件）→ channel='latest-portable' → 读 latest-portable.yml（path 指向 portable 包）
+  // 判定优先级：① electron 便携环境变量（最高权威）；② 可执行文件名含 "portable"
+  //              （electron-builder 默认命名 xinjing-portable-x.y.z.exe）。两者都不命中 → 视为安装版
+  //              → 严格走 setup 更新，绝不误拉便携包覆盖安装版用户。
+  const isPortable = !!(process.env.PORTABLE_EXECUTABLE_FILE ||
+    /portable/i.test(path.basename(process.execPath)));
   if (isPortable) {
     autoUpdater.channel = 'latest-portable'; // 读取 latest-portable.yml 而非 latest.yml
     const fsMod = require('fs');
@@ -358,13 +461,47 @@ function openActivationWindow() {
     }
   });
   activationWindow.loadURL(`http://127.0.0.1:${PORT}/activation.html`);
+  activationWindow.webContents.on('preload-error', (ev, err) => {
+    console.error('[preload-error] activation window:', (err && err.stack) || err);
+  });
   activationWindow.on('closed', () => { activationWindow = null; });
 }
 
 // ---- 授权相关 IPC ----
 ipcMain.handle('xj:getState', () => licenseState || computeState());
+ipcMain.handle('xj:getVersion', () => app.getVersion());
+// 保存备份配置（多位置 + 邮箱），供 exportBackup 在退出/常驻时读取
+ipcMain.handle('xj:saveBackupConfig', (e, cfg) => {
+  try {
+    fs.writeFileSync(path.join(userDataDir(), 'backup-config.json'), JSON.stringify(cfg || {}));
+    return true;
+  } catch (err) { console.error('[backup-config] save failed', err.message); return false; }
+});
+// 选择备份文件夹（自定义多位置容灾）
+ipcMain.handle('xj:selectBackupFolder', async () => {
+  try {
+    const r = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'], title: '选择备份位置' });
+    return r.canceled ? null : (r.filePaths && r.filePaths[0]) || null;
+  } catch (err) { console.error('[backup] select folder failed', err.message); return null; }
+});
 
 ipcMain.on('xj:openActivation', () => openActivationWindow());
+
+// 关闭确认窗的抉择：cancel=取消退出(主窗口保持打开) / stay=后台常驻 / quit=完全退出
+ipcMain.on('xj:closeDecision', (ev, action) => {
+  if (closeConfirmWin) { try { closeConfirmWin.close(); } catch (_) {} closeConfirmWin = null; }
+  if (action === 'cancel') {
+    // 取消退出：仅关闭确认窗，主窗口保持原样打开，不隐藏、不退
+    return;
+  }
+  exportBackup();   // 完全退出 / 后台常驻 都先导出一份数据备份（落盘到文档/心镜备份 + 自定义位置）
+  if (action === 'quit') {
+    app.isQuiting = true;
+    app.quit();
+  } else {
+    if (mainWindow) mainWindow.hide();   // 后台常驻
+  }
+});
 
 ipcMain.handle('xj:activate', (e, code) => {
   const v = license.verifyKey(code);

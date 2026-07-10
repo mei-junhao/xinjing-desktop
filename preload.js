@@ -4,36 +4,49 @@
  *  - 向页面注入授权状态 window.__XJ__
  *  - 非完整模式时注入顶部横幅 / 水印 / 禁用导出打印
  *  - 暴露 window.__XJ_API__.openActivation() 打开激活窗口
+ *
+ * 注意：contextIsolation:true 下，preload 运行在 isolated world，主 world 的
+ * 渲染页通过 window.__XJ_API__ 访问桥。preload 内部一律用闭包常量 `api` 调用，
+ * 不依赖 window 代理的 realm 差异，避免 "reading 'openActivation' of undefined"。
  */
 'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// 桥接 API 用闭包常量保存：preload 内部只通过 api.* 调用，
+// 渲染页通过 contextBridge 暴露的 window.__XJ_API__ 访问。
+const api = {
+  openActivation: () => ipcRenderer.send('xj:openActivation'),
+  getState: () => ipcRenderer.invoke('xj:getState'),
+  getVersion: () => ipcRenderer.invoke('xj:getVersion'),
+  activate: (code) => ipcRenderer.invoke('xj:activate', code),
+  done: () => ipcRenderer.send('xj:activationDone'),
+  saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
+  selectBackupFolder: () => ipcRenderer.invoke('xj:selectBackupFolder')
+};
+
+try {
+  contextBridge.exposeInMainWorld('__XJ_API__', api);
+  console.log('[XJ] bridge __XJ_API__ exposed');
+} catch (e) {
+  console.error('[XJ] exposeInMainWorld __XJ_API__ FAILED:', (e && e.message) || e);
+}
+
+const stateRef = { mode: null, daysLeft: null, identity: null };
+try {
+  contextBridge.exposeInMainWorld('__XJ__', stateRef);
+} catch (e) {
+  console.error('[XJ] exposeInMainWorld __XJ__ FAILED:', (e && e.message) || e);
+}
+
 (function () {
   const isActivationPage = location.pathname.includes('activation.html');
-
-  // 授权状态容器：通过 contextBridge 暴露，DOMContentLoaded 后实时更新。
-  // 关键：main.js 开启了 contextIsolation:true，preload 的 window 与 renderer 的 window 是隔离的，
-  // 直接 window.__XJ__ = ... 不会出现在页面里，会导致 activation.html 访问
-  // window.__XJ_API__.activate 时报 "Cannot read properties of undefined (reading 'activate')"。
-  // 必须用 contextBridge.exposeInMainWorld 桥接。
-  const stateRef = { mode: null, daysLeft: null, identity: null };
-
-  contextBridge.exposeInMainWorld('__XJ_API__', {
-    openActivation: () => ipcRenderer.send('xj:openActivation'),
-    getState: () => ipcRenderer.invoke('xj:getState'),
-    activate: (code) => ipcRenderer.invoke('xj:activate', code),
-    done: () => ipcRenderer.send('xj:activationDone')
-  });
-
-  contextBridge.exposeInMainWorld('__XJ__', stateRef);
-
   if (isActivationPage) return; // 激活页自行管理 UI
 
   window.addEventListener('DOMContentLoaded', async () => {
     let state = {};
     try {
-      state = await ipcRenderer.invoke('xj:getState') || {};
+      state = await api.getState() || {};
     } catch (e) {
       state = {};
     }
@@ -95,7 +108,7 @@ const { contextBridge, ipcRenderer } = require('electron');
     bar.innerHTML = `<span class="xj-txt">${txt}</span>`;
     const btn = document.createElement('button');
     btn.textContent = '激活';
-    btn.onclick = () => window.__XJ_API__.openActivation();
+    btn.onclick = () => api.openActivation(); // 用闭包变量，规避 window 引用差异
     bar.appendChild(btn);
     document.body.appendChild(bar);
     // 给内容留顶边距，避免被横幅遮挡
@@ -165,7 +178,7 @@ const { contextBridge, ipcRenderer } = require('electron');
       `<button id="xj-lic-activate">输入激活码</button>`;
     mountInto(box);
     const btn = box.querySelector('#xj-lic-activate');
-    if (btn) btn.onclick = () => window.__XJ_API__.openActivation();
+    if (btn) btn.onclick = () => api.openActivation(); // 用闭包变量
   }
 
   function mountInto(el) {

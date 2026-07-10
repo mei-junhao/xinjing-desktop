@@ -218,7 +218,7 @@ function doImport(parsed) {
   const nameToId = plan.nameToId;
   const createdClients = [];
 
-  // 1. 确保来访者存在
+  // 1. 确保来访者存在（含计费信息：单价/结算方式/手动次数）
   parsed.clients.forEach((c) => {
     const name = c.name.trim();
     if (!nameToId[name]) {
@@ -226,6 +226,11 @@ function doImport(parsed) {
         name: c.name,
         status: c.status || 'active',
         tags: ['记账同步'],
+        billing: {
+          feePerSession: c.feePerSession || 0,
+          billingMode: c.billingMode || 'per-session',
+          manualSessions: c.manualSessions || 0,
+        },
         notes: [
           '来源：记账系统同步',
           '单价 ¥' + (c.feePerSession || 0),
@@ -235,6 +240,18 @@ function doImport(parsed) {
       });
       nameToId[name] = created.id;
       createdClients.push(created);
+    } else {
+      // 已存在：若缺计费信息则按导入值补全（不覆盖已有单价）
+      const ec = Store.getClient(nameToId[name]);
+      if (ec && (!ec.billing || !ec.billing.feePerSession) && c.feePerSession) {
+        Store.updateClient(ec.id, {
+          billing: Object.assign({}, ec.billing, {
+            feePerSession: c.feePerSession,
+            billingMode: ec.billing && ec.billing.billingMode ? ec.billing.billingMode : (c.billingMode || 'per-session'),
+            manualSessions: ec.billing && ec.billing.manualSessions ? ec.billing.manualSessions : (c.manualSessions || 0),
+          }),
+        });
+      }
     }
   });
 
@@ -255,6 +272,10 @@ function doImport(parsed) {
         date: r.date,
         durationMinutes: 0,
         type: 'individual',
+        billing: {
+          fee: r.feePerSession || 0,
+          paid: !!r.paid,
+        },
         notes: [
           '来源：记账系统同步',
           r.feePerSession ? '单价 ¥' + r.feePerSession : '',

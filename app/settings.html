@@ -72,11 +72,36 @@
           <p id="backup-time" style="font-size:12px;color:var(--muted);font-family:var(--sans)"></p>
         </div>
 
+        <!-- 备份设置（多位置容灾 + 邮件提醒） -->
+        <div class="section-title">备份设置</div>
+        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
+          <div style="font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:6px">自定义备份位置（多份容灾）</div>
+          <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:10px">
+            每次退出/常驻时，数据除默认备份到「文档\心镜备份」外，还会额外复制到你添加的每个位置（如移动硬盘、网盘同步目录），实现多份容灾。
+          </p>
+          <div id="backup-locations" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+          <button class="btn btn-ghost" onclick="addBackupLocation()" style="margin-bottom:14px">+ 添加备份位置</button>
+
+          <div class="form-row">
+            <label class="form-label">备份后邮件提醒至</label>
+            <input class="form-control" id="backup-email" placeholder="your@email.com" style="margin-bottom:8px">
+          </div>
+          <div class="form-row" style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="backup-email-on">
+            <label for="backup-email-on" style="font-size:13px;color:var(--text);font-family:var(--sans)">启用邮件提醒（完全退出/常驻后自动唤起邮件客户端，含备份路径）</label>
+          </div>
+          <p style="font-size:11.5px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin:8px 0 12px">
+            说明：真正「自动发送附件」需要邮箱 SMTP 服务（nodemailer + 发件凭据），当前以唤起你的邮件客户端并预填备份路径为准。如需真正的自动发送，提供邮箱 SMTP 信息后可再加。
+          </p>
+          <button class="btn btn-primary" onclick="saveBackupSettings()">保存备份设置</button>
+          <p id="backup-settings-msg" style="font-size:12px;color:var(--muted);font-family:var(--sans);margin-top:6px"></p>
+        </div>
+
         <!-- 关于 -->
         <div class="section-title">关于</div>
         <div class="list-card" style="padding:var(--gap-lg);cursor:default">
           <p style="font-size:14px;font-family:var(--sans);line-height:1.8">
-            心镜 XinJing v1.0<br>
+            心镜 XinJing <span id="app-version">v1.0.5</span><br>
             心理咨询个案管理系统（本地版）<br>
             纯前端 · 数据存于本机浏览器 · 不上云
           </p>
@@ -99,5 +124,17 @@
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
   <script src="js/settings.js"></script>
+  <script>
+    // 填充真实版本号（来自 package.json，经主进程桥接）
+    (function () {
+      try {
+        var el = document.getElementById('app-version');
+        if (el && window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
+          window.__XJ_API__.getVersion().then(function (v) { el.textContent = 'v' + v; })
+            .catch(function () { /* 保留兜底版本号 */ });
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
 </body>
 </html>

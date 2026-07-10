@@ -59,6 +59,7 @@
       <button class="ghost" id="cancel">取消</button>
       <button class="primary" id="activate">激活</button>
     </div>
+    <div class="msg" id="bridge-status"></div>
     <div class="msg" id="msg"></div>
     <div class="hint">未激活可使用 90 天试用，期间功能不受限；到期后进入受限模式，仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印。激活信息仅保存在本机用户目录，不会上传。</div>
   </div>
@@ -66,11 +67,27 @@
 <script>
   const $ = (id) => document.getElementById(id);
   const ta = $('code'), msg = $('msg'), btn = $('activate');
+  const bridgeStatus = $('bridge-status');
+  function refreshBridgeStatus() {
+    if (window.__XJ_API__ && typeof window.__XJ_API__.activate === 'function') {
+      bridgeStatus.className = 'msg ok';
+      bridgeStatus.textContent = '✓ 激活组件已就绪';
+    } else {
+      bridgeStatus.className = 'msg err';
+      bridgeStatus.textContent = '✗ 激活组件未加载（窗口桥接缺失）。请完全退出本程序（右键托盘图标 → 退出），再重新打开重试；仍不行请卸载并安装最新版。';
+    }
+  }
+  refreshBridgeStatus();
   $('cancel').onclick = () => window.__XJ_API__.done && window.close();
   ta.addEventListener('input', () => { msg.className='msg'; msg.textContent=''; });
   btn.onclick = async () => {
     const code = ta.value.trim();
     if (!code) { msg.className='msg err'; msg.textContent='请输入激活码。'; return; }
+    if (!window.__XJ_API__ || typeof window.__XJ_API__.activate !== 'function') {
+      msg.className='msg err';
+      msg.textContent='激活组件未加载（窗口桥接缺失）。请完全退出本程序（包括右下角托盘图标 → 右键「退出」），再重新打开后重试；若仍不行，请卸载并重新安装最新版。';
+      return;
+    }
     btn.disabled = true; msg.className='msg'; msg.textContent='正在验证…';
     try {
       const r = await window.__XJ_API__.activate(code);
@@ -84,7 +101,7 @@
         btn.disabled = false;
       }
     } catch (e) {
-      msg.className='msg err'; msg.textContent='验证失败：' + e.message;
+      msg.className='msg err'; msg.textContent='验证失败：' + (e && e.message ? e.message : e);
       btn.disabled = false;
     }
   };

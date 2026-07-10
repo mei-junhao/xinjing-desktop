@@ -111,6 +111,71 @@ App.initPage({
     document.getElementById('backup-time').textContent = t ? '上次备份：' + new Date(t).toLocaleString('zh-CN') : '尚未备份';
   }
 
+  // ---------- 备份设置（多位置容灾 + 邮件提醒） ----------
+  function getBackupConfig() {
+    const s = Store.getSettings().backup;
+    return s && typeof s === 'object'
+      ? { locations: s.locations || [], email: s.email || '', emailEnabled: !!s.emailEnabled }
+      : { locations: [], email: '', emailEnabled: false };
+  }
+  function renderBackupLocations() {
+    const cfg = getBackupConfig();
+    const box = document.getElementById('backup-locations');
+    if (!box) return;
+    if (!cfg.locations.length) {
+      box.innerHTML = '<div style="font-size:12px;color:var(--muted);font-family:var(--sans)">尚未添加自定义备份位置（默认仍备份到 文档\\心镜备份）</div>';
+      return;
+    }
+    box.innerHTML = cfg.locations.map((loc, i) =>
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--accent-soft);border-radius:var(--radius-sm);padding:8px 10px">' +
+        '<span style="font-size:12px;color:var(--text);font-family:var(--sans);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + App.escapeHtml(loc) + '</span>' +
+        '<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="removeBackupLocation(' + i + ')">移除</button>' +
+      '</div>'
+    ).join('');
+  }
+  window.loadBackupConfigUI = function () {
+    const cfg = getBackupConfig();
+    renderBackupLocations();
+    const emailEl = document.getElementById('backup-email');
+    const onEl = document.getElementById('backup-email-on');
+    if (emailEl) emailEl.value = cfg.email || '';
+    if (onEl) onEl.checked = !!cfg.emailEnabled;
+  };
+  window.addBackupLocation = async function () {
+    if (!window.__XJ_API__ || typeof window.__XJ_API__.selectBackupFolder !== 'function') {
+      App.showToast('备份文件夹选择不可用', 'error'); return;
+    }
+    const folder = await window.__XJ_API__.selectBackupFolder();
+    if (!folder) return;
+    const cfg = getBackupConfig();
+    if (cfg.locations.indexOf(folder) === -1) cfg.locations.push(folder);
+    Store.saveSettings({ backup: cfg });
+    renderBackupLocations();
+    App.showToast('已添加备份位置', 'success');
+  };
+  window.removeBackupLocation = function (i) {
+    const cfg = getBackupConfig();
+    cfg.locations.splice(i, 1);
+    Store.saveSettings({ backup: cfg });
+    renderBackupLocations();
+  };
+  window.saveBackupSettings = async function () {
+    const cfg = getBackupConfig();
+    const emailEl = document.getElementById('backup-email');
+    const onEl = document.getElementById('backup-email-on');
+    cfg.email = (emailEl && emailEl.value || '').trim();
+    cfg.emailEnabled = !!(onEl && onEl.checked);
+    Store.saveSettings({ backup: cfg });
+    try {
+      if (window.__XJ_API__ && typeof window.__XJ_API__.saveBackupConfig === 'function') {
+        await window.__XJ_API__.saveBackupConfig(cfg);
+      }
+    } catch (e) { /* ignore */ }
+    const msg = document.getElementById('backup-settings-msg');
+    if (msg) msg.textContent = '已保存 ✓';
+    App.showToast('备份设置已保存', 'success');
+  };
+
   // 外观：深色模式切换（偏好存于 localStorage，app.js 启动时统一应用）
   function isThemeDark() {
     return localStorage.getItem('xj_theme') === 'dark';
@@ -131,6 +196,7 @@ App.initPage({
     loadConfig();
     calcStorage();
     updateBackupTime();
+    loadBackupConfigUI();
     initThemeToggle();
   },
 });
