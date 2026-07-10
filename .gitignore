@@ -15,6 +15,11 @@ secret.generated.js
 version.generated.js
 keys.log
 
+# 激活码管理工具（开发者本地）：密钥与已发码记录、打包产物，不入库
+tools/license-admin/tool-config.json
+tools/license-admin/issued-codes.json
+tools/license-admin/dist/
+
 # 日志
 *.log
 pack.log

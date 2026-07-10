@@ -26,10 +26,19 @@ const api = {
   // 返回构建期注入的版本（不再经 IPC，避免运行时桥接失败退回写死兜底）
   getVersion: () => BUILD_VERSION,
   activate: (code) => ipcRenderer.invoke('xj:activate', code),
+  getMachineCode: () => ipcRenderer.invoke('xj:getMachineCode'),
   done: () => ipcRenderer.send('xj:activationDone'),
   saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
   selectBackupFolder: () => ipcRenderer.invoke('xj:selectBackupFolder')
 };
+
+// 毫秒时间戳 → YYYY-MM-DD（0 视为终身）；与 main.js 的 fmtDate 对齐
+function fmtDate(ms) {
+  if (!ms) return '终身';
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
 
 try {
   contextBridge.exposeInMainWorld('__XJ_API__', api);
@@ -38,7 +47,7 @@ try {
   console.error('[XJ] exposeInMainWorld __XJ_API__ FAILED:', (e && e.message) || e);
 }
 
-const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false };
+const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false, expired: false, expiresAt: 0 };
 try {
   contextBridge.exposeInMainWorld('__XJ__', stateRef);
 } catch (e) {
@@ -108,9 +117,14 @@ try {
     const bar = document.createElement('div');
     bar.id = 'xj-banner';
     if (state.mode === 'limited') bar.classList.add('limited');
-    const txt = state.mode === 'limited'
-      ? '受限模式：仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印，AI 助手锁定 · 输入激活码解锁'
-      : `免费版 · 剩余 ${state.daysLeft} 天 · 基础功能可用，AI 助手等拓展功能需激活后解锁`;
+    let txt;
+    if (state.expired) {
+      txt = '激活码已过期：完整功能已锁定（含 AI 助手），请向开发者索取续费激活码 · 输入激活码解锁';
+    } else if (state.mode === 'limited') {
+      txt = '受限模式：仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印，AI 助手锁定 · 输入激活码解锁';
+    } else {
+      txt = `免费版 · 剩余 ${state.daysLeft} 天 · 基础功能可用，AI 助手等拓展功能需激活后解锁`;
+    }
     bar.innerHTML = `<span class="xj-txt">${txt}</span>`;
     const btn = document.createElement('button');
     btn.textContent = '激活';
@@ -176,17 +190,28 @@ try {
       if (t === 'full') return '完整版（旧激活码）';
       return '';
     })(state.tier);
-    const title = state.mode === 'limited' ? '受限模式（未激活）' : `试用版（剩余 ${state.daysLeft} 天）`;
-    const detail = state.mode === 'limited'
-      ? '仅可管理前 5 位来访者与 50 条督导记录（超出只读），禁止导出/打印，AI 助手锁定。'
-      : '免费版：基础个案管理可用，AI 助手等拓展功能需激活后解锁。';
+    let title, detail;
+    if (state.expired) {
+      title = '激活码已过期';
+      detail = '完整功能（含 AI 助手）已锁定。请向开发者索取续费激活码后重新激活。';
+    } else if (state.mode === 'limited') {
+      title = '受限模式（未激活）';
+      detail = '仅可管理前 5 位来访者与 50 条督导记录（超出只读），禁止导出/打印，AI 助手锁定。';
+    } else {
+      title = `试用版（剩余 ${state.daysLeft} 天）`;
+      detail = '免费版：基础个案管理可用，AI 助手等拓展功能需激活后解锁。';
+    }
+    const expText = (state.expiresAt && state.expiresAt !== 0)
+      ? '有效期至 ' + fmtDate(state.expiresAt)
+      : (state.expiresAt === 0 && state.identity ? '终身有效' : '');
     const who = state.identity ? `授权给：${state.identity}${tierLabel ? ' · ' + tierLabel : ''}` : '尚未激活';
+    let rows = `<div class="xj-lic-row">${who}</div>` + `<div class="xj-lic-row">${detail}</div>`;
+    if (expText) rows += `<div class="xj-lic-row">${expText}</div>`;
     const box = document.createElement('div');
     box.id = 'xj-lic-panel';
     box.innerHTML =
       `<div class="xj-lic-title">${title}</div>` +
-      `<div class="xj-lic-row">${who}</div>` +
-      `<div class="xj-lic-row">${detail}</div>` +
+      rows +
       `<button id="xj-lic-activate">输入激活码</button>`;
     mountInto(box);
     const btn = box.querySelector('#xj-lic-activate');

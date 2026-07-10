@@ -312,11 +312,44 @@ App.initPage({
     if (sw) sw.setAttribute('aria-checked', String(isThemeDark()));
   }
 
+  function fmtDate(ms) {
+    if (!ms) return '终身';
+    const d = new Date(ms);
+    const p = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+
+  // 授权信息卡片：已激活用户展示档位与有效期；未激活给提示
+  async function renderLicenseInfo() {
+    const card = document.getElementById('license-info-card');
+    if (!card) return;
+    let state = {};
+    try { state = (await window.__XJ_API__.getState()) || {}; } catch (e) { state = {}; }
+    if (!state || state.mode !== 'full' || !state.identity) {
+      card.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:var(--sans);line-height:1.6">未激活。完整功能（含 AI 督导）需输入激活码解锁。</div>';
+      return;
+    }
+    const tierLabel = (function (t) {
+      if (t === 'pro') return '标准版 (Pro)';
+      if (t === 'custom') return '定制旗舰版 (Custom)';
+      if (t === 'full') return '完整版（旧激活码）';
+      return t || '';
+    })(state.tier);
+    const expText = (state.expiresAt && state.expiresAt !== 0)
+      ? ('有效期至 ' + fmtDate(state.expiresAt))
+      : '终身有效';
+    card.innerHTML =
+      '<div style="font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:6px">已激活</div>' +
+      '<div style="font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:4px">授权给：' + App.escapeHtml(state.identity) + (tierLabel ? ' · ' + tierLabel : '') + '</div>' +
+      '<div style="font-size:13px;color:var(--muted);font-family:var(--sans)">' + expText + '</div>';
+  }
+
     loadConfig();
     calcStorage();
     updateBackupTime();
     loadBackupConfigUI();
     loadSupervisorUI();
     initThemeToggle();
+    renderLicenseInfo();
   },
 });

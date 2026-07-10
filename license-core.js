@@ -100,33 +100,79 @@ function cleanKeyInput(key) {
 }
 
 // ---------- 对外 API ----------
-function encodeKey(identity, tier) {
+// encodeKey(identity, tier, machineCode, expiresAt)
+//   machineCode 为空 → 旧格式（仅 identity，向后兼容，视为终身）
+//   machineCode 非空 → 绑定机器码：sig = HMAC(id + "|" + mc + "|" + expiresAt)
+//   expiresAt: 毫秒时间戳；0 或省略 = 终身
+function encodeKey(identity, tier, machineCode, expiresAt) {
   let id = String(identity || '').trim().slice(0, 64);
   if (!id) throw new Error('身份标识不能为空');
   const t = (tier || '').toLowerCase();
   if (t === 'pro' || t === 'custom') id = t + ':' + id; // 把 tier 编码进 identity 前缀
-  const sig = hmacHex(id).slice(0, 32);
-  const raw = Buffer.from(id + '\n' + sig, 'utf8');
+  const mc = machineCode ? String(machineCode).trim() : '';
+  const exp = (typeof expiresAt === 'number' && expiresAt > 0) ? expiresAt : 0; // 0 = 终身
+  if (!mc) {
+    // 旧格式（无机器码绑定），终身，保持向后兼容
+    const sig = hmacHex(id).slice(0, 32);
+    const raw = Buffer.from(id + '\n' + sig, 'utf8');
+    const grouped = base32Encode(raw).match(/.{1,4}/g).join('-');
+    return 'XJ-' + grouped;
+  }
+  // 机器码绑定格式（含有效期）：id \n mc \n expiresAt \n sig
+  const sig = hmacHex(id + '|' + mc + '|' + String(exp)).slice(0, 32);
+  const raw = Buffer.from(id + '\n' + mc + '\n' + String(exp) + '\n' + sig, 'utf8');
   const grouped = base32Encode(raw).match(/.{1,4}/g).join('-');
   return 'XJ-' + grouped;
 }
 
-function verifyKey(key) {
+// verifyKey(key, machineCode)
+//   机器码绑定校验：码内机器码为空 → 不校验；非空 → 必须与当前机器码一致
+//   有效期：码内含 expiresAt（毫秒时间戳，0=终身）；expired 由当前时间判定
+//   返回 { valid, identity, tier, machineCode(码内), machineMatch, expiresAt, expired }
+function verifyKey(key, machineCode) {
+  const empty = { valid: false, identity: '', tier: 'free', machineCode: '', machineMatch: true, expiresAt: 0, expired: false };
   try {
     const clean = cleanKeyInput(key);
-    if (!clean) return { valid: false, identity: '', tier: 'free' };
+    if (!clean) return empty;
     const text = base32Decode(clean).toString('utf8');
-    const nl = text.indexOf('\n');
-    if (nl === -1) return { valid: false, identity: '', tier: 'free' };
-    const rawIdentity = text.slice(0, nl);
-    const sig = text.slice(nl + 1);
-    if (!rawIdentity || !sig) return { valid: false, identity: '', tier: 'free' };
-    const expected = hmacHex(rawIdentity).slice(0, 32);
-    const valid = sig === expected;
+    const parts = text.split('\n');
+    const rawIdentity = parts[0];
+    if (!rawIdentity) return empty;
+    const embeddedMc = parts.length >= 3 ? parts[1] : '';
+    let sig, expiresAt = 0;
+    if (parts.length >= 4) {
+      // 新格式：id \n mc \n expiresAt \n sig
+      expiresAt = parseInt(parts[2], 10) || 0;
+      sig = parts[3];
+    } else if (parts.length === 3) {
+      // 旧机器码格式（无有效期，视为终身）：id \n mc \n sig
+      sig = parts[2];
+    } else {
+      // 旧无机器码格式（视为终身）：id \n sig
+      sig = parts[1];
+    }
+    if (!sig) return empty;
+    const validSig = parts.length >= 4
+      ? sig === hmacHex(rawIdentity + '|' + embeddedMc + '|' + String(expiresAt)).slice(0, 32)
+      : (parts.length === 3
+        ? sig === hmacHex(rawIdentity + '|' + embeddedMc).slice(0, 32)
+        : sig === hmacHex(rawIdentity).slice(0, 32));
+    const currentMc = machineCode ? String(machineCode).trim() : '';
+    const machineMatch = (embeddedMc === '' || embeddedMc === currentMc);
+    const expired = (expiresAt !== 0 && Date.now() > expiresAt);
+    const valid = validSig && machineMatch;
     const sp = splitIdentity(rawIdentity);
-    return { valid, identity: sp.identity, tier: valid ? sp.tier : 'free' };
+    return {
+      valid,
+      identity: sp.identity,
+      tier: validSig ? sp.tier : 'free',
+      machineCode: embeddedMc,
+      machineMatch,
+      expiresAt,
+      expired,
+    };
   } catch (e) {
-    return { valid: false, identity: '', tier: 'free' };
+    return empty;
   }
 }
 

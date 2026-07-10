@@ -6,6 +6,8 @@ const license = require('./license-core');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const crypto = require('crypto');
 
 app.setName('XinJing'); // 用户数据目录固定为 .../XinJing/，稳定存放试用与激活信息
 
@@ -97,17 +99,52 @@ function ensureTrial() {
 function readLicense() {
   try {
     const j = JSON.parse(fs.readFileSync(path.join(userDataDir(), 'license.json'), 'utf8'));
-    if (j && j.identity && j.activatedAt) return j;
+    if (j && j.identity && j.activatedAt) {
+      return {
+        identity: j.identity,
+        tier: j.tier,
+        machineCode: j.machineCode,
+        activatedAt: j.activatedAt,
+        expiresAt: (typeof j.expiresAt === 'number' ? j.expiresAt : 0),
+      };
+    }
   } catch (e) { /* ignore */ }
   return null;
+}
+
+// 毫秒时间戳 → YYYY-MM-DD（0 视为终身）
+function fmtDate(ms) {
+  if (!ms) return '终身';
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+// 机器码：每台设备安装后稳定生成一次并持久化于 userData/machine.json。
+// 用于把激活码绑定到具体机器（一张码只能激活一台设备）。
+// 基于 hostname+username+homedir 哈希，重装后（同账号同机）仍保持一致。
+function getMachineCode() {
+  const p = path.join(userDataDir(), 'machine.json');
+  try {
+    const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (j && j.code) return j.code;
+  } catch (e) { /* ignore */ }
+  let raw = '';
+  try { raw = os.hostname() + '__' + os.userInfo().username + '__' + os.homedir(); } catch (e) { raw = 'xj-' + Math.random(); }
+  const code = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 16).toUpperCase();
+  try { fs.writeFileSync(p, JSON.stringify({ code })); } catch (e) { /* ignore */ }
+  return code;
 }
 function computeState() {
   const trial = license.trialStatus(ensureTrial(), Date.now());
   const lic = readLicense();
-  const activated = !!(lic && lic.identity && lic.activatedAt);
+  const activatedRaw = !!(lic && lic.identity && lic.activatedAt);
+  // 过期：已激活但 expiresAt 非 0 且已超过 → 视为未激活（完整功能锁定，含 AI 助手）
+  const expired = !!(lic && lic.expiresAt && lic.expiresAt !== 0 && Date.now() > lic.expiresAt);
+  const activated = activatedRaw && !expired;
   // 旧 license.json（升级前）无 tier 字段 → 视为完整版（祖父条款，权益等同 pro）
   const tier = (lic && lic.tier) ? lic.tier : (activated ? 'full' : 'free');
-  // AI 解锁条件：已激活且为付费分层（pro / custom / 旧 full）。免费/受限模式锁定 AI 助手。
+  // AI 解锁条件：已激活且未过期。免费/受限/过期模式锁定 AI 助手。
   const aiUnlocked = activated;
   licenseState = {
     mode: license.overallMode(activated, trial),
@@ -116,6 +153,8 @@ function computeState() {
     aiUnlocked,
     daysLeft: trial.daysLeft,
     activated,
+    expired,
+    expiresAt: (lic && lic.expiresAt) || 0,
     trialDays: license.TRIAL_DAYS,
     version: app.getVersion()
   };
@@ -509,21 +548,31 @@ ipcMain.on('xj:closeDecision', (ev, action) => {
   }
 });
 
+ipcMain.handle('xj:getMachineCode', () => getMachineCode());
+
 ipcMain.handle('xj:activate', (e, code) => {
-  const v = license.verifyKey(code);
+  const mc = getMachineCode();
+  const v = license.verifyKey(code, mc);
   if (!v.valid || !v.identity) {
+    // 区分「机器码不匹配」与「码无效」：前者是同一张码被拿到别的机器激活
+    if (v.machineCode && v.machineCode !== mc) {
+      return { ok: false, error: '激活码与本机机器码不匹配：该码已绑定到另一台设备。请向开发者索取绑定本机机器码的激活码。' };
+    }
     return { ok: false, error: '激活码无效，请核对后重试。' };
+  }
+  if (v.expired) {
+    return { ok: false, error: '该激活码已过期（有效期至 ' + fmtDate(v.expiresAt) + '），请向开发者索取续费激活码。' };
   }
   try {
     fs.writeFileSync(
       path.join(userDataDir(), 'license.json'),
-      JSON.stringify({ identity: v.identity, tier: v.tier, activatedAt: Date.now() }, null, 2)
+      JSON.stringify({ identity: v.identity, tier: v.tier, machineCode: mc, activatedAt: Date.now(), expiresAt: v.expiresAt || 0 }, null, 2)
     );
   } catch (err) {
     return { ok: false, error: '保存激活信息失败：' + err.message };
   }
   computeState();
-  return { ok: true, identity: v.identity, tier: v.tier };
+  return { ok: true, identity: v.identity, tier: v.tier, expiresAt: v.expiresAt || 0, expired: false };
 });
 
 ipcMain.on('xj:activationDone', () => {

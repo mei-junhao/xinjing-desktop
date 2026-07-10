@@ -35,6 +35,10 @@
     letter-spacing:1px;color:var(--ink);background:#fcfaf6;outline:none;
   }
   textarea:focus{border-color:var(--clay);box-shadow:0 0 0 3px rgba(156,90,60,.12);}
+  .mc-row{display:flex;gap:8px;margin-bottom:18px;}
+  .mc-row .mc{flex:1;border:1px dashed var(--line);border-radius:10px;padding:9px 12px;
+    font:600 13px/1.4 ui-monospace,"SFMono-Regular",Menlo,monospace;letter-spacing:1px;color:var(--muted);background:#fbf7f1;outline:none;}
+  .mc-row .mc-copy{flex:0 0 auto;width:auto;padding:0 18px;border-radius:10px;background:transparent;color:var(--clay);border:1px solid var(--line);}
   .actions{display:flex;gap:12px;margin-top:20px;}
   button{
     flex:1;border:0;border-radius:999px;padding:13px 0;font-weight:700;font-size:14px;cursor:pointer;
@@ -53,6 +57,11 @@
     <div class="brand"><div class="disc"></div><b>心镜 XinJing</b></div>
     <h1>输入激活码</h1>
     <p class="sub">激活后将解锁完整功能并移除水印与导出限制。激活码由开发者提供，离线即可验证。</p>
+    <label for="mc">本机机器码（发给开发者以索取绑定本机的激活码）</label>
+    <div class="mc-row">
+      <input id="mc" class="mc" readonly placeholder="加载中…" />
+      <button class="ghost mc-copy" id="mc-copy" type="button">复制</button>
+    </div>
     <label for="code">激活码（格式 XJ-XXXX-XXXX-…）</label>
     <textarea id="code" placeholder="XJ-XXXX-XXXX-XXXX-XXXX" spellcheck="false"></textarea>
     <div class="actions">
@@ -66,6 +75,12 @@
 
 <script>
   const $ = (id) => document.getElementById(id);
+  function fmtDate(ms) {
+    if (!ms) return '终身';
+    const d = new Date(ms);
+    const p = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
   const ta = $('code'), msg = $('msg'), btn = $('activate');
   const bridgeStatus = $('bridge-status');
   function refreshBridgeStatus() {
@@ -78,6 +93,24 @@
     }
   }
   refreshBridgeStatus();
+  // 加载并显示本机机器码（供发给开发者出绑定码）
+  (async () => {
+    const mcEl = $('mc'), copyBtn = $('mc-copy');
+    if (!window.__XJ_API__ || typeof window.__XJ_API__.getMachineCode !== 'function') {
+      mcEl.value = '（无法获取，请更新到最新版）'; copyBtn.disabled = true; return;
+    }
+    try {
+      const mc = await window.__XJ_API__.getMachineCode();
+      mcEl.value = mc || '（空）';
+      copyBtn.onclick = () => {
+        mcEl.select();
+        try { navigator.clipboard.writeText(mc); } catch (e) { document.execCommand('copy'); }
+        copyBtn.textContent = '已复制'; setTimeout(() => (copyBtn.textContent = '复制'), 1200);
+      };
+    } catch (e) {
+      mcEl.value = '（获取失败）'; copyBtn.disabled = true;
+    }
+  })();
   $('cancel').onclick = () => window.__XJ_API__.done && window.close();
   ta.addEventListener('input', () => { msg.className='msg'; msg.textContent=''; });
   btn.onclick = async () => {
@@ -96,7 +129,8 @@
         const tierLabel = (r.tier === 'custom') ? '定制旗舰版 (Custom)'
           : (r.tier === 'pro') ? '标准版 (Pro)'
           : (r.tier === 'full' || !r.tier) ? '完整版（旧激活码）' : '已激活';
-        msg.textContent = '激活成功！' + tierLabel + ' · 授权给：' + r.identity + '\n正在重启…';
+        const expText = (r.expiresAt && r.expiresAt !== 0) ? ('有效期至 ' + fmtDate(r.expiresAt)) : '终身有效';
+        msg.textContent = '激活成功！' + tierLabel + ' · 授权给：' + r.identity + '\n' + expText + '\n正在重启…';
         setTimeout(() => window.__XJ_API__.done(), 800);
       } else {
         msg.className='msg err';
