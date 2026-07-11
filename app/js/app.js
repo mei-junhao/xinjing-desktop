@@ -16,7 +16,21 @@ const App = (() => {
       const dark = t === 'dark' || (t === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.classList.toggle('dark', !!dark);
     } catch (e) { /* localStorage 不可用时忽略 */ }
+    // 皮肤引导：读取 localStorage 里的皮肤偏好，默认 editorial（v1.1.0 只有这一套）
+    try {
+      const skin = localStorage.getItem('xj_skin') || 'editorial';
+      document.documentElement.setAttribute('data-skin', skin);
+    } catch (e) { document.documentElement.setAttribute('data-skin', 'editorial'); }
   })();
+
+  // 皮肤管理（正交于 .dark 明暗切换）：skin=配色族，dark=明暗
+  const Theme = {
+    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'editorial'; } catch (e) { return 'editorial'; } },
+    setSkin: function (name) {
+      try { localStorage.setItem('xj_skin', name); } catch (e) {}
+      document.documentElement.setAttribute('data-skin', name);
+    },
+  };
 
   // 激活档位 → 侧边栏「心」字 logo 变色（pro / 旧完整版 full = 金，custom 旗舰 = 彩）
   // 注意：preload 暴露的 window.__XJ__ 是初始化快照，激活后不会自动同步；
@@ -355,6 +369,7 @@ const App = (() => {
     aiUnlocked,
     onLicenseStateChange,
     getLicenseState,
+    Theme,
   };
 })();
 

@@ -11,7 +11,9 @@ import os
 import json
 
 SRC = r"C:/Users/Administrator/WorkBuddy/2026-06-21-10-33-32/winnicott-chat/public"
-OUT = r"D:/xinjing-electron/app/js/supervisors.js"
+OUT_PROMPTS = r"D:/xinjing-electron/app/js/prompts.builtin.js"
+# (supervisors.js 不再由本脚本生成——提示词已外移到 prompts.builtin.js，
+#  supervisors.js 现在从 PromptsBuiltin 运行时解码引用，手维护.)
 
 
 def read_md(name):

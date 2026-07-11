@@ -18,11 +18,15 @@ const AI = (() => {
   // 四层 API 端点（可在设置中覆盖 baseUrl）
   // 默认走 OpenAI 兼容接口格式。注意：此处严禁出现 key / apiKey / token 字段。
   const DEFAULT_TIERS = [
-    { name: 'deepseek-pro', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Pro' },
-    { name: 'deepseek-flash', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Flash' },
-    { name: 'minimax-m3', path: '/v1/chat/completions', model: 'MiniMax-M3', label: 'MiniMax M3' },
-    { name: 'agnes', path: '/v1/chat/completions', model: 'agnes', label: 'Agnes' },
+    { name: 'deepseek-pro', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Pro', supportsTools: true },
+    { name: 'deepseek-flash', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Flash', supportsTools: true },
+    { name: 'minimax-m3', path: '/v1/chat/completions', model: 'MiniMax-M3', label: 'MiniMax M3', supportsTools: false },
+    { name: 'agnes', path: '/v1/chat/completions', model: 'agnes', label: 'Agnes', supportsTools: false },
   ];
+
+  // 已知支持 function-calling 的 model 名单（可扩展）。
+  // 最终判断以"解析后的 model 是否在此名单"为准，而非 tier.supportsTools（因为 ai.js:55 的实际模型由 modelPreference 决定，与 tier 解耦）。
+  const TOOL_CAPABLE_MODELS = ['deepseek-chat'];
 
   // 安全断言：本模块严禁内置任何密钥。若有人误在 DEFAULT_TIERS 写入 key 字段，立即拒绝加载。
   (function assertNoHardcodedKey() {
@@ -47,12 +51,37 @@ const AI = (() => {
     return settings.apiConfig || {};
   }
 
-  // 实际发送请求（单层）
-  async function callOnce(tier, apiKey, messages) {
+  // 解析 tier + config 得出实际发出的 model 名（与旧逻辑一致，L55）
+  function resolveModel(tier) {
+    const config = getConfig();
+    return config.modelPreference && config.modelPreference !== 'deepseek-pro' ? config.modelPreference : tier.model;
+  }
+
+  // 实际发送请求（单层）。
+  // options?: { tools?, tool_choice? } — 仅当传入且非空时条件注入 body。
+  // 返回值：整条 message 对象（保留 tool_calls），而非仅 content 字符串。
+  async function callOnce(tier, apiKey, messages, options) {
     const config = getConfig();
     const baseUrl = config.baseUrl || 'https://api.openai.com';
     const url = baseUrl.replace(/\/$/, '') + tier.path;
-    const model = config.modelPreference && config.modelPreference !== 'deepseek-pro' ? config.modelPreference : tier.model;
+    const model = resolveModel(tier);
+
+    // 若调用方传了 tools 但当前解析出的 model 不支持 function-calling，直接抛错让降级链跳过此层
+    if (options && options.tools && options.tools.length && !TOOL_CAPABLE_MODELS.includes(model)) {
+      throw new Error('模型 ' + model + ' 不支持工具调用（tool_calls），跳过此层');
+    }
+
+    const body = {
+      model,
+      messages,
+      temperature: 0.3,
+      max_tokens: config.maxTokens || 4000,
+    };
+    // 条件注入 tools / tool_choice（仅当传入且非空）
+    if (options && options.tools && options.tools.length) {
+      body.tools = options.tools;
+      if (options.tool_choice) body.tool_choice = options.tool_choice;
+    }
 
     const resp = await fetch(url, {
       method: 'POST',
@@ -60,12 +89,7 @@ const AI = (() => {
         'Content-Type': 'application/json',
         Authorization: 'Bearer ' + apiKey,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.3,
-        max_tokens: config.maxTokens || 4000,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!resp.ok) {
@@ -74,11 +98,13 @@ const AI = (() => {
     }
 
     const data = await resp.json();
-    return data.choices?.[0]?.message?.content || '';
+    // 返回整条 message 对象，保留 tool_calls（若有）
+    return data.choices?.[0]?.message || { content: '' };
   }
 
-  // 四层降级调用
-  async function callWithFallback(messages) {
+  // 四层降级调用。
+  // options?: { tools?, tool_choice? } — 透传给 callOnce；当 tools 存在时先按"解析 model ∈ TOOL_CAPABLE_MODELS"过滤候选档。
+  async function callWithFallback(messages, options) {
     const config = getConfig();
     // 密钥唯一来源：用户在设置页填写的 apiConfig.apiKey（本机 localStorage）。
     // 不读取任何 chat 项目密钥 / 环境变量 / 外部文件。
@@ -90,12 +116,24 @@ const AI = (() => {
       return { error: '未配置 API 端点，请到"设置"页配置' };
     }
 
-    const tiers = DEFAULT_TIERS;
+    // 当调用方传了 tools，先过滤候选档：只保留"解析后 model ∈ TOOL_CAPABLE_MODELS"的 tier
+    let tiers = DEFAULT_TIERS;
+    if (options && options.tools && options.tools.length) {
+      tiers = DEFAULT_TIERS.filter((t) => TOOL_CAPABLE_MODELS.includes(resolveModel(t)));
+      if (!tiers.length) {
+        return { error: '当前配置的模型不支持工具调用，请在设置中切换到 deepseek-chat 等支持模型' };
+      }
+    }
+
     let lastErr = null;
     for (let i = 0; i < tiers.length; i++) {
       try {
-        const content = await callOnce(tiers[i], apiKey, messages);
-        return { content, tier: tiers[i].label };
+        const message = await callOnce(tiers[i], apiKey, messages, options);
+        return {
+          content: message.content || '',
+          tool_calls: message.tool_calls,
+          tier: tiers[i].label,
+        };
       } catch (e) {
         lastErr = e;
         console.warn(`AI 层 ${tiers[i].label} 失败，尝试下一层`, e);
@@ -193,17 +231,18 @@ ${transcript}
 
   // 通用发送：接受一个完整的 messages 数组（可携带自定义 system 提示词、历史与摘要上下文）。
   // 大师对话 / 圆桌即使用此接口，传入大师人格 system prompt + 长时记忆摘要 + 对话历史。
-  function send(messages, callback) {
+  // options?: { tools?, tool_choice? } — 可选；不传时与旧行为字节等价（tool_calls 为 undefined）。
+  function send(messages, callback, options) {
     if (!Array.isArray(messages) || !messages.length) {
       callback({ error: '空消息' });
       return;
     }
-    callWithFallback(messages).then((res) => {
+    callWithFallback(messages, options).then((res) => {
       if (res.error) {
         callback({ error: res.error });
         return;
       }
-      callback({ content: res.content, tier: res.tier });
+      callback({ content: res.content, tier: res.tier, tool_calls: res.tool_calls });
     });
   }
 

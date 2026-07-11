@@ -243,7 +243,16 @@ App.initPage({
     const promptEl = document.getElementById('sup-prompt');
     const fileEl = document.getElementById('sup-prompt-file');
     if (nameEl) { nameEl.value = s.name; nameEl.readOnly = true; }
-    if (promptEl) { promptEl.value = s.prompt || ''; promptEl.readOnly = true; }
+    if (promptEl) {
+      // 内置督导师：不灌入方法论 prompt（保护 IP），显示占位文案
+      if (s.builtin) {
+        promptEl.value = '';
+        promptEl.placeholder = '内置方法论受保护，不可查看';
+      } else {
+        promptEl.value = s.prompt || '';
+      }
+      promptEl.readOnly = true;
+    }
     if (fileEl) fileEl.disabled = true;
     const formEl = document.getElementById('supervisor-form');
     if (formEl) formEl.classList.remove('hidden');
