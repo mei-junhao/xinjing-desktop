@@ -1,5 +1,8 @@
 /* ============================================================
    心镜 XinJing — 督导记录逻辑
+   - 手工记录（个体 / 团体督导）
+   - AI 督导（复刻 winnicott-chat ai-supervisor：女娲/仓颉版本切换、
+     先输出「整体印象」、再进入多轮督导对话；复用用户自有 API key 与四层降级）
    ============================================================ */
 
 App.initPage({
@@ -12,6 +15,7 @@ App.initPage({
     App.bindModalClose('sup-modal');
     let currentType = 'all';
 
+  // ===================== 手工记录 =====================
   window.setSupType = function (type) {
     currentType = type;
     document.querySelectorAll('#sup-type-filter .pill').forEach((p) => {
@@ -102,7 +106,7 @@ App.initPage({
 
     container.innerHTML = sups
       .map((sv) => {
-        const typeLabel = sv.type === 'group' ? '团体督导' : '个体督导';
+        const typeLabel = sv.type === 'group' ? '团体督导' : (sv.type === 'ai' ? 'AI 督导' : '个体督导');
         const names = (sv.sessionIds || [])
           .map((sid) => {
             const s = Store.getSession(sid);
@@ -142,5 +146,279 @@ App.initPage({
   };
 
     renderList();
+
+  // ===================== AI 督导 =====================
+  let spvMode = (localStorage.getItem('xj_spv_mode') || 'nvwa');
+  let spvSystem = '';
+  let chatMessages = [];     // [system, impression(assistant), ...user/assistant]
+  let loadedSession = null;  // { id, clientId }
+  let isGenerating = false;
+  let isSending = false;
+
+  window.switchSupTab = function (tab) {
+    const manual = tab === 'manual';
+    document.getElementById('tab-manual').classList.toggle('active', manual);
+    document.getElementById('tab-ai').classList.toggle('active', !manual);
+    document.getElementById('panel-manual').classList.toggle('hidden', !manual);
+    document.getElementById('panel-ai').classList.toggle('hidden', manual);
+    if (!manual) applyAiLock();
+  };
+
+  function refreshSpvSystem() {
+    spvSystem = (window.Supervisors && Supervisors.buildSystemPrompt(spvMode)) || '';
+  }
+
+  window.switchSpvMode = function (mode) {
+    spvMode = mode;
+    localStorage.setItem('xj_spv_mode', mode);
+    document.getElementById('spvNvwa').classList.toggle('active', mode === 'nvwa');
+    document.getElementById('spvCangjie').classList.toggle('active', mode === 'cangjie');
+    document.getElementById('spvHint').textContent = mode === 'nvwa'
+      ? '女娲版教你「怎么做督导」，仓颉版告诉你「我是怎么督导的」'
+      : '仓颉版以「认知植入」的方式，用数十年督导经历里的信念与伤疤来看临床问题';
+    refreshSpvSystem();
+    // 若已有对话，刷新 system 消息，使后续回复跟随新版本
+    if (chatMessages.length && chatMessages[0].role === 'system') {
+      chatMessages[0].content = spvSystem;
+    }
+  };
+
+  window.aiHandleFile = function (input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      const ta = document.getElementById('aiMaterial');
+      const add = (reader.result || '').trim();
+      ta.value = (ta.value.trim() ? ta.value.trim() + '\n\n' : '') + add;
+      updateLenTip();
+    };
+    reader.readAsText(file);
+    input.value = '';
+  };
+
+  function populateSessionSelect() {
+    const sel = document.getElementById('aiSessionSel');
+    if (!sel) return;
+    const sessions = Store.getSessions();
+    const opts = ['<option value="">载入会谈…</option>'].concat(sessions.map((s) => {
+      const c = Store.getClient(s.clientId);
+      const name = c ? c.name : '?';
+      return `<option value="${s.id}">${App.escapeHtml(name)} · 第${s.sessionNumber}节 (${App.formatDate(s.date, true)})</option>`;
+    }));
+    sel.innerHTML = opts.join('');
+  }
+
+  window.aiLoadSession = function (id) {
+    const sel = document.getElementById('aiSessionSel');
+    if (!id) { loadedSession = null; return; }
+    const s = Store.getSession(id);
+    if (!s) { loadedSession = null; return; }
+    loadedSession = { id: s.id, clientId: s.clientId || '' };
+    const parts = [];
+    if (s.transcript && s.transcript.trim()) parts.push('【逐字稿】\n' + s.transcript.trim());
+    if (s.soap && (s.soap.subjective || s.soap.objective || s.soap.assessment || s.soap.plan)) {
+      parts.push('【SOAP】\n' + [s.soap.subjective, s.soap.objective, s.soap.assessment, s.soap.plan].filter(Boolean).join('\n'));
+    }
+    if (s.reflection && s.reflection.trim()) parts.push('【咨询师反思】\n' + s.reflection.trim());
+    const c = Store.getClient(s.clientId);
+    const header = `【来访者】${c ? c.name : '?'} · 第${s.sessionNumber}节 · ${App.formatDate(s.date, true)}\n`;
+    document.getElementById('aiMaterial').value = header + parts.join('\n\n');
+    updateLenTip();
+    App.showToast('已载入会谈材料', 'success');
+  };
+
+  function updateLenTip() {
+    const tip = document.getElementById('aiLenTip');
+    if (!tip) return;
+    const len = (document.getElementById('aiMaterial').value || '').length;
+    if (len > 8000) {
+      tip.style.color = 'var(--red)';
+      tip.textContent = `已输入 ${len} 字，偏长，可能影响分析质量`;
+    } else if (len > 4000) {
+      tip.style.color = 'var(--muted)';
+      tip.textContent = `已输入 ${len} 字，建议控制在 4000 字内以确保分析质量`;
+    } else {
+      tip.style.color = 'var(--muted)';
+      tip.textContent = len ? `已输入 ${len} 字` : '';
+    }
+  }
+
+  window.generateImpression = function () {
+    if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 督导为付费功能，请先激活', 'error'); return; }
+    const ack = document.getElementById('aiAck');
+    if (!ack.checked) { App.showToast('请先勾选「我已阅读并理解上述说明」', 'error'); ack.focus(); return; }
+    const text = document.getElementById('aiMaterial').value.trim();
+    if (!text) { App.showToast('请粘贴或上传临床材料', 'error'); return; }
+
+    isGenerating = true;
+    const btn = document.getElementById('aiGenBtn');
+    btn.disabled = true; btn.textContent = '分析中……';
+    const box = document.getElementById('aiImpression');
+    const body = document.getElementById('aiImpressionBody');
+    box.classList.remove('hidden');
+    body.innerHTML = '<div class="chat-msg ai typing">阅读材料中……</div>';
+
+    refreshSpvSystem();
+    const prompt =
+      '你是一位资深临床督导师。请严格遵循你在系统提示中设定的督导风格与方法论框架，按照以下流程分析这份临床材料，输出一份"整体印象"。\n\n' +
+      '【第一步：材料识别】\n' +
+      '先判断材料类型（可同时属于多种）：\n' +
+      '- 逐字稿：含"T:"/"P:"等对话标记、引号内对话片段 → 策略：逐行精读\n' +
+      '- 案例报告：含"背景""诊断""治疗进程""主诉"等结构化描述 → 策略：案例概念化\n' +
+      '- 反移情困惑：含"我感觉""我不知道该怎么办""我很焦虑/无力/愤怒"等 → 策略：从反移情切入\n' +
+      '- 混合材料：同时出现多种特征 → 策略：反移情线索优先\n' +
+      '在开头用一句话声明你识别到的材料类型。\n\n' +
+      '【第二步：针对性输出】\n' +
+      '根据材料类型和你在系统提示中设定的方法论，选择合适的输出结构。做到具体、有针对性，不要套用通用模板。\n\n' +
+      '【第三步：风格】\n' +
+      '严格遵循系统提示中设定的督导风格和语调。\n\n' +
+      '【结尾要求】\n' +
+      '整体印象末尾必须包含：\n' +
+      '1. 一个向治疗师提出的开放性问题，促进其自主思考\n' +
+      '2. 一个简短的"可向真人督导澄清的问题清单"（2-3 条，用于治疗师在真实督导中提出）\n\n' +
+      '最终以这句话收尾："如果你愿意，我们可以就其中任何一点继续深入讨论。"\n\n' +
+      '临床材料：\n' + text;
+
+    const messages = [
+      { role: 'system', content: spvSystem },
+      { role: 'user', content: prompt },
+    ];
+
+    if (window.AI && AI.send) {
+      AI.send(messages, (res) => {
+        isGenerating = false;
+        btn.disabled = false; btn.textContent = '重新生成整体印象';
+        if (res && res.error) {
+          body.innerHTML = '<div class="chat-msg ai" style="color:var(--red)">生成失败：' + App.escapeHtml(res.error) + '</div>';
+          return;
+        }
+        const reply = (res && res.content) || '（未获得回复）';
+        body.innerHTML = App.escapeHtml(reply).replace(/\n/g, '<br>');
+        // 进入多轮对话：把整体印象作为首条 assistant 消息
+        chatMessages = [
+          { role: 'system', content: spvSystem },
+          { role: 'assistant', content: reply },
+        ];
+        document.getElementById('aiChat').classList.remove('hidden');
+        document.getElementById('aiSaveRow').classList.remove('hidden');
+        renderAiChat();
+      });
+    }
+  };
+
+  window.toggleImpression = function () {
+    const body = document.getElementById('aiImpressionBody');
+    const btn = document.querySelector('#aiImpression .toggle-btn');
+    const collapsed = body.style.display === 'none';
+    body.style.display = collapsed ? '' : 'none';
+    if (btn) btn.textContent = collapsed ? '收起 ▲' : '展开 ▼';
+  };
+
+  function renderAiChat() {
+    const box = document.getElementById('aiChatMsgs');
+    // 跳过 system[0] 与整体印象 assistant[1]（已在上方印象框展示）
+    const msgs = chatMessages.slice(2);
+    if (!msgs.length) { box.innerHTML = ''; return; }
+    box.innerHTML = msgs.map((m) =>
+      '<div class="chat-msg ' + (m.role === 'user' ? 'user' : 'ai') + '">' +
+      App.escapeHtml(m.content).replace(/\n/g, '<br>') + '</div>'
+    ).join('');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  window.aiSendChat = function () {
+    if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 督导为付费功能，请先激活', 'error'); return; }
+    const input = document.getElementById('aiChatInput');
+    const text = input.value.trim();
+    if (!text || isSending) return;
+    input.value = '';
+    chatMessages.push({ role: 'user', content: text });
+    renderAiChat();
+
+    const typing = document.createElement('div');
+    typing.className = 'chat-msg ai typing';
+    typing.textContent = '思考中……';
+    document.getElementById('aiChatMsgs').appendChild(typing);
+    document.getElementById('aiChatMsgs').scrollTop = document.getElementById('aiChatMsgs').scrollHeight;
+
+    isSending = true;
+    const sendBtn = document.getElementById('aiChatSend');
+    sendBtn.disabled = true;
+
+    if (window.AI && AI.send) {
+      AI.send(chatMessages.slice(), (res) => {
+        isSending = false;
+        sendBtn.disabled = false;
+        typing.remove();
+        if (res && res.error) {
+          chatMessages.push({ role: 'assistant', content: '（生成失败：' + res.error + '）' });
+          renderAiChat();
+          return;
+        }
+        const reply = (res && res.content) || '（未获得回复）';
+        chatMessages.push({ role: 'assistant', content: reply });
+        renderAiChat();
+      });
+    }
+  };
+
+  window.aiSaveSupervision = function () {
+    if (!chatMessages.length || chatMessages[0].role !== 'system') {
+      App.showToast('请先生成整体印象', 'error');
+      return;
+    }
+    const impression = chatMessages[1] && chatMessages[1].role === 'assistant' ? chatMessages[1].content : '';
+    const chat = chatMessages.slice(2).map((m) =>
+      (m.role === 'user' ? '咨询师：' : '督导师：') + m.content
+    ).join('\n\n');
+    const material = document.getElementById('aiMaterial').value.trim();
+    const modeName = spvMode === 'cangjie' ? '温尼科特取向督导师 · 仓颉版' : '温尼科特取向督导师 · 女娲版';
+    const full = '【整体印象】\n' + impression + (chat ? '\n\n【督导对话】\n' + chat : '');
+    try {
+      if (typeof Store.saveAiSupervision === 'function') {
+        Store.saveAiSupervision({
+          supervisorName: modeName,
+          clientId: loadedSession ? loadedSession.clientId : '',
+          sessionId: loadedSession ? loadedSession.id : '',
+          context: material,
+          content: full,
+        });
+        App.showToast('已保存为督导记录', 'success');
+      }
+    } catch (e) {
+      App.showToast(e.message, 'error');
+    }
+  };
+
+  function applyAiLock() {
+    const lock = document.getElementById('ai-sup-lock');
+    if (!lock) return;
+    const unlocked = App.aiUnlocked();
+    if (unlocked) {
+      lock.classList.add('hidden');
+      document.getElementById('ai-sup').style.filter = '';
+      document.getElementById('ai-sup').style.pointerEvents = '';
+    } else {
+      lock.classList.remove('hidden');
+    }
+  }
+
+  window.openActivation = function () {
+    if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation();
+  };
+
+  // AI 督导初始化
+  populateSessionSelect();
+  document.getElementById('aiAck').checked = localStorage.getItem('xj_ai_sup_ack') === '1';
+  document.getElementById('aiAck').addEventListener('change', function () {
+    localStorage.setItem('xj_ai_sup_ack', this.checked ? '1' : '0');
+  });
+  const mat = document.getElementById('aiMaterial');
+  if (mat) mat.addEventListener('input', updateLenTip);
+  switchSpvMode(spvMode);
+  applyAiLock();
+  App.onLicenseStateChange(function () { try { applyAiLock(); } catch (e) {} });
+
   },
 });

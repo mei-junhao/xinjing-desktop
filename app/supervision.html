@@ -14,15 +14,91 @@
         <div id="page-header"></div>
       </header>
       <div class="content">
-        <div class="toolbar">
-          <div class="filter-group" id="sup-type-filter">
-            <span class="flabel">类型</span>
-            <span class="pill active" data-type="all" onclick="setSupType('all')">全部</span>
-            <span class="pill" data-type="individual" onclick="setSupType('individual')">个体督导</span>
-            <span class="pill" data-type="group" onclick="setSupType('group')">团体督导</span>
+        <div class="sup-tabs">
+          <button class="sup-tab active" id="tab-manual" onclick="switchSupTab('manual')">手工记录</button>
+          <button class="sup-tab" id="tab-ai" onclick="switchSupTab('ai')">AI 督导</button>
+        </div>
+
+        <!-- 手工记录面板 -->
+        <div id="panel-manual">
+          <div class="toolbar">
+            <div class="filter-group" id="sup-type-filter">
+              <span class="flabel">类型</span>
+              <span class="pill active" data-type="all" onclick="setSupType('all')">全部</span>
+              <span class="pill" data-type="individual" onclick="setSupType('individual')">个体督导</span>
+              <span class="pill" data-type="group" onclick="setSupType('group')">团体督导</span>
+            </div>
+          </div>
+          <div id="sup-list"></div>
+        </div>
+
+        <!-- AI 督导面板（复刻 winnicott-chat ai-supervisor：版本切换 + 整体印象 + 多轮督导对话） -->
+        <div id="panel-ai" class="hidden">
+          <div class="ai-sup-relative">
+            <div class="ai-sup" id="ai-sup">
+              <div class="ai-sup-bar">
+                <div class="spv-switch">
+                  <button class="spv-mode active" id="spvNvwa" onclick="switchSpvMode('nvwa')">女娲版</button>
+                  <button class="spv-mode" id="spvCangjie" onclick="switchSpvMode('cangjie')">仓颉版</button>
+                </div>
+                <div class="spv-mode-hint" id="spvHint">女娲版教你「怎么做督导」，仓颉版告诉你「我是怎么督导的」</div>
+              </div>
+
+              <div class="ai-disclaimer">
+                本 AI 督导基于温尼科特框架的方法论，<b>不能替代真人督导</b>，仅供临床参考；涉及自伤/伤人、儿童保护等危机情境，请直接联系真人督导师。
+                <label class="ack"><input type="checkbox" id="aiAck"> 我已阅读并理解上述说明</label>
+              </div>
+
+              <div class="ai-material">
+                <div class="ai-material-head">
+                  <span>临床材料（逐字稿 / 案例报告 / 反移情困惑）</span>
+                  <span class="ai-material-tools">
+                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('aiFile').click()">上传 .txt/.md</button>
+                    <input type="file" id="aiFile" accept=".txt,.md" style="display:none" onchange="aiHandleFile(this)">
+                    <select id="aiSessionSel" class="form-control" onchange="aiLoadSession(this.value)">
+                      <option value="">载入会谈…</option>
+                    </select>
+                  </span>
+                </div>
+                <textarea id="aiMaterial" class="form-control" style="min-height:170px" placeholder="粘贴逐字稿、案例报告，或描述你的反移情困惑……"></textarea>
+                <div class="ai-len-tip" id="aiLenTip"></div>
+              </div>
+
+              <div class="ai-actions">
+                <button class="btn btn-primary" id="aiGenBtn" onclick="generateImpression()">生成整体印象</button>
+              </div>
+
+              <div id="aiImpression" class="ai-impression hidden">
+                <div class="imp-header">
+                  <h3>整体印象</h3>
+                  <button class="toggle-btn" onclick="toggleImpression()">收起 ▲</button>
+                </div>
+                <div class="imp-body" id="aiImpressionBody"></div>
+              </div>
+
+              <div id="aiChat" class="ai-chat hidden">
+                <div class="chat-msgs" id="aiChatMsgs"></div>
+                <div class="chat-input-row">
+                  <textarea id="aiChatInput" class="form-control" rows="1" placeholder="就整体印象中的内容继续讨论……" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSendChat()}"></textarea>
+                  <button class="btn btn-primary" id="aiChatSend" onclick="aiSendChat()">发送</button>
+                </div>
+              </div>
+
+              <div class="ai-save-row hidden" id="aiSaveRow">
+                <button class="btn btn-ghost" onclick="aiSaveSupervision()">保存为督导记录</button>
+              </div>
+            </div>
+
+            <div id="ai-sup-lock" class="ai-lock hidden">
+              <div class="lock-inner">
+                <div class="lock-emoji">🔒</div>
+                <div class="lock-title">AI 督导为付费功能</div>
+                <div class="lock-sub">激活后即可使用女娲版 / 仓颉版 AI 督导，输出整体印象并展开多轮督导对话。</div>
+                <button class="btn btn-primary btn-sm" onclick="openActivation()">去激活</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div id="sup-list"></div>
       </div>
     </main>
   </div>
@@ -86,6 +162,7 @@
 
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/supervisors.js"></script>
   <script src="js/supervision.js"></script>
 </body>
 </html>
