@@ -424,6 +424,41 @@ function archiveLegacyPorts(ports) {
   }
 }
 
+// 当前端口 orphan 预合并：consolidateIndexedDB 曾把「最大旧库」改名归档为 .orphan。
+// 若该 orphan 的端口正好是本次启动绑定的 PORT，临时同源服务会因端口冲突而绑不上、数据漏迁移。
+// 故在渲染进程打开 IndexedDB 之前，把它还原为规范名，使渲染进程直接以旧数据作为当前库打开。
+// 仅当规范库不存在、或规范库几乎为空（log < 100KB，说明尚无用户数据）时才覆盖，避免丢失当前记录。
+function preConsolidateCurrentPortOrphan(port) {
+  try {
+    const idbDir = path.join(userDataDir(), 'IndexedDB');
+    if (!fs.existsSync(idbDir)) return;
+    const orphanName = 'http_127.0.0.1_' + port + '.indexeddb.leveldb.orphan';
+    const orphanPath = path.join(idbDir, orphanName);
+    if (!fs.existsSync(orphanPath)) return;
+    const canonName = 'http_127.0.0.1_' + port + '.indexeddb.leveldb';
+    const canonPath = path.join(idbDir, canonName);
+    if (fs.existsSync(canonPath)) {
+      let maxLog = 0;
+      try {
+        for (const f of fs.readdirSync(canonPath)) {
+          if (f.endsWith('.log')) {
+            const s = fs.statSync(path.join(canonPath, f)).size;
+            if (s > maxLog) maxLog = s;
+          }
+        }
+      } catch (e) { /* ignore */ }
+      if (maxLog > 100 * 1024) {
+        console.log('[migrate] 当前端口规范库已有数据，跳过 orphan 预合并（端口', port, '）');
+        return;
+      }
+    }
+    fs.renameSync(orphanPath, canonPath);
+    console.log('[migrate] 预合并当前端口 orphan:', port);
+  } catch (e) {
+    console.error('[migrate] 预合并当前端口 orphan 失败', (e && e.message) || e);
+  }
+}
+
 // ---- 主窗口 ----
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -675,6 +710,9 @@ app.whenReady().then(async () => {
   }
   computeState(); // 启动即确定授权/试用状态
   PORT = await startStaticServer();
+  // 当前端口 orphan 预合并：渲染进程打开 IndexedDB 之前，先把「恰好是当前端口」的 .orphan 旧库还原，
+  // 否则它因端口冲突无法经临时服务迁移而永久丢失（store.js migrateOldPorts 负责其余非当前端口）。
+  preConsolidateCurrentPortOrphan(PORT);
   // 历史端口数据迁移已改由渲染进程在窗口加载后执行（store.js migrateOldPorts）：
   // 主进程仅负责扫描旧端口并在其上临时起同源服务、通知渲染进程，迁移完成后再归档旧库。
   createWindow();

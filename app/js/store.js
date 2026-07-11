@@ -784,6 +784,18 @@ const Store = (() => {
   }
 
   // ============================================================
+  // 旧端口迁移监听：主进程经 __XJ_API__ 通知后，自动把历史数据合并进当前库。
+  // 必须在 return 之前注册——此前误放在 return 之后成为死代码，导致迁移永不触发、
+  // 用户升级后历史数据完全不合并（20 版本暴露）。
+  if (typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.onLegacyPorts) {
+    window.__XJ_API__.onLegacyPorts((ports) => {
+      if (ports && ports.length) {
+        migrateOldPorts(ports).catch((e) => console.error('[migrate] 失败:', (e && e.message) || e));
+      }
+    });
+  }
+
+  // ============================================================
   // 公开接口
   // ============================================================
   return {
@@ -814,15 +826,6 @@ const Store = (() => {
     // 授权闸门
     licenseMode, aiUnlocked,
   };
-
-  // 注册旧端口迁移监听：主进程经 __XJ_API__ 通知后，自动把历史数据合并进当前库
-  if (typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.onLegacyPorts) {
-    window.__XJ_API__.onLegacyPorts((ports) => {
-      if (ports && ports.length) {
-        migrateOldPorts(ports).catch((e) => console.error('[migrate] 失败:', (e && e.message) || e));
-      }
-    });
-  }
 })();
 
 if (typeof window !== 'undefined') {
