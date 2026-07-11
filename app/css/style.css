@@ -115,6 +115,8 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
+/* 通用隐藏（供 settings/masters/session 等页的 classList.toggle('hidden') 使用） */
+.hidden { display: none !important; }
 body {
   font-family: var(--sans);
   font-size: 14px;
