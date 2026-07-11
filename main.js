@@ -81,6 +81,56 @@ function checkDataAnomaly() {
 }
 checkDataAnomaly();
 
+// ---- IndexedDB 端口碎片自愈合并（核心修复）----
+// 根因：前端经本地 http 服务加载，浏览器 IndexedDB/localStorage 按 origin(含端口) 隔离。
+// 早期构建每次启动用随机端口 → origin 变化 → 每次都读到一个全新的空库 =「历史全部丢失、像回到初始版本」。
+// 真实历史数据其实完整保存在旧端口对应的 leveldb 目录里，只是当前端口 origin 读不到。
+// 这里在窗口加载前，把体量最大的历史端口库内容合并进「当前实际绑定端口」的库，
+// 使历史记录不受端口变化影响而始终可见（即便某次回退到随机端口也能自动带回数据）。
+function consolidateIndexedDB(port) {
+  try {
+    const idbRoot = path.join(CANON_USER_DATA, 'IndexedDB');
+    if (!fs.existsSync(idbRoot)) return;
+    const re = /^http_127\.0\.0\.1_\d+\.indexeddb\.leveldb$/;
+    const dirs = fs.readdirSync(idbRoot).filter((n) => re.test(n));
+    if (!dirs.length) return;
+    const sizeOf = (d) => {
+      let s = 0;
+      try {
+        for (const f of fs.readdirSync(d)) {
+          try { const st = fs.statSync(path.join(d, f)); if (st.isFile()) s += st.size; } catch (e) { /* ignore */ }
+        }
+      } catch (e) { /* ignore */ }
+      return s;
+    };
+    const targetName = 'http_127.0.0.1_' + port + '.indexeddb.leveldb';
+    const targetPath = path.join(idbRoot, targetName);
+    const targetSize = fs.existsSync(targetPath) ? sizeOf(targetPath) : -1;
+    // 找体量最大的历史库（同尺寸取最新 mtime）
+    let best = null, bestSize = -1, bestMtime = 0;
+    for (const n of dirs) {
+      const p = path.join(idbRoot, n);
+      const s = sizeOf(p);
+      let m = 0; try { m = fs.statSync(p).mtimeMs; } catch (e) { /* ignore */ }
+      if (s > bestSize || (s === bestSize && m > bestMtime)) { bestSize = s; best = p; bestMtime = m; }
+    }
+    // 仅当最佳历史库不是当前端口库、且明显更大（>16KB 差异，排除空库噪声）时才合并
+    if (best && best !== targetPath && bestSize > targetSize + 16 * 1024) {
+      // 先把当前端口库移到 .orphan 备份（不删除，可回滚），再用最佳历史库内容覆盖
+      if (fs.existsSync(targetPath)) {
+        try {
+          const bak = targetPath + '.orphan-' + Date.now();
+          fs.renameSync(targetPath, bak);
+        } catch (e) { /* 若移动失败，直接尝试覆盖 */ }
+      }
+      fs.cpSync(best, targetPath, { recursive: true });
+      fs.writeFileSync(path.join(CANON_USER_DATA, 'idb-consolidated.json'),
+        JSON.stringify({ from: path.basename(best), to: targetName, bytes: bestSize, at: new Date().toISOString() }));
+      console.log('[idb] 已把历史数据合并进当前端口库:', targetName, '<-', path.basename(best), '(' + bestSize + ' bytes)');
+    }
+  } catch (e) { console.error('[idb] consolidate failed:', (e && e.message) || e); }
+}
+
 const APP_DIR = path.join(__dirname, 'app');
 const BUILD_DIR = path.join(__dirname, 'build');
 
@@ -330,22 +380,32 @@ function startStaticServer() {
         res.end('Internal Error');
       }
     });
-    // 固定端口：IndexedDB/localStorage 按 origin(含端口) 隔离，随机端口会导致每次启动数据"丢失"
-    const FIXED_PORT = 18765;
-    const onErr = (err) => {
-      if (err && err.code === 'EADDRINUSE') {
-        console.warn('[server] 固定端口 ' + FIXED_PORT + ' 被占用，回退随机端口（数据可能无法跨重启持久化）');
-        server.removeListener('error', onErr);
+    // 固定端口：IndexedDB/localStorage 按 origin(含端口) 隔离，端口一变=空库=历史"丢失"。
+    // 优先固定 18765；若被占用则按确定性候选列表逐个尝试（避免随机端口造成 origin 漂移），
+    // 仍全部失败才回退随机端口。无论最终绑定哪个端口，consolidateIndexedDB 都会把历史数据带过来。
+    const CANDIDATE_PORTS = [18765, 18766, 18767, 18768, 18769];
+    let idx = 0;
+    const tryNext = () => {
+      if (idx >= CANDIDATE_PORTS.length) {
+        console.warn('[server] 固定端口候选均被占用，回退随机端口（历史数据仍会由合并逻辑自动带回）');
+        server.removeAllListeners('error');
+        server.once('error', (e) => console.error('[server] 静态服务启动失败', e));
         server.listen(0, '127.0.0.1', () => resolve(server.address().port));
-      } else {
-        console.error('[server] 静态服务启动失败', err);
+        return;
       }
+      const p = CANDIDATE_PORTS[idx++];
+      server.removeAllListeners('error');
+      const onErr = (err) => {
+        if (err && err.code === 'EADDRINUSE') { tryNext(); }
+        else { console.error('[server] 静态服务启动失败', err); }
+      };
+      server.once('error', onErr);
+      server.listen(p, '127.0.0.1', () => {
+        server.removeListener('error', onErr);
+        resolve(p);
+      });
     };
-    server.on('error', onErr);
-    server.listen(FIXED_PORT, '127.0.0.1', () => {
-      server.removeListener('error', onErr);
-      resolve(FIXED_PORT);
-    });
+    tryNext();
   });
 }
 
@@ -600,6 +660,7 @@ app.whenReady().then(async () => {
   }
   computeState(); // 启动即确定授权/试用状态
   PORT = await startStaticServer();
+  consolidateIndexedDB(PORT); // 关键：窗口加载前，把历史端口库合并进当前端口库，防止「换端口=历史丢失」
   createWindow();
   createTray();
   enableAutoStart();
