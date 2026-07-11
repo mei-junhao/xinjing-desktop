@@ -329,8 +329,17 @@
   function applyAiLock() {
     const lock = $('ai-lock');
     if (!lock) return;
-    if (App.aiUnlocked()) lock.classList.add('hidden');
-    else lock.classList.remove('hidden');
+    const unlocked = App.aiUnlocked();
+    if (unlocked) {
+      lock.classList.add('hidden');
+      // 防御：解锁后显式复位输入框/发送按钮为可用，避免任何残留路径（如 setBusy 异常、快照未同步）卡住输入
+      const input = $('msg-input');
+      const sendBtn = $('send-btn');
+      if (input) input.disabled = false;
+      if (sendBtn) sendBtn.disabled = !currentConv;
+    } else {
+      lock.classList.remove('hidden');
+    }
   }
   // 页面加载时刷新；激活广播后由 App 统一回调刷新
   App.onLicenseStateChange(() => { try { applyAiLock(); } catch (e) {} });
