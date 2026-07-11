@@ -11,6 +11,76 @@ const crypto = require('crypto');
 
 app.setName('XinJing'); // 用户数据目录固定为 .../XinJing/，稳定存放试用与激活信息
 
+// ---- 显式固定 userData 路径（防御性）----
+// 早期 1.0 构建未调用 app.setName，userData 会落到 package.json 的 name（小写 xinjing），
+// 与当前 .../XinJing（大写）是两个不同目录 → 旧 exe 读到空目录 = “历史记录丢失 + 像回到了 1.0”。
+// 这里用字面量强制锁定同一目录，杜绝因 setName/name 差异导致的数据“消失”。
+const CANON_USER_DATA = path.join(app.getPath('appData'), 'XinJing');
+try {
+  fs.mkdirSync(CANON_USER_DATA, { recursive: true });
+  app.setPath('userData', CANON_USER_DATA);
+} catch (e) { console.error('[userData] setPath failed:', (e && e.message) || e); }
+
+// ---- 旧目录数据迁移：把早期构建落在其他 userData 目录的历史数据合并回标准目录 ----
+// 直接恢复因目录不一致而“看不见”的来访者/会话/督导记录（不覆盖当前已有的激活与机器信息）。
+function migrateLegacyUserData() {
+  try {
+    const appData = app.getPath('appData');
+    const canonIdb = path.join(CANON_USER_DATA, 'IndexedDB');
+    const canonHasData = fs.existsSync(canonIdb) && fs.readdirSync(canonIdb).length > 0;
+    // 候选旧目录（早期构建可能用过的名称，均位于 LOCALAPPDATA 下）
+    const candidates = ['xinjing', 'XinJingDesktop', 'xinjing-desktop', '心镜 XinJing', 'xinjing-app', 'XinJingApp', 'xinjing-electron'];
+    let best = null, bestSize = -1;
+    for (const c of candidates) {
+      const p = path.join(appData, c);
+      if (p === CANON_USER_DATA || !fs.existsSync(p)) continue;
+      const idb = path.join(p, 'IndexedDB');
+      if (!fs.existsSync(idb)) continue;
+      let size = 0;
+      try { size = fs.readdirSync(idb).length; } catch (e) { size = 0; }
+      if (size > bestSize) { bestSize = size; best = p; }
+    }
+    if (best && !canonHasData) {
+      // 只合并“用户数据”相关条目，且不覆盖当前目录已有文件（保护激活/机器标记）
+      const items = ['IndexedDB', 'Local Storage', 'license.json', 'machine.json', 'trial.json'];
+      for (const f of items) {
+        const src = path.join(best, f);
+        if (!fs.existsSync(src)) continue;
+        const dst = path.join(CANON_USER_DATA, f);
+        if (fs.existsSync(dst)) continue; // 不覆盖当前已有
+        try { fs.cpSync(src, dst, { recursive: true }); } catch (e) { console.error('[userData] copy', f, 'failed:', (e && e.message) || e); }
+      }
+      fs.writeFileSync(path.join(CANON_USER_DATA, 'data-migrated.json'),
+        JSON.stringify({ from: best, at: new Date().toISOString() }));
+      console.log('[userData] 已从旧目录恢复数据:', best);
+    } else {
+      const flag = path.join(CANON_USER_DATA, 'data-migrated.json');
+      if (fs.existsSync(flag)) fs.unlinkSync(flag);
+    }
+  } catch (e) { console.error('[userData] migrate failed:', (e && e.message) || e); }
+}
+migrateLegacyUserData();
+
+// ---- 空库异常检测：本机曾有使用记录但标准目录 IndexedDB 为空且无旧目录可迁移 ----
+// 判定为真实数据丢失，写标记供启动时告警（指向文档/心镜备份 恢复）。
+function checkDataAnomaly() {
+  try {
+    const canonIdb = path.join(CANON_USER_DATA, 'IndexedDB');
+    const hasIdb = fs.existsSync(canonIdb) && fs.readdirSync(canonIdb).length > 0;
+    const priorUse = fs.existsSync(path.join(CANON_USER_DATA, 'machine.json')) ||
+                     fs.existsSync(path.join(CANON_USER_DATA, 'trial.json')) ||
+                     fs.existsSync(path.join(CANON_USER_DATA, 'license.json'));
+    const migrated = fs.existsSync(path.join(CANON_USER_DATA, 'data-migrated.json'));
+    const flag = path.join(CANON_USER_DATA, 'data-anomaly.json');
+    if (priorUse && !hasIdb && !migrated) {
+      fs.writeFileSync(flag, JSON.stringify({ at: new Date().toISOString(), msg: '本机曾有使用记录但历史数据目录为空，可能数据丢失或落在其他目录' }));
+    } else if (fs.existsSync(flag)) {
+      fs.unlinkSync(flag);
+    }
+  } catch (e) { /* ignore */ }
+}
+checkDataAnomaly();
+
 const APP_DIR = path.join(__dirname, 'app');
 const BUILD_DIR = path.join(__dirname, 'build');
 
@@ -534,6 +604,19 @@ app.whenReady().then(async () => {
   createTray();
   enableAutoStart();
   if (app.isPackaged) setupAutoUpdater(); // 仅在打包后启用自动更新（开发态跳过）
+  // 数据异常告警：本机曾有使用记录但历史数据缺失（可能丢失或落错目录）
+  const anomalyFlag = path.join(CANON_USER_DATA, 'data-anomaly.json');
+  if (app.isPackaged && fs.existsSync(anomalyFlag)) {
+    try {
+      dialog.showMessageBox({
+        type: 'warning',
+        title: '心镜 · 数据异常提示',
+        message: '未检测到历史数据，但本机此前已有使用记录。',
+        detail: '可能原因：\n• 数据目录因版本/构建差异落在其他文件夹（已尝试自动恢复）\n• 强制重启导致本地数据库损坏\n\n建议：检查「文档\\心镜备份」是否有自动备份可恢复；或在文件管理器中查看\nC:\\Users\\<你>\\AppData\\Local\\ 下是否存在 xinjing / XinJingDesktop 等目录（含 IndexedDB 子目录即为真实数据）。',
+        buttons: ['我知道了']
+      });
+    } catch (e) { /* ignore */ }
+  }
 });
 
 // ---- 激活窗口 ----
@@ -665,6 +748,8 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   app.isQuiting = true;
+  // 退出前强制备份用户数据（含 IndexedDB/激活/日记），避免重启/关机导致数据无挽回
+  try { exportBackup(); } catch (e) { console.error('[backup] before-quit failed:', (e && e.message) || e); }
   if (server) {
     try { server.close(); } catch (e) { /* ignore */ }
   }
