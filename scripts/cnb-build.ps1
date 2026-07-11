@@ -65,7 +65,15 @@ Pop-Location
 if (Test-Path $dist) { try { [System.IO.Directory]::Delete($dist, $true) } catch { Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue } }
 Push-Location $proj
 try {
-    npm install --legacy-peer-deps
+    # Skip npm install when node_modules already exists. Routine patch rebuilds
+    # (bug fixes, no new deps) don't need it, and on some machines npm's cleanup
+    # phase can't remove stale dirs (sandbox delete guard / file locks) and aborts
+    # the whole build. A fresh checkout (no node_modules) still installs normally.
+    if (-not (Test-Path (Join-Path $proj 'node_modules'))) {
+        npm install --legacy-peer-deps
+    } else {
+        Write-Host 'node_modules present; skipping npm install'
+    }
     # predist hook (codegen-secret.js) reads $env:LICENSE_SECRET -> secret.generated.js
     npm run dist -- --publish never
     # (re)generate latest.yml / blockmap / latest-portable.yml from dist

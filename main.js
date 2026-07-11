@@ -369,6 +369,61 @@ function startStaticServer() {
   });
 }
 
+// ---- 旧端口历史数据迁移：扫描 IndexedDB 目录下所有旧端口库，在其上临时起同源服务 ----
+// 渲染进程用隐藏 iframe 在旧 origin 上下文经 IndexedDB API 读出数据并合并写回当前端口库。
+// 注意：Chromium 的 IndexedDB 用 database id 索引，跨 origin 复制 leveldb 目录无效，
+//       必须用 API 级迁移（本函数只负责"起同源临时服务 + 返回端口列表"）。
+async function startLegacyMigrateServers() {
+  const found = [];
+  const idbDir = path.join(userDataDir(), 'IndexedDB');
+  if (!fs.existsSync(idbDir)) return found;
+  const entries = fs.readdirSync(idbDir);
+  const reValid = /^http_127\.0\.0\.1_(\d+)\.indexeddb\.leveldb$/;
+  const reOrphan = /^http_127\.0\.0\.1_(\d+)\.indexeddb\.leveldb\.orphan/;
+  for (const name of entries) {
+    let m = name.match(reValid);
+    let port = m ? parseInt(m[1], 10) : null;
+    let isOrphan = false;
+    if (!port) {
+      m = name.match(reOrphan);
+      if (m) { port = parseInt(m[1], 10); isOrphan = true; }
+    }
+    if (!port || port === PORT) continue; // 跳过当前端口（避免自读/端口冲突）
+    if (isOrphan) {
+      // orphan 是早期 consolidateIndexedDB 把"最大旧库"改名归档的产物，含真实数据但 Chromium 不认。
+      // 读取前临时还原成规范名（读取后由 archiveLegacyPorts 归档为 .migrated），以便 iframe 同源读出。
+      const canonical = 'http_127.0.0.1_' + port + '.indexeddb.leveldb';
+      const canonPath = path.join(idbDir, canonical);
+      const orphanPath = path.join(idbDir, name);
+      if (fs.existsSync(canonPath)) continue; // 已有规范名则跳过 orphan，避免重复
+      try { fs.renameSync(orphanPath, canonPath); }
+      catch (e) { console.error('[migrate] 还原 orphan 失败', port, (e && e.message) || e); continue; }
+    }
+    const srv = http.createServer(serveApp);
+    const ok = await new Promise((resolve) => {
+      srv.once('error', (e) => { console.warn('[migrate] 端口', port, '占用，跳过', (e && e.code) || e); resolve(false); });
+      srv.listen(port, '127.0.0.1', () => resolve(true));
+    });
+    if (ok) { legacyMigrateServers.push(srv); found.push(port); }
+  }
+  if (found.length) console.log('[migrate] 发现旧端口待迁移:', found);
+  return found;
+}
+
+// 迁移完成后归档旧端口库（防重复迁移）：规范名 → .migrated-<ts>
+function archiveLegacyPorts(ports) {
+  const idbDir = path.join(userDataDir(), 'IndexedDB');
+  const ts = Date.now();
+  for (const port of (ports || [])) {
+    const p = 'http_127.0.0.1_' + port + '.indexeddb.leveldb';
+    const src = path.join(idbDir, p);
+    if (!fs.existsSync(src)) continue;
+    const dst = path.join(idbDir, p + '.migrated-' + ts);
+    try { fs.renameSync(src, dst); console.log('[migrate] 归档旧端口', port); }
+    catch (e) { console.error('[migrate] 归档失败', port, (e && e.message) || e); }
+  }
+}
+
 // ---- 主窗口 ----
 function createWindow() {
   mainWindow = new BrowserWindow({
