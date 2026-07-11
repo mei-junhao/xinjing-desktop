@@ -3,163 +3,180 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>心理咨询记账系统 · 状态统计</title>
-    <!-- 心镜桥接层：把记账的 localStorage 读写翻译成对心镜 Store(IndexedDB) 的操作，实现单一真相源 -->
+    <title>心镜 · 记账</title>
+    <!-- 心镜桥接层：把记账的 localStorage 读写翻译成对心镜 Store(IndexedDB) 的操作 -->
     <script src="js/billing-sync.js"></script>
     <style>
         /* ============================================================
-           心镜 XinJing · 记账 · 视觉重构（编辑式奢华 / Editorial Luxury）
-           仅替换视觉层，标记与脚本逻辑（ID / 函数）完全保留。
-           令牌与 css/style.css 同源：暖棕陶土 --accent #9E5A3C、纸面 --paper 等。
+           心镜 XinJing · 记账 · v1.0.14 完全重构（编辑式奢华 / 同源令牌）
+           三大区 → 顶部 Tab 切换：录入 / 明细 / 统计
+           视觉令牌与 app/css/style.css 完全一致（Noto Serif SC + 暖棕陶土 + --shadow-bezel）
+           数据契约：localStorage['psyc_billing_v8'] schema + 30+ 函数名 + 80+ ID 全部保留
            ============================================================ */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            --paper: #FBF8F3; --paper-2: #FFFDF9; --sidebar: #F4EDE3;
-            --ink: #2A2420; --ink-2: #6F655C; --ink-3: #9A8F82;
-            --hair: #ECE3D8; --hair-strong: #DCCFBE;
-            --accent: #9E5A3C; --accent-2: #874A2E; --accent-soft: #F1E4DA; --accent-line: #C99A82;
-            --green: #6E7E62; --green-soft: #ECEFE6;
-            --red: #B06A62; --red-soft: #F5E8E6;
-            --blue: #7C93A0; --blue-soft: #E9EFF2;
-            --r-card: 16px; --r-ctl: 12px; --r-btn: 999px; --r-sm: 9px;
+            --paper: #FBF8F3;        --paper-2: #FFFDF9;
+            --sidebar: #F4EDE3;     --shell: #F4EDE3;
+            --ink: #2A2420;          --ink-2: #6F655C;     --ink-3: #9A8F82;
+            --hair: #ECE3D8;         --hair-strong: #DCCFBE;
+            --accent: #9E5A3C;       --accent-2: #874A2E;
+            --accent-soft: #F1E4DA;  --accent-line: #C99A82;
+            --green: #6E7E62;   --green-soft: #ECEFE6;
+            --orange: #BC8A4E;  --orange-soft: #F6ECDD;
+            --red: #B06A62;     --red-soft: #F5E8E6;
+            --blue: #7C93A0;    --blue-soft: #E9EFF2;
+            --shadow-sm: 0 1px 2px rgba(42,36,32,.05);
             --shadow: 0 1px 2px rgba(42,36,32,.04), 0 12px 30px rgba(42,36,32,.06);
+            --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 12px 30px rgba(42,36,32,.05);
+            --r-card: 16px;  --r-ctl: 12px;  --r-sm: 9px;  --r-btn: 999px;
             --ease: cubic-bezier(.22,1,.36,1);
-            --sans: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
-            --serif: "Noto Serif SC","Songti SC","STSong",serif;
-            --mono: "JetBrains Mono","SF Mono",ui-monospace,"Cascadia Code",Menlo,monospace;
+            --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+            --sans:  "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+            --mono:  "JetBrains Mono", "SF Mono", ui-monospace, monospace;
         }
         body {
             font-family: var(--sans); color: var(--ink);
-            background:
-                radial-gradient(1200px 480px at 12% -8%, var(--accent-soft), transparent 60%),
-                var(--paper);
-            min-height: 100vh; padding: 22px 18px 64px;
+            background: var(--paper);
+            min-height: 100vh; padding: 0; line-height: 1.6;
         }
-        .app {
-            max-width: 1040px; margin: 0 auto; background: var(--paper-2);
-            border-radius: 22px; padding: 26px 30px 34px;
-            box-shadow: var(--shadow); border: 1px solid var(--hair);
-        }
-        .header {
-            display: flex; justify-content: space-between; align-items: center;
-            flex-wrap: wrap; gap: 10px; margin-bottom: 22px;
-            padding-bottom: 16px; border-bottom: 1px solid var(--hair);
-        }
-        .header h1 { font-size: 21px; font-weight: 700; color: var(--ink); font-family: var(--serif); letter-spacing: .3px; }
-        .header h1 small { font-size: 12px; color: var(--ink-3); margin-left: 6px; font-family: var(--sans); font-weight: 500; }
 
-        /* 统计面板 */
-        .stats-panel {
-            display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
-            background: var(--accent-soft); padding: 12px 18px;
-            border-radius: var(--r-card); border: 1px solid var(--accent-line);
+        /* ── 顶部品牌条（24px 高）── */
+        .topbar {
+            height: 56px; padding: 0 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--paper-2); border-bottom: 1px solid var(--hair);
         }
-        .stats-panel select {
-            padding: 6px 12px; border: 1px solid var(--accent-line); border-radius: var(--r-ctl);
-            background: var(--paper-2); font-size: 13px; font-weight: 500; color: var(--accent-2);
-            outline: none; font-family: var(--sans); cursor: pointer;
+        .topbar .brand { display: flex; align-items: center; gap: 12px; }
+        .topbar .mark {
+            width: 32px; height: 32px; border-radius: 10px;
+            background: var(--accent); color: #fff;
+            display: grid; place-items: center; font-family: var(--serif); font-size: 16px;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,.3), 0 3px 8px rgba(158,90,60,.25);
         }
-        .stats-panel select:focus { border-color: var(--accent); }
-        .stats-grid { display: flex; gap: 26px; flex-wrap: wrap; }
-        .stat-item { display: flex; flex-direction: column; align-items: flex-start; }
-        .stat-label { color: var(--accent-2); font-weight: 600; font-size: 11px; letter-spacing: .4px; }
-        .stat-value { font-weight: 700; font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+        .topbar .name { font-family: var(--serif); font-size: 18px; font-weight: 600; letter-spacing: .02em; }
+        .topbar .name small { font-size: 11px; color: var(--ink-3); margin-left: 6px; font-family: var(--sans); font-weight: 500; }
+        .topbar .actions { display: flex; gap: 8px; }
 
-        .stack { display: flex; flex-direction: column; gap: 18px; margin-bottom: 18px; }
+        /* ── Tab 栏（48px 高，固定）── */
+        .tabbar {
+            position: sticky; top: 0; z-index: 10;
+            height: 56px; padding: 0 24px;
+            display: flex; align-items: center; gap: 16px;
+            background: var(--paper-2); border-bottom: 1px solid var(--hair);
+        }
+        .tabs { display: flex; gap: 4px; background: var(--sidebar); border-radius: var(--r-btn); padding: 3px; border: 1px solid var(--hair); }
+        .tabs button {
+            background: transparent; border: none; padding: 8px 22px;
+            border-radius: var(--r-btn); font-size: 13.5px; cursor: pointer;
+            color: var(--ink-2); white-space: nowrap; font-family: var(--sans); font-weight: 500;
+            transition: background .2s var(--ease), color .2s var(--ease);
+        }
+        .tabs button:hover { color: var(--ink); }
+        .tabs button.active {
+            background: var(--paper-2); color: var(--accent); font-weight: 600;
+            box-shadow: 0 2px 8px rgba(42,36,32,.06), inset 0 0 0 1px var(--accent-line);
+        }
+        .tabbar .month-picker { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+        .tabbar .month-picker select {
+            padding: 6px 12px; border: 1px solid var(--hair-strong); border-radius: var(--r-ctl);
+            background: var(--paper-2); font-size: 13px; color: var(--ink-2); outline: none;
+            font-family: var(--sans); cursor: pointer;
+        }
+        .tabbar .month-picker select:focus { border-color: var(--accent); }
+
+        /* ── 工作区容器 ── */
+        .workspace { max-width: 1040px; margin: 0 auto; padding: 24px 32px 64px; }
+        .tab-pane { display: none; animation: fadeIn .3s var(--ease); }
+        .tab-pane.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        /* ── 双层卡 ── */
         .card {
-            background: var(--paper-2); border-radius: var(--r-card); padding: 18px 20px 20px;
-            box-shadow: var(--shadow); border: 1px solid var(--hair);
+            position: relative;
+            background: var(--paper-2); border: 1px solid var(--hair);
+            border-radius: var(--r-card); padding: 22px 24px;
+            box-shadow: var(--shadow-bezel); margin-bottom: 20px;
         }
         .card-title {
-            font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 12px;
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--sans);
+            font-family: var(--serif); font-size: 18px; font-weight: 600;
+            margin-bottom: 16px; color: var(--ink);
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
         }
-        .card-title .badge { background: var(--accent-soft); color: var(--accent-2); font-size: 11px; padding: 0 10px; border-radius: var(--r-btn); line-height: 22px; font-weight: 600; }
+        .card-title .badge {
+            background: var(--accent-soft); color: var(--accent-2);
+            font-size: 11px; padding: 0 10px; border-radius: var(--r-btn);
+            line-height: 22px; font-weight: 600; font-family: var(--sans);
+        }
 
-        .client-top-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-        .client-search { flex: 1; min-width: 140px; }
-        .client-search input {
-            width: 100%; padding: 9px 13px; border: 1px solid var(--hair-strong); border-radius: var(--r-ctl);
-            font-size: 14px; background: var(--paper); color: var(--ink); font-family: var(--sans);
+        /* ── 录入 tab：来访者大下拉 + 紧凑表单 ── */
+        .client-selector {
+            display: flex; align-items: center; gap: 16px;
+            padding: 14px 18px; background: var(--sidebar);
+            border-radius: var(--r-card); border: 1px solid var(--hair);
+            margin-bottom: 14px;
         }
-        .client-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-        .client-list { max-height: 300px; overflow-y: auto; margin-top: 10px; }
-        .client-group { margin-bottom: 4px; }
-        .client-group h4 {
-            font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 4px 8px;
-            background: var(--sidebar); border-radius: var(--r-sm); margin-bottom: 2px; letter-spacing: .3px;
+        .client-selector .avatar {
+            width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
+            background: var(--accent-soft); color: var(--accent);
+            font-family: var(--serif); font-size: 18px; font-weight: 600;
+            display: grid; place-items: center;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,.4);
         }
-        .client-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 11px; border-radius: var(--r-sm); cursor: pointer;
-            border: 1px solid transparent; transition: background .15s var(--ease), border-color .15s var(--ease);
+        .client-selector select {
+            flex: 1; padding: 10px 14px; border: 1px solid var(--hair-strong);
+            border-radius: var(--r-ctl); font-size: 14px;
+            background: var(--paper-2); color: var(--ink); font-family: var(--sans);
+            cursor: pointer;
         }
-        .client-item:hover { background: var(--accent-soft); }
-        .client-item.active { border-color: var(--accent-line); background: var(--accent-soft); }
-        .client-item .info { flex: 1; min-width: 0; }
-        .client-item .info .name { font-weight: 600; font-size: 14px; color: var(--ink); }
-        .client-item .info .meta { font-size: 10.5px; color: var(--ink-2); display: flex; gap: 6px; flex-wrap: wrap; }
-        .client-item .actions { display: flex; gap: 1px; }
-        .client-item .actions button {
-            background: none; border: none; font-size: 13px; cursor: pointer;
-            padding: 3px 7px; border-radius: var(--r-sm); color: var(--ink-3); transition: background .15s,color .15s;
+        .client-selector select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .client-selector .summary {
+            font-size: 12px; color: var(--ink-2);
+            display: flex; gap: 12px; flex-wrap: wrap;
         }
-        .client-item .actions button:hover { background: var(--hair); color: var(--ink); }
-        .client-form { margin-top: 12px; padding: 12px 14px; background: var(--sidebar); border-radius: var(--r-card); border: 1px solid var(--hair); }
-        .client-form .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
-        .client-form .row input, .client-form .row select {
-            padding: 8px 11px; border: 1px solid var(--hair-strong); border-radius: var(--r-ctl);
-            font-size: 13px; background: var(--paper-2); color: var(--ink); font-family: var(--sans);
-        }
-        .client-form .row input:focus, .client-form .row select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .client-selector .summary b { color: var(--ink); font-weight: 600; }
+        .client-selector .summary .debt { color: var(--red); font-weight: 600; }
 
-        .btn {
-            padding: 8px 18px; border: none; border-radius: var(--r-btn); font-size: 13px; font-weight: 600;
-            cursor: pointer; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-            transition: background .18s var(--ease), transform .12s var(--ease), box-shadow .18s var(--ease);
-            font-family: var(--sans);
-        }
-        .btn:active { transform: translateY(1px); }
-        .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 16px rgba(158,90,60,.22); }
-        .btn-primary:hover { background: var(--accent-2); }
-        .btn-secondary { background: var(--sidebar); color: var(--ink-2); }
-        .btn-secondary:hover { background: var(--hair); }
-        .btn-success { background: var(--green); color: #fff; }
-        .btn-success:hover { filter: brightness(.96); }
-        .btn-outline { background: var(--paper-2); border: 1px solid var(--accent-line); color: var(--accent-2); }
-        .btn-outline:hover { background: var(--accent-soft); }
-        .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: var(--r-btn); }
-
-        .record-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; }
-        @media (max-width: 640px) { .record-form { grid-template-columns: 1fr 1fr; } }
-        .record-form .group { display: flex; flex-direction: column; gap: 4px; }
+        .record-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .record-form .group { display: flex; flex-direction: column; gap: 5px; }
         .record-form .group.full { grid-column: 1 / -1; }
         .record-form .group label { font-size: 12px; font-weight: 600; color: var(--ink-2); }
         .record-form .group input, .record-form .group select {
-            padding: 9px 11px; border: 1px solid var(--hair-strong); border-radius: var(--r-ctl);
-            font-size: 13px; background: var(--paper); color: var(--ink); font-family: var(--sans);
+            padding: 10px 13px; border: 1px solid var(--hair-strong);
+            border-radius: var(--r-ctl); font-size: 14px;
+            background: var(--paper); color: var(--ink); font-family: var(--sans);
         }
         .record-form .group input:focus, .record-form .group select:focus {
             outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--paper-2);
         }
-        .record-form .form-actions {
+        .form-actions {
             grid-column: 1 / -1; display: flex; gap: 10px; justify-content: flex-end;
-            padding-top: 8px; border-top: 1px solid var(--hair); flex-wrap: wrap;
+            padding-top: 6px; flex-wrap: wrap;
         }
+        .total-sessions-badge {
+            display: inline-block; background: var(--accent-soft); color: var(--accent-2);
+            padding: 2px 12px; border-radius: var(--r-btn);
+            font-size: 11.5px; font-weight: 600; margin-left: 4px;
+        }
+        @media (max-width: 640px) { .record-form { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 480px) { .record-form { grid-template-columns: 1fr; } }
 
-        .batch-panel {
+        /* ── 抽屉面板（批量 / 粘贴）── */
+        .batch-panel, .import-panel {
             display: none; background: var(--sidebar); border: 1px dashed var(--accent-line);
-            border-radius: var(--r-card); padding: 16px; margin-top: 10px; grid-column: 1 / -1;
+            border-radius: var(--r-card); padding: 16px; margin-top: 14px; grid-column: 1 / -1;
         }
-        .batch-panel.show { display: block; }
+        .batch-panel.show, .import-panel.show { display: block; }
         .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
-        .cal-nav button { background: var(--paper-2); border: 1px solid var(--hair-strong); border-radius: var(--r-sm); padding: 6px 12px; cursor: pointer; font-size: 14px; color: var(--ink); transition: background .15s; }
+        .cal-nav button {
+            background: var(--paper-2); border: 1px solid var(--hair-strong);
+            border-radius: var(--r-sm); padding: 6px 12px; cursor: pointer; font-size: 14px; color: var(--ink);
+        }
         .cal-nav button:hover { background: var(--accent-soft); }
         .cal-nav .month-label { font-weight: 600; font-size: 14px; color: var(--ink); }
         .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 12px; }
         .cal-grid .day-header { color: var(--ink-3); font-weight: 600; padding: 4px 0; font-size: 11px; }
         .cal-grid .day-cell {
-            padding: 8px 2px; border-radius: var(--r-sm); cursor: pointer; transition: background .12s, color .12s;
+            padding: 8px 2px; border-radius: var(--r-sm); cursor: pointer;
             border: 1px solid transparent; user-select: none; color: var(--ink);
         }
         .cal-grid .day-cell:hover { background: var(--accent-soft); }
@@ -169,12 +186,6 @@
         .cal-info { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
         .cal-info .count { font-weight: 700; color: var(--accent-2); }
         .cal-months { display: flex; gap: 22px; flex-wrap: wrap; }
-
-        .import-panel {
-            display: none; background: var(--paper-2); border: 1px dashed var(--accent-line);
-            border-radius: var(--r-card); padding: 16px; margin-top: 10px; grid-column: 1 / -1;
-        }
-        .import-panel.show { display: block; }
         .import-panel h4 { font-size: 13px; color: var(--accent-2); margin-bottom: 8px; font-weight: 700; }
         .import-panel textarea {
             width: 100%; min-height: 110px; padding: 10px 12px; border: 1px solid var(--hair-strong);
@@ -188,58 +199,169 @@
             display: flex; align-items: center; gap: 6px; padding: 4px 0;
             border-bottom: 1px solid var(--hair); font-size: 12px;
         }
-        .import-panel .actions { display: flex; gap: 6px; margin-top: 10px; }
         .match-select { padding: 4px 8px; border: 1px solid var(--hair-strong); border-radius: var(--r-sm); font-size: 12px; font-family: var(--sans); background: var(--paper-2); color: var(--ink); }
+        .import-panel .actions { display: flex; gap: 6px; margin-top: 10px; }
 
-        .detail-section {
-            background: var(--paper-2); border-radius: var(--r-card); border: 1px solid var(--hair);
-            overflow: hidden; margin-top: 18px; box-shadow: var(--shadow);
+        /* ── 来访者档案（录入 tab 底部）── */
+        .client-top-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .client-search { flex: 1; min-width: 160px; }
+        .client-search input {
+            width: 100%; padding: 9px 13px; border: 1px solid var(--hair-strong);
+            border-radius: var(--r-ctl); font-size: 14px;
+            background: var(--paper); color: var(--ink); font-family: var(--sans);
         }
+        .client-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .client-list { max-height: 360px; overflow-y: auto; }
+        .client-group { margin-bottom: 6px; }
+        .client-group h4 {
+            font-size: 11px; font-weight: 600; color: var(--ink-3); padding: 4px 10px;
+            background: var(--sidebar); border-radius: var(--r-sm); margin-bottom: 4px; letter-spacing: .3px;
+        }
+        .client-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px; border-radius: var(--r-ctl); cursor: pointer;
+            border: 1px solid transparent; margin-bottom: 4px;
+            transition: background .15s var(--ease), border-color .15s var(--ease);
+        }
+        .client-item:hover { background: var(--accent-soft); }
+        .client-item.active { border-color: var(--accent-line); background: var(--accent-soft); }
+        .client-item .info { flex: 1; min-width: 0; }
+        .client-item .info .name { font-weight: 600; font-size: 14px; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+        .client-item .info .meta { font-size: 11.5px; color: var(--ink-2); display: flex; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
+        .client-item .info .meta .debt { color: var(--red); font-weight: 600; }
+        .client-item .actions { display: flex; gap: 2px; }
+        .client-item .actions button {
+            background: none; border: none; font-size: 12px; cursor: pointer;
+            padding: 4px 8px; border-radius: var(--r-sm); color: var(--ink-3);
+            transition: background .15s, color .15s; font-family: var(--sans);
+        }
+        .client-item .actions button:hover { background: var(--hair); color: var(--ink); }
+        .client-status {
+            display: inline-block; padding: 1px 9px; border-radius: var(--r-btn);
+            font-size: 10px; font-weight: 600; vertical-align: middle;
+        }
+        .client-status.active { background: var(--green-soft); color: var(--green); border: 1px solid #cdddd2; }
+        .client-status.paused { background: var(--sidebar); color: var(--ink-2); border: 1px solid var(--hair-strong); }
+        .client-status.ended { background: var(--red-soft); color: var(--red); border: 1px solid #e7cfc9; }
+        .mode-tag {
+            font-size: 10px; font-weight: 600; padding: 1px 8px; border-radius: var(--r-btn);
+            background: var(--blue-soft); color: var(--blue);
+        }
+        .mode-tag.monthly { background: var(--orange-soft); color: var(--orange); }
+        .quick-add {
+            background: var(--accent-soft); border: 1px solid var(--accent-line);
+            color: var(--accent-2); font-size: 12px; font-weight: 700;
+            border-radius: var(--r-sm); padding: 4px 10px; cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+        .quick-add:hover { background: var(--accent); color: #fff; }
+        .client-form { margin-top: 14px; padding: 14px 16px; background: var(--sidebar); border-radius: var(--r-card); border: 1px solid var(--hair); }
+        .client-form .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+        .client-form .row input, .client-form .row select {
+            padding: 8px 11px; border: 1px solid var(--hair-strong);
+            border-radius: var(--r-ctl); font-size: 13px;
+            background: var(--paper-2); color: var(--ink); font-family: var(--sans);
+        }
+        .client-form .row input:focus, .client-form .row select:focus {
+            outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+
+        /* ── 按钮 ── */
+        .btn {
+            padding: 9px 20px; border: none; border-radius: var(--r-btn);
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+            white-space: nowrap; font-family: var(--sans);
+            transition: background .18s var(--ease), transform .12s var(--ease), box-shadow .18s var(--ease);
+        }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 16px rgba(158,90,60,.22); }
+        .btn-primary:hover { background: var(--accent-2); }
+        .btn-secondary { background: var(--sidebar); color: var(--ink-2); }
+        .btn-secondary:hover { background: var(--hair); }
+        .btn-success { background: var(--green); color: #fff; }
+        .btn-success:hover { filter: brightness(.96); }
+        .btn-outline { background: var(--paper-2); border: 1px solid var(--accent-line); color: var(--accent-2); }
+        .btn-outline:hover { background: var(--accent-soft); }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+        /* ── 统计 tab ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+        @media (max-width: 720px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        .stat-item {
+            padding: 20px 22px;
+            background: var(--paper-2); border: 1px solid var(--hair);
+            border-radius: var(--r-card); box-shadow: var(--shadow-bezel);
+            transition: transform .3s var(--ease), box-shadow .3s var(--ease);
+        }
+        .stat-item:hover { transform: translateY(-2px); }
+        .stat-label { color: var(--ink-2); font-weight: 600; font-size: 12px; letter-spacing: .3px; }
+        .stat-value {
+            font-family: var(--mono); font-weight: 600; font-size: 24px;
+            color: var(--ink); margin-top: 8px; font-variant-numeric: tabular-nums;
+        }
+        .stat-value.debt { color: var(--red); }
+        .stat-value.received { color: var(--green); }
+
+        /* 欠款排行 */
+        .debt-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+        .debt-row {
+            display: flex; align-items: center; gap: 14px;
+            padding: 10px 14px; border-radius: var(--r-ctl);
+            background: var(--paper-2); border: 1px solid var(--hair);
+        }
+        .debt-row .name { flex: 1; font-weight: 500; }
+        .debt-row .amount { font-family: var(--mono); font-weight: 600; color: var(--red); }
+
+        /* ── 明细 tab ── */
         .detail-header {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 14px 20px; flex-wrap: wrap; gap: 8px;
-            background: var(--sidebar); border-bottom: 1px solid var(--hair);
+            padding: 4px 0 16px; flex-wrap: wrap; gap: 10px;
         }
-        .detail-header h2 { font-size: 16px; font-weight: 700; color: var(--ink); font-family: var(--serif); }
-        .view-tabs { display: flex; gap: 4px; background: var(--paper); border-radius: var(--r-btn); padding: 3px; border: 1px solid var(--hair); }
+        .detail-header h2 { font-family: var(--serif); font-size: 20px; font-weight: 600; color: var(--ink); }
+        .view-tabs { display: flex; gap: 4px; background: var(--sidebar); border-radius: var(--r-btn); padding: 3px; border: 1px solid var(--hair); }
         .view-tabs button {
-            background: transparent; border: none; padding: 6px 16px; border-radius: var(--r-btn);
-            font-size: 12px; cursor: pointer; color: var(--ink-2); white-space: nowrap; font-family: var(--sans); font-weight: 500; transition: background .15s,color .15s;
+            background: transparent; border: none; padding: 6px 16px;
+            border-radius: var(--r-btn); font-size: 12.5px; cursor: pointer;
+            color: var(--ink-2); white-space: nowrap; font-family: var(--sans); font-weight: 500;
         }
         .view-tabs button.active { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(158,90,60,.2); }
         .export-dropdown { position: relative; display: inline-block; }
         .export-menu {
             display: none; position: absolute; right: 0; top: 100%; background: var(--paper-2);
-            border-radius: var(--r-card); box-shadow: 0 16px 40px rgba(42,36,32,.16); z-index: 99;
-            min-width: 168px; padding: 6px 0; border: 1px solid var(--hair-strong);
+            border-radius: var(--r-card); box-shadow: 0 16px 40px rgba(42,36,32,.16);
+            z-index: 99; min-width: 168px; padding: 6px 0; border: 1px solid var(--hair-strong);
         }
         .export-menu.show { display: block; }
         .export-menu button {
             display: block; width: 100%; text-align: left; padding: 9px 16px;
-            background: none; border: none; font-size: 13px; cursor: pointer; color: var(--ink); font-family: var(--sans); transition: background .12s;
+            background: none; border: none; font-size: 13px; cursor: pointer;
+            color: var(--ink); font-family: var(--sans); transition: background .12s;
         }
         .export-menu button:hover { background: var(--accent-soft); }
 
-        .group-card { border-bottom: 1px solid var(--hair); }
+        .group-card { border: 1px solid var(--hair); border-radius: var(--r-card); background: var(--paper-2); margin-bottom: 12px; overflow: hidden; }
         .group-toggle {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 18px; cursor: pointer; user-select: none; gap: 10px; transition: background .15s;
+            padding: 14px 18px; cursor: pointer; user-select: none; gap: 10px;
+            transition: background .15s;
         }
         .group-toggle:hover { background: var(--sidebar); }
-        .group-toggle .arrow { font-size: 12px; transition: transform .2s var(--ease); color: var(--ink-3); min-width: 16px; text-align: center; }
+        .group-toggle .arrow { font-size: 11px; transition: transform .2s var(--ease); color: var(--ink-3); min-width: 16px; text-align: center; }
         .group-toggle .arrow.open { transform: rotate(90deg); }
-        .group-toggle .gname { font-weight: 700; font-size: 14px; color: var(--ink); }
+        .group-toggle .gname { font-family: var(--serif); font-weight: 600; font-size: 15px; color: var(--ink); }
         .group-toggle .gmeta { font-size: 12px; color: var(--ink-2); display: flex; gap: 10px; flex-wrap: wrap; }
         .sub-records { overflow: hidden; max-height: 0; opacity: 0; transition: all .25s var(--ease); }
         .sub-records.open { max-height: 4000px; opacity: 1; }
-        .month-block { padding: 6px 18px; border-bottom: 1px solid var(--hair); }
-        .month-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 0; font-size: 13px; font-weight: 500; color: var(--ink-2); flex-wrap: wrap; }
+        .month-block { padding: 4px 18px; border-top: 1px solid var(--hair); }
+        .month-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 0; font-size: 13px; font-weight: 500; color: var(--ink-2); flex-wrap: wrap; }
         .month-records { overflow: hidden; max-height: 0; opacity: 0; transition: all .25s var(--ease); }
         .month-records.open { max-height: 3000px; opacity: 1; }
         .sub-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .sub-table th { padding: 9px 14px 8px 18px; text-align: left; font-weight: 700; font-size: 11px; color: var(--ink-2); letter-spacing: .3px; border-bottom: 1px solid var(--hair-strong); background: var(--sidebar); }
-        .sub-table td { padding: 9px 14px 9px 18px; border-bottom: 1px solid var(--hair); color: var(--ink); font-variant-numeric: tabular-nums; }
+        .sub-table th { padding: 10px 14px 8px 18px; text-align: left; font-weight: 600; font-size: 11px; color: var(--ink-2); letter-spacing: .3px; border-bottom: 1px solid var(--hair-strong); background: var(--sidebar); }
+        .sub-table td { padding: 10px 14px 10px 18px; border-bottom: 1px solid var(--hair); color: var(--ink); font-variant-numeric: tabular-nums; }
         .sub-table tr:hover td { background: var(--paper); }
+        .sub-table tr:last-child td { border-bottom: none; }
 
         .status-tag { display: inline-block; padding: 1px 11px; border-radius: var(--r-btn); font-size: 11px; font-weight: 600; line-height: 22px; }
         .status-tag.paid { background: var(--green-soft); color: var(--green); }
@@ -249,52 +371,21 @@
         .balance.owe { background: var(--red-soft); color: var(--red); }
         .balance.over { background: var(--blue-soft); color: var(--blue); }
         .settle-btn { background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent-2); padding: 4px 12px; border-radius: var(--r-btn); font-size: 11px; cursor: pointer; margin-left: 4px; font-weight: 600; transition: background .15s; }
-        .settle-btn:hover { background: var(--accent-line); color: #fff; }
-
-        .empty-detail { text-align: center; padding: 44px 20px 40px; color: var(--ink-3); font-size: 14px; }
-        .toast {
-            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
-            background: var(--ink); color: #fff; padding: 11px 24px; border-radius: var(--r-btn);
-            font-weight: 500; font-size: 13px; z-index: 9999; opacity: 0;
-            transition: all .3s var(--ease); pointer-events: none; box-shadow: 0 12px 30px rgba(42,36,32,.22);
-        }
-        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-        .toast.success { background: var(--green); }
-        .toast.warning { background: var(--accent-2); }
-
-        .client-list::-webkit-scrollbar { width: 6px; }
-        .client-list::-webkit-scrollbar-track { background: var(--sidebar); border-radius: 6px; }
-        .client-list::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 6px; }
-        .total-sessions-badge {
-            display: inline-block; background: var(--accent-soft); color: var(--accent-2); padding: 2px 10px;
-            border-radius: var(--r-btn); font-size: 12px; font-weight: 600; margin-left: 4px;
-        }
-        .client-status {
-            display: inline-block; padding: 1px 9px; border-radius: var(--r-btn);
-            font-size: 10px; font-weight: 600; margin-left: 4px; vertical-align: middle;
-        }
-        .client-status.active { background: var(--green-soft); color: var(--green); border: 1px solid #cdddd2; }
-        .client-status.paused { background: var(--sidebar); color: var(--ink-2); border: 1px solid var(--hair-strong); }
-        .client-status.ended { background: var(--red-soft); color: var(--red); border: 1px solid #e7cfc9; }
-        .action-btn {
-            background: none; border: none; cursor: pointer; font-size: 12px; margin-left: 4px;
-            color: var(--ink-2); border-radius: var(--r-sm); padding: 2px 6px; transition: background .15s,color .15s;
-        }
+        .settle-btn:hover { background: var(--accent); color: #fff; }
+        .action-btn { background: none; border: none; cursor: pointer; font-size: 12px; margin-left: 4px; color: var(--ink-2); border-radius: var(--r-sm); padding: 2px 6px; transition: background .15s, color .15s; font-family: var(--sans); }
         .action-btn:hover { color: var(--accent-2); background: var(--accent-soft); }
+        .toggle-paid-btn { background: none; border: 1px solid var(--hair-strong); color: var(--ink-2); padding: 3px 10px; border-radius: var(--r-btn); font-size: 11px; cursor: pointer; font-family: var(--sans); transition: background .15s, color .15s, border-color .15s; }
+        .toggle-paid-btn:hover { background: var(--accent-soft); color: var(--accent-2); border-color: var(--accent-line); }
+        .empty-detail { text-align: center; padding: 60px 20px; color: var(--ink-3); font-size: 14px; }
 
-        /* ── P0: 两栏布局（录入常驻 / 明细滚动）── */
-        .layout { display: grid; grid-template-columns: minmax(330px, 400px) 1fr; gap: 18px; align-items: start; margin-top: 4px; }
-        .col-input { position: sticky; top: 18px; align-self: start; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-        .col-detail { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-        .detail-section { margin-top: 0; }
-        .col-input .record-form { grid-template-columns: 1fr 1fr; }
-        @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } .col-input { position: static; } }
-        @media (max-width: 480px) { .col-input .record-form { grid-template-columns: 1fr; } }
-
-        /* ── P1: 内联弹层（修改记录 / 月结收款）── */
+        /* ── 弹层（修改记录 / 月结）── */
         .modal-overlay { position: fixed; inset: 0; background: rgba(42,36,32,.42); display: none; align-items: center; justify-content: center; z-index: 5000; padding: 16px; }
         .modal-overlay.show { display: flex; }
-        .modal { background: var(--paper-2); border: 1px solid var(--hair-strong); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 20px 22px; width: min(380px, 94vw); animation: modalIn .2s var(--ease); }
+        .modal {
+            background: var(--paper-2); border: 1px solid var(--hair-strong);
+            border-radius: var(--r-card); box-shadow: var(--shadow); padding: 20px 22px;
+            width: min(380px, 94vw); animation: modalIn .2s var(--ease);
+        }
         @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
         .modal h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; font-family: var(--serif); color: var(--ink); }
         .modal .m-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
@@ -304,28 +395,36 @@
         .modal .m-info { font-size: 12px; color: var(--ink-2); margin-bottom: 12px; line-height: 1.7; }
         .modal .m-info b { color: var(--accent-2); font-weight: 700; }
         .modal .m-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
-        .quick-add { background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent-2); font-size: 12px; font-weight: 700; border-radius: var(--r-sm); padding: 3px 9px; cursor: pointer; transition: background .15s,color .15s; }
-        .quick-add:hover { background: var(--accent); color: #fff; }
 
-        /* 进入时的轻微层次感 */
-        .card, .detail-section { transition: box-shadow .2s var(--ease); }
+        /* ── Toast ── */
+        .toast {
+            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--ink); color: #fff; padding: 11px 24px; border-radius: var(--r-btn);
+            font-weight: 500; font-size: 13px; z-index: 9999; opacity: 0;
+            transition: all .3s var(--ease); pointer-events: none;
+            box-shadow: 0 12px 30px rgba(42,36,32,.22);
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast.success { background: var(--green); }
+        .toast.warning { background: var(--accent-2); }
 
-        /* 暗色模式：与主程序 :root.dark 同令牌、同调色板，billing 为 iframe 独立文档，
-           故在此自包含一套暗色变量；dark 类由下方脚本依据 xj_theme 应用到本文档根 */
+        /* 滚动条 */
+        .client-list::-webkit-scrollbar, .sub-records::-webkit-scrollbar { width: 6px; }
+        .client-list::-webkit-scrollbar-track, .sub-records::-webkit-scrollbar-track { background: var(--sidebar); border-radius: 6px; }
+        .client-list::-webkit-scrollbar-thumb, .sub-records::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 6px; }
+
+        /* ── 暗色模式 ── */
         :root.dark {
-            --paper: #19150F; --paper-2: #211B14; --sidebar: #1F1810;
+            --paper: #19150F; --paper-2: #211B14; --sidebar: #1F1810; --shell: #1F1810;
             --ink: #EDE4D8; --ink-2: #B6A89A; --ink-3: #8A7E70;
             --hair: #322A20; --hair-strong: #473B2D;
             --accent: #C0906F; --accent-2: #D2A484; --accent-soft: #3A2C20; --accent-line: #6E4A33;
             --green: #94A585; --green-soft: #26301F;
+            --orange: #D3A066; --orange-soft: #2E281C;
             --red: #CF8B82; --red-soft: #2E231F;
             --blue: #9AAEBB; --blue-soft: #1C242A;
             --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px rgba(0,0,0,.45);
-        }
-        :root.dark body {
-            background:
-                radial-gradient(1200px 480px at 12% -8%, var(--accent-soft), transparent 60%),
-                var(--paper);
+            --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 12px 30px rgba(0,0,0,.45);
         }
         :root.dark .sub-table tr:hover td { background: var(--paper-2); }
         :root.dark .client-status.active { border-color: var(--green-soft); }
@@ -334,161 +433,197 @@
         :root.dark .modal .m-row input { background: var(--paper); }
     </style>
     <script>
-      /* 心镜主题同步：billing 以 iframe 形式承载，是独立 document，
-         不会继承外壳的 dark 类，需自行依据共享的 localStorage('xj_theme') 应用 */
-      (function () {
-        try {
-          var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
-          function sync() {
-            var t = localStorage.getItem('xj_theme');
-            var dark = t === 'dark' || (t === null && mq && mq.matches);
-            document.documentElement.classList.toggle('dark', !!dark);
-          }
-          sync();
-          window.addEventListener('storage', function (e) { if (e.key === 'xj_theme') sync(); });
-          if (mq && mq.addEventListener) mq.addEventListener('change', sync);
-        } catch (err) {}
-      })();
+        /* 心镜主题同步：billing 是独立 document，需自行读 localStorage('xj_theme') */
+        (function () {
+            try {
+                var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+                function sync() {
+                    var t = localStorage.getItem('xj_theme');
+                    var dark = t === 'dark' || (t === null && mq && mq.matches);
+                    document.documentElement.classList.toggle('dark', !!dark);
+                }
+                sync();
+                window.addEventListener('storage', function (e) { if (e.key === 'xj_theme') sync(); });
+                if (mq && mq.addEventListener) mq.addEventListener('change', sync);
+            } catch (err) {}
+        })();
     </script>
 </head>
 <body>
-<div class="app" id="app">
-    <header class="header">
-        <h1>心理档案记账 <small>状态统计</small></h1>
-    </header>
 
-    <div class="layout">
-        <div class="col-input">
-            <div class="card">
-                <div class="card-title">来访者档案 <span class="badge" id="clientCount">0 人</span></div>
-                <div class="client-top-row">
-                    <div class="client-search">
-                        <input type="text" id="clientSearch" placeholder="搜索姓名..." />
-                    </div>
-                </div>
-                <div class="client-list" id="clientList"></div>
-                <div class="client-form" id="clientForm">
-                    <div class="row">
-                        <input type="text" id="clientNameInput" placeholder="姓名" style="flex:1;min-width:80px;" />
-                        <input type="number" id="clientFeeInput" placeholder="单价" min="0" step="0.01" style="width:80px;" />
-                        <select id="clientModeInput" style="width:72px;">
-                            <option value="per-session">次结</option>
-                            <option value="monthly">月结</option>
-                        </select>
-                        <input type="number" id="clientManualSessions" placeholder="手动次数" min="0" value="0" style="width:90px;" />
-                        <select id="clientStatusInput" style="width:90px;">
-                            <option value="active">正在进行</option>
-                            <option value="paused">暂停</option>
-                        </select>
-                    </div>
-                    <div class="row">
-                        <button class="btn btn-primary btn-sm" id="clientConfirmBtn">确认</button>
-                        <button class="btn btn-secondary btn-sm" id="clientCancelBtn" style="display:none;">取消</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">咨询记录</div>
-                <form id="recordForm" class="record-form">
-                    <div class="group full">
-                        <label>选择来访者 <span id="totalSessionsLabel" class="total-sessions-badge" style="display:none;">总次数：0</span></label>
-                        <select id="recordClient" required><option value="">— 请先添加档案 —</option></select>
-                    </div>
-                    <div class="group"><label>日期</label><input type="date" id="recordDate" required /></div>
-                    <div class="group"><label>次数</label><input type="number" id="recordSessions" min="1" value="1" /></div>
-                    <div class="group"><label>单价（留空用默认）</label><input type="number" id="recordFee" min="0" step="0.01" /></div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">添加记录</button>
-                        <button type="button" class="btn btn-outline btn-sm" id="batchBtn">批量选日期</button>
-                        <button type="button" class="btn btn-success btn-sm" id="pasteBtn">粘贴参会</button>
-                    </div>
-                    <div class="batch-panel" id="batchPanel">
-                        <div class="cal-nav">
-                            <button id="calPrev">◀</button>
-                            <span class="month-label" id="calLabel1"></span>
-                            <span class="month-label" id="calLabel2" style="margin-left:16px;"></span>
-                            <button id="calNext">▶</button>
-                        </div>
-                        <div class="cal-months">
-                            <div><div class="cal-grid" id="calGrid1"></div></div>
-                            <div><div class="cal-grid" id="calGrid2"></div></div>
-                        </div>
-                        <div class="cal-info">
-                            <span>已选 <span class="count" id="calCount">0</span> 个日期</span>
-                            <button class="btn btn-sm btn-secondary" id="calClear">清空</button>
-                            <button class="btn btn-sm btn-primary" id="batchConfirm">批量添加</button>
-                            <button class="btn btn-sm btn-secondary" id="batchCancelBtn">取消</button>
-                        </div>
-                    </div>
-                    <div class="import-panel" id="pastePanel">
-                        <h4>粘贴腾讯会议参会名单</h4>
-                        <textarea id="pasteInput" placeholder="粘贴参会成员列表..."></textarea>
-                        <div class="hint">自动模糊匹配来访者，绿色=成功，红色=需手动选择</div>
-                        <div class="match-results" id="matchResults"></div>
-                        <div class="actions">
-                            <button type="button" class="btn btn-primary btn-sm" id="pasteConfirm">确认导入</button>
-                            <button type="button" class="btn btn-secondary btn-sm" id="pasteCancel">取消</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div class="col-detail">
-            <div class="stats-panel" id="statsPanel">
-                <select id="statsMonth"></select>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <span class="stat-label">总次数</span>
-                        <span class="stat-value" id="statTotalHours">0次</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">应收</span>
-                        <span class="stat-value" id="statIncome">¥0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">已收</span>
-                        <span class="stat-value" id="statReceived">¥0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">区间次数</span>
-                        <span class="stat-value" id="statMonthHours">0次</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">均价</span>
-                        <span class="stat-value" id="statAvgPrice">¥0</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="detail-section">
-                <div class="detail-header">
-                    <h2>记账明细 <span class="badge" id="detailCount">0 条</span></h2>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <div class="view-tabs" id="viewTabs">
-                            <button data-view="client" class="active">按来访者</button>
-                            <button data-view="month">按月</button>
-                            <button data-view="unpaid">未缴费</button>
-                        </div>
-                        <button class="btn btn-secondary btn-sm" id="expandAllBtn">展开全部</button>
-                        <div class="export-dropdown">
-                            <button class="btn btn-outline btn-sm" id="exportBtn">导出</button>
-                            <div class="export-menu" id="exportMenu">
-                                <button data-export="all">导出全部记录</button>
-                                <button data-export="client">导出当前来访者</button>
-                                <button data-export="month">按月导出</button>
-                                <button data-export="year">按年导出</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div id="groupList"></div>
-                <div class="empty-detail" id="emptyDetail"><p>暂无记录</p></div>
-            </div>
-        </div>
+<!-- ═══ 顶部品牌条 ═══ -->
+<div class="topbar">
+    <div class="brand">
+        <div class="mark">心</div>
+        <div class="name">心镜·记账<small>状态统计</small></div>
+    </div>
+    <div class="actions">
+        <button class="btn btn-outline btn-sm" onclick="window.parent.App && window.parent.App.openModal('import-modal')">⤓ 导入数据</button>
     </div>
 </div>
+
+<!-- ═══ Tab 栏（固定） ═══ -->
+<div class="tabbar">
+    <div class="tabs" id="mainTabs">
+        <button data-tab="record" class="active">录入</button>
+        <button data-tab="detail">明细</button>
+        <button data-tab="stats">统计</button>
+    </div>
+    <div class="month-picker" id="monthPicker" style="display:none;">
+        <select id="statsMonth"></select>
+    </div>
+</div>
+
+<!-- ═══ 工作区 ═══ -->
+<div class="workspace">
+
+    <!-- ━━ Tab 1 · 录入 ━━ -->
+    <section class="tab-pane active" data-tab="record">
+        <!-- 来访者大下拉 + 摘要 -->
+        <div class="client-selector" id="clientSelector">
+            <div class="avatar" id="csAvatar">—</div>
+            <select id="recordClient" required><option value="">— 选择来访者 —</option></select>
+            <div class="summary" id="csSummary">
+                <span>选个来访者开始记账</span>
+            </div>
+        </div>
+
+        <!-- 录入表单 -->
+        <div class="card">
+            <div class="card-title">新增一次咨询 <span id="totalSessionsLabel" class="total-sessions-badge" style="display:none;">总次数：0</span></div>
+            <form id="recordForm" class="record-form">
+                <div class="group"><label>日期</label><input type="date" id="recordDate" required /></div>
+                <div class="group"><label>次数</label><input type="number" id="recordSessions" min="1" value="1" /></div>
+                <div class="group"><label>单价（留空用默认）</label><input type="number" id="recordFee" min="0" step="0.01" /></div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">＋ 添加记录</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="batchBtn">批量选日期</button>
+                    <button type="button" class="btn btn-success btn-sm" id="pasteBtn">粘贴参会</button>
+                </div>
+                <div class="batch-panel" id="batchPanel">
+                    <div class="cal-nav">
+                        <button id="calPrev">◀</button>
+                        <span class="month-label" id="calLabel1"></span>
+                        <span class="month-label" id="calLabel2" style="margin-left:16px;"></span>
+                        <button id="calNext">▶</button>
+                    </div>
+                    <div class="cal-months">
+                        <div><div class="cal-grid" id="calGrid1"></div></div>
+                        <div><div class="cal-grid" id="calGrid2"></div></div>
+                    </div>
+                    <div class="cal-info">
+                        <span>已选 <span class="count" id="calCount">0</span> 个日期</span>
+                        <button class="btn btn-sm btn-secondary" id="calClear">清空</button>
+                        <button class="btn btn-sm btn-primary" id="batchConfirm">批量添加</button>
+                        <button class="btn btn-sm btn-secondary" id="batchCancelBtn">取消</button>
+                    </div>
+                </div>
+                <div class="import-panel" id="pastePanel">
+                    <h4>粘贴腾讯会议参会名单</h4>
+                    <textarea id="pasteInput" placeholder="粘贴参会成员列表..."></textarea>
+                    <div class="hint">自动模糊匹配来访者，绿色=成功，红色=需手动选择</div>
+                    <div class="match-results" id="matchResults"></div>
+                    <div class="actions">
+                        <button type="button" class="btn btn-primary btn-sm" id="pasteConfirm">确认导入</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="pasteCancel">取消</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 来访者档案 -->
+        <div class="card">
+            <div class="card-title">来访者档案 <span class="badge" id="clientCount">0 人</span></div>
+            <div class="client-top-row">
+                <div class="client-search">
+                    <input type="text" id="clientSearch" placeholder="🔍 搜索姓名..." />
+                </div>
+            </div>
+            <div class="client-list" id="clientList"></div>
+            <div class="client-form" id="clientForm">
+                <div class="row">
+                    <input type="text" id="clientNameInput" placeholder="姓名" style="flex:1;min-width:80px;" />
+                    <input type="number" id="clientFeeInput" placeholder="单价" min="0" step="0.01" style="width:80px;" />
+                    <select id="clientModeInput" style="width:80px;">
+                        <option value="per-session">次结</option>
+                        <option value="monthly">月结</option>
+                    </select>
+                    <input type="number" id="clientManualSessions" placeholder="手动次数" min="0" value="0" style="width:90px;" />
+                    <select id="clientStatusInput" style="width:100px;">
+                        <option value="active">正在进行</option>
+                        <option value="paused">暂停</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <button class="btn btn-primary btn-sm" id="clientConfirmBtn">添加来访者</button>
+                    <button class="btn btn-secondary btn-sm" id="clientCancelBtn" style="display:none;">取消</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ━━ Tab 2 · 明细 ━━ -->
+    <section class="tab-pane" data-tab="detail">
+        <div class="detail-header">
+            <h2>记账明细 <span class="badge" id="detailCount">0 条</span></h2>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div class="view-tabs" id="viewTabs">
+                    <button data-view="client" class="active">按来访者</button>
+                    <button data-view="month">按月</button>
+                    <button data-view="unpaid">未缴费</button>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="expandAllBtn">展开全部</button>
+                <div class="export-dropdown">
+                    <button class="btn btn-outline btn-sm" id="exportBtn">导出 ▾</button>
+                    <div class="export-menu" id="exportMenu">
+                        <button data-export="all">导出全部记录</button>
+                        <button data-export="client">导出当前来访者</button>
+                        <button data-export="month">按月导出</button>
+                        <button data-export="year">按年导出</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="groupList"></div>
+        <div class="empty-detail" id="emptyDetail"><p>暂无记录</p></div>
+    </section>
+
+    <!-- ━━ Tab 3 · 统计 ━━ -->
+    <section class="tab-pane" data-tab="stats">
+        <div class="card">
+            <div class="card-title">本月概览</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">总次数</div>
+                    <div class="stat-value" id="statTotalHours">0次</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">应收</div>
+                    <div class="stat-value" id="statIncome">¥0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">已收</div>
+                    <div class="stat-value received" id="statReceived">¥0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">区间次数</div>
+                    <div class="stat-value" id="statMonthHours">0次</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">均价</div>
+                    <div class="stat-value" id="statAvgPrice">¥0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">欠款排行</div>
+            <div class="debt-list" id="debtList"></div>
+        </div>
+    </section>
+</div>
+
+<!-- 修改记录弹层 -->
 <div class="modal-overlay" id="editModal">
     <div class="modal">
         <h3>修改记录</h3>
@@ -501,6 +636,7 @@
         </div>
     </div>
 </div>
+<!-- 月结收款弹层 -->
 <div class="modal-overlay" id="settleModal">
     <div class="modal">
         <h3>月结收款</h3>
@@ -515,6 +651,11 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ============================================================
+   心镜 · 记账 · v1.0.14（Tab 切换版）
+   逻辑层（30+ 函数 + 80+ DOM ID）完全保留自 1.0.13，
+   仅增加：① tab 切换状态机 ② 月份选择器联动 ③ 欠款排行渲染
+   ============================================================ */
 (function() {
     'use strict';
     const STORAGE_KEY = 'psyc_billing_v8';
@@ -523,7 +664,8 @@
     let editingClientId = null;
     let calendarDate = new Date();
     let selectedDates = new Set();
-    let typedFee = '';          // P1: 记录表单中用户手动输入的单价，连续录入时保留
+    let typedFee = '';
+    let currentTab = 'record';  // v1.0.14 新增：当前 tab
 
     function loadData() {
         try {
@@ -618,7 +760,6 @@
         const totalManual = data.clients.reduce((s,c) => s + (c.manualSessions||0), 0);
         const totalSessions = totalSysSessions + totalManual;
 
-        // 已收：次结=已缴记录金额；月结=已记录的月结付款
         let received = 0;
         data.records.forEach(r => {
             const c = getClient(r.clientId);
@@ -642,6 +783,39 @@
         $('statReceived').textContent = formatMoney(received);
         $('statMonthHours').textContent = monthSessions + '次';
         $('statAvgPrice').textContent = formatMoney(avgPrice);
+    }
+
+    // v1.0.14: 欠款排行
+    function renderDebtList() {
+        const items = [];
+        const activeIds = new Set(data.clients.filter(c => c.status !== 'paused').map(c => c.id));
+        // 次结：未缴
+        data.records.forEach(r => {
+            if (!activeIds.has(r.clientId)) return;
+            const c = getClient(r.clientId);
+            if (c && c.billingMode === 'per-session' && !r.paid) {
+                items.push({ name: c.name, amount: calcAmount(r), id: c.id });
+            }
+        });
+        // 月结：欠款
+        data.clients.filter(c => activeIds.has(c.id) && c.billingMode === 'monthly').forEach(c => {
+            const recs = getRecordsByClient(c.id);
+            const months = new Set(recs.map(r => r.date.slice(0,7)));
+            months.forEach(m => {
+                const due = getMonthlyDue(c.id, m), paid = getMonthlyPayment(c.id, m);
+                const bal = due - paid;
+                if (bal > 0) items.push({ name: c.name + ' · ' + formatMonth(m+'-01'), amount: bal, id: c.id });
+            });
+        });
+        items.sort((a,b) => b.amount - a.amount);
+        const top = items.slice(0, 8);
+        $('debtList').innerHTML = top.length === 0
+            ? '<div style="padding:20px;text-align:center;color:var(--ink-3);">无欠款 🎉</div>'
+            : top.map(it => `<div class="debt-row">
+                <span class="name">${escHtml(it.name)}</span>
+                <span class="amount">${formatMoney(it.amount)}</span>
+                <button class="action-btn switch-to-detail" data-cid="${it.id}">查看明细 →</button>
+            </div>`).join('');
     }
 
     const $ = id => document.getElementById(id);
@@ -673,29 +847,29 @@
             html += `<div class="client-group"><h4>${key}</h4>`;
             groups[key].forEach(c => {
                 const stats = calcClientStats(c.id);
-                const modeText = c.billingMode === 'monthly' ? '月结' : '次结';
+                const isMonthly = c.billingMode === 'monthly';
                 const statusClass = c.status === 'active' ? 'active' : 'paused';
                 const statusText = c.status === 'active' ? '进行' : '暂停';
                 html += `<div class="client-item ${editingClientId===c.id?'active':''}" data-id="${c.id}">
                     <div class="info">
-                        <div class="name">${escHtml(c.name)} <span style="font-size:10px;color:#0ea5e9;">${modeText}</span> <span class="client-status ${statusClass}">${statusText}</span></div>
+                        <div class="name">${escHtml(c.name)} <span class="mode-tag ${isMonthly?'monthly':''}">${isMonthly?'月结':'次结'}</span> <span class="client-status ${statusClass}">${statusText}</span></div>
                         <div class="meta">
-                            <span>${formatMoney(c.feePerSession)}</span>
+                            <span>${formatMoney(c.feePerSession)}/次</span>
                             <span>${stats.totalSessions}次</span>
                             <span>${formatMoney(stats.totalAmount)}</span>
-                            ${stats.unpaidAmount>0?`<span style="color:#dc2626;">${formatMoney(stats.unpaidAmount)}</span>`:''}
+                            ${stats.unpaidAmount>0?`<span class="debt">欠 ${formatMoney(stats.unpaidAmount)}</span>`:''}
                         </div>
                     </div>
                     <div class="actions">
-                        <button class="quick-add" data-id="${c.id}" title="记一次咨询">＋记</button>
-                        <button class="edit-client" data-id="${c.id}">✎</button>
+                        <button class="quick-add" data-id="${c.id}" title="快速为此来访者记一次">＋记</button>
+                        <button class="edit-client" data-id="${c.id}" title="编辑">✎</button>
                         <button class="del-client" data-id="${c.id}" title="删除">✕</button>
                     </div>
                 </div>`;
             });
             html += `</div>`;
         }
-        if (!html) html = '<div style="padding:16px;text-align:center;color:#94a3b8;">暂无匹配来访者</div>';
+        if (!html) html = '<div style="padding:24px;text-align:center;color:var(--ink-3);">暂无来访者，下方表单添加第一位</div>';
         $('clientList').innerHTML = html;
         $('clientCount').textContent = filtered.length + ' 人';
     }
@@ -712,7 +886,6 @@
         $('clientCancelBtn').style.display = 'inline-block';
         renderClients($('clientSearch').value);
     }
-
     function cancelEditClient() {
         editingClientId = null;
         $('clientNameInput').value = '';
@@ -724,7 +897,6 @@
         $('clientCancelBtn').style.display = 'none';
         renderClients($('clientSearch').value);
     }
-
     function confirmClientAction() {
         const name = $('clientNameInput').value.trim();
         const fee = parseFloat($('clientFeeInput').value);
@@ -750,7 +922,6 @@
         cancelEditClient();
         renderAll();
     }
-
     function deleteClient(id) {
         const c = getClient(id); if(!c) return;
         if(!confirm(`确定删除「${c.name}」及其所有记录？`)) return;
@@ -774,11 +945,22 @@
         const c = getClient($('recordClient').value);
         const feeVal = typedFee !== '' ? typedFee : (c ? c.feePerSession : '');
         $('recordFee').value = feeVal;
+        // v1.0.14: 同步大下拉摘要
         if (c) {
+            const stats = calcClientStats(c.id);
             const total = getTotalSessions(c.id);
+            $('csAvatar').textContent = c.name.charAt(0);
+            $('csSummary').innerHTML = `
+                <span><b>${escHtml(c.name)}</b></span>
+                <span>¥${c.feePerSession}/次 · ${c.billingMode==='monthly'?'月结':'次结'}</span>
+                <span>${stats.totalSessions}次</span>
+                ${stats.unpaidAmount>0?`<span class="debt">欠 ¥${stats.unpaidAmount.toFixed(2)}</span>`:''}
+            `;
             $('totalSessionsLabel').style.display = 'inline-block';
             $('totalSessionsLabel').textContent = `总次数：${total}（系统${total-(c.manualSessions||0)}+手动${c.manualSessions||0}）`;
         } else {
+            $('csAvatar').textContent = '—';
+            $('csSummary').innerHTML = '<span>选个来访者开始记账</span>';
             $('totalSessionsLabel').style.display = 'none';
         }
     }
@@ -802,13 +984,13 @@
         return (isNaN(f) || f <= 0) ? c.feePerSession : f;
     }
 
-    // P0: 录入后只刷新明细/统计，并保留当前滚动位置，避免整页重绘跳走
     function refreshDetail() {
         const sy = window.scrollY;
         const cs = $('clientList').scrollTop;
         renderGroups();
         renderClients($('clientSearch').value);
         renderClientSelect();
+        renderDebtList();
         updateStats();
         window.scrollTo(0, sy);
         $('clientList').scrollTop = cs;
@@ -820,19 +1002,14 @@
         saveData();
         const row = document.querySelector(`tr[data-id="${id}"]`);
         if (!row) { renderAll(); return; }
-        const statusTd = row.querySelector('td:first-child');
-        if (statusTd) { statusTd.className = r.paid ? 'paid' : 'unpaid'; }
         const tag = row.querySelector('.status-tag');
-        if (tag) {
-            tag.className = 'status-tag ' + (r.paid ? 'paid' : 'unpaid');
-            tag.textContent = r.paid ? '已缴' : '未缴';
-        }
+        if (tag) { tag.className = 'status-tag ' + (r.paid ? 'paid' : 'unpaid'); tag.textContent = r.paid ? '已缴' : '未缴'; }
         const btn = row.querySelector('.toggle-paid-btn');
         if (btn) btn.textContent = r.paid ? '标记未缴' : '标记已缴';
-        updateStatsDisplay();
+        updateStats();
+        renderDebtList();
     }
 
-    // ★ 修改记录（P1: 内联弹层，替代原生 prompt）
     let editingRecordId = null;
     function editRecord(id) {
         const r = data.records.find(x => x.id === id);
@@ -860,22 +1037,12 @@
     }
     function closeEditModal() { $('editModal').classList.remove('show'); editingRecordId = null; }
 
-    function updateStatsDisplay() {
-        const activeIds = new Set(data.clients.filter(c => c.status !== 'paused').map(c => c.id));
-        let totalRecs = data.records.filter(r => activeIds.has(r.clientId)).length;
-        $('detailCount').textContent = totalRecs + ' 条';
-        renderClients($('clientSearch').value);
-        onClientSelect();
-        updateStats();
-    }
-
     function deleteRecord(id) {
         if(!confirm('删除此记录？')) return;
         data.records = data.records.filter(r=>r.id!==id);
         saveData(); refreshDetail();
     }
 
-    // ★ 月结收款（P1: 内联弹层，替代原生 prompt）
     let settleCtx = null;
     function settleMonth(clientId, month) {
         const c = getClient(clientId); if(!c) return;
@@ -900,7 +1067,6 @@
     }
     function closeSettleModal() { $('settleModal').classList.remove('show'); settleCtx = null; }
 
-    // ── 明细渲染（增加修改按钮）──
     function renderGroups() {
         const activeClients = data.clients.filter(c => c.status !== 'paused');
         const activeIds = new Set(activeClients.map(c => c.id));
@@ -935,7 +1101,7 @@
                     } else {
                         rows = mrecs.map(r => {
                             const amt=calcAmount(r), paid=r.paid;
-                            return `<tr data-id="${r.id}"><td class="${paid?'paid':'unpaid'}">${formatDate(r.date)}</td><td>${r.sessions}次</td><td>${formatMoney(amt)}</td>
+                            return `<tr data-id="${r.id}"><td>${formatDate(r.date)}</td><td>${r.sessions}次</td><td>${formatMoney(amt)}</td>
                             <td><span class="status-tag ${paid?'paid':'unpaid'}">${paid?'已缴':'未缴'}</span></td>
                             <td>
                                 <button class="toggle-paid-btn" data-id="${r.id}">${paid?'标记未缴':'标记已缴'}</button>
@@ -972,7 +1138,7 @@
                     const c=getClient(r.clientId); const amt=calcAmount(r);
                     const cn=escHtml(c?.name||'未知');
                     if(c?.billingMode==='monthly') return `<tr data-id="${r.id}"><td>${formatDate(r.date)}</td><td>${cn}</td><td>${r.sessions}次</td><td>${formatMoney(amt)}</td><td><button class="action-btn edit-rec-btn" data-id="${r.id}">修改</button> <button class="action-btn del-rec-btn" data-id="${r.id}">删除</button></td></tr>`;
-                    return `<tr data-id="${r.id}"><td class="${r.paid?'paid':'unpaid'}">${formatDate(r.date)}</td><td>${cn}</td><td>${r.sessions}次</td><td>${formatMoney(amt)}</td><td><span class="status-tag ${r.paid?'paid':'unpaid'}">${r.paid?'已缴':'未缴'}</span></td><td><button class="toggle-paid-btn" data-id="${r.id}">${r.paid?'标记未缴':'标记已缴'}</button> <button class="action-btn edit-rec-btn" data-id="${r.id}">修改</button> <button class="action-btn del-rec-btn" data-id="${r.id}">删除</button></td></tr>`;
+                    return `<tr data-id="${r.id}"><td>${formatDate(r.date)}</td><td>${cn}</td><td>${r.sessions}次</td><td>${formatMoney(amt)}</td><td><span class="status-tag ${r.paid?'paid':'unpaid'}">${r.paid?'已缴':'未缴'}</span></td><td><button class="toggle-paid-btn" data-id="${r.id}">${r.paid?'标记未缴':'标记已缴'}</button> <button class="action-btn edit-rec-btn" data-id="${r.id}">修改</button> <button class="action-btn del-rec-btn" data-id="${r.id}">删除</button></td></tr>`;
                 }).join('');
                 html+=`<div class="group-card"><div class="group-toggle"><span class="arrow open">▶</span><span class="gname">${formatMonth(m+'-01')}</span><span class="gmeta">${recs.length}条 · 合计 ${formatMoney(mAmt)}</span></div><div class="sub-records open"><table class="sub-table"><thead><tr><th>日期</th><th>来访者</th><th>次数</th><th>金额</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
             });
@@ -1013,6 +1179,7 @@
         renderClients($('clientSearch').value);
         renderClientSelect();
         renderGroups();
+        renderDebtList();
         populateMonthOptions();
         document.querySelectorAll('#viewTabs button').forEach(b=>b.classList.toggle('active', b.dataset.view===viewMode));
     }
@@ -1029,7 +1196,6 @@
         $('calLabel2').textContent = `${y2}年${(m2%12)+1}月`;
         $('calCount').textContent = selectedDates.size;
     }
-
     function renderCalGrid(gridId, year, month) {
         const grid = $(gridId);
         const daysInMonth = new Date(year, month+1, 0).getDate();
@@ -1045,7 +1211,6 @@
         }
         grid.innerHTML = html;
     }
-
     function toggleDate(dateStr) {
         if (selectedDates.has(dateStr)) selectedDates.delete(dateStr);
         else selectedDates.add(dateStr);
@@ -1063,7 +1228,6 @@
         a.click(); URL.revokeObjectURL(url);
         toast('导出成功','success');
     }
-
     function doExport(type) {
         const header = ['来访者','日期','次数','单价','金额','结算方式','缴费状态','备注'];
         let rows = [header];
@@ -1083,7 +1247,6 @@
             }
             rows.push([c?.name||'未知', r.date, r.sessions, r.feePerSession, amt, mode, status, '']);
         };
-
         if (type === 'all') {
             const activeIds = new Set(data.clients.filter(c => c.status !== 'paused').map(c => c.id));
             filename = '全部记录';
@@ -1109,6 +1272,21 @@
         exportCSV(rows, filename);
     }
 
+    // ── v1.0.14: Tab 切换状态机 ──
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('#mainTabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
+        // 月份选择器仅在「统计」tab 显示
+        $('monthPicker').style.display = (tab === 'stats') ? 'flex' : 'none';
+        // 切到明细时重置"展开全部"按钮文案
+        if (tab === 'detail') {
+            const subs = document.querySelectorAll('.sub-records,.month-records');
+            const anyClosed = Array.from(subs).some(el => !el.classList.contains('open'));
+            $('expandAllBtn').textContent = anyClosed ? '展开全部' : '折叠全部';
+        }
+    }
+
     // ── 事件绑定 ──
     $('clientSearch').addEventListener('input', ()=> renderClients($('clientSearch').value));
     $('clientConfirmBtn').addEventListener('click', confirmClientAction);
@@ -1122,15 +1300,15 @@
         else if(btn.classList.contains('del-client')) deleteClient(id);
     });
 
-    // P1: 列表「＋记」→ 选中该来访者、预填今日、聚焦日期，连续记账顺手
     function quickAddFor(id) {
         const c = getClient(id); if(!c) return;
         typedFee = '';
         $('recordClient').value = id;
         onClientSelect();
         if (!$('recordDate').value) $('recordDate').value = new Date().toISOString().slice(0,10);
+        // 滚动到录入表单
         const form = $('recordForm');
-        if (form && form.scrollIntoView) form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (form && form.scrollIntoView) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(() => $('recordDate').focus(), 60);
     }
 
@@ -1138,7 +1316,6 @@
     $('recordFee').addEventListener('input', ()=>{ typedFee = $('recordFee').value; });
     $('recordForm').addEventListener('submit', e=>{ e.preventDefault(); addRecord(); });
 
-    // P1: 修改记录 / 月结收款 弹层
     $('editSave').addEventListener('click', saveEditRecord);
     $('editCancel').addEventListener('click', closeEditModal);
     $('editModal').addEventListener('click', e=>{ if(e.target===$('editModal')) closeEditModal(); });
@@ -1148,18 +1325,12 @@
 
     $('groupList').addEventListener('click', e=>{
         const settleBtn = e.target.closest('.settle-btn');
-        if (settleBtn) {
-            e.stopPropagation();
-            settleMonth(settleBtn.dataset.client, settleBtn.dataset.month);
-            return;
-        }
+        if (settleBtn) { e.stopPropagation(); settleMonth(settleBtn.dataset.client, settleBtn.dataset.month); return; }
         if(e.target.classList.contains('toggle-paid-btn')) { togglePaid(e.target.dataset.id); return; }
         if(e.target.classList.contains('del-rec-btn')) { deleteRecord(e.target.dataset.id); return; }
-        // ★ 新增修改按钮事件
         if(e.target.classList.contains('edit-rec-btn') || e.target.closest('.edit-rec-btn')) {
             const btn = e.target.classList.contains('edit-rec-btn') ? e.target : e.target.closest('.edit-rec-btn');
-            editRecord(btn.dataset.id);
-            return;
+            editRecord(btn.dataset.id); return;
         }
         const mtoggle = e.target.closest('.month-toggle');
         if(mtoggle) {
@@ -1200,6 +1371,21 @@
         doExport(btn.dataset.export);
     });
     document.addEventListener('click', ()=> $('exportMenu').classList.remove('show'));
+
+    // 欠款排行 → 切到明细 tab
+    $('debtList').addEventListener('click', e=>{
+        const btn = e.target.closest('.switch-to-detail');
+        if (btn) { switchTab('detail'); }
+    });
+
+    // Tab 切换
+    $('mainTabs').addEventListener('click', e=>{
+        const btn = e.target.closest('button');
+        if(!btn) return;
+        switchTab(btn.dataset.tab);
+    });
+
+    $('statsMonth').addEventListener('change', updateStats);
 
     $('batchBtn').addEventListener('click', ()=>{
         const vis = $('batchPanel').classList.contains('show');
@@ -1257,7 +1443,7 @@
         }
         $('matchResults').innerHTML = results.map((p,i)=>{
             const opts = data.clients.map(c=>`<option value="${c.id}" ${p.matched?.id===c.id?'selected':''}>${escHtml(c.name)}</option>`).join('');
-            const color = p.matched?'#059669':'#dc2626';
+            const color = p.matched?'var(--green)':'var(--red)';
             return `<div class="match-row"><span style="color:${color};font-weight:500;">${escHtml(p.raw)}</span> → <select class="match-select" data-index="${i}"><option value="">跳过</option>${opts}</select></div>`;
         }).join('');
     });
@@ -1279,12 +1465,11 @@
         $('pastePanel').classList.remove('show'); $('pasteInput').value=''; $('matchResults').innerHTML='';
     });
 
-    $('statsMonth').addEventListener('change', updateStats);
-
     // 初始化
     loadData();
     $('recordDate').value = new Date().toISOString().slice(0,10);
     renderAll();
+    switchTab('record');
     setTimeout(()=>{
         document.querySelectorAll('.sub-records,.month-records').forEach(el=>el.classList.add('open'));
         $('expandAllBtn').textContent = '折叠全部';

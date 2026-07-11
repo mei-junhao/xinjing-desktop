@@ -15,34 +15,82 @@
       background: #f0f4f9;
       display: block;
     }
+
+    /* ── 导入数据 modal（三 Tab）── */
+    .import-tabs {
+      display: flex; gap: 4px; background: var(--bg-soft);
+      border-radius: var(--r-btn, 999px); padding: 3px; border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .import-tabs button {
+      flex: 1; background: transparent; border: none; padding: 7px 14px;
+      border-radius: var(--r-btn, 999px); font-size: 13px; cursor: pointer;
+      color: var(--muted); white-space: nowrap; font-family: var(--sans); font-weight: 500;
+      transition: background .2s, color .2s;
+    }
+    .import-tabs button:hover { color: var(--text); }
+    .import-tabs button.active {
+      background: var(--bg); color: var(--accent, #9E5A3C); font-weight: 600;
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+    .import-tab-pane { display: none; }
+    .import-tab-pane.active { display: block; animation: fadeIn .25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
     .import-hint {
-      font-size: 12.5px;
-      line-height: 1.7;
-      color: var(--muted);
-      font-family: var(--sans);
-      background: var(--bg-alt);
-      border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 14px;
+      font-size: 12.5px; line-height: 1.7; color: var(--muted);
+      font-family: var(--sans); background: var(--bg-alt);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
     }
-    .import-hint code {
-      background: var(--bg);
-      padding: 1px 6px;
-      border-radius: 5px;
-      font-size: 12px;
+    .import-hint code { background: var(--bg); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+
+    #import-json, #meetings-json {
+      width: 100%; min-height: 140px; font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 12px; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: 10px; resize: vertical; background: var(--bg);
     }
-    #import-json {
-      width: 100%;
-      min-height: 140px;
-      font-family: 'Menlo', 'Consolas', monospace;
-      font-size: 12px;
-      padding: 10px 12px;
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      resize: vertical;
-      background: var(--bg);
+    .import-result { font-size: 12.5px; color: var(--text-soft, var(--muted)); margin-top: 8px; min-height: 18px; }
+
+    /* 预览表 */
+    .preview-card {
+      background: var(--bg-alt); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin: 10px 0;
     }
-    #import-result { font-size: 12.5px; color: var(--text-soft); margin-top: 8px; min-height: 18px; }
+    .preview-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .preview-pills .pill {
+      padding: 4px 10px; border-radius: 999px; font-size: 11.5px;
+      background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+    }
+    .preview-pills .pill b { color: var(--text); margin-right: 3px; }
+    .preview-pills .pill.add b { color: #6E7E62; }
+    .preview-pills .pill.skip b { color: #9A8F82; }
+    .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; max-height: 200px; overflow-y: auto; display: block; }
+    .preview-table th, .preview-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    .preview-table th { font-size: 11px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0; }
+    .preview-table td.new { color: #6E7E62; font-weight: 600; }
+    .preview-table td.skip { color: #9A8F82; }
+    .preview-table .tag { padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600; }
+    .preview-table .tag.new { background: #ECEFE6; color: #6E7E62; }
+    .preview-table .tag.skip { background: var(--bg-soft); color: #9A8F82; }
+
+    /* 会议行 */
+    .meeting-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px;
+      background: var(--bg); flex-wrap: wrap;
+    }
+    .meeting-row .meta { flex: 1; min-width: 180px; }
+    .meeting-row .subj { font-weight: 600; font-size: 13px; color: var(--text); }
+    .meeting-row .time { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .meeting-row select {
+      max-width: 160px; padding: 6px 10px; border-radius: 8px;
+      border: 1.5px solid var(--border); background: var(--bg); color: var(--text);
+      font-family: var(--sans); font-size: 12px;
+    }
+    .meeting-row .ptag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; font-weight: 600; background: var(--bg-soft); color: var(--muted); margin-right: 4px; }
+
+    .file-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    .file-row input[type="file"] { font-family: var(--sans); font-size: 13px; }
   </style>
 </head>
 <body>
@@ -58,26 +106,75 @@
     </main>
   </div>
 
-  <!-- 导入旧数据模态框 -->
+  <!-- ═══ 导入数据 modal（三 Tab）═══ -->
   <div class="modal-overlay" id="import-modal">
-    <div class="modal" style="max-width:560px">
+    <div class="modal" style="max-width:640px">
       <div class="modal-header">
-        <h2>导入旧记账数据</h2>
+        <h2>导入数据</h2>
         <button class="close" onclick="App.closeModal('import-modal')">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="import-hint">
-          你的旧记账数据原本存在浏览器本地（<code>file://</code> 或旧地址）。心镜现已以
-          <strong>同一份数据</strong>运行，导入即把旧记录写进心镜的本地数据库：<br>
-          1. 用<strong>原来打开记账系统的那个浏览器</strong>打开本目录的 <code>export-billing.html</code>，一键下载 JSON；<br>
-          2. 把下载的 JSON 内容粘贴到下方，点「导入」。导入后自动刷新记账页。
+
+        <!-- Tab 切换 -->
+        <div class="import-tabs" id="importTabs">
+          <button data-tab="billing" class="active">旧版记账</button>
+          <button data-tab="meetings">腾讯会议</button>
+          <button data-tab="manual">手动 JSON</button>
         </div>
-        <textarea id="import-json" placeholder="在此粘贴导出的 JSON（含 clients / records / monthlyPayments）"></textarea>
-        <div id="import-result"></div>
+
+        <!-- Tab 1：旧版记账（复用原 BillingSync 桥接层） -->
+        <div class="import-tab-pane active" data-tab="billing">
+          <div class="import-hint">
+            从原「心理咨询记账系统」导出的 JSON / CSV 导入。<br>
+            • JSON：<code>{ clients, records, monthlyPayments }</code><br>
+            • CSV：导出时带"来访者/日期/次数/单价/缴费状态/结算方式"列的表格<br>
+            导入即写入心镜本地数据库，按来访者/记录幂等去重，可重复运行。
+          </div>
+          <div class="file-row">
+            <input type="file" id="billing-file" accept=".json,.csv" />
+            <button class="btn btn-outline btn-sm" onclick="BillingImport.parseFile()">解析文件</button>
+          </div>
+          <textarea id="billing-input" placeholder="或在此粘贴 JSON / CSV 内容…"></textarea>
+          <div class="file-row" style="margin-top:10px">
+            <button class="btn btn-outline btn-sm" onclick="BillingImport.parseText()">解析文本</button>
+          </div>
+          <div id="billing-preview"></div>
+          <div class="import-result" id="billing-result"></div>
+        </div>
+
+        <!-- Tab 2：腾讯会议 -->
+        <div class="import-tab-pane" data-tab="meetings">
+          <div class="import-hint">
+            把腾讯会议参会记录（<code>latest_meetings.json</code>）转成心镜咨询会话。<br>
+            • 每位非本人（"梅"/"mei"/"admin"）的参会者 → 匹配/新建来访者 → 生成一节 session<br>
+            • 会议主题作为 session.notes 的前缀；起止时间作为 date 时分；时长作为 durationMinutes
+          </div>
+          <div class="file-row">
+            <input type="file" id="meetings-file" accept=".json" />
+            <button class="btn btn-outline btn-sm" onclick="MeetingsImport.parseFile()">解析文件</button>
+          </div>
+          <textarea id="meetings-json" placeholder="或在此粘贴 latest_meetings.json 内容…"></textarea>
+          <div class="file-row" style="margin-top:10px">
+            <button class="btn btn-outline btn-sm" onclick="MeetingsImport.parseText()">解析文本</button>
+          </div>
+          <div id="meetings-list"></div>
+          <div class="import-result" id="meetings-result"></div>
+        </div>
+
+        <!-- Tab 3：手动 JSON（高级 / 原始） -->
+        <div class="import-tab-pane" data-tab="manual">
+          <div class="import-hint">
+            高级入口：直接写进心镜 Store 的 <code>psyc_billing_v8</code> 键。<br>
+            ⚠️ JSON 结构必须与旧版记账系统导出完全一致：<code>{ clients: [], records: [], monthlyPayments: [] }</code><br>
+            大多数情况请用「旧版记账」Tab，这个 Tab 留给调试用。
+          </div>
+          <textarea id="import-json" placeholder='{"clients":[],"records":[],"monthlyPayments":[]}'></textarea>
+          <div id="import-result" class="import-result"></div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="App.closeModal('import-modal')">取消</button>
-        <button class="btn btn-primary" onclick="doImport()">导入并刷新</button>
+        <button class="btn btn-primary" id="import-confirm-btn" onclick="ImportModal.confirm()">导入</button>
       </div>
     </div>
   </div>
@@ -100,42 +197,425 @@
   <script src="js/app.js"></script>
   <script src="js/billing-sync.js"></script>
   <script>
-    App.initPage({
-      title: '记账',
-      subtitle: '你的记账系统已与心镜共用同一份数据',
-      actions: '<button class="btn btn-outline btn-sm" onclick="openImport()">导入旧数据</button>',
-      onReady: function () {
-        // Store 已在本页 hydrate；iframe 内的桥接层会把记账读写落到这份 Store
-        document.getElementById('billing-frame').src = 'billing.html';
-      }
-    });
-
-    function openImport() {
-      document.getElementById('import-json').value = '';
-      document.getElementById('import-result').textContent = '';
-      App.openModal('import-modal');
-    }
-
-    function doImport() {
-      const raw = document.getElementById('import-json').value.trim();
-      if (!raw) { App.showToast('请先粘贴导出的 JSON', 'warning'); return; }
-      let parsed;
-      try { parsed = JSON.parse(raw); }
-      catch (e) { App.showToast('JSON 格式错误，请检查', 'warning'); return; }
-
-      if (typeof window.BillingSync === 'undefined') {
-        App.showToast('桥接层未加载', 'warning'); return;
-      }
-      // 直接翻译进心镜 Store（单一真相源），按 id 幂等，可重复导入
-      window.BillingSync.psycToStore(window.Store, {
-        clients: parsed.clients || [],
-        records: parsed.records || [],
-        monthlyPayments: parsed.monthlyPayments || [],
-      });
+  /* ============================================================
+     心镜 · 记账 · v1.0.14 壳页
+     职责：① 加载记账 iframe ② 「导入数据」modal 三 Tab 统一入口
+     三个导入源（syncing logic）共用同一份 Store.upsert 接口
+     ============================================================ */
+  App.initPage({
+    title: '记账',
+    subtitle: '你的记账系统已与心镜共用同一份数据',
+    onReady: function () {
       document.getElementById('billing-frame').src = 'billing.html';
-      App.closeModal('import-modal');
-      App.showToast('导入完成 · 已写入心镜本地数据库', 'success');
     }
+  });
+
+  // ── 打开导入 modal（iframe 顶部栏「⤓ 导入数据」也通过 window.parent.App.openModal 触发）──
+  function openImport() {
+    document.getElementById('billing-input').value = '';
+    document.getElementById('meetings-json').value = '';
+    document.getElementById('import-json').value = '';
+    document.getElementById('billing-preview').innerHTML = '';
+    document.getElementById('meetings-list').innerHTML = '';
+    ['billing-result', 'meetings-result', 'import-result'].forEach(id => document.getElementById(id).textContent = '');
+    BillingImport.reset();
+    MeetingsImport.reset();
+    switchImportTab('billing');
+    App.openModal('import-modal');
+  }
+  window.openImport = openImport;  // 暴露给顶层调用
+
+  function switchImportTab(tab) {
+    document.querySelectorAll('#importTabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.import-tab-pane').forEach(p => p.classList.toggle('active', p.dataset.tab === tab));
+    ImportModal.currentTab = tab;
+    // 主按钮文案随 tab 变
+    const labels = { billing: '确认导入', meetings: '导入选中', manual: '导入并刷新' };
+    document.getElementById('import-confirm-btn').textContent = labels[tab] || '导入';
+  }
+  document.getElementById('importTabs').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (btn) switchImportTab(btn.dataset.tab);
+  });
+
+  /* ──────────────────────────────────────────────────────────
+     Tab 1：旧版记账（JSON/CSV → Store 幂等导入）
+     ────────────────────────────────────────────────────────── */
+  const BillingImport = (() => {
+    let parsed = null;
+    function reset() { parsed = null; }
+    function setResult(msg, color) {
+      const el = document.getElementById('billing-result');
+      el.textContent = msg;
+      el.style.color = color || 'var(--muted)';
+    }
+    function normDate(s) {
+      if (!s) return '';
+      s = String(s).trim();
+      const m = s.match(/(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})/);
+      if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+      const d = new Date(s);
+      return isNaN(d) ? '' : d.toISOString().slice(0, 10);
+    }
+    function parseCSVrows(text) {
+      text = text.replace(/^﻿/, '');
+      const rows = []; let row = [], field = '', inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQ) {
+          if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
+          else field += ch;
+        } else {
+          if (ch === '"') inQ = true;
+          else if (ch === ',') { row.push(field); field = ''; }
+          else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+          else if (ch === '\r') {}
+          else field += ch;
+        }
+      }
+      if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+      return rows;
+    }
+    function parseInput(text) {
+      text = text.trim();
+      if (text.startsWith('{') || text.startsWith('[')) {
+        return parseJSON(JSON.parse(text));
+      }
+      if (text.includes('来访者') || text.includes(',')) {
+        return parseCSV(text);
+      }
+      throw new Error('无法识别格式，请粘贴 JSON 或 CSV');
+    }
+    function parseJSON(data) {
+      if (!Array.isArray(data.clients) || !Array.isArray(data.records)) {
+        throw new Error('JSON 应为 { clients, records, monthlyPayments } 结构');
+      }
+      const idToName = {};
+      const clients = data.clients.map(c => {
+        const name = (c.name || '').trim();
+        if (c.id) idToName[c.id] = name;
+        return { name, feePerSession: Number(c.feePerSession) || 0, billingMode: c.billingMode === 'monthly' ? 'monthly' : 'per-session', status: c.status === 'paused' ? 'paused' : 'active', manualSessions: Number(c.manualSessions) || 0 };
+      }).filter(c => c.name);
+      const records = data.records.map(r => ({
+        clientName: (r.clientId && idToName[r.clientId]) || '',
+        date: normDate(r.date),
+        sessions: Math.max(1, parseInt(r.sessions) || 1),
+        feePerSession: Number(r.feePerSession) || 0,
+        paid: !!r.paid,
+        key: 'rec_' + (r.id || (r.clientId + '_' + r.date + '_' + r.sessions))
+      })).filter(r => r.clientName && r.date);
+      return { format: 'json', clients, records, raw: data };
+    }
+    function parseCSV(text) {
+      const rows = parseCSVrows(text);
+      if (rows.length < 2) throw new Error('CSV 内容为空或缺少数据行');
+      const header = rows[0].map(h => String(h || '').trim());
+      const idx = {
+        name: header.indexOf('来访者'),
+        date: header.indexOf('日期'),
+        sessions: header.indexOf('次数'),
+        fee: header.indexOf('单价'),
+        paid: header.indexOf('缴费状态'),
+        mode: header.indexOf('结算方式')
+      };
+      if (idx.name < 0 || idx.date < 0) throw new Error('CSV 缺少「来访者」或「日期」列');
+      const clientsMap = {};
+      const records = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const name = String(row[idx.name] || '').trim();
+        if (!name) continue;
+        const date = normDate(row[idx.date]);
+        if (!date) continue;
+        const sessions = Math.max(1, parseInt(row[idx.sessions] || '1') || 1);
+        const fee = Number(row[idx.fee] || 0) || 0;
+        const paid = idx.paid >= 0 ? /已缴/.test(String(row[idx.paid] || '')) : false;
+        const isMonthly = idx.mode >= 0 && /月结/.test(String(row[idx.mode] || ''));
+        records.push({ clientName: name, date, sessions, feePerSession: fee, paid, key: 'csv_' + name + '_' + date + '_' + sessions });
+        if (!clientsMap[name]) {
+          clientsMap[name] = { name, feePerSession: fee, billingMode: isMonthly ? 'monthly' : 'per-session', status: 'active', manualSessions: 0 };
+        }
+      }
+      const clients = Object.values(clientsMap);
+      if (!clients.length) throw new Error('CSV 中未解析到任何来访者记录');
+      return { format: 'csv', clients, records };
+    }
+    function computePlan(p) {
+      const nameToId = {};
+      Store.getClients().forEach(c => { nameToId[c.name.trim()] = c.id; });
+      const byClient = {};
+      p.clients.forEach(c => { const n = c.name.trim(); byClient[n] = byClient[n] || { newCount: 0, skipCount: 0, fee: c.feePerSession, billingMode: c.billingMode, status: c.status, manualSessions: c.manualSessions }; });
+      p.records.forEach(r => {
+        const n = (r.clientName || '').trim();
+        byClient[n] = byClient[n] || { newCount: 0, skipCount: 0 };
+        const cid = nameToId[n];
+        let already = 0;
+        if (cid) {
+          already = Store.getSessionsByClient(cid).filter(s => (s.notes || '').includes('[billing:' + r.key + ']')).length;
+        }
+        byClient[n].newCount += Math.max(0, r.sessions - already);
+        byClient[n].skipCount += already;
+      });
+      let newClientCount = 0, newSessionCount = 0, skipCount = 0;
+      Object.keys(byClient).forEach(n => {
+        if (!nameToId[n]) newClientCount++;
+        newSessionCount += byClient[n].newCount;
+        skipCount += byClient[n].skipCount;
+      });
+      return { nameToId, byClient, newClientCount, newSessionCount, skipCount };
+    }
+    function renderPreview(p) {
+      const plan = computePlan(p);
+      let rows = '';
+      Object.keys(plan.byClient).forEach(name => {
+        const info = plan.byClient[name];
+        const isNew = !plan.nameToId[name];
+        const cls = isNew ? 'new' : 'skip';
+        rows += `<tr><td class="${cls}">${App.escapeHtml(name)}</td><td><span class="tag ${cls}">${isNew ? '新增' : '已有'}</span></td><td>${info.newCount}</td><td>${info.skipCount}</td></tr>`;
+      });
+      document.getElementById('billing-preview').innerHTML = `
+        <div class="preview-card">
+          <div class="preview-pills">
+            <span class="pill add"><b>${plan.newClientCount}</b>新增来访者</span>
+            <span class="pill add"><b>${plan.newSessionCount}</b>新增节次</span>
+            <span class="pill skip"><b>${plan.skipCount}</b>跳过(已存在)</span>
+            <span class="pill"><b>${p.clients.length}</b>总来访者</span>
+            <span class="pill"><b>${p.records.length}</b>总记录</span>
+          </div>
+          <div style="max-height:200px;overflow-y:auto">
+            <table class="preview-table"><thead><tr><th>来访者</th><th>状态</th><th>新增节次</th><th>跳过节次</th></tr></thead><tbody>${rows}</tbody></table>
+          </div>
+        </div>`;
+      setResult(plan.newSessionCount > 0 ? '预览就绪，点「确认导入」写入。' : '全部记录已存在，无需重复导入。', 'var(--text)');
+    }
+    function parseText() {
+      const text = document.getElementById('billing-input').value;
+      if (!text.trim()) { setResult('请先粘贴或选择文件', 'var(--accent)'); return; }
+      try { parsed = parseInput(text); renderPreview(parsed); }
+      catch (e) { setResult('解析失败：' + e.message, 'var(--accent)'); parsed = null; }
+    }
+    function parseFile() {
+      const f = document.getElementById('billing-file').files[0];
+      if (!f) { setResult('请先选择文件', 'var(--accent)'); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        document.getElementById('billing-input').value = reader.result;
+        parseText();
+      };
+      reader.readAsText(f);
+    }
+    function doImport() {
+      if (!parsed) { setResult('请先解析数据', 'var(--accent)'); return false; }
+      const plan = computePlan(parsed);
+      if (plan.newSessionCount === 0 && plan.newClientCount === 0) {
+        setResult('全部已存在，无需导入', 'var(--text)'); return false;
+      }
+      const nameToId = plan.nameToId;
+      // 1) 来访者
+      parsed.clients.forEach(c => {
+        const name = c.name.trim();
+        if (!nameToId[name]) {
+          const created = Store.createClient({
+            name: c.name, status: c.status || 'active', tags: ['记账同步'],
+            billing: { feePerSession: c.feePerSession || 0, billingMode: c.billingMode || 'per-session', manualSessions: c.manualSessions || 0 },
+            notes: ['来源：旧版记账导入', '单价 ¥' + (c.feePerSession || 0), c.billingMode === 'monthly' ? '月结' : '次结', c.manualSessions ? '手动次数 ' + c.manualSessions : ''].filter(Boolean).join('｜')
+          });
+          nameToId[name] = created.id;
+        } else {
+          const ec = Store.getClient(nameToId[name]);
+          if (ec && (!ec.billing || !ec.billing.feePerSession) && c.feePerSession) {
+            Store.updateClient(ec.id, { billing: Object.assign({}, ec.billing, { feePerSession: c.feePerSession, billingMode: ec.billing?.billingMode || c.billingMode || 'per-session', manualSessions: ec.billing?.manualSessions || c.manualSessions || 0 }) });
+          }
+        }
+      });
+      // 2) 记录
+      let added = 0;
+      parsed.records.forEach(r => {
+        const cid = nameToId[r.clientName.trim()];
+        if (!cid) return;
+        const already = Store.getSessionsByClient(cid).filter(s => (s.notes || '').includes('[billing:' + r.key + ']')).length;
+        const need = Math.max(0, r.sessions - already);
+        let nextNo = Store.nextSessionNumber(cid);
+        for (let i = 0; i < need; i++) {
+          Store.createSession({
+            clientId: cid, sessionNumber: nextNo++, date: r.date, durationMinutes: 0, type: 'individual',
+            billing: { fee: r.feePerSession || 0, paid: !!r.paid, source: 'billing' },
+            notes: ['来源：旧版记账导入', r.feePerSession ? '单价 ¥' + r.feePerSession : '', r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '', '[billing:' + r.key + ']'].filter(Boolean).join('｜')
+          });
+          added++;
+        }
+      });
+      setResult(`导入完成：新增节次 ${added}，跳过 ${plan.skipCount}（已存在）`, 'var(--green, #6E7E62)');
+      return true;
+    }
+    return { parseText, parseFile, doImport, reset };
+  })();
+
+  /* ──────────────────────────────────────────────────────────
+     Tab 2：腾讯会议（latest_meetings.json → 匹配 → Store）
+     ────────────────────────────────────────────────────────── */
+  const MeetingsImport = (() => {
+    const SELF_HINTS = ['mei', '梅', 'admin', '我'];
+    let parsedMeetings = [];
+    let rows = [];
+    function reset() { parsedMeetings = []; rows = []; }
+    function isSelf(name) {
+      const n = (name || '').toLowerCase();
+      return SELF_HINTS.some(h => n.includes(h.toLowerCase()));
+    }
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d)) return iso;
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+    function matchClient(name) {
+      if (!name) return null;
+      const clients = Store.getClients();
+      const lower = name.trim().toLowerCase();
+      let hit = clients.find(c => (c.name || '').toLowerCase() === lower);
+      if (hit) return hit;
+      hit = clients.find(c => (c.name || '').toLowerCase().includes(lower) || lower.includes((c.name || '').toLowerCase()));
+      return hit || null;
+    }
+    function setResult(msg, color) {
+      const el = document.getElementById('meetings-result');
+      el.textContent = msg;
+      el.style.color = color || 'var(--muted)';
+    }
+    function parseText() {
+      const raw = document.getElementById('meetings-json').value.trim();
+      if (!raw) { setResult('请先粘贴或选择文件', 'var(--accent)'); return; }
+      let data; try { data = JSON.parse(raw); } catch (e) { setResult('JSON 解析失败', 'var(--accent)'); return; }
+      let list = Array.isArray(data) ? data : (data.meetings || data.data || []);
+      if (!Array.isArray(list) || !list.length) { setResult('未找到会议数组', 'var(--accent)'); return; }
+      parsedMeetings = list;
+      buildRows();
+    }
+    function parseFile() {
+      const f = document.getElementById('meetings-file').files[0];
+      if (!f) { setResult('请先选择文件', 'var(--accent)'); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        document.getElementById('meetings-json').value = reader.result;
+        parseText();
+      };
+      reader.readAsText(f);
+    }
+    function buildRows() {
+      rows = [];
+      parsedMeetings.forEach(m => {
+        const subj = m.subject || m.title || m.topic || '(无主题)';
+        const start = m.start_time || m.startTime || m.start || '';
+        const end = m.end_time || m.endTime || m.end || '';
+        const participants = m.participants || m.members || [];
+        participants.forEach(p => {
+          const pname = p.user_name || p.name || p.userName || '';
+          if (!pname || isSelf(pname)) return;
+          const matched = matchClient(pname);
+          rows.push({ meeting: { subj, start, end }, participant: pname, duration: p.duration_min || p.durationMin || p.duration || 0, matched, selected: true, newChoice: matched ? matched.id : '' });
+        });
+      });
+      renderList();
+      setResult(`共解析 ${rows.length} 位参会者（非本人）。${rows.filter(r => !r.matched).length} 位需手动匹配。`, 'var(--text)');
+    }
+    function renderList() {
+      if (rows.length === 0) {
+        document.getElementById('meetings-list').innerHTML = '';
+        return;
+      }
+      const clientOpts = Store.getClients().map(c => `<option value="${c.id}">${App.escapeHtml(c.name)}</option>`).join('');
+      const html = rows.map((r, i) => {
+        const tagClass = r.matched ? 'var(--green, #6E7E62)' : 'var(--accent, #9E5A3C)';
+        const tagText = r.matched ? '匹配' : '需选';
+        return `<div class="meeting-row">
+          <input type="checkbox" data-i="${i}" ${r.selected ? 'checked' : ''} style="flex-shrink:0">
+          <div class="meta">
+            <div class="subj">${App.escapeHtml(r.meeting.subj)} <span class="ptag" style="color:${tagClass}">${tagText}</span></div>
+            <div class="time">${fmtDate(r.meeting.start)} → ${fmtDate(r.meeting.end)} · ${r.duration} 分钟</div>
+          </div>
+          <span style="color:var(--muted);font-size:12px">${App.escapeHtml(r.participant)} →</span>
+          <select data-i="${i}" class="client-select">
+            <option value="">+ 新建来访者</option>
+            ${clientOpts}
+          </select>
+        </div>`;
+      }).join('');
+      document.getElementById('meetings-list').innerHTML = html;
+    }
+    document.getElementById('meetings-list').addEventListener('change', e => {
+      const i = +e.target.dataset.i;
+      if (e.target.type === 'checkbox') rows[i].selected = e.target.checked;
+      else rows[i].newChoice = e.target.value;
+    });
+    function importSelected() {
+      const sel = rows.filter(r => r.selected);
+      if (sel.length === 0) { setResult('请至少选择一行', 'var(--accent)'); return false; }
+      let createdClients = 0, createdSessions = 0, skipped = 0;
+      sel.forEach(r => {
+        const start = new Date(r.meeting.start);
+        if (isNaN(start)) { skipped++; return; }
+        const date = start.toISOString().slice(0, 10);
+        let cid = r.newChoice;
+        if (!cid) {
+          // 新建来访者
+          const c = Store.createClient({ name: r.participant, status: 'active', tags: ['会议同步'], notes: '来源：腾讯会议参会' });
+          cid = c.id;
+          createdClients++;
+        }
+        const exist = Store.getSessionsByClient(cid).find(s => s.notes && s.notes.includes('[tmeet:' + r.meeting.start + ':' + r.participant + ']'));
+        if (exist) { skipped++; return; }
+        Store.createSession({
+          clientId: cid, sessionNumber: Store.nextSessionNumber(cid), date,
+          durationMinutes: r.duration, type: 'individual',
+          billing: { fee: 0, paid: false, source: 'tmeet' },
+          notes: ['会议：' + r.meeting.subj, r.duration ? '时长 ' + r.duration + ' 分钟' : '', '[tmeet:' + r.meeting.start + ':' + r.participant + ']'].filter(Boolean).join('｜')
+        });
+        createdSessions++;
+      });
+      setResult(`导入完成：新建来访者 ${createdClients}，生成 session ${createdSessions}，跳过 ${skipped}（重复）`, 'var(--green, #6E7E62)');
+      return true;
+    }
+    return { parseText, parseFile, importSelected, reset };
+  })();
+
+  /* ──────────────────────────────────────────────────────────
+     Tab 3：手动 JSON（直接写 psyc_billing_v8，由 bridge 翻译）
+     ────────────────────────────────────────────────────────── */
+  function doImport() {
+    const raw = document.getElementById('import-json').value.trim();
+    if (!raw) { App.showToast('请先粘贴导出的 JSON', 'warning'); return false; }
+    let parsed; try { parsed = JSON.parse(raw); }
+    catch (e) { App.showToast('JSON 格式错误，请检查', 'warning'); return false; }
+    if (typeof window.BillingSync === 'undefined') { App.showToast('桥接层未加载', 'warning'); return false; }
+    window.BillingSync.psycToStore(window.Store, {
+      clients: parsed.clients || [],
+      records: parsed.records || [],
+      monthlyPayments: parsed.monthlyPayments || []
+    });
+    document.getElementById('import-result').textContent = '已写入心镜本地数据库。';
+    document.getElementById('billing-frame').src = 'billing.html?ts=' + Date.now();
+    return true;
+  }
+
+  /* ── 主按钮分发 ── */
+  const ImportModal = {
+    currentTab: 'billing',
+    confirm: function () {
+      let ok = false;
+      if (this.currentTab === 'billing') ok = BillingImport.doImport();
+      else if (this.currentTab === 'meetings') ok = MeetingsImport.importSelected();
+      else if (this.currentTab === 'manual') ok = doImport();
+      if (ok) {
+        // 刷新 iframe 让记账页立刻看到新数据
+        const f = document.getElementById('billing-frame');
+        f.src = 'billing.html?ts=' + Date.now();
+        App.showToast('导入完成 · 已写入心镜本地数据库', 'success');
+        // 不自动关 modal，让用户看结果
+      }
+    }
+  };
   </script>
 </body>
 </html>
