@@ -170,6 +170,18 @@ const Store = (() => {
         ? Object.assign({ apiConfig: {}, version: '1.0.0' }, settings)
         : { apiConfig: {}, version: '1.0.0' };
     hydrated = true;
+    // 升级后一次性去重：根治「换端口迁移后同记录出现多份」(1.0.21 暴露 4 份重复)。
+    // 去重前会备份原数据到 __xj_dedup_backup_*，并写防重标记，绝不误删内容不同的记录。
+    try {
+      const removed = await maybeDedupe();
+      if (removed > 0) {
+        console.info('[Store] 启动去重完成，合并', removed, '条重复记录，即将刷新');
+        setTimeout(() => { location.reload(); }, 200);
+        return;
+      }
+    } catch (e) {
+      console.error('[Store] 去重异常（已跳过，不影响正常启动）', e);
+    }
   }
 
   function isHydrated() {
@@ -719,7 +731,8 @@ const Store = (() => {
       if (ov == null) continue;
       if (Array.isArray(ov)) {
         const cur = Array.isArray(merged[k]) ? merged[k] : [];
-        merged[k] = mergeById(cur, ov);
+        // 跨库 id 互不相同，不能只按 id 去重；改用业务指纹（见 keyFor）
+        merged[k] = dedupeArray(cur.concat(ov || []), keyFor(k));
       } else if (typeof ov === 'object') {
         if (k === 'settings') {
           // 设置：当前为空（或缺失）时用旧的，否则保留当前（最新激活态优先）
@@ -793,6 +806,134 @@ const Store = (() => {
         migrateOldPorts(ports).catch((e) => console.error('[migrate] 失败:', (e && e.message) || e));
       }
     });
+  }
+
+  // ============================================================
+  // 启动去重（根治「迁移后同记录出现多份」：1.0.21 暴露 4 份重复）
+  // 根因：旧端口库里同一条记录由各自进程独立 genId 生成，跨库 id 互不相同，
+  //       仅按 id 去重完全失效。改为按业务指纹（稳定字段）去重；
+  //       无指纹的记录保守保留，绝不误删内容不同的记录。
+  // ============================================================
+  function stableStringify(o) {
+    try { return JSON.stringify(o, Object.keys(o || {}).sort()); }
+    catch (e) { return JSON.stringify(o); }
+  }
+  // 来访者：业务唯一键=姓名（忽略大小写/空白）
+  function clientKey(c) {
+    if (!c) return '';
+    if (c.name) return 'name:' + String(c.name).trim().toLowerCase();
+    if (c.id != null) return 'id:' + c.id;
+    return '';
+  }
+  // 会谈：clientId + 日期 + 费用/已付/来源 + 正文内容（排除动态字段 updatedAt/sessionNumber）
+  function sessionKey(s) {
+    if (!s) return '';
+    const b = s.billing || {};
+    const soap = s.soap || {};
+    const content = [s.transcript || '', soap.subjective || '', soap.objective || '', soap.assessment || '', soap.plan || '', s.summary || '', s.reflection || ''].join('');
+    return [s.clientId || '', s.date || '', b.fee != null ? b.fee : '', b.paid ? 1 : 0, b.source || '', content].join('|');
+  }
+  // 督导：clientId + 日期 + 督导师 + 正文
+  function supervisionKey(sv) {
+    if (!sv) return '';
+    return [sv.clientId || '', sv.date || '', sv.supervisorName || '', sv.content || '', sv.conclusion || ''].join('|');
+  }
+  function keyFor(k) {
+    if (k === 'clients') return clientKey;
+    if (k === 'sessions') return sessionKey;
+    if (k === 'supervisions') return supervisionKey;
+    // 其余数组（masterConversations / supervisorIdentities 等）按 id，无 id 则按内容指纹
+    return (x) => (x && x.id != null ? 'id:' + x.id : 'json:' + stableStringify(x));
+  }
+  // 内容丰富度：去重时优先保留信息更完整的副本
+  function richness(item) {
+    if (!item || typeof item !== 'object') return 0;
+    const s = item.soap || {};
+    return (item.transcript || '').length + (s.subjective || '').length + (s.objective || '').length +
+      (s.assessment || '').length + (s.plan || '').length + (item.summary || '').length +
+      (item.reflection || '').length + (item.content || '').length + (item.conclusion || '').length;
+  }
+  // 单数组按指纹去重
+  function dedupeArray(arr, keyFn) {
+    const seen = new Map();
+    const out = [];
+    for (const item of (arr || [])) {
+      const key = keyFn(item);
+      if (!key) { out.push(item); continue; } // 无指纹：保守保留，不冒险去重
+      if (seen.has(key)) {
+        const prev = seen.get(key);
+        if (richness(item) > richness(prev)) seen.set(key, item); // 保留更完整的
+        continue;
+      }
+      seen.set(key, item);
+      out.push(item);
+    }
+    return out;
+  }
+  // 月结付款：按 id 去重（结构稳定，含 id）
+  function dedupeById(arr) {
+    const seen = new Set();
+    const out = [];
+    for (const it of (arr || [])) {
+      const id = it && it.id != null ? String(it.id) : null;
+      if (id != null) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+      }
+      out.push(it);
+    }
+    return out;
+  }
+  async function readAllKv() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => {
+        const map = {};
+        (req.result || []).forEach((r) => { map[r.key] = r.value; });
+        resolve(map);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  // 对当前库已有重复做一次去重（应对旧端口已归档、迁移不再触发的现状）
+  async function maybeDedupe() {
+    const flag = await idbGet('__xj_dedup_v2');
+    if (flag && flag.done) return 0; // 已处理过，防重
+    const all = await readAllKv();
+    const ARRAY_KEYS = ['clients', 'sessions', 'supervisions', 'masterConversations', 'supervisorIdentities'];
+    let removed = 0;
+    const backup = {};
+    for (const k of ARRAY_KEYS) {
+      const v = all[k];
+      if (!Array.isArray(v)) continue;
+      const before = v.length;
+      const after = dedupeArray(v, keyFor(k));
+      if (after.length < before) { removed += before - after; backup[k] = v; all[k] = after; }
+    }
+    // clients 内嵌 monthlyPayments 去重
+    if (Array.isArray(all.clients)) {
+      for (const c of all.clients) {
+        const mp = c && c.billing && c.billing.monthlyPayments;
+        if (Array.isArray(mp)) {
+          const before = mp.length;
+          const after = dedupeById(mp);
+          if (after.length < before) { removed += before - after; c.billing.monthlyPayments = after; }
+        }
+      }
+    }
+    if (removed === 0) {
+      await idbPut('__xj_dedup_v2', { done: true, at: Date.now(), removed: 0 });
+      return 0;
+    }
+    // 备份原始重复数据，极端情况可经开发者工具恢复
+    try { await idbPut('__xj_dedup_backup_' + Date.now(), backup); } catch (e) {}
+    for (const k of ARRAY_KEYS) {
+      if (all[k] !== undefined) await idbPut(k, all[k]);
+    }
+    await idbPut('__xj_dedup_v2', { done: true, at: Date.now(), removed });
+    return removed;
   }
 
   // ============================================================
