@@ -16,8 +16,7 @@
     accent: 'var(--accent)', purple: 'var(--purple)', blue: 'var(--blue)', green: 'var(--green)',
     orange: 'var(--orange)', indigo: 'var(--indigo)', red: 'var(--red)',
   };
-  const MAX_HISTORY = 18;       // 发送给模型时保留的最近消息条数
-  const SUMMARY_EVERY = 12;     // 每累计这么多条用户/助手消息，刷新一次摘要
+  // MAX_HISTORY / SUMMARY_EVERY 常量已移至 MastersCore 纯核（masters-core.js）
 
   let mode = '1v1';             // '1v1' | 'round'
   let currentConv = null;       // 当前对话对象
@@ -244,59 +243,30 @@
     if (t) t.remove();
   }
 
-  // 构建发送给模型的消息：system（大师人格 + 长时记忆摘要）+ 近期对话历史
+  // 构建发送给模型的消息——委托 MastersCore（纯核无 DOM 依赖）
   function buildMessages(master, userText) {
-    const summaryLine = currentConv.summary
-      ? '\n\n以下是你与这位咨询师的【既往对话摘要（长时记忆）】，请在回应时保持脉络连贯，不必重复已讨论过的内容：\n' + currentConv.summary
-      : '';
-    const system = master.systemPrompt + summaryLine;
-
-    // 取最近 MAX_HISTORY 条历史（user/assistant），映射到 openai 角色
-    const hist = currentConv.messages
-      .filter((x) => x.role === 'user' || x.role === 'assistant')
-      .slice(-MAX_HISTORY)
-      .map((x) => ({ role: x.role === 'user' ? 'user' : 'assistant', content: x.content }));
-
-    return [{ role: 'system', content: system }, ...hist, { role: 'user', content: userText }];
+    return MastersCore.buildMessages(currentConv, master, userText);
   }
 
   function callMaster(master, userText) {
-    return new Promise((resolve) => {
-      const messages = buildMessages(master, userText);
-      if (window.AI && AI.send) {
-        AI.send(messages, (res) => resolve(res));
-      } else {
-        resolve({ error: 'AI 模块未就绪' });
-      }
-    });
+    return MastersCore.callMaster(currentConv, master, userText);
   }
 
   // 长时记忆：用既有对话生成/刷新摘要，存于 conv.summary
-  function maybeSummarize() {
-    const turns = currentConv.messages.filter((x) => x.role === 'user' || x.role === 'assistant').length;
-    if (turns < SUMMARY_EVERY) return;
+  // 委托 MastersCore.maybeSummarize（纯核无 DOM）+ 页面壳负责插 sys 消息 + renderChat
+  async function maybeSummarize() {
     if (currentConv._summarizing) return;
     currentConv._summarizing = true;
 
-    const transcript = currentConv.messages
-      .filter((x) => x.role === 'user' || x.role === 'assistant')
-      .map((x) => (x.role === 'user' ? '咨询师：' : (masterName(x.masterKey) + '：')) + x.content)
-      .join('\n');
-    const sys = '请用 3-5 条要点概括以下心理咨询师生与大师的对话脉络（核心议题、已形成的共识、待深入的张力、咨询师的倾向）。只输出要点，不要评论。';
-    if (window.AI && AI.send) {
-      AI.send([{ role: 'system', content: sys }, { role: 'user', content: transcript }], (res) => {
-        currentConv._summarizing = false;
-        if (res && res.content && !res.error) {
-          currentConv.summary = res.content.trim();
-          Store.saveMasterConversation(currentConv);
-          // 插入一条系统提示，告知已建立长时记忆
-          currentConv.messages.push({ role: 'sys', content: '🧠 已生成长时记忆摘要，后续对话将自动延续此前脉络。', ts: Date.now() });
-          Store.saveMasterConversation(currentConv);
-          renderChat();
-        }
-      });
-    } else {
-      currentConv._summarizing = false;
+    const summary = await MastersCore.maybeSummarize(currentConv);
+    currentConv._summarizing = false;
+
+    if (summary) {
+      currentConv.summary = summary;
+      Store.saveMasterConversation(currentConv);
+      currentConv.messages.push({ role: 'sys', content: '🧠 已生成长时记忆摘要，后续对话将自动延续此前脉络。', ts: Date.now() });
+      Store.saveMasterConversation(currentConv);
+      renderChat();
     }
   }
 

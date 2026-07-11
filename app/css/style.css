@@ -100,7 +100,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .01em;
 }
 .nav-item .icon { width: 19px; height: 19px; flex-shrink: 0; display: grid; place-items: center; opacity: .92; }
 .nav-item .icon svg { width: 19px; height: 19px; }
-.nav-item:hover { background: rgba(42, 36, 32, .045); color: var(--ink); }
+.nav-item:hover { background: var(--hover-tint); color: var(--ink); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 .nav-item.active::before {
   content: ""; position: absolute; left: 0; top: 10px; bottom: 10px;
@@ -125,7 +125,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .01em;
 .stat-card:nth-child(3) { animation-delay: .12s; }
 .stat-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 18px 40px rgba(42, 36, 32, .1);
+  box-shadow: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 18px 40px var(--scrim);
 }
 .stat-card .icon-wrap {
   width: 42px; height: 42px; border-radius: 12px;
@@ -177,7 +177,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .01em;
 }
 .client-card:hover {
   transform: translateY(-2px); border-color: var(--hair-strong);
-  box-shadow: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 16px 36px rgba(42, 36, 32, .09);
+  box-shadow: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 16px 36px var(--scrim);
 }
 .client-card.ended { opacity: .72; }
 .client-card .avatar {
@@ -314,7 +314,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .01em;
 
 /* ---------- 模态框（双层 + 柔影）---------- */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(42, 36, 32, .4); backdrop-filter: blur(4px);
+  position: fixed; inset: 0; background: var(--scrim); backdrop-filter: blur(var(--blur, 4px));
   display: none; align-items: center; justify-content: center; padding: 20px; z-index: 100;
   opacity: 0; transition: opacity .3s var(--ease);
 }

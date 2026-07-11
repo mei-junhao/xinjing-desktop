@@ -1,9 +1,11 @@
 /* ============================================================
    心镜 XinJing · 设计令牌层（tokens.css）
    - 语义层：间距/圆角/字体/动效/层级——皮肤无关
-   - 颜色层：按皮肤(skin)组织，本版只有 editorial（现状搬移，值不变）
-   - 暗色：保留 :root.dark 选择器兼容现有 .dark 切换机制（app.js/settings.js/billing-sync.js）
-   - data-skin 属性作为未来多皮肤的挂钩（本版仅 editorial，v1.2.0 加 calm）
+   - 颜色层：按皮肤(skin)组织
+     · calm（v1.2.0 默认）：静谧留白，薰衣草雾蓝
+     · editorial（v1.1.0 保留）：暖棕编辑式
+   - 暗色：保留 :root.dark 选择器兼容现有 .dark 切换机制
+   - data-skin 属性作为多皮肤挂钩
    ============================================================ */
 
 /* ---------- 语义层（皮肤无关） ---------- */
@@ -28,10 +30,149 @@
   --content-max: 1080px;
 }
 
-/* ---------- 颜色层：editorial 皮肤（亮色） ---------- */
+/* ============================================================
+   颜色层：calm 皮肤（v1.2.0 默认）
+   方向 A 静谧留白：薰衣草 #8B93C7 主 / 雾蓝 #9DB8D6 次 / 近白冷灰底
+   变量名兼容：同时提供 calm 原名 + editorial 同名映射，
+   使 style.css 中引用 --paper/--ink/--hair 等旧名的组件无缝取色
+   ============================================================ */
+
+/* ---------- calm 浅色 ---------- */
 :root,
+[data-skin="calm"] {
+  /* calm 原名 */
+  --bg: #F6F8FC;
+  --bg-elevated: #FFFFFF;
+  --bg-sunken: #EDF0F7;
+  --bg-glass: rgba(255, 255, 255, 0.72);
+  --border-c: #E2E7F0;
+  --border-strong-c: #D2D9E6;
+  --text-c: #2B3140;
+  --text-secondary-c: #646B7D;
+  --text-muted-c: #99A1B3;
+  --accent: #8B93C7;
+  --accent-hover: #777FBC;
+  --accent-soft: #ECEEF9;
+  --accent-2: #9DB8D6;
+  --success-c: #6FAE8F;
+  --warning-c: #D6A85C;
+  --danger-c: #D98C8C;
+  --blur: 14px;
+
+  /* editorial 同名映射（供 style.css 组件无缝取色） */
+  --paper: #F6F8FC;
+  --paper-2: #FFFFFF;
+  --sidebar: #EDF0F7;
+  --shell: #EDF0F7;
+  --ink: #2B3140;
+  --ink-2: #646B7D;
+  --ink-3: #99A1B3;
+  --hair: #E2E7F0;
+  --hair-strong: #D2D9E6;
+
+  /* 主题色补充 */
+  --accent-line: #B5BDE0;
+
+  /* 语义色（映射到 calm 色系） */
+  --green: #6FAE8F;   --green-soft: #E6F2EC;
+  --orange: #D6A85C;  --orange-soft: #F7EFE0;
+  --blue: #9DB8D6;    --blue-soft: #E8EFF6;
+  --purple: #8B93C7;  --purple-soft: #ECEEF9;
+  --indigo: #7C8AB5;  --indigo-soft: #E8EBF5;
+  --red: #D98C8C;     --red-soft: #F8E8E8;
+
+  /* 阴影：冷灰 tint（对应 calm 深色文字 #2B3140） */
+  --shadow-sm: 0 1px 3px rgba(43, 49, 64, 0.05);
+  --shadow: 0 4px 16px rgba(43, 49, 64, 0.07);
+  --shadow-lg: 0 12px 36px rgba(43, 49, 64, 0.10);
+  --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 8px 24px rgba(43, 49, 64, 0.06);
+
+  /* hover 微底色与遮罩 rim */
+  --hover-tint: rgba(43, 49, 64, 0.04);
+  --scrim: rgba(43, 49, 64, 0.4);
+
+  /* 兼容令牌（供复用页面引用，与 editorial 保持一致名） */
+  --radius: 14px;
+  --border: var(--hair-strong);
+  --muted: var(--ink-2);
+  --text: var(--ink);
+  --transition: .2s var(--ease);
+  --card: var(--paper-2);
+  --bg-soft: var(--sidebar);
+  --text-soft: var(--ink-3);
+  --text-faint: #B8BFCC;
+  --bg-alt: #EDF0F7;
+}
+
+/* ---------- calm 暗色（calm dark，派生自 A 基调） ---------- */
+:root.dark,
+[data-skin="calm"].dark {
+  --bg: #181B24;
+  --bg-elevated: #21252F;
+  --bg-sunken: #1C1F29;
+  --bg-glass: rgba(33, 37, 47, 0.66);
+  --border-c: #2F3442;
+  --border-strong-c: #3A4150;
+  --text-c: #E6E9F2;
+  --text-secondary-c: #A6ADBF;
+  --text-muted-c: #6F7689;
+  --accent: #A9B0E2;
+  --accent-hover: #BCC2EC;
+  --accent-soft: #2A2F46;
+  --accent-2: #8FB0D2;
+  --success-c: #7BB89A;
+  --warning-c: #E0B86E;
+  --danger-c: #E29B9B;
+
+  /* editorial 同名映射 */
+  --paper: #181B24;
+  --paper-2: #21252F;
+  --sidebar: #1C1F29;
+  --shell: #1C1F29;
+  --ink: #E6E9F2;
+  --ink-2: #A6ADBF;
+  --ink-3: #6F7689;
+  --hair: #2F3442;
+  --hair-strong: #3A4150;
+
+  --accent-line: #5560A0;
+
+  --green: #7BB89A;   --green-soft: #1E2D26;
+  --orange: #E0B86E;  --orange-soft: #2D2618;
+  --blue: #8FB0D2;    --blue-soft: #1A2430;
+  --purple: #A9B0E2;  --purple-soft: #252A44;
+  --indigo: #98A4CE;  --indigo-soft: #1C2233;
+  --red: #E29B9B;     --red-soft: #2D1E1E;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.30);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.40);
+  --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 8px 24px rgba(0, 0, 0, 0.30);
+
+  /* hover 微底色与遮罩 scrim */
+  --hover-tint: rgba(255, 255, 255, 0.04);
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  /* 兼容令牌（暗色） */
+  --radius: 14px;
+  --border: var(--hair-strong);
+  --muted: var(--ink-2);
+  --text: var(--ink);
+  --transition: .2s var(--ease);
+  --card: var(--paper-2);
+  --bg-soft: var(--sidebar);
+  --text-soft: var(--ink-3);
+  --text-faint: #55607A;
+  --bg-alt: #1C1F29;
+}
+
+/* ============================================================
+   颜色层：editorial 皮肤（v1.1.0 保留，非默认——切回时生效）
+   仅用 [data-skin="editorial"] 限定，不写 :root 避免覆盖 calm
+   ============================================================ */
+
+/* ---------- editorial 浅色 ---------- */
 [data-skin="editorial"] {
-  /* 纸面与墨色 */
   --paper: #FBF8F3;
   --paper-2: #FFFDF9;
   --sidebar: #F4EDE3;
@@ -42,13 +183,11 @@
   --hair: #ECE3D8;
   --hair-strong: #DCCFBE;
 
-  /* 主题色：暖棕陶土（clay bronze），克制饱和 */
   --accent: #9E5A3C;
   --accent-2: #874A2E;
   --accent-soft: #F1E4DA;
   --accent-line: #C99A82;
 
-  /* 语义色：全部暖调去饱和，仅作区分 */
   --green: #6E7E62;   --green-soft: #ECEFE6;
   --orange: #BC8A4E;  --orange-soft: #F6ECDD;
   --blue: #7C93A0;    --blue-soft: #E9EFF2;
@@ -56,14 +195,14 @@
   --indigo: #6F7D92;  --indigo-soft: #EAEDF2;
   --red: #B06A62;     --red-soft: #F5E8E6;
 
-  /* 阴影：极淡、暖色 tint */
   --shadow-sm: 0 1px 2px rgba(42, 36, 32, .05);
   --shadow: 0 1px 2px rgba(42, 36, 32, .04), 0 12px 30px rgba(42, 36, 32, .06);
   --shadow-lg: 0 24px 60px rgba(42, 36, 32, .18);
-  /* 双层卡：外壳环 + 发丝边 + 柔影 */
   --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 12px 30px rgba(42, 36, 32, .05);
 
-  /* 兼容令牌：供 session/sync/meetings/settings/billing-shell 等复用页面引用 */
+  --hover-tint: rgba(42, 36, 32, 0.045);
+  --scrim: rgba(42, 36, 32, 0.4);
+
   --radius: var(--r-card);
   --border: var(--hair-strong);
   --bg: var(--paper);
@@ -77,9 +216,7 @@
   --bg-alt: #F7F1E9;
 }
 
-/* ---------- 颜色层：editorial 皮肤（暗色） ---------- */
-/* 保留 :root.dark 选择器兼容现有 .dark 类切换机制 */
-:root.dark,
+/* ---------- editorial 暗色 ---------- */
 [data-skin="editorial"].dark {
   --paper: #19150F;
   --paper-2: #211B14;
@@ -108,7 +245,9 @@
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, .6);
   --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 12px 30px rgba(0, 0, 0, .45);
 
-  /* 兼容令牌（暗色对应值） */
+  --hover-tint: rgba(255, 255, 255, 0.035);
+  --scrim: rgba(0, 0, 0, 0.6);
+
   --radius: var(--r-card);
   --border: var(--hair-strong);
   --bg: var(--paper);
