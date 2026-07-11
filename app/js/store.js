@@ -668,6 +668,122 @@ const Store = (() => {
   }
 
   // ============================================================
+  // 旧端口历史数据迁移（根治「换端口=历史丢失」）
+  // 主进程在旧端口临时起同源服务后，通过 __XJ_API__ 通知本函数；
+  // 这里用隐藏 iframe 在「旧 origin」上下文读出 IndexedDB，再合并写入当前 origin。
+  // ============================================================
+  function readPortViaIframe(port) {
+    return new Promise((resolve) => {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      let done = false, timer = null;
+      const finish = (val) => {
+        if (done) return; done = true;
+        clearTimeout(timer);
+        try { window.removeEventListener('message', onMsg); } catch (e) {}
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+        resolve(val);
+      };
+      const onMsg = (e) => {
+        if (e.data && e.data.__xj_migrate) finish(e.data.error ? null : (e.data.data || null));
+      };
+      window.addEventListener('message', onMsg);
+      timer = setTimeout(() => finish(null), 8000); // 单端口超时保护
+      iframe.src = 'http://127.0.0.1:' + port + '/migrate-helper.html';
+      document.body.appendChild(iframe);
+    });
+  }
+
+  // 数组按 id 合并去重（当前优先，旧的补齐缺失项）
+  function mergeById(a, b) {
+    const seen = new Set();
+    const out = [];
+    for (const item of a) {
+      if (item && item.id != null) { if (seen.has(item.id)) continue; seen.add(item.id); }
+      out.push(item);
+    }
+    for (const item of b) {
+      if (item && item.id != null) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+      }
+      out.push(item);
+    }
+    return out;
+  }
+
+  // 把一个旧端口库的数据合并进 merged（当前库数据优先，旧库补齐缺失）
+  function mergeInto(merged, old) {
+    for (const k of Object.keys(old)) {
+      const ov = old[k];
+      if (ov == null) continue;
+      if (Array.isArray(ov)) {
+        const cur = Array.isArray(merged[k]) ? merged[k] : [];
+        merged[k] = mergeById(cur, ov);
+      } else if (typeof ov === 'object') {
+        if (k === 'settings') {
+          // 设置：当前为空（或缺失）时用旧的，否则保留当前（最新激活态优先）
+          const curObj = merged[k];
+          const curEmpty = !curObj || (typeof curObj === 'object' && !Array.isArray(curObj) && Object.keys(curObj).length === 0);
+          if (curEmpty) merged[k] = ov;
+          continue;
+        }
+        const cur = (merged[k] && typeof merged[k] === 'object' && !Array.isArray(merged[k])) ? merged[k] : {};
+        merged[k] = Object.assign({}, ov, cur); // 当前优先
+      } else {
+        if (!(k in merged)) merged[k] = ov; // 标量：当前无则取旧
+      }
+    }
+  }
+
+  // 主入口：合并所有旧端口库到当前端口库，写回后刷新页面
+  async function migrateOldPorts(ports) {
+    if (!ports || !ports.length) return;
+    const db = await getDB();
+    // 读当前库现有 kv
+    const current = await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => {
+        const map = {};
+        (req.result || []).forEach((r) => { map[r.key] = r.value; });
+        resolve(map);
+      };
+      req.onerror = () => reject(req.error);
+    });
+
+    const merged = Object.assign({}, current);
+    for (const port of ports) {
+      const data = await readPortViaIframe(port);
+      if (data && typeof data === 'object') mergeInto(merged, data);
+    }
+
+    // 写回合并结果
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      const keys = Object.keys(merged);
+      if (keys.length === 0) { resolve(); return; }
+      let pending = keys.length;
+      const dec = () => { if (--pending === 0) resolve(); };
+      for (const k of keys) {
+        const putReq = store.put({ key: k, value: merged[k] });
+        putReq.onsuccess = dec;
+        putReq.onerror = dec;
+      }
+      tx.onerror = () => reject(tx.error);
+    });
+
+    console.log('[migrate] 已合并旧端口数据到当前库，keys=', Object.keys(merged).length);
+
+    // 通知主进程：关闭临时服务 + 归档旧库，然后刷新页面以重新 hydrate
+    if (window.__XJ_API__ && window.__XJ_API__.notifyMigrateDone) {
+      try { window.__XJ_API__.notifyMigrateDone(ports); } catch (e) {}
+    }
+    setTimeout(() => { location.reload(); }, 400);
+  }
+
+  // ============================================================
   // 公开接口
   // ============================================================
   return {
@@ -698,6 +814,15 @@ const Store = (() => {
     // 授权闸门
     licenseMode, aiUnlocked,
   };
+
+  // 注册旧端口迁移监听：主进程经 __XJ_API__ 通知后，自动把历史数据合并进当前库
+  if (typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.onLegacyPorts) {
+    window.__XJ_API__.onLegacyPorts((ports) => {
+      if (ports && ports.length) {
+        migrateOldPorts(ports).catch((e) => console.error('[migrate] 失败:', (e && e.message) || e));
+      }
+    });
+  }
 })();
 
 if (typeof window !== 'undefined') {

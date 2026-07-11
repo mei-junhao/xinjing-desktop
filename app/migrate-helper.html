@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>心镜数据迁移辅助页</title>
+</head>
+<body>
+  <script>
+  // 该页被隐藏 iframe 加载于「旧端口 origin」(http://127.0.0.1:<旧端口>)，
+  // 因此 indexedDB.open('xinjing_db') 打开的是旧 origin 的库。读出全部 kv 后 postMessage 给父窗口。
+  (function () {
+    var DB_NAME = 'xinjing_db', DB_VERSION = 1, STORE = 'kv';
+    function readAll(cb) {
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onsuccess = function () {
+        var db = req.result;
+        try {
+          var tx = db.transaction(STORE, 'readonly');
+          var store = tx.objectStore(STORE);
+          var keysReq = store.getAllKeys();
+          keysReq.onsuccess = function () {
+            var keys = keysReq.result || [];
+            var out = {};
+            var i = 0;
+            var next = function () {
+              if (i >= keys.length) { cb(out); try { db.close(); } catch (_) {} return; }
+              var k = keys[i++];
+              var g = store.get(k);
+              g.onsuccess = function () {
+                out[k] = (g.result && g.result.value !== undefined) ? g.result.value : null;
+                next();
+              };
+              g.onerror = function () { next(); };
+            };
+            if (keys.length === 0) { cb(out); try { db.close(); } catch (_) {} }
+            else next();
+          };
+          keysReq.onerror = function () { cb(out); try { db.close(); } catch (_) {} };
+        } catch (e) { cb({}); try { db.close(); } catch (_) {} }
+      };
+      req.onerror = function () { cb({}); };
+    }
+    readAll(function (data) {
+      try { parent.postMessage({ __xj_migrate: true, data: data }, '*'); }
+      catch (e) { parent.postMessage({ __xj_migrate: true, error: String(e) }, '*'); }
+    });
+  })();
+  </script>
+</body>
+</html>

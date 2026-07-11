@@ -31,10 +31,15 @@ const api = {
   saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
   selectBackupFolder: () => ipcRenderer.invoke('xj:selectBackupFolder'),
   // 订阅主进程激活后的状态广播，renderer 端可据此实时刷新解锁 UI（跨 realm 可用）
-  onLicenseState: (cb) => { if (typeof cb === 'function') stateListeners.push(cb); }
+  onLicenseState: (cb) => { if (typeof cb === 'function') stateListeners.push(cb); },
+  // 旧端口历史数据迁移：主进程扫描到旧端口后通知渲染进程；迁移完成后回传关闭临时服务
+  onLegacyPorts: (cb) => { if (typeof cb === 'function') legacyPortsListeners.push(cb); },
+  notifyMigrateDone: (ports) => ipcRenderer.send('xj:migrate-done', ports)
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];
+// 旧端口迁移订阅者（主进程 xj:legacy-ports 广播）
+const legacyPortsListeners = [];
 
 // 毫秒时间戳 → YYYY-MM-DD（0 视为终身）；与 main.js 的 fmtDate 对齐
 function fmtDate(ms) {
@@ -93,6 +98,11 @@ try {
       syncPageLocks(s);
       stateListeners.forEach((cb) => { try { cb(s); } catch (err) {} });
     } catch (err) { /* ignore */ }
+  });
+
+  // 旧端口数据迁移广播：转发给渲染进程注册的 onLegacyPorts 回调
+  ipcRenderer.on('xj:legacy-ports', (e, ports) => {
+    legacyPortsListeners.forEach((cb) => { try { cb(ports); } catch (err) {} });
   });
 
   // 直接在共享 DOM 上同步页面级锁（#ai-lock / #supervisor-lock-note）。

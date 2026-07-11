@@ -83,53 +83,11 @@ checkDataAnomaly();
 
 // ---- IndexedDB 端口碎片自愈合并（核心修复）----
 // 根因：前端经本地 http 服务加载，浏览器 IndexedDB/localStorage 按 origin(含端口) 隔离。
-// 早期构建每次启动用随机端口 → origin 变化 → 每次都读到一个全新的空库 =「历史全部丢失、像回到初始版本」。
-// 真实历史数据其实完整保存在旧端口对应的 leveldb 目录里，只是当前端口 origin 读不到。
-// 这里在窗口加载前，把体量最大的历史端口库内容合并进「当前实际绑定端口」的库，
-// 使历史记录不受端口变化影响而始终可见（即便某次回退到随机端口也能自动带回数据）。
-function consolidateIndexedDB(port) {
-  try {
-    const idbRoot = path.join(CANON_USER_DATA, 'IndexedDB');
-    if (!fs.existsSync(idbRoot)) return;
-    const re = /^http_127\.0\.0\.1_\d+\.indexeddb\.leveldb$/;
-    const dirs = fs.readdirSync(idbRoot).filter((n) => re.test(n));
-    if (!dirs.length) return;
-    const sizeOf = (d) => {
-      let s = 0;
-      try {
-        for (const f of fs.readdirSync(d)) {
-          try { const st = fs.statSync(path.join(d, f)); if (st.isFile()) s += st.size; } catch (e) { /* ignore */ }
-        }
-      } catch (e) { /* ignore */ }
-      return s;
-    };
-    const targetName = 'http_127.0.0.1_' + port + '.indexeddb.leveldb';
-    const targetPath = path.join(idbRoot, targetName);
-    const targetSize = fs.existsSync(targetPath) ? sizeOf(targetPath) : -1;
-    // 找体量最大的历史库（同尺寸取最新 mtime）
-    let best = null, bestSize = -1, bestMtime = 0;
-    for (const n of dirs) {
-      const p = path.join(idbRoot, n);
-      const s = sizeOf(p);
-      let m = 0; try { m = fs.statSync(p).mtimeMs; } catch (e) { /* ignore */ }
-      if (s > bestSize || (s === bestSize && m > bestMtime)) { bestSize = s; best = p; bestMtime = m; }
-    }
-    // 仅当最佳历史库不是当前端口库、且明显更大（>16KB 差异，排除空库噪声）时才合并
-    if (best && best !== targetPath && bestSize > targetSize + 16 * 1024) {
-      // 先把当前端口库移到 .orphan 备份（不删除，可回滚），再用最佳历史库内容覆盖
-      if (fs.existsSync(targetPath)) {
-        try {
-          const bak = targetPath + '.orphan-' + Date.now();
-          fs.renameSync(targetPath, bak);
-        } catch (e) { /* 若移动失败，直接尝试覆盖 */ }
-      }
-      fs.cpSync(best, targetPath, { recursive: true });
-      fs.writeFileSync(path.join(CANON_USER_DATA, 'idb-consolidated.json'),
-        JSON.stringify({ from: path.basename(best), to: targetName, bytes: bestSize, at: new Date().toISOString() }));
-      console.log('[idb] 已把历史数据合并进当前端口库:', targetName, '<-', path.basename(best), '(' + bestSize + ' bytes)');
-    }
-  } catch (e) { console.error('[idb] consolidate failed:', (e && e.message) || e); }
-}
+// 【已废弃】早期曾尝试在主进程直接复制 leveldb 目录跨 origin 合并（consolidateIndexedDB），
+// 但 Chromium 的 IndexedDB 在 leveldb 内部用 database id 索引数据，跨 origin 复制后 id 不匹配，
+// 引擎会当成损坏/不匹配而重建空库 —— 文件复制成功却读不出数据。
+// 真正有效的迁移改为「渲染进程 IndexedDB API 级」：主进程在旧端口临时起同源服务，
+// 渲染进程用隐藏 iframe 在旧 origin 上下文读出数据，再写入当前 origin（见 store.js migrateOldPorts）。
 
 const APP_DIR = path.join(__dirname, 'app');
 const BUILD_DIR = path.join(__dirname, 'build');
@@ -143,6 +101,7 @@ if (!app.requestSingleInstanceLock()) {
 let mainWindow = null;
 let tray = null;
 let server = null;
+let legacyMigrateServers = [];
 let PORT = 0;
 let activationWindow = null;
 let closeConfirmWin = null;
@@ -347,43 +306,44 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8'
 };
 
+// 静态文件服务处理器：供主静态服务与「旧端口迁移临时服务」共用（同源 serve APP_DIR）
+function serveApp(req, res) {
+  try {
+    let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
+    const resolved = path.resolve(APP_DIR, '.' + path.normalize(urlPath));
+    if (!resolved.startsWith(APP_DIR + path.sep)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+    fs.stat(resolved, (err, stat) => {
+      if (err || !stat.isFile()) {
+        res.writeHead(404);
+        res.end('Not Found');
+        return;
+      }
+      const ext = path.extname(resolved).toLowerCase();
+      res.writeHead(200, {
+        'Content-Type': MIME[ext] || 'application/octet-stream',
+        'Cache-Control': 'no-cache'
+      });
+      fs.createReadStream(resolved).pipe(res);
+    });
+  } catch (e) {
+    res.writeHead(500);
+    res.end('Internal Error');
+  }
+}
+
 // ---- 内置静态文件服务（避免 file:// 下 IndexedDB 不可用）----
 function startStaticServer() {
   return new Promise((resolve) => {
-    server = http.createServer((req, res) => {
-      try {
-        let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-        if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
-
-        const resolved = path.resolve(APP_DIR, '.' + path.normalize(urlPath));
-        if (!resolved.startsWith(APP_DIR + path.sep)) {
-          res.writeHead(403);
-          res.end('Forbidden');
-          return;
-        }
-
-        fs.stat(resolved, (err, stat) => {
-          if (err || !stat.isFile()) {
-            res.writeHead(404);
-            res.end('Not Found');
-            return;
-          }
-          const ext = path.extname(resolved).toLowerCase();
-          res.writeHead(200, {
-            'Content-Type': MIME[ext] || 'application/octet-stream',
-            'Cache-Control': 'no-cache'
-          });
-          fs.createReadStream(resolved).pipe(res);
-        });
-      } catch (e) {
-        res.writeHead(500);
-        res.end('Internal Error');
-      }
-    });
+    server = http.createServer(serveApp);
     // 固定端口：IndexedDB/localStorage 按 origin(含端口) 隔离，端口一变=空库=历史"丢失"。
     // 优先固定 18765；若被占用则按确定性候选列表逐个尝试（避免随机端口造成 origin 漂移），
     // 仍全部失败才回退随机端口。无论最终绑定哪个端口，consolidateIndexedDB 都会把历史数据带过来。
-    const CANDIDATE_PORTS = [18765, 18766, 18767, 18768, 18769];
+    const CANDIDATE_PORTS = [18765, 18766, 18767, 18768, 18769, 11817];
     let idx = 0;
     const tryNext = () => {
       if (idx >= CANDIDATE_PORTS.length) {
@@ -660,8 +620,17 @@ app.whenReady().then(async () => {
   }
   computeState(); // 启动即确定授权/试用状态
   PORT = await startStaticServer();
-  consolidateIndexedDB(PORT); // 关键：窗口加载前，把历史端口库合并进当前端口库，防止「换端口=历史丢失」
+  // 历史端口数据迁移已改由渲染进程在窗口加载后执行（store.js migrateOldPorts）：
+  // 主进程仅负责扫描旧端口并在其上临时起同源服务、通知渲染进程，迁移完成后再归档旧库。
   createWindow();
+  // 旧端口历史数据迁移：窗口加载完成后，扫描旧端口并在其上临时起同源服务，
+  // 由渲染进程用隐藏 iframe 在旧 origin 上下文读出数据、合并写入当前端口库（根治「换端口=历史丢失」）
+  if (mainWindow) {
+    mainWindow.webContents.once('did-finish-load', async () => {
+      const ports = await startLegacyMigrateServers();
+      if (ports.length) mainWindow.webContents.send('xj:legacy-ports', ports);
+    });
+  }
   createTray();
   enableAutoStart();
   if (app.isPackaged) setupAutoUpdater(); // 仅在打包后启用自动更新（开发态跳过）
@@ -742,6 +711,13 @@ ipcMain.on('xj:closeDecision', (ev, action) => {
   } else {
     if (mainWindow) mainWindow.hide();   // 后台常驻
   }
+});
+
+// 渲染进程完成旧端口数据迁移后回传：关闭临时迁移服务 + 归档旧端口库（防重复迁移）
+ipcMain.on('xj:migrate-done', (ev, ports) => {
+  for (const s of legacyMigrateServers) { try { s.close(); } catch (err) { /* ignore */ } }
+  legacyMigrateServers = [];
+  if (Array.isArray(ports)) archiveLegacyPorts(ports);
 });
 
 ipcMain.handle('xj:getMachineCode', () => getMachineCode());
