@@ -282,6 +282,31 @@
         }
         .action-btn:hover { color: var(--accent-2); background: var(--accent-soft); }
 
+        /* ── P0: 两栏布局（录入常驻 / 明细滚动）── */
+        .layout { display: grid; grid-template-columns: minmax(330px, 400px) 1fr; gap: 18px; align-items: start; margin-top: 4px; }
+        .col-input { position: sticky; top: 18px; align-self: start; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .col-detail { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .detail-section { margin-top: 0; }
+        .col-input .record-form { grid-template-columns: 1fr 1fr; }
+        @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } .col-input { position: static; } }
+        @media (max-width: 480px) { .col-input .record-form { grid-template-columns: 1fr; } }
+
+        /* ── P1: 内联弹层（修改记录 / 月结收款）── */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(42,36,32,.42); display: none; align-items: center; justify-content: center; z-index: 5000; padding: 16px; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: var(--paper-2); border: 1px solid var(--hair-strong); border-radius: var(--r-card); box-shadow: var(--shadow); padding: 20px 22px; width: min(380px, 94vw); animation: modalIn .2s var(--ease); }
+        @keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+        .modal h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; font-family: var(--serif); color: var(--ink); }
+        .modal .m-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+        .modal .m-row label { font-size: 12px; font-weight: 600; color: var(--ink-2); width: 60px; flex: none; }
+        .modal .m-row input { flex: 1; min-width: 0; padding: 8px 11px; border: 1px solid var(--hair-strong); border-radius: var(--r-ctl); font-size: 13px; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+        .modal .m-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .modal .m-info { font-size: 12px; color: var(--ink-2); margin-bottom: 12px; line-height: 1.7; }
+        .modal .m-info b { color: var(--accent-2); font-weight: 700; }
+        .modal .m-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+        .quick-add { background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent-2); font-size: 12px; font-weight: 700; border-radius: var(--r-sm); padding: 3px 9px; cursor: pointer; transition: background .15s,color .15s; }
+        .quick-add:hover { background: var(--accent); color: #fff; }
+
         /* 进入时的轻微层次感 */
         .card, .detail-section { transition: box-shadow .2s var(--ease); }
 
@@ -305,6 +330,8 @@
         :root.dark .sub-table tr:hover td { background: var(--paper-2); }
         :root.dark .client-status.active { border-color: var(--green-soft); }
         :root.dark .client-status.ended { border-color: var(--red-soft); }
+        :root.dark .modal { box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+        :root.dark .modal .m-row input { background: var(--paper); }
     </style>
     <script>
       /* 心镜主题同步：billing 以 iframe 形式承载，是独立 document，
@@ -328,129 +355,161 @@
 <div class="app" id="app">
     <header class="header">
         <h1>心理档案记账 <small>状态统计</small></h1>
-        <div class="stats-panel" id="statsPanel">
-            <select id="statsMonth"></select>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <span class="stat-label">总小时数</span>
-                    <span class="stat-value" id="statTotalHours">0h</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">收入</span>
-                    <span class="stat-value" id="statIncome">¥0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">本月小时数</span>
-                    <span class="stat-value" id="statMonthHours">0h</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">本月均价</span>
-                    <span class="stat-value" id="statAvgPrice">¥0</span>
-                </div>
-            </div>
-        </div>
     </header>
 
-    <div class="stack">
-        <div class="card">
-            <div class="card-title">来访者档案 <span class="badge" id="clientCount">0 人</span></div>
-            <div class="client-top-row">
-                <div class="client-search">
-                    <input type="text" id="clientSearch" placeholder="搜索姓名..." />
+    <div class="layout">
+        <div class="col-input">
+            <div class="card">
+                <div class="card-title">来访者档案 <span class="badge" id="clientCount">0 人</span></div>
+                <div class="client-top-row">
+                    <div class="client-search">
+                        <input type="text" id="clientSearch" placeholder="搜索姓名..." />
+                    </div>
+                </div>
+                <div class="client-list" id="clientList"></div>
+                <div class="client-form" id="clientForm">
+                    <div class="row">
+                        <input type="text" id="clientNameInput" placeholder="姓名" style="flex:1;min-width:80px;" />
+                        <input type="number" id="clientFeeInput" placeholder="单价" min="0" step="0.01" style="width:80px;" />
+                        <select id="clientModeInput" style="width:72px;">
+                            <option value="per-session">次结</option>
+                            <option value="monthly">月结</option>
+                        </select>
+                        <input type="number" id="clientManualSessions" placeholder="手动次数" min="0" value="0" style="width:90px;" />
+                        <select id="clientStatusInput" style="width:90px;">
+                            <option value="active">正在进行</option>
+                            <option value="paused">暂停</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <button class="btn btn-primary btn-sm" id="clientConfirmBtn">确认</button>
+                        <button class="btn btn-secondary btn-sm" id="clientCancelBtn" style="display:none;">取消</button>
+                    </div>
                 </div>
             </div>
-            <div class="client-list" id="clientList"></div>
-            <div class="client-form" id="clientForm">
-                <div class="row">
-                    <input type="text" id="clientNameInput" placeholder="姓名" style="flex:1;min-width:80px;" />
-                    <input type="number" id="clientFeeInput" placeholder="单价" min="0" step="0.01" style="width:80px;" />
-                    <select id="clientModeInput" style="width:72px;">
-                        <option value="per-session">次结</option>
-                        <option value="monthly">月结</option>
-                    </select>
-                    <input type="number" id="clientManualSessions" placeholder="手动次数" min="0" value="0" style="width:90px;" />
-                    <select id="clientStatusInput" style="width:90px;">
-                        <option value="active">正在进行</option>
-                        <option value="paused">暂停</option>
-                    </select>
-                </div>
-                <div class="row">
-                    <button class="btn btn-primary btn-sm" id="clientConfirmBtn">确认</button>
-                    <button class="btn btn-secondary btn-sm" id="clientCancelBtn" style="display:none;">取消</button>
-                </div>
+
+            <div class="card">
+                <div class="card-title">咨询记录</div>
+                <form id="recordForm" class="record-form">
+                    <div class="group full">
+                        <label>选择来访者 <span id="totalSessionsLabel" class="total-sessions-badge" style="display:none;">总次数：0</span></label>
+                        <select id="recordClient" required><option value="">— 请先添加档案 —</option></select>
+                    </div>
+                    <div class="group"><label>日期</label><input type="date" id="recordDate" required /></div>
+                    <div class="group"><label>次数</label><input type="number" id="recordSessions" min="1" value="1" /></div>
+                    <div class="group"><label>单价（留空用默认）</label><input type="number" id="recordFee" min="0" step="0.01" /></div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">添加记录</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="batchBtn">批量选日期</button>
+                        <button type="button" class="btn btn-success btn-sm" id="pasteBtn">粘贴参会</button>
+                    </div>
+                    <div class="batch-panel" id="batchPanel">
+                        <div class="cal-nav">
+                            <button id="calPrev">◀</button>
+                            <span class="month-label" id="calLabel1"></span>
+                            <span class="month-label" id="calLabel2" style="margin-left:16px;"></span>
+                            <button id="calNext">▶</button>
+                        </div>
+                        <div class="cal-months">
+                            <div><div class="cal-grid" id="calGrid1"></div></div>
+                            <div><div class="cal-grid" id="calGrid2"></div></div>
+                        </div>
+                        <div class="cal-info">
+                            <span>已选 <span class="count" id="calCount">0</span> 个日期</span>
+                            <button class="btn btn-sm btn-secondary" id="calClear">清空</button>
+                            <button class="btn btn-sm btn-primary" id="batchConfirm">批量添加</button>
+                            <button class="btn btn-sm btn-secondary" id="batchCancelBtn">取消</button>
+                        </div>
+                    </div>
+                    <div class="import-panel" id="pastePanel">
+                        <h4>粘贴腾讯会议参会名单</h4>
+                        <textarea id="pasteInput" placeholder="粘贴参会成员列表..."></textarea>
+                        <div class="hint">自动模糊匹配来访者，绿色=成功，红色=需手动选择</div>
+                        <div class="match-results" id="matchResults"></div>
+                        <div class="actions">
+                            <button type="button" class="btn btn-primary btn-sm" id="pasteConfirm">确认导入</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="pasteCancel">取消</button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-title">咨询记录</div>
-            <form id="recordForm" class="record-form">
-                <div class="group full">
-                    <label>选择来访者 <span id="totalSessionsLabel" class="total-sessions-badge" style="display:none;">总次数：0</span></label>
-                    <select id="recordClient" required><option value="">— 请先添加档案 —</option></select>
-                </div>
-                <div class="group"><label>日期</label><input type="date" id="recordDate" required /></div>
-                <div class="group"><label>次数</label><input type="number" id="recordSessions" min="1" value="1" /></div>
-                <div class="group"><label>单价</label><input type="number" id="recordFee" min="0" step="0.01" readonly /></div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">添加记录</button>
-                    <button type="button" class="btn btn-outline btn-sm" id="batchBtn">批量选日期</button>
-                    <button type="button" class="btn btn-success btn-sm" id="pasteBtn">粘贴参会</button>
-                </div>
-                <div class="batch-panel" id="batchPanel">
-                    <div class="cal-nav">
-                        <button id="calPrev">◀</button>
-                        <span class="month-label" id="calLabel1"></span>
-                        <span class="month-label" id="calLabel2" style="margin-left:16px;"></span>
-                        <button id="calNext">▶</button>
+        <div class="col-detail">
+            <div class="stats-panel" id="statsPanel">
+                <select id="statsMonth"></select>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">总次数</span>
+                        <span class="stat-value" id="statTotalHours">0次</span>
                     </div>
-                    <div class="cal-months">
-                        <div><div class="cal-grid" id="calGrid1"></div></div>
-                        <div><div class="cal-grid" id="calGrid2"></div></div>
+                    <div class="stat-item">
+                        <span class="stat-label">应收</span>
+                        <span class="stat-value" id="statIncome">¥0</span>
                     </div>
-                    <div class="cal-info">
-                        <span>已选 <span class="count" id="calCount">0</span> 个日期</span>
-                        <button class="btn btn-sm btn-secondary" id="calClear">清空</button>
-                        <button class="btn btn-sm btn-primary" id="batchConfirm">批量添加</button>
-                        <button class="btn btn-sm btn-secondary" id="batchCancelBtn">取消</button>
+                    <div class="stat-item">
+                        <span class="stat-label">已收</span>
+                        <span class="stat-value" id="statReceived">¥0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">区间次数</span>
+                        <span class="stat-value" id="statMonthHours">0次</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">均价</span>
+                        <span class="stat-value" id="statAvgPrice">¥0</span>
                     </div>
                 </div>
-                <div class="import-panel" id="pastePanel">
-                    <h4>粘贴腾讯会议参会名单</h4>
-                    <textarea id="pasteInput" placeholder="粘贴参会成员列表..."></textarea>
-                    <div class="hint">自动模糊匹配来访者，绿色=成功，红色=需手动选择</div>
-                    <div class="match-results" id="matchResults"></div>
-                    <div class="actions">
-                        <button type="button" class="btn btn-primary btn-sm" id="pasteConfirm">确认导入</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="pasteCancel">取消</button>
+            </div>
+
+            <div class="detail-section">
+                <div class="detail-header">
+                    <h2>记账明细 <span class="badge" id="detailCount">0 条</span></h2>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <div class="view-tabs" id="viewTabs">
+                            <button data-view="client" class="active">按来访者</button>
+                            <button data-view="month">按月</button>
+                            <button data-view="unpaid">未缴费</button>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" id="expandAllBtn">展开全部</button>
+                        <div class="export-dropdown">
+                            <button class="btn btn-outline btn-sm" id="exportBtn">导出</button>
+                            <div class="export-menu" id="exportMenu">
+                                <button data-export="all">导出全部记录</button>
+                                <button data-export="client">导出当前来访者</button>
+                                <button data-export="month">按月导出</button>
+                                <button data-export="year">按年导出</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </form>
+                <div id="groupList"></div>
+                <div class="empty-detail" id="emptyDetail"><p>暂无记录</p></div>
+            </div>
         </div>
     </div>
-
-    <div class="detail-section">
-        <div class="detail-header">
-            <h2>记账明细 <span class="badge" id="detailCount">0 条</span></h2>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <div class="view-tabs" id="viewTabs">
-                    <button data-view="client" class="active">按来访者</button>
-                    <button data-view="month">按月</button>
-                    <button data-view="unpaid">未缴费</button>
-                </div>
-                <button class="btn btn-secondary btn-sm" id="expandAllBtn">展开全部</button>
-                <div class="export-dropdown">
-                    <button class="btn btn-outline btn-sm" id="exportBtn">导出</button>
-                    <div class="export-menu" id="exportMenu">
-                        <button data-export="all">导出全部记录</button>
-                        <button data-export="client">导出当前来访者</button>
-                        <button data-export="month">按月导出</button>
-                        <button data-export="year">按年导出</button>
-                    </div>
-                </div>
-            </div>
+</div>
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <h3>修改记录</h3>
+        <div class="m-row"><label>日期</label><input type="date" id="editDate" /></div>
+        <div class="m-row"><label>次数</label><input type="number" id="editSessions" min="1" value="1" /></div>
+        <div class="m-row"><label>单价</label><input type="number" id="editFee" min="0" step="0.01" /></div>
+        <div class="m-actions">
+            <button class="btn btn-secondary btn-sm" id="editCancel">取消</button>
+            <button class="btn btn-primary btn-sm" id="editSave">保存</button>
         </div>
-        <div id="groupList"></div>
-        <div class="empty-detail" id="emptyDetail"><p>暂无记录</p></div>
+    </div>
+</div>
+<div class="modal-overlay" id="settleModal">
+    <div class="modal">
+        <h3>月结收款</h3>
+        <div class="m-info">应缴 <b id="settleDue">¥0</b> · 已付 <b id="settlePaid">¥0</b></div>
+        <div class="m-row"><label>本次支付</label><input type="number" id="settleAmount" min="0" step="0.01" placeholder="累加金额" /></div>
+        <div class="m-actions">
+            <button class="btn btn-secondary btn-sm" id="settleCancel">取消</button>
+            <button class="btn btn-primary btn-sm" id="settleSave">记录</button>
+        </div>
     </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -464,6 +523,7 @@
     let editingClientId = null;
     let calendarDate = new Date();
     let selectedDates = new Set();
+    let typedFee = '';          // P1: 记录表单中用户手动输入的单价，连续录入时保留
 
     function loadData() {
         try {
@@ -556,12 +616,20 @@
         const month = $('statsMonth').value;
         const totalSysSessions = data.records.reduce((s,r) => s + r.sessions, 0);
         const totalManual = data.clients.reduce((s,c) => s + (c.manualSessions||0), 0);
-        const totalHours = totalSysSessions + totalManual;
+        const totalSessions = totalSysSessions + totalManual;
+
+        // 已收：次结=已缴记录金额；月结=已记录的月结付款
+        let received = 0;
+        data.records.forEach(r => {
+            const c = getClient(r.clientId);
+            if (c && c.billingMode !== 'monthly' && r.paid) received += calcAmount(r);
+        });
+        data.monthlyPayments.forEach(p => { received += p.amount; });
 
         let income = 0, monthSessions = 0;
         if (month === 'all') {
             income = data.records.reduce((s,r) => s + calcAmount(r), 0);
-            monthSessions = totalSysSessions;
+            monthSessions = totalSessions;
         } else {
             const mRecords = data.records.filter(r => r.date.startsWith(month));
             income = mRecords.reduce((s,r) => s + calcAmount(r), 0);
@@ -569,9 +637,10 @@
         }
         const avgPrice = monthSessions > 0 ? (income / monthSessions) : 0;
 
-        $('statTotalHours').textContent = totalHours + 'h';
+        $('statTotalHours').textContent = totalSessions + '次';
         $('statIncome').textContent = formatMoney(income);
-        $('statMonthHours').textContent = monthSessions + 'h';
+        $('statReceived').textContent = formatMoney(received);
+        $('statMonthHours').textContent = monthSessions + '次';
         $('statAvgPrice').textContent = formatMoney(avgPrice);
     }
 
@@ -618,6 +687,7 @@
                         </div>
                     </div>
                     <div class="actions">
+                        <button class="quick-add" data-id="${c.id}" title="记一次咨询">＋记</button>
                         <button class="edit-client" data-id="${c.id}">✎</button>
                         <button class="del-client" data-id="${c.id}" title="删除">✕</button>
                     </div>
@@ -688,7 +758,7 @@
         data.records = data.records.filter(r=>r.clientId!==id);
         data.monthlyPayments = data.monthlyPayments.filter(mp=>mp.clientId!==id);
         if(editingClientId===id) cancelEditClient();
-        saveData(); renderAll(); toast('已删除','info');
+        saveData(); refreshDetail(); toast('已删除','info');
     }
 
     // ── 记录表单 ──
@@ -702,7 +772,8 @@
 
     function onClientSelect() {
         const c = getClient($('recordClient').value);
-        $('recordFee').value = c ? c.feePerSession : '';
+        const feeVal = typedFee !== '' ? typedFee : (c ? c.feePerSession : '');
+        $('recordFee').value = feeVal;
         if (c) {
             const total = getTotalSessions(c.id);
             $('totalSessionsLabel').style.display = 'inline-block';
@@ -719,10 +790,28 @@
         if(!cid) { toast('请选择来访者','warning'); return; }
         if(!date) { toast('请选择日期','warning'); return; }
         const c = getClient(cid); if(!c) return;
-        data.records.push({ id:genId('r'), clientId:cid, date, sessions, feePerSession:c.feePerSession, paid:false });
+        const fee = getRecordFee(c);
+        data.records.push({ id:genId('r'), clientId:cid, date, sessions, feePerSession:fee, paid:false });
         data.records.sort((a,b)=>a.date>b.date?-1:1);
-        saveData(); renderAll();
+        saveData(); refreshDetail();
         toast('记录已添加','success');
+    }
+
+    function getRecordFee(c) {
+        const f = parseFloat($('recordFee').value);
+        return (isNaN(f) || f <= 0) ? c.feePerSession : f;
+    }
+
+    // P0: 录入后只刷新明细/统计，并保留当前滚动位置，避免整页重绘跳走
+    function refreshDetail() {
+        const sy = window.scrollY;
+        const cs = $('clientList').scrollTop;
+        renderGroups();
+        renderClients($('clientSearch').value);
+        renderClientSelect();
+        updateStats();
+        window.scrollTo(0, sy);
+        $('clientList').scrollTop = cs;
     }
 
     function togglePaid(id) {
@@ -743,24 +832,33 @@
         updateStatsDisplay();
     }
 
-    // ★ 修改记录（新增函数）
+    // ★ 修改记录（P1: 内联弹层，替代原生 prompt）
+    let editingRecordId = null;
     function editRecord(id) {
         const r = data.records.find(x => x.id === id);
         if (!r) return toast('记录不存在','warning');
-        const newDate = prompt('修改日期（YYYY-MM-DD）', r.date);
-        if (newDate === null) return;
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) { toast('日期格式无效','warning'); return; }
-        const newSessions = prompt('修改次数', r.sessions);
-        if (newSessions === null) return;
-        const sessionsNum = parseInt(newSessions, 10);
-        if (isNaN(sessionsNum) || sessionsNum < 1) { toast('次数至少为1','warning'); return; }
-        r.date = newDate;
-        r.sessions = sessionsNum;
+        editingRecordId = id;
+        $('editDate').value = r.date;
+        $('editSessions').value = r.sessions;
+        $('editFee').value = r.feePerSession;
+        $('editModal').classList.add('show');
+        setTimeout(() => $('editDate').focus(), 30);
+    }
+    function saveEditRecord() {
+        const r = data.records.find(x => x.id === editingRecordId);
+        if (!r) { closeEditModal(); return; }
+        const nd = $('editDate').value;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(nd)) { toast('日期格式无效','warning'); return; }
+        const ns = parseInt($('editSessions').value, 10);
+        if (isNaN(ns) || ns < 1) { toast('次数至少为1','warning'); return; }
+        const nf = parseFloat($('editFee').value);
+        if (isNaN(nf) || nf <= 0) { toast('请输入有效单价','warning'); return; }
+        r.date = nd; r.sessions = ns; r.feePerSession = nf;
         data.records.sort((a,b) => a.date > b.date ? -1 : 1);
-        saveData();
-        renderAll();
+        saveData(); closeEditModal(); refreshDetail();
         toast('记录已更新','success');
     }
+    function closeEditModal() { $('editModal').classList.remove('show'); editingRecordId = null; }
 
     function updateStatsDisplay() {
         const activeIds = new Set(data.clients.filter(c => c.status !== 'paused').map(c => c.id));
@@ -774,25 +872,33 @@
     function deleteRecord(id) {
         if(!confirm('删除此记录？')) return;
         data.records = data.records.filter(r=>r.id!==id);
-        saveData(); renderAll();
+        saveData(); refreshDetail();
     }
 
+    // ★ 月结收款（P1: 内联弹层，替代原生 prompt）
+    let settleCtx = null;
     function settleMonth(clientId, month) {
+        const c = getClient(clientId); if(!c) return;
         const due = getMonthlyDue(clientId, month);
-        const currentPayment = getMonthlyPayment(clientId, month);
-        const input = prompt(`本月应缴 ${formatMoney(due)}\n已付 ${formatMoney(currentPayment)}\n请输入本次支付金额（累加）：`);
-        if (input === null) return;
-        const amount = parseFloat(input);
+        const paid = getMonthlyPayment(clientId, month);
+        settleCtx = { clientId, month };
+        $('settleDue').textContent = formatMoney(due);
+        $('settlePaid').textContent = formatMoney(paid);
+        $('settleAmount').value = '';
+        $('settleModal').classList.add('show');
+        setTimeout(() => $('settleAmount').focus(), 30);
+    }
+    function saveSettle() {
+        if (!settleCtx) { closeSettleModal(); return; }
+        const amount = parseFloat($('settleAmount').value);
         if (isNaN(amount) || amount < 0) { toast('请输入有效金额','warning'); return; }
-        let payment = data.monthlyPayments.find(mp => mp.clientId === clientId && mp.month === month);
-        if (payment) {
-            payment.amount += amount;
-        } else {
-            data.monthlyPayments.push({ id: genId('mp'), clientId, month, amount });
-        }
-        saveData(); renderAll();
+        let payment = data.monthlyPayments.find(mp => mp.clientId === settleCtx.clientId && mp.month === settleCtx.month);
+        if (payment) payment.amount += amount;
+        else data.monthlyPayments.push({ id: genId('mp'), clientId: settleCtx.clientId, month: settleCtx.month, amount });
+        saveData(); closeSettleModal(); refreshDetail();
         toast(`已记录付款 ${formatMoney(amount)}`,'success');
     }
+    function closeSettleModal() { $('settleModal').classList.remove('show'); settleCtx = null; }
 
     // ── 明细渲染（增加修改按钮）──
     function renderGroups() {
@@ -1011,12 +1117,34 @@
         const btn = e.target.closest('button');
         if(!btn) return;
         const id = btn.dataset.id;
+        if(btn.classList.contains('quick-add')) { quickAddFor(id); return; }
         if(btn.classList.contains('edit-client')) startEditClient(id);
         else if(btn.classList.contains('del-client')) deleteClient(id);
     });
 
-    $('recordClient').addEventListener('change', onClientSelect);
+    // P1: 列表「＋记」→ 选中该来访者、预填今日、聚焦日期，连续记账顺手
+    function quickAddFor(id) {
+        const c = getClient(id); if(!c) return;
+        typedFee = '';
+        $('recordClient').value = id;
+        onClientSelect();
+        if (!$('recordDate').value) $('recordDate').value = new Date().toISOString().slice(0,10);
+        const form = $('recordForm');
+        if (form && form.scrollIntoView) form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => $('recordDate').focus(), 60);
+    }
+
+    $('recordClient').addEventListener('change', ()=>{ typedFee=''; onClientSelect(); });
+    $('recordFee').addEventListener('input', ()=>{ typedFee = $('recordFee').value; });
     $('recordForm').addEventListener('submit', e=>{ e.preventDefault(); addRecord(); });
+
+    // P1: 修改记录 / 月结收款 弹层
+    $('editSave').addEventListener('click', saveEditRecord);
+    $('editCancel').addEventListener('click', closeEditModal);
+    $('editModal').addEventListener('click', e=>{ if(e.target===$('editModal')) closeEditModal(); });
+    $('settleSave').addEventListener('click', saveSettle);
+    $('settleCancel').addEventListener('click', closeSettleModal);
+    $('settleModal').addEventListener('click', e=>{ if(e.target===$('settleModal')) closeSettleModal(); });
 
     $('groupList').addEventListener('click', e=>{
         const settleBtn = e.target.closest('.settle-btn');
@@ -1093,10 +1221,10 @@
         const sessions = parseInt($('recordSessions').value)||1;
         const dates = Array.from(selectedDates).sort();
         dates.forEach(d=>{
-            data.records.push({ id:genId('r'), clientId:cid, date:d, sessions, feePerSession:c.feePerSession, paid:false });
+            data.records.push({ id:genId('r'), clientId:cid, date:d, sessions, feePerSession:getRecordFee(c), paid:false });
         });
         data.records.sort((a,b)=>a.date>b.date?-1:1);
-        saveData(); renderAll();
+        saveData(); refreshDetail();
         toast(`已添加 ${dates.length} 条记录`,'success');
         $('batchPanel').classList.remove('show');
         selectedDates.clear();
@@ -1141,12 +1269,12 @@
         selects.forEach(sel=>{
             const cid=sel.value; if(!cid) return;
             const c=getClient(cid); if(!c) return;
-            data.records.push({ id:genId('r'), clientId:cid, date, sessions, feePerSession:c.feePerSession, paid:false });
+            data.records.push({ id:genId('r'), clientId:cid, date, sessions, feePerSession:getRecordFee(c), paid:false });
             imported++;
         });
         if(imported===0) { toast('未选择任何来访者','warning'); return; }
         data.records.sort((a,b)=>a.date>b.date?-1:1);
-        saveData(); renderAll();
+        saveData(); refreshDetail();
         toast(`导入 ${imported} 条`,'success');
         $('pastePanel').classList.remove('show'); $('pasteInput').value=''; $('matchResults').innerHTML='';
     });
