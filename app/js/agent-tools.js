@@ -400,51 +400,95 @@
 
   async function configureApi(args) {
     var Store = getStore();
-    if (!args || !args.apiKey) {
-      return { ok: false, error: '需提供 apiKey' };
-    }
-    var baseUrl = '', model = '';
+    if (!args) return { ok: false, error: '参数缺失' };
+    // 多轮合并：沿用已存的 partial 配置，本次给的字段覆盖旧的
+    var prev = (Store.getSettings().apiConfig) || {};
+    var baseUrl = (prev.baseUrl || '').trim();
+    var model = (prev.modelPreference || '').trim();
+    var provider = (args.provider || prev.provider || '');
+    var apiKey = (args.apiKey != null ? String(args.apiKey).trim() : (prev.apiKey || ''));
+
+    // 解析 provider 预设
     if (args.provider && API_PROVIDERS[args.provider]) {
       var p = API_PROVIDERS[args.provider];
       if (args.provider === 'other') {
-        if (!args.baseUrl) return { ok: false, error: 'other 服务商需手动指定 baseUrl' };
-        baseUrl = String(args.baseUrl).trim();
-        if (!args.model) return { ok: false, error: 'other 服务商需手动指定 model' };
-        model = String(args.model).trim();
+        if (args.baseUrl) baseUrl = String(args.baseUrl).trim();
+        if (args.model) model = String(args.model).trim();
+        if (!baseUrl) return { ok: false, error: 'other 服务商需手动指定 baseUrl' };
+        if (!model) return { ok: false, error: 'other 服务商需手动指定 model' };
       } else {
-        baseUrl = (args.baseUrl || p.baseUrl || '').trim();
-        model = (args.model || p.defaultModel || '').trim();
+        baseUrl = (args.baseUrl || p.baseUrl || baseUrl).trim();
+        model = (args.model || p.defaultModel || model).trim();
         if (!baseUrl) return { ok: false, error: '服务商「' + p.label + '」预设 baseUrl 缺失，需手动指定' };
         if (!model) return { ok: false, error: '需指定 model 名' };
       }
     } else if (args.baseUrl && args.model) {
       baseUrl = String(args.baseUrl).trim();
       model = String(args.model).trim();
-    } else {
-      return {
-        ok: false,
-        error: '需提供 provider（可从预设表自动查出 baseUrl+model）或手动给出 baseUrl+model'
-      };
     }
-    Store.saveSettings({
-      apiConfig: {
-        baseUrl: baseUrl,
-        apiKey: String(args.apiKey).trim(),
-        modelPreference: model,
-        maxTokens: 4000,
-      },
-    });
-    var providerLabel = (args.provider && API_PROVIDERS[args.provider]) ? API_PROVIDERS[args.provider].label : '自定义';
-    return sanitizeResult({
-      ok: true,
-      data: {
-        switchedTo: 'user',
-        provider: providerLabel,
-        model: model,
-        baseUrl: baseUrl,
-        hint: '已切换到 ' + providerLabel + ' 的 ' + model + ' 模型，我现在是完全体，可以做更多事'
-      },
-    });
+
+    var merged = {
+      baseUrl: baseUrl,
+      apiKey: apiKey,
+      modelPreference: model,
+      provider: provider,
+      maxTokens: 4000,
+    };
+
+    // 多轮：密钥还没收齐 → 先存 partial，不测试
+    if (!apiKey) {
+      Store.saveSettings({ apiConfig: merged });
+      return sanitizeResult({
+        ok: true,
+        data: {
+          switchedTo: 'partial',
+          need: 'apiKey',
+          message: '已记录端点' + (model ? ' 与模型 ' + model : '') + '，还差 API 密钥。请让用户把密钥（sk- 开头）发来。'
+        },
+      });
+    }
+    // 端点或模型仍未定 → 提示，不测试
+    if (!baseUrl || !model) {
+      Store.saveSettings({ apiConfig: merged });
+      return sanitizeResult({
+        ok: false,
+        error: '还需 baseUrl 与 model 才能测试连接（或给一个已知服务商名）'
+      });
+    }
+
+    // 真实连接测试——档位判定的唯一事实来源
+    var test = (typeof AI !== 'undefined' && AI.testConnection)
+      ? await AI.testConnection({ baseUrl: baseUrl, apiKey: apiKey, model: model })
+      : { ok: true };
+    var providerLabel = (provider && API_PROVIDERS[provider]) ? API_PROVIDERS[provider].label : '自定义';
+    if (test.ok) {
+      merged.verified = true;
+      Store.saveSettings({ apiConfig: merged });
+      return sanitizeResult({
+        ok: true,
+        data: {
+          switchedTo: 'user',
+          provider: providerLabel,
+          model: model,
+          verified: true,
+          message: '接入成功并已验证可用（' + providerLabel + ' · ' + model + '）。你现在是完全体。'
+        },
+      });
+    } else {
+      // 测试失败：保留输入供重试，但 verified=false → 档位回 builtin（自动降级）
+      merged.verified = false;
+      Store.saveSettings({ apiConfig: merged });
+      return sanitizeResult({
+        ok: true,
+        data: {
+          switchedTo: 'builtin',
+          model: model,
+          verified: false,
+          testError: test.error,
+          message: '连接测试未通过（' + (test.error || '未知错误') + '），已自动降级到内置免费模型。密钥已保留，可检查后重试。'
+        },
+      });
+    }
   }
 
   // ============================================================

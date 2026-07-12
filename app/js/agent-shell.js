@@ -299,6 +299,17 @@
             toast('已切换到你的高性能模型，我现在是完全体，可以做更多事', 'success');
             return;
           }
+          // 配置 API 测试失败：如实降级到内置模型，并说明原因
+          if (data && data.switchedTo === 'builtin' && data.testError) {
+            refreshTierUI();
+            toast('接入测试未通过：' + data.testError + '，已降级到内置模型', 'error');
+            return;
+          }
+          // 配置 API 多轮收集中（还差密钥）：提示进度，不切档位
+          if (data && data.switchedTo === 'partial') {
+            renderProgress(data.message || '已记录部分配置');
+            return;
+          }
           // navigate_to：渲染跳转提示卡（用户主动点击才跳转）
           if (data && data.card && data.card.kind === 'navigate_hint') {
             renderNavCard(data.card);

@@ -25,18 +25,23 @@ App.initPage({
   }
 
   // 显示当前生效档位（内置 / 用户），供用户感知低性能 vs 高性能
+  // 诚实化：必须 verified===true 才认作已接入高性能，否则如实显示「未验证」并引导重新验证
   function updateTierStatus() {
     const el = document.getElementById('api-tier-status');
     if (!el) return;
-    let tier = 'builtin', cfg = null;
+    let tier = 'builtin', cfg = null, unverified = false;
     try {
       if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier();
       if (typeof AI !== 'undefined' && AI.getActiveConfig) cfg = AI.getActiveConfig();
+      const api = (Store.getSettings().apiConfig) || {};
+      if (api.apiKey && api.verified !== true) unverified = true;
     } catch (e) { /* ignore */ }
     if (tier === 'user' && cfg) {
-      el.innerHTML = '当前：<b>你的高性能模型</b> · ' + App.escapeHtml(cfg.model) + '（完全体，可做更复杂任务）';
+      el.innerHTML = '⚡ <b>你的高性能模型</b> · ' + App.escapeHtml(cfg.model) + '（已验证，完全体）';
+    } else if (unverified) {
+      el.innerHTML = '🌱 <b>内置免费模型</b> · 你填的密钥<b>未验证</b>，点「接入高性能 AI」重新验证';
     } else {
-      el.innerHTML = '当前：<b>内置免费模型</b> · ' + App.escapeHtml((cfg && cfg.model) || 'Qwen/Qwen3.5-4B') + '（低性能，仅普通任务）';
+      el.innerHTML = '🌱 <b>内置免费模型</b> · ' + App.escapeHtml((cfg && cfg.model) || 'Qwen/Qwen3.5-4B') + '（低性能，仅普通任务）';
     }
   }
 
@@ -450,7 +455,214 @@ App.initPage({
     window.__XJ_API__.onLicenseState(() => { try { renderLicenseInfo(); loadSupervisorUI(); } catch (e) {} });
   }
 
+  // ============================================================
+  // 接入高性能 AI 抽屉（对话式引导，独立可靠，不依赖付费 Agent）
+  // 修复「接入失败仍显示高性能」：以 AI.testConnection 真实结果为唯一事实来源。
+  // ============================================================
+  const CD = { state: 'ask', provider: '', baseUrl: '', model: '', models: [], defaultModel: '', apiKey: '' };
+  const PROVIDER_PRESETS = {
+    deepseek:   { label: 'DeepSeek',   baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat', models: ['deepseek-chat', 'deepseek-reasoner'] },
+    siliconflow:{ label: '硅基流动',   baseUrl: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen3.5-4B', models: ['Qwen/Qwen3.5-4B', 'Qwen/Qwen3-235B-A22B', 'deepseek-ai/DeepSeek-V3'] },
+    openai:     { label: 'OpenAI',     baseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'] },
+    moonshot:   { label: '月之暗面',   baseUrl: 'https://api.moonshot.cn/v1', defaultModel: 'moonshot-v1-8k', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
+    zhipu:      { label: '智谱',       baseUrl: 'https://open.bigmodel.cn/api/paas/v4', defaultModel: 'glm-4-flash', models: ['glm-4', 'glm-4-flash', 'glm-4-air'] },
+    qwen:       { label: '通义千问',   baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-plus', models: ['qwen-turbo', 'qwen-plus', 'qwen-max'] },
+    doubao:     { label: '豆包',       baseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-pro-32k', models: ['doubao-pro-32k', 'doubao-pro-4k', 'doubao-1.5-pro-256k'] },
+    other:      { label: '其他/自定义', baseUrl: '', defaultModel: '', models: [] },
+  };
+  function cdEl(id) { return document.getElementById(id); }
+  function cdMsg(role, html) {
+    const box = cdEl('cd-msgs');
+    if (!box) return;
+    const d = document.createElement('div');
+    d.className = 'xj-cd-msg ' + (role === 'user' ? 'xj-cd-user' : 'xj-cd-ai');
+    d.innerHTML = html;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+  function cdChips(labels) {
+    const box = cdEl('cd-chips');
+    if (!box) return;
+    box.innerHTML = '';
+    (labels || []).forEach(function (l) {
+      const b = document.createElement('button');
+      b.className = 'xj-chip';
+      b.textContent = l.label;
+      b.addEventListener('click', l.onClick);
+      box.appendChild(b);
+    });
+  }
+  function cdClearChips() { const box = cdEl('cd-chips'); if (box) box.innerHTML = ''; }
+  function cdShowInput(show, placeholder) {
+    const row = cdEl('cd-input-row');
+    const inp = cdEl('cd-input');
+    if (!row || !inp) return;
+    row.style.display = show ? 'flex' : 'none';
+    if (show) { inp.value = ''; if (placeholder) inp.placeholder = placeholder; setTimeout(function () { inp.focus(); }, 30); }
+  }
+  function cdReset() { CD.state = 'ask'; CD.provider = ''; CD.baseUrl = ''; CD.model = ''; CD.models = []; CD.defaultModel = ''; CD.apiKey = ''; }
+  function openConnectDrawer() {
+    cdReset();
+    const ov = cdEl('connect-drawer');
+    if (ov) ov.classList.add('xj-open');
+    const box = cdEl('cd-msgs');
+    if (box) box.innerHTML = '';
+    cdMsg('ai', '要接入你自己的高性能 AI 吗？你手头准备好 API 密钥了吗？');
+    cdChips([
+      { label: '✅ 我已经有了', onClick: cdOnHave },
+      { label: '❌ 还没有，教我买', onClick: showDsGuide },
+    ]);
+    cdShowInput(false);
+  }
+  function closeConnectDrawer() {
+    const ov = cdEl('connect-drawer');
+    if (ov) ov.classList.remove('xj-open');
+    cdClearChips();
+    cdShowInput(false);
+  }
+  function cdOnHave() {
+    cdMsg('user', '我已经有了');
+    CD.state = 'provider';
+    cdMsg('ai', '太好了！你在<b>哪家买的</b>？或把 API 端点（baseUrl）直接发我。');
+    const chips = Object.keys(PROVIDER_PRESETS).map(function (k) {
+      return { label: PROVIDER_PRESETS[k].label, onClick: function () { cdPickProvider(k); } };
+    });
+    cdChips(chips);
+    cdShowInput(true, '如：DeepSeek，或贴 https://api.xxx.com/v1');
+  }
+  function cdPickProvider(k) {
+    const p = PROVIDER_PRESETS[k];
+    CD.provider = k;
+    CD.baseUrl = p.baseUrl;
+    CD.models = p.models || [];
+    CD.defaultModel = p.defaultModel;
+    cdMsg('user', p.label);
+    if (!p.baseUrl) {
+      cdMsg('ai', '这是自定义平台，请把 <b>API 端点 (baseUrl)</b> 和<b>模型名</b> 发我（空格分隔）。');
+      cdShowInput(true, 'baseUrl 与 model，空格分隔');
+      CD.state = 'custom';
+      cdClearChips();
+      return;
+    }
+    if (!CD.models.length) {
+      cdMsg('ai', '该平台我没有预设模型列表，请直接发我<b>模型名</b>。');
+      cdShowInput(true, '模型名，如 deepseek-chat');
+      CD.state = 'modelFree';
+      cdClearChips();
+      return;
+    }
+    CD.state = 'model';
+    cdMsg('ai', '这个服务商的可用模型有：<b>' + CD.models.join('</b> / <b>') + '</b>。用默认的 <b>' + CD.defaultModel + '</b> 还是指定一个？');
+    const chips = CD.models.map(function (m) {
+      return { label: m, onClick: function () { cdPickModel(m); } };
+    });
+    chips.push({ label: '用默认（' + CD.defaultModel + '）', onClick: function () { cdPickModel(CD.defaultModel); } });
+    cdChips(chips);
+    cdShowInput(false);
+  }
+  function cdPickModel(m) {
+    CD.model = m;
+    cdMsg('user', m);
+    CD.state = 'key';
+    cdMsg('ai', '最后一步：把你的 <b>API 密钥</b>（sk- 开头那串）发我，我马上帮你测试连接。');
+    cdShowInput(true, 'sk-...');
+    cdClearChips();
+  }
+  function cdOnInputSend() {
+    const inp = cdEl('cd-input');
+    if (!inp) return;
+    const text = (inp.value || '').trim();
+    if (!text) return;
+    if (CD.state === 'provider') {
+      const lower = text.toLowerCase();
+      let matched = null;
+      Object.keys(PROVIDER_PRESETS).forEach(function (k) {
+        if (k !== 'other' && (lower.indexOf(k) !== -1 || lower.indexOf(PROVIDER_PRESETS[k].label.toLowerCase()) !== -1)) matched = k;
+      });
+      if (matched) { cdPickProvider(matched); return; }
+      if (text.indexOf('http') !== -1) {
+        CD.provider = 'other';
+        CD.baseUrl = text.replace(/\/$/, '');
+        CD.models = []; CD.defaultModel = '';
+        cdMsg('user', text);
+        cdMsg('ai', '收到端点。再把<b>模型名</b>发我（如 deepseek-chat）。');
+        cdShowInput(true, '模型名');
+        CD.state = 'modelFree';
+        return;
+      }
+      cdMsg('user', text);
+      cdMsg('ai', '没认出服务商。可直接发服务商名（DeepSeek/硅基流动/OpenAI…）或 API 端点链接。');
+      return;
+    }
+    if (CD.state === 'custom') {
+      cdMsg('user', text);
+      const parts = text.split(/\s+/);
+      CD.baseUrl = (parts[0] || '').replace(/\/$/, '');
+      CD.model = parts[1] || '';
+      if (!CD.baseUrl || !CD.model) { cdMsg('ai', '需要 baseUrl 和 model 两个值，用空格分隔再发一次。'); return; }
+      cdAskKey();
+      return;
+    }
+    if (CD.state === 'modelFree') {
+      cdMsg('user', text);
+      CD.model = text;
+      cdAskKey();
+      return;
+    }
+    if (CD.state === 'key') {
+      cdMsg('user', text.replace(/./g, '•'));
+      CD.apiKey = text;
+      cdAskKey();
+      return;
+    }
+  }
+  function cdAskKey() {
+    CD.state = 'key';
+    cdMsg('ai', '正在测试连接…（几秒就好）');
+    cdShowInput(false);
+    cdClearChips();
+    cdTestAndApply();
+  }
+  async function cdTestAndApply() {
+    const cfg = { baseUrl: CD.baseUrl, apiKey: CD.apiKey, model: CD.model };
+    let test = { ok: false, error: '未配置' };
+    try {
+      if (typeof AI !== 'undefined' && AI.testConnection) test = await AI.testConnection(cfg);
+    } catch (e) { test = { ok: false, error: (e && e.message) || '测试异常' }; }
+    const merged = {
+      baseUrl: CD.baseUrl, apiKey: CD.apiKey, modelPreference: CD.model,
+      provider: CD.provider, maxTokens: 4000, verified: test.ok,
+    };
+    Store.saveSettings({ apiConfig: merged });
+    updateTierStatus();
+    if (test.ok) {
+      cdMsg('ai', '✅ <b>接入成功，已验证可用</b>！你现在是完全体，可以做复杂分析。窗口即将关闭。');
+      setTimeout(closeConnectDrawer, 2200);
+    } else {
+      cdMsg('ai', '❌ <b>测试未通过</b>：' + App.escapeHtml(test.error || '未知错误') + '。<br>已自动降级到<b>内置免费模型</b>。你的密钥已保留，可检查后重试（端点 / 模型名 / 密钥是否正确）。');
+      cdChips([
+        { label: '重新输入密钥', onClick: function () { CD.state = 'key'; cdMsg('ai', '把密钥再发我一次：'); cdShowInput(true, 'sk-...'); cdClearChips(); } },
+        { label: '关闭', onClick: closeConnectDrawer },
+      ]);
+    }
+  }
+  function showDsGuide() { const m = cdEl('ds-guide-modal'); if (m) m.classList.add('xj-open'); }
+  function hideDsGuide() { const m = cdEl('ds-guide-modal'); if (m) m.classList.remove('xj-open'); }
+  function bindConnectDrawer() {
+    const bind = function (id, ev, fn) { const e = cdEl(id); if (e) e.addEventListener(ev, fn); };
+    bind('btn-connect-ai', 'click', openConnectDrawer);
+    bind('link-use-builtin', 'click', function () { if (window.useBuiltinModel) window.useBuiltinModel(); });
+    bind('cd-close', 'click', closeConnectDrawer);
+    bind('cd-send', 'click', cdOnInputSend);
+    bind('cd-input', 'keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); cdOnInputSend(); } });
+    bind('connect-drawer', 'click', function (e) { if (e.target === cdEl('connect-drawer')) closeConnectDrawer(); });
+    bind('ds-guide-close', 'click', hideDsGuide);
+    bind('ds-guide-done', 'click', function () { hideDsGuide(); openConnectDrawer(); });
+    bind('ds-guide-modal', 'click', function (e) { if (e.target === cdEl('ds-guide-modal')) hideDsGuide(); });
+  }
+
     loadConfig();
+    bindConnectDrawer();
     updateTierStatus();
     calcStorage();
     updateBackupTime();

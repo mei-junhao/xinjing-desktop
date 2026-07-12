@@ -29,58 +29,110 @@
         <!-- API 配置 -->
         <div class="section-title">AI 接口配置</div>
         <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
-          <div id="api-tier-status" style="font-size:12px;font-family:var(--sans);line-height:1.6;margin-bottom:12px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--accent-soft, rgba(139,147,199,.12))"></div>
-          <div class="form-row">
-            <label class="form-label">API 端点 (Base URL)</label>
-            <input class="form-control" id="api-baseurl" placeholder="https://api.siliconflow.cn/v1">
+          <div id="api-tier-status" style="font-size:12px;font-family:var(--sans);line-height:1.6;margin-bottom:14px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--accent-soft, rgba(139,147,199,.12))"></div>
+          <div style="text-align:center;padding:4px 0 6px">
+            <button class="btn btn-primary btn-lg" id="btn-connect-ai" style="width:100%">🚀 接入高性能 AI</button>
+            <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-top:10px">跟着对话一步步接入你自己的模型，不懂也能配。接入失败会自动用回免费内置模型。</p>
           </div>
-          <div class="form-row">
-            <label class="form-label">API 密钥</label>
-            <input class="form-control" id="api-key" type="password" placeholder="sk-...">
+          <div style="text-align:center;margin-top:6px">
+            <a href="javascript:void(0)" id="link-use-builtin" style="font-size:12px;color:var(--muted);text-decoration:underline">↩ 用回内置免费模型</a>
           </div>
-          <div class="form-row">
-            <label class="form-label">默认模型</label>
-            <select class="form-control" id="api-model">
-              <option value="__builtin__">内置免费模型 (Qwen3.5-4B，永久免费)</option>
-              <optgroup label="DeepSeek">
-                <option value="deepseek-chat">DeepSeek Chat</option>
-                <option value="deepseek-reasoner">DeepSeek Reasoner R1</option>
-              </optgroup>
-              <optgroup label="硅基流动 SiliconFlow">
-                <option value="Qwen/Qwen3.5-4B">Qwen3.5-4B</option>
-                <option value="Qwen/Qwen3-235B-A22B">Qwen3-235B-A22B（大参数）</option>
-                <option value="deepseek-ai/DeepSeek-V3">DeepSeek-V3</option>
-              </optgroup>
-              <optgroup label="OpenAI">
-                <option value="gpt-4o">GPT-4o</option>
-                <option value="gpt-4o-mini">GPT-4o-mini</option>
-              </optgroup>
-              <optgroup label="月之暗面 Kimi">
-                <option value="moonshot-v1-8k">Kimi 8k</option>
-                <option value="moonshot-v1-32k">Kimi 32k</option>
-                <option value="moonshot-v1-128k">Kimi 128k</option>
-              </optgroup>
-              <optgroup label="智谱 AI GLM">
-                <option value="glm-4-flash">GLM-4-Flash（有免费额度）</option>
-                <option value="glm-4">GLM-4</option>
-              </optgroup>
-              <optgroup label="阿里通义千问">
-                <option value="qwen-turbo">Qwen Turbo</option>
-                <option value="qwen-plus">Qwen Plus</option>
-                <option value="qwen-max">Qwen Max</option>
-              </optgroup>
-              <optgroup label="字节豆包">
-                <option value="doubao-pro-32k">豆包 Pro 32k</option>
-                <option value="doubao-1.5-pro-256k">豆包 1.5 Pro 256k</option>
-              </optgroup>
-            </select>
+          <details style="margin-top:14px">
+            <summary style="font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--sans)">高级手动配置（不推荐）</summary>
+            <div style="margin-top:12px">
+              <div class="form-row">
+                <label class="form-label">API 端点 (Base URL)</label>
+                <input class="form-control" id="api-baseurl" placeholder="https://api.siliconflow.cn/v1">
+              </div>
+              <div class="form-row">
+                <label class="form-label">API 密钥</label>
+                <input class="form-control" id="api-key" type="password" placeholder="sk-...">
+              </div>
+              <div class="form-row">
+                <label class="form-label">默认模型</label>
+                <select class="form-control" id="api-model">
+                  <option value="__builtin__">内置免费模型 (Qwen3.5-4B，永久免费)</option>
+                  <optgroup label="DeepSeek">
+                    <option value="deepseek-chat">DeepSeek Chat</option>
+                    <option value="deepseek-reasoner">DeepSeek Reasoner R1</option>
+                  </optgroup>
+                  <optgroup label="硅基流动 SiliconFlow">
+                    <option value="Qwen/Qwen3.5-4B">Qwen3.5-4B</option>
+                    <option value="Qwen/Qwen3-235B-A22B">Qwen3-235B-A22B（大参数）</option>
+                    <option value="deepseek-ai/DeepSeek-V3">DeepSeek-V3</option>
+                  </optgroup>
+                  <optgroup label="OpenAI">
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4o-mini">GPT-4o-mini</option>
+                  </optgroup>
+                  <optgroup label="月之暗面 Kimi">
+                    <option value="moonshot-v1-8k">Kimi 8k</option>
+                    <option value="moonshot-v1-32k">Kimi 32k</option>
+                    <option value="moonshot-v1-128k">Kimi 128k</option>
+                  </optgroup>
+                  <optgroup label="智谱 AI GLM">
+                    <option value="glm-4-flash">GLM-4-Flash（有免费额度）</option>
+                    <option value="glm-4">GLM-4</option>
+                  </optgroup>
+                  <optgroup label="阿里通义千问">
+                    <option value="qwen-turbo">Qwen Turbo</option>
+                    <option value="qwen-plus">Qwen Plus</option>
+                    <option value="qwen-max">Qwen Max</option>
+                  </optgroup>
+                  <optgroup label="字节豆包">
+                    <option value="doubao-pro-32k">豆包 Pro 32k</option>
+                    <option value="doubao-1.5-pro-256k">豆包 1.5 Pro 256k</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="form-row" style="display:flex;gap:var(--gap);flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="saveApiConfig()">保存配置</button>
+                <button class="btn btn-ghost" onclick="testApi()">测试连接</button>
+              </div>
+              <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-top:6px">手动填的密钥<b>不会自动验证</b>。建议用上方「接入高性能 AI」走验证流程，否则档位可能误报。</p>
+            </div>
+          </details>
+        </div>
+
+        <!-- DeepSeek 购买指南模态（4-A） -->
+        <div class="xj-modal-overlay" id="ds-guide-modal">
+          <div class="xj-modal xj-ds-guide">
+            <div class="xj-modal-head">
+              <span>📘 如何购买 DeepSeek API</span>
+              <button class="xj-modal-close" id="ds-guide-close">×</button>
+            </div>
+            <div class="xj-modal-body">
+              <ol class="xj-guide-steps">
+                <li>访问 <b>platform.deepseek.com</b> 并注册账号。</li>
+                <li>完成<b>实名认证</b>（需手机号，几分钟搞定）。</li>
+                <li>在「充值」页充值一点余额（如 ¥10，够用很久）。</li>
+                <li>进入「API keys」→「创建密钥」，复制生成的 <b>sk-...</b> 密钥（只显示一次，务必保存）。</li>
+                <li>回到心镜，点「接入高性能 AI」→ 选「已经有了」→ 选 <b>DeepSeek</b> → 把密钥贴给助手即可。</li>
+              </ol>
+              <p class="xj-guide-note">DeepSeek 性价比极高（deepseek-chat 约 ¥1/百万 tokens）。其他服务商（硅基流动 / 月之暗面 / 智谱 / 通义 / 豆包 / OpenAI）流程类似。</p>
+            </div>
+            <div class="xj-modal-foot">
+              <button class="btn btn-primary" id="ds-guide-done">我已经买好了，去接入 →</button>
+            </div>
           </div>
-          <div class="form-row" style="display:flex;gap:var(--gap);flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveApiConfig()">保存配置</button>
-            <button class="btn btn-ghost" onclick="testApi()">测试连接</button>
-            <button class="btn btn-ghost" onclick="useBuiltinModel()">清除配置·用内置模型</button>
+        </div>
+
+        <!-- 接入高性能 AI 抽屉（1-B） -->
+        <div class="xj-drawer-overlay" id="connect-drawer">
+          <div class="xj-drawer">
+            <div class="xj-drawer-head">
+              <span>🚀 接入高性能 AI</span>
+              <button class="xj-drawer-close" id="cd-close">×</button>
+            </div>
+            <div class="xj-drawer-body">
+              <div class="xj-cd-msgs" id="cd-msgs"></div>
+            </div>
+            <div class="xj-drawer-chips" id="cd-chips"></div>
+            <div class="xj-drawer-input" id="cd-input-row" style="display:none">
+              <input id="cd-input" class="form-control" placeholder="在此输入…" />
+              <button class="btn btn-primary btn-sm" id="cd-send">发送</button>
+            </div>
           </div>
-          <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-top:6px">未填写密钥时自动使用项目<b>内置免费模型</b>（低性能，仅能完成普通任务）。填入自己的高性能模型密钥后自动切换。密钥仅存于本机，不上传。</p>
         </div>
 
         <!-- 数据管理 -->

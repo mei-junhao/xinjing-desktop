@@ -55,10 +55,32 @@ const AI = (() => {
     return BUILTIN_MODEL;
   }
 
-  // 档位：'user' = 用户自有高性能模型；'builtin' = 内置低性能免费模型。
+  // 档位：'user' = 用户自有高性能模型（且已验证可用）；'builtin' = 内置低性能免费模型。
+  // 关键修复：必须有 verified===true 才认作 user，避免「填了错误密钥却谎报高性能」。
   function getTier() {
     const user = getConfig();
-    return (user && user.apiKey && String(user.apiKey).trim()) ? 'user' : 'builtin';
+    return (user && user.apiKey && String(user.apiKey).trim() && user.verified === true) ? 'user' : 'builtin';
+  }
+
+  // 真实连接测试：最小探测一次 chat/completions，返回 { ok, error? }。
+  // 供 configure_api / 设置页抽屉接入流程调用，作为档位判定的唯一事实来源。
+  async function testConnection(config) {
+    try {
+      const msg = await callDirect(
+        {
+          baseUrl: (config && config.baseUrl) || '',
+          apiKey: (config && config.apiKey) || '',
+          model: (config && config.model) || BUILTIN_MODEL.model,
+          maxTokens: 16,
+        },
+        [{ role: 'user', content: 'ping' }],
+        {}
+      );
+      if (msg && typeof msg.content === 'string') return { ok: true };
+      return { ok: false, error: '空响应' };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) ? e.message : '连接失败' };
+    }
   }
 
   // ---------- 发送前消息序列归一化（防御硅基流动 20015「messages 数组格式非法」）----------
@@ -319,6 +341,7 @@ ${transcript}
     // 新增：暴露当前生效配置与档位（供 Agent / 设置页判断与提示）
     getActiveConfig,
     getTier,
+    testConnection,
     // 测试可访问：发送前消息序列归一化（防御硅基流动 20015）
     normalizeMessageSequence,
   };
