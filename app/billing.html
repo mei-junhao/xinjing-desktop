@@ -9,13 +9,13 @@
     <script src="js/billing-sync.js"></script>
     <style>
         /* ============================================================
-           心镜 XinJing · 记账 · v1.0.14 完全重构（编辑式奢华 / 同源令牌）
+           心镜 XinJing · 记账 · v1.3.5 完全重构（静谧留白 / Calm Clinical）
            三大区 → 顶部 Tab 切换：录入 / 明细 / 统计
            视觉令牌与 app/css/style.css 完全一致（Noto Serif SC + 暖棕陶土 + --shadow-bezel）
            数据契约：localStorage['psyc_billing_v8'] schema + 30+ 函数名 + 80+ ID 全部保留
            ============================================================ */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        /* 视觉令牌已被 tokens.css 经 style.css @import 接管（v1.2.2 改造）：~ calm 皮肤 ~ */
+        /* 视觉令牌已被 tokens.css 经 style.css @import 接管（v1.3.5 改造）：~ calm 皮肤 ~ */
         body {
             font-family: var(--sans); color: var(--ink);
             background: var(--paper);
@@ -623,7 +623,7 @@
 
 <script>
 /* ============================================================
-   心镜 · 记账 · v1.0.14（Tab 切换版）
+   心镜 · 记账 · v1.3.5（Tab 切换版）
    逻辑层（30+ 函数 + 80+ DOM ID）完全保留自 1.0.13，
    仅增加：① tab 切换状态机 ② 月份选择器联动 ③ 欠款排行渲染
    ============================================================ */
@@ -636,7 +636,7 @@
     let calendarDate = new Date();
     let selectedDates = new Set();
     let typedFee = '';
-    let currentTab = 'record';  // v1.0.14 新增：当前 tab
+    let currentTab = 'record';  // v1.3.5 新增：当前 tab
 
     function loadData() {
         try {
@@ -756,7 +756,7 @@
         $('statAvgPrice').textContent = formatMoney(avgPrice);
     }
 
-    // v1.0.14: 欠款排行
+    // v1.3.5: 欠款排行
     function renderDebtList() {
         const items = [];
         const activeIds = new Set(data.clients.filter(c => c.status !== 'paused').map(c => c.id));
@@ -916,7 +916,7 @@
         const c = getClient($('recordClient').value);
         const feeVal = typedFee !== '' ? typedFee : (c ? c.feePerSession : '');
         $('recordFee').value = feeVal;
-        // v1.0.14: 同步大下拉摘要
+        // v1.3.5: 同步大下拉摘要
         if (c) {
             const stats = calcClientStats(c.id);
             const total = getTotalSessions(c.id);
@@ -1243,7 +1243,7 @@
         exportCSV(rows, filename);
     }
 
-    // ── v1.0.14: Tab 切换状态机 ──
+    // ── v1.3.5: Tab 切换状态机 ──
     function switchTab(tab) {
         currentTab = tab;
         document.querySelectorAll('#mainTabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));

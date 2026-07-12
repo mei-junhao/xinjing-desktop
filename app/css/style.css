@@ -1,5 +1,5 @@
 /* ============================================================
-   心镜 XinJing · 视觉重构 v3（编辑式奢华 / Editorial Luxury）
+   心镜 XinJing · 视觉重构（静谧留白 / Calm Clinical）
    纯 CSS，保留全部既有 class 名；双层卡用 box-shadow 环实现，不动 HTML 结构
    设计令牌（颜色/间距/圆角/字体）已抽至 tokens.css，本文件仅组件样式。
    ============================================================ */
@@ -73,7 +73,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .01em;
   background: var(--accent); color: #fff;
   display: grid; place-items: center;
   font-family: var(--serif); font-size: 20px; flex-shrink: 0;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .25), 0 4px 12px rgba(158, 90, 60, .3);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .25), 0 4px 12px rgba(139, 147, 199, .18);
   transition: background .35s var(--ease, ease), box-shadow .35s var(--ease, ease), color .35s var(--ease, ease);
 }
 /* 激活档位视觉身份：pro / 旧完整版(full) = 金色，custom 旗舰版 = 彩色 */
@@ -295,9 +295,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .01em;
 .btn-sm { height: 34px; padding: 0 14px; font-size: 13px; }
 .btn-primary {
   background: var(--accent); color: #fff; padding: 0 14px 0 22px;
-  box-shadow: 0 6px 16px rgba(158, 90, 60, .26), inset 0 1px 1px rgba(255, 255, 255, .18);
+  box-shadow: 0 6px 16px rgba(139, 147, 199, .26), inset 0 1px 1px rgba(255, 255, 255, .18);
 }
-.btn-primary:hover { background: var(--accent-2); box-shadow: 0 8px 22px rgba(158, 90, 60, .34); }
+.btn-primary:hover { background: var(--accent-2); box-shadow: 0 8px 22px rgba(139, 147, 199, .34); }
 .btn-primary:active { transform: scale(.98); }
 .btn-primary .trail {
   width: 30px; height: 30px; border-radius: 999px; background: rgba(255, 255, 255, .16);
@@ -548,8 +548,65 @@ tbody tr:hover { background: var(--paper-2); }
 .ai-save-row { margin-bottom: 8px; }
 
 /* AI 锁（与 masters.html 同源） */
-.ai-lock { position: absolute; inset: 0; background: rgba(251,248,243,.94); z-index: 5; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); }
+.ai-lock { position: absolute; inset: 0; background: rgba(246, 248, 252, .96); z-index: 5; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); }
+.dark .ai-lock, html.dark .ai-lock { background: rgba(24, 27, 36, .96); }
 .ai-lock .lock-inner { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px; }
 .ai-lock .lock-emoji { font-size: 34px; }
 .ai-lock .lock-title { font-weight: 700; color: var(--accent); font-family: var(--sans); }
 .ai-lock .lock-sub { font-size: 13px; color: var(--muted); font-family: var(--sans); max-width: 300px; line-height: 1.6; }
+
+/* ---------- 全局常驻：Agent 入口 FAB ---------- */
+.xj-agent-fab {
+  position: fixed; right: 22px; bottom: 22px; z-index: 60;
+  width: 52px; height: 52px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent); color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 8px 22px rgba(139, 147, 199, .4);
+  transition: transform .15s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease);
+}
+.xj-agent-fab:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(139, 147, 199, .5); }
+.xj-agent-fab:active { transform: scale(.94); }
+.dark .xj-agent-fab { box-shadow: 0 8px 22px rgba(0, 0, 0, .45); }
+
+/* ---------- Ctrl+K 命令面板 ---------- */
+.xj-cmd-palette { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-start; justify-content: center; }
+.xj-cmd-palette.hidden { display: none; }
+.xj-cmd-backdrop { position: absolute; inset: 0; background: rgba(20, 24, 34, .32); backdrop-filter: blur(2px); }
+.xj-cmd-panel {
+  position: relative; margin-top: 14vh; width: min(560px, 92vw);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(20, 24, 34, .28); overflow: hidden; font-family: var(--sans);
+}
+.xj-cmd-input {
+  width: 100%; border: none; outline: none; padding: 18px 20px;
+  font-size: 16px; font-family: var(--sans); color: var(--ink); background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+.xj-cmd-list { list-style: none; margin: 0; padding: 8px; max-height: 50vh; overflow-y: auto; }
+.xj-cmd-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-sm);
+  cursor: pointer; color: var(--ink);
+}
+.xj-cmd-item .xj-cmd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.xj-cmd-item .xj-cmd-label { font-size: 15px; font-weight: 500; }
+.xj-cmd-item .xj-cmd-hint { font-size: 12px; color: var(--muted); margin-left: auto; }
+.xj-cmd-item.active { background: var(--accent-soft); }
+.xj-cmd-item.active .xj-cmd-label { color: var(--accent); }
+.xj-cmd-empty { padding: 18px; text-align: center; color: var(--muted); font-family: var(--sans); }
+.xj-cmd-foot { padding: 10px 16px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); font-family: var(--sans); }
+.dark .xj-cmd-panel { box-shadow: 0 24px 60px rgba(0, 0, 0, .55); }
+
+/* ---------- Agent 首次引导气泡 ---------- */
+.xj-agent-onboard {
+  position: fixed; right: 22px; bottom: 86px; z-index: 70; max-width: 280px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 12px 30px rgba(20, 24, 34, .22); padding: 14px 16px;
+  display: flex; align-items: flex-start; gap: 10px; font-family: var(--sans);
+  animation: xjOnboardIn .35s var(--ease);
+}
+.xj-agent-onboard-text { font-size: 13px; line-height: 1.6; color: var(--ink); }
+.xj-agent-onboard-text b { color: var(--accent); }
+.xj-agent-onboard-close { margin-left: auto; border: none; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.xj-agent-onboard-hide { opacity: 0; transform: translateY(8px); transition: opacity .35s var(--ease), transform .35s var(--ease); }
+@keyframes xjOnboardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.dark .xj-agent-onboard { box-shadow: 0 12px 30px rgba(0, 0, 0, .5); }

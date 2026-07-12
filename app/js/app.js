@@ -358,6 +358,130 @@ const App = (() => {
     URL.revokeObjectURL(url);
   }
 
+  // ---------- 全局常驻：Agent 入口 FAB + Ctrl+K 命令面板 ----------
+  const CMD_COMMANDS = [
+    { label: '新建来访者', hint: '创建一位新的咨询来访者', run: function () {
+        if (document.getElementById('client-modal')) App.openModal('client-modal');
+        else location.href = 'index.html';
+      } },
+    { label: '记账', hint: '打开记账页面', run: function () { location.href = 'billing.html'; } },
+    { label: 'AI 督导', hint: '打开 AI 督导页面', run: function () { location.href = 'supervision.html'; } },
+    { label: '大师对话', hint: '打开大师对话页面', run: function () { location.href = 'masters.html'; } },
+    { label: '报告', hint: '打开报告中心', run: function () { location.href = 'reports.html'; } },
+    { label: '设置', hint: '打开设置页面', run: function () { location.href = 'settings.html'; } },
+  ];
+  const CMD_FAB_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>';
+
+  function ensureAgentFab() {
+    if (document.getElementById('xj-agent-fab')) return;
+    const fab = document.createElement('button');
+    fab.id = 'xj-agent-fab';
+    fab.className = 'xj-agent-fab';
+    fab.type = 'button';
+    fab.title = '唤起心镜 Agent（Ctrl+K 打开命令面板）';
+    fab.setAttribute('aria-label', 'AI 助手');
+    fab.innerHTML = CMD_FAB_SVG;
+    fab.addEventListener('click', function () {
+      if (typeof window.AgentOpen !== 'function') return;
+      window.AgentOpen();
+      // 浮窗首次打开时才创建，挂 observer：展开态隐藏 FAB，避免右下角重叠
+      let tries = 0;
+      const tick = function () {
+        const p = document.querySelector('.xj-agent-panel');
+        if (p) {
+          const sync = function () {
+            const hidden = p.classList.contains('xj-agent-visible') && !p.classList.contains('xj-agent-collapsed');
+            fab.style.display = hidden ? 'none' : '';
+          };
+          sync();
+          new MutationObserver(sync).observe(p, { attributes: true, attributeFilter: ['class'] });
+        } else if (tries++ < 20) {
+          setTimeout(tick, 50);
+        }
+      };
+      setTimeout(tick, 60);
+    });
+    document.body.appendChild(fab);
+  }
+
+  function ensureCmdPalette() {
+    if (document.getElementById('xj-cmd-palette')) return;
+    const root = document.createElement('div');
+    root.id = 'xj-cmd-palette';
+    root.className = 'xj-cmd-palette hidden';
+    root.innerHTML =
+      '<div class="xj-cmd-backdrop"></div>' +
+      '<div class="xj-cmd-panel" role="dialog" aria-label="命令面板">' +
+        '<input id="xj-cmd-input" class="xj-cmd-input" placeholder="输入命令，如：新建来访者、记账、督导…" autocomplete="off" spellcheck="false" />' +
+        '<ul id="xj-cmd-list" class="xj-cmd-list"></ul>' +
+        '<div class="xj-cmd-foot">↑↓ 选择 · ↵ 执行 · Esc 关闭</div>' +
+      '</div>';
+    document.body.appendChild(root);
+    const input = root.querySelector('#xj-cmd-input');
+    const list = root.querySelector('#xj-cmd-list');
+    let sel = 0;
+    function filterItems(q) {
+      q = (q || '').trim().toLowerCase();
+      return CMD_COMMANDS.filter(function (c) {
+        return !q || c.label.toLowerCase().indexOf(q) !== -1 || (c.hint && c.hint.toLowerCase().indexOf(q) !== -1);
+      });
+    }
+    function render(q) {
+      const items = filterItems(q);
+      if (sel >= items.length) sel = Math.max(0, items.length - 1);
+      list.innerHTML = items.length
+        ? items.map(function (c, i) {
+            return '<li class="xj-cmd-item' + (i === sel ? ' active' : '') + '" data-i="' + i + '">' +
+              '<span class="xj-cmd-dot"></span>' +
+              '<span class="xj-cmd-label">' + App.escapeHtml(c.label) + '</span>' +
+              '<span class="xj-cmd-hint">' + App.escapeHtml(c.hint) + '</span></li>';
+          }).join('')
+        : '<li class="xj-cmd-empty">无匹配命令</li>';
+    }
+    function open() {
+      root.classList.remove('hidden');
+      sel = 0; input.value = ''; render('');
+      setTimeout(function () { try { input.focus(); } catch (e) {} }, 0);
+    }
+    function close() { root.classList.add('hidden'); }
+    function exec() {
+      const items = filterItems(input.value);
+      if (!items.length) return;
+      const cmd = items[sel] || items[0];
+      close();
+      try { cmd.run(); } catch (e) { /* ignore */ }
+    }
+    input.addEventListener('keydown', function (e) {
+      const items = filterItems(input.value);
+      if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, items.length - 1); render(input.value); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); render(input.value); }
+      else if (e.key === 'Enter') { e.preventDefault(); exec(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+    input.addEventListener('input', function () { sel = 0; render(input.value); });
+    list.addEventListener('click', function (e) {
+      const li = e.target.closest('.xj-cmd-item'); if (!li) return;
+      sel = parseInt(li.getAttribute('data-i'), 10) || 0; exec();
+    });
+    root.querySelector('.xj-cmd-backdrop').addEventListener('click', close);
+    window.__xjOpenCmd = open;
+    window.__xjCloseCmd = close;
+  }
+
+  function setupGlobalChrome() {
+    ensureAgentFab();
+    ensureCmdPalette();
+    if (window.__xjCmdKeyBound) return;
+    window.__xjCmdKeyBound = true;
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        if (window.__xjOpenCmd) window.__xjOpenCmd();
+      }
+    });
+  }
+  setupGlobalChrome();
+
   return {
     NAV_ITEMS,
     renderSidebar,

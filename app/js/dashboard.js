@@ -122,5 +122,22 @@ App.initPage({
     renderStats();
     renderRecentSessions();
     renderRecentReports();
+
+    // ---------- Agent 浮窗首次引导 ----------
+    try {
+      if (!localStorage.getItem('xj_agent_onboarded')) {
+        const bubble = document.createElement('div');
+        bubble.className = 'xj-agent-onboard';
+        bubble.innerHTML = '<div class="xj-agent-onboard-text">右下角的 <b>AI 助手</b> 按钮已就绪，点它即可唤起心镜 Agent ✨</div><button class="xj-agent-onboard-close" aria-label="关闭">×</button>';
+        document.body.appendChild(bubble);
+        const dismiss = function () {
+          bubble.classList.add('xj-agent-onboard-hide');
+          try { localStorage.setItem('xj_agent_onboarded', '1'); } catch (e) {}
+          setTimeout(function () { if (bubble.parentNode) bubble.parentNode.removeChild(bubble); }, 400);
+        };
+        bubble.querySelector('.xj-agent-onboard-close').addEventListener('click', dismiss);
+        setTimeout(dismiss, 6000);
+      }
+    } catch (e) {}
   },
 });

@@ -1049,6 +1049,45 @@ test('R5 gen-supervisors.py 已废弃（防误跑污染 prompts.builtin.js）', 
 });
 
 // ============================================================
+// S 组 · v1.3.6 接受外部评审意见修复（P0 视觉 + Agent 入口/命令面板）
+// ============================================================
+const S_CSS = fs.readFileSync(path.join(APP_DIR, 'css', 'style.css'), 'utf-8');
+const S_SESSION = fs.readFileSync(path.join(APP_DIR, 'session.html'), 'utf-8');
+const S_BILLING = fs.readFileSync(path.join(APP_DIR, 'billing.html'), 'utf-8');
+const S_APP = fs.readFileSync(path.join(APP_DIR, 'js', 'app.js'), 'utf-8');
+const S_DASH = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf-8');
+
+test('S1 P0 Bug1-3 style.css 无 editorial 暖棕硬编码 rgba(158,90,60)', function () {
+  assert.ok(!/rgba\(158,\s*90,\s*60/.test(S_CSS), 'style.css 仍含 editorial 暖棕硬编码');
+});
+test('S2 P0 Bug5 style.css 文件头更新为静谧留白', function () {
+  assert.ok(/静谧留白 \/ Calm Clinical/.test(S_CSS), 'style.css 文件头未更新');
+  assert.ok(!/编辑式奢华/.test(S_CSS), 'style.css 仍含编辑式奢华');
+});
+test('S3 P0 Bug4 session.html .ai-lock 适配 calm + dark', function () {
+  assert.ok(/rgba\(246,\s*248,\s*252/.test(S_SESSION), 'session .ai-lock 未用 calm 浅色');
+  assert.ok(/\.dark \.ai-lock|html\.dark \.ai-lock/.test(S_SESSION), 'session .ai-lock 缺 dark 适配');
+});
+test('S4 P1 Bug9 billing-theme.css 已删除', function () {
+  assert.ok(!fs.existsSync(path.join(APP_DIR, 'billing-theme.css')), 'billing-theme.css 仍存在');
+});
+test('S5 P1 Bug6 billing.html 版本注释更新', function () {
+  assert.ok(!/v1\.0\.14/.test(S_BILLING), 'billing.html 仍含 v1.0.14');
+  assert.ok(!/v1\.2\.2/.test(S_BILLING), 'billing.html 仍含 v1.2.2');
+  assert.ok(/静谧留白 \/ Calm Clinical/.test(S_BILLING), 'billing.html 未更新皮肤名');
+});
+test('S6 P2 常驻 Agent 入口 + Ctrl+K 命令面板（app.js）', function () {
+  assert.ok(/xj-agent-fab/.test(S_APP), 'app.js 缺 Agent FAB');
+  assert.ok(/__xjOpenCmd/.test(S_APP), 'app.js 缺命令面板打开函数');
+  assert.ok(/window\.AgentOpen/.test(S_APP), 'app.js 未调用 AgentOpen');
+  assert.ok(/e\.key === 'k'/.test(S_APP), 'app.js 缺 Ctrl+K 监听');
+});
+test('S7 P2 Agent 首次引导（dashboard.js）', function () {
+  assert.ok(/xj_agent_onboarded/.test(S_DASH), 'dashboard.js 缺引导 localStorage 标记');
+  assert.ok(/xj-agent-onboard/.test(S_DASH), 'dashboard.js 缺引导气泡 class');
+});
+
+// ============================================================
 // 汇总
 // ============================================================
 console.log('\n========== 汇总 ==========');
