@@ -203,6 +203,19 @@
       return { error: '授权已失效，请重新激活后继续' };
     }
 
+    // === 模型能力自检（P0-1 改动 D）===
+    // 当前生效模型明确不支持 function-calling（denylist 命中 o1/o2/o3/o4/reasoning/deepseek-reasoner/r1）时，
+    // 直接友好提示，避免工具被盲注后静默 400 或「无工具可用却无反馈」。
+    try {
+      const _cfg = (typeof AI !== 'undefined' && AI.getActiveConfig) ? AI.getActiveConfig() : {};
+      const _capable = (typeof AI !== 'undefined' && AI.isToolCapable)
+        ? AI.isToolCapable(_cfg.model, _cfg.baseUrl)
+        : true;
+      if (!_capable) {
+        return { error: '当前模型（' + (_cfg.model || '内置') + '）不支持工具调用，请到设置接入支持 function-calling 的模型（DeepSeek / 硅基流动 / OpenAI / Kimi / 智谱 / 通义 / 豆包等）后再使用 Agent 工具。' };
+      }
+    } catch (e) { /* 自检异常不阻断，交由 callDirect 兜底 */ }
+
     // === 退化循环防护（v1.6.2 修复）===
     // 症状：模型拿到工具结果后仍反复发同一查询工具调用、始终不产出最终文字——这是 DeepSeek 在
     // 「必须先查工具」强约束下的典型退化循环（如问"工作最久的来访"连发 stats.overview 8 次撞步数上限）。
@@ -404,7 +417,7 @@
         try {
           if (typeof AI !== 'undefined' && AI.getTier) {
             return AI.getTier() === 'builtin'
-              ? '\n\n[档位] 你运行在内置低性能免费模型（Qwen3.5-4B，永久免费），只能完成普通任务（记账 / 月结 / 查统计 / 改来访者信息 / 配 API）。复杂长篇分析、真人督导式深度工作请引导用户填入自己高性能模型的 key——支持的服务商：DeepSeek / 硅基流动 / OpenAI / 月之暗面 Kimi / 智谱 / 通义千问 / 豆包。用户只需说出服务商名和 API Key，你就能从内置预设表自动帮用户配好。'
+              ? '\n\n[档位] 你运行在内置低性能免费模型（Qwen3.5-4B，永久免费，支持工具调用），可完成记账 / 月结 / 查统计 / 改来访者信息 / 配 API 等普通任务。若用户需要更复杂长篇分析或真人督导式深度工作，引导其填入自己的高性能模型 key——支持的服务商：DeepSeek / 硅基流动 / OpenAI / 月之暗面 Kimi / 智谱 / 通义千问 / 豆包；用户只需说出服务商名和 API Key，你就能从内置预设表自动配好。注意：若用户接入的模型不支持 function-calling（如 o1/o2/o3/o4 系列或 reasoning 模型），Agent 会主动提示其换用支持的模型，而非静默失效。'
               : '\n\n[档位] 你已接入用户的高性能模型，是完全体，可以完成更复杂的任务。';
           }
         } catch (e) { /* ignore */ }

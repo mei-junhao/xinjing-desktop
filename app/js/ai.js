@@ -426,6 +426,12 @@ ${transcript}
     testConnection,
     // 测试可访问：发送前消息序列归一化（防御硅基流动 20015）
     normalizeMessageSequence,
+    // 模型是否支持 function-calling（denylist：已知不支持的推理/专属模型拒绝，其余默认支持）
+    supportsFunctionCalling,
+    // 兼容文档命名：isToolCapable(model, baseUrl) → 委托 denylist 判断（P0-1 改动 D 供 Agent 启动前自检）
+    isToolCapable: function (model, baseUrl) {
+      return supportsFunctionCalling({ model: model, baseUrl: baseUrl });
+    },
   };
 })();
 
