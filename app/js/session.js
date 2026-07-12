@@ -272,6 +272,17 @@ App.initPage({
   window.switchAiMode = switchAiMode;
   window.openActivation = openActivation;
 
+  // 返回来访者详情页。clientId 是本闭包内的局部变量，
+  // 之前 HTML 内联 onclick 直接引用它会因全局作用域取不到而抛 ReferenceError（返回按钮点击无反应）。
+  // 统一挂到 window 上，并对 clientId 缺失做兜底。
+  window.goBack = function () {
+    if (clientId) {
+      location.href = 'client-detail.html?id=' + encodeURIComponent(clientId);
+    } else {
+      location.href = 'clients.html';
+    }
+  };
+
   function addAiMessage(text, isUser) {
     const chat = document.getElementById('ai-chat');
     const div = document.createElement('div');
