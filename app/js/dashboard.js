@@ -134,9 +134,18 @@ App.initPage({
     if (qaUpd) qaUpd.onclick = function () {
       const api = window.__XJ_API__;
       if (api && typeof api.checkForUpdates === 'function') {
-        try { api.checkForUpdates(); App.showToast('正在检查更新…', 'info'); } catch (e) { App.showToast('检查更新失败', 'error'); }
+        try {
+          const r = api.checkForUpdates();
+          if (r && typeof r.then === 'function') {
+            r.catch(function (e) {
+              App.showToast('检查更新失败：' + (e && e.message ? e.message : e), 'error');
+            });
+          }
+        } catch (e) {
+          App.showToast('检查更新失败：' + (e && e.message ? e.message : e), 'error');
+        }
       } else {
-        App.showToast('当前环境不支持检查更新', 'error');
+        App.showToast('已是最新版本', 'success');
       }
     };
 

@@ -34,7 +34,10 @@
     panelEl.innerHTML = `
       <div class="xj-agent-header">
         <span class="xj-agent-title">⚙ 心镜 Agent</span>
-        <button class="xj-agent-toggle" title="收起">–</button>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="xj-agent-expand" title="全屏/小屏切换" style="border:none;background:transparent;color:inherit;font-size:14px;cursor:pointer;padding:4px 8px">⤢</button>
+          <button class="xj-agent-toggle" title="收起">–</button>
+        </div>
       </div>
       <div class="xj-agent-body">
         <div class="xj-agent-msgs" id="xj-agent-msgs"></div>
@@ -49,6 +52,7 @@
     inputEl = panelEl.querySelector('#xj-agent-input');
     // 绑定事件
     panelEl.querySelector('.xj-agent-toggle').addEventListener('click', toggleCollapse);
+    panelEl.querySelector('.xj-agent-expand').addEventListener('click', toggleFullscreen);
     panelEl.querySelector('#xj-agent-send').addEventListener('click', onSend);
     inputEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
@@ -160,6 +164,14 @@
     panelEl.classList.toggle('xj-agent-collapsed');
     const btn = panelEl.querySelector('.xj-agent-toggle');
     if (btn) btn.textContent = panelEl.classList.contains('xj-agent-collapsed') ? '+' : '–';
+  }
+
+  // 全屏/小屏切换（#6）：全屏时铺满视口右半；小屏（默认）为 400px 宽固定面板
+  function toggleFullscreen() {
+    if (!panelEl) return;
+    panelEl.classList.toggle('xj-agent-fullscreen');
+    const btn = panelEl.querySelector('.xj-agent-expand');
+    if (btn) btn.textContent = panelEl.classList.contains('xj-agent-fullscreen') ? '⤡' : '⤢';
   }
 
   // ---------- 渲染单条消息 ----------
@@ -401,18 +413,137 @@
     }
   } catch (e) { /* ignore */ }
 
-  // 在右下角加一个固定的"启动"按钮（首次展开浮窗）
-  let startBtn = null;
-  function ensureStartBtn() {
-    if (startBtn) return;
-    startBtn = el('button', 'xj-agent-start-btn', '⚙');
-    startBtn.title = '打开心镜 Agent';
-    startBtn.addEventListener('click', function () { window.AgentOpen(); });
-    document.body.appendChild(startBtn);
+  // ---------- Agent 呼吸球 FAB（#6：可拖动 + 呼吸动画 + 全屏/小屏切换） ----------
+  let fabEl = null;
+
+  function buildFab() {
+    fabEl = el('button', 'xj-agent-fab');
+    fabEl.type = 'button';
+    fabEl.title = '唤起心镜 Agent（可拖动到任意位置）';
+    fabEl.setAttribute('aria-label', 'AI 助手');
+    fabEl.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>';
+
+    // 恢复持久化位置（默认左下角 24,24 from bottom-left）
+    restoreFabPos();
+
+    // 拖动逻辑
+    var dragging = false, moved = false;
+    var startX = 0, startY = 0, fabX = 0, fabY = 0;
+
+    fabEl.addEventListener('mousedown', function (e) {
+      dragging = true; moved = false;
+      startX = e.clientX; startY = e.clientY;
+      var rect = fabEl.getBoundingClientRect();
+      fabX = rect.left; fabY = rect.top;
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var dx = e.clientX - startX;
+      var dy = e.clientY - startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+      var nx = fabX + dx;
+      var ny = fabY + dy;
+      // 约束在视口内
+      var maxX = window.innerWidth - fabEl.offsetWidth;
+      var maxY = window.innerHeight - fabEl.offsetHeight;
+      nx = Math.max(0, Math.min(maxX, nx));
+      ny = Math.max(0, Math.min(maxY, ny));
+      fabEl.style.left = nx + 'px';
+      fabEl.style.top = ny + 'px';
+      fabEl.style.right = 'auto';
+      fabEl.style.bottom = 'auto';
+    });
+
+    document.addEventListener('mouseup', function () {
+      if (!dragging) return;
+      dragging = false;
+      if (moved) {
+        // 持久化位置
+        try {
+          var rect = fabEl.getBoundingClientRect();
+          localStorage.setItem('xj_fab_pos', JSON.stringify({ x: rect.left, y: rect.top }));
+        } catch (e) {}
+      } else {
+        // 纯点击 → 展开浮窗
+        window.AgentOpen();
+      }
+    });
+
+    // 触摸拖动
+    fabEl.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) return;
+      dragging = true; moved = false;
+      var t = e.touches[0];
+      startX = t.clientX; startY = t.clientY;
+      var rect = fabEl.getBoundingClientRect();
+      fabX = rect.left; fabY = rect.top;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+      if (!dragging || e.touches.length !== 1) return;
+      var t = e.touches[0];
+      var dx = t.clientX - startX;
+      var dy = t.clientY - startY;
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+      var nx = fabX + dx;
+      var ny = fabY + dy;
+      var maxX = window.innerWidth - fabEl.offsetWidth;
+      var maxY = window.innerHeight - fabEl.offsetHeight;
+      nx = Math.max(0, Math.min(maxX, nx));
+      ny = Math.max(0, Math.min(maxY, ny));
+      fabEl.style.left = nx + 'px';
+      fabEl.style.top = ny + 'px';
+      fabEl.style.right = 'auto';
+      fabEl.style.bottom = 'auto';
+    }, { passive: true });
+
+    document.addEventListener('touchend', function () {
+      if (!dragging) return;
+      dragging = false;
+      if (moved) {
+        try {
+          var rect = fabEl.getBoundingClientRect();
+          localStorage.setItem('xj_fab_pos', JSON.stringify({ x: rect.left, y: rect.top }));
+        } catch (e) {}
+      } else {
+        window.AgentOpen();
+      }
+    });
+
+    document.body.appendChild(fabEl);
+
+    // 面板展开时隐藏 FAB，收起时恢复
+    var syncFab = function () {
+      if (!panelEl || !fabEl) return;
+      var visible = panelEl.classList.contains('xj-agent-visible') && !panelEl.classList.contains('xj-agent-collapsed');
+      fabEl.style.display = visible ? 'none' : '';
+    };
+    // 定期检查面板状态（轻量轮询，避免 MutationObserver 重复绑定）
+    setInterval(syncFab, 300);
   }
+
+  function restoreFabPos() {
+    if (!fabEl) return;
+    try {
+      var saved = JSON.parse(localStorage.getItem('xj_fab_pos') || 'null');
+      if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+        fabEl.style.left = saved.x + 'px';
+        fabEl.style.top = saved.y + 'px';
+        fabEl.style.right = 'auto';
+        fabEl.style.bottom = 'auto';
+        return;
+      }
+    } catch (e) {}
+    // 默认左下角
+    fabEl.style.left = '24px';
+    fabEl.style.bottom = '24px';
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureStartBtn);
+    document.addEventListener('DOMContentLoaded', buildFab);
   } else {
-    ensureStartBtn();
+    buildFab();
   }
 })();

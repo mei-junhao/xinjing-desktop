@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>心镜 · 来访者</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
   <div class="layout">
@@ -14,22 +15,19 @@
         <div id="page-header"></div>
       </header>
       <div class="content">
-        <!-- 工具栏：搜索 + 状态筛选 -->
-        <div class="toolbar">
-          <div class="search-box">
-            <span class="search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg></span>
+        <!-- 左栏：搜索 + 状态筛选 + 列表 -->
+        <div class="rail" style="border-right:0">
+          <div class="search">
             <input id="search-input" placeholder="搜索姓名、标签、备注..." oninput="renderClients()">
           </div>
-          <div class="filter-group" id="status-filter">
-            <span class="flabel">状态</span>
+          <div class="status-pills" id="status-filter">
             <span class="pill active" data-status="all" onclick="setStatusFilter('all')">全部</span>
             <span class="pill" data-status="active" onclick="setStatusFilter('active')">咨询中</span>
             <span class="pill" data-status="paused" onclick="setStatusFilter('paused')">暂停</span>
             <span class="pill" data-status="ended" onclick="setStatusFilter('ended')">已结束</span>
           </div>
+          <div class="clist" id="client-list"></div>
         </div>
-
-        <div id="client-list"></div>
       </div>
     </main>
   </div>

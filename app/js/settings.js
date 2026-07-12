@@ -660,6 +660,36 @@ App.initPage({
     cdClearChips();
     cdTestAndApply();
   }
+  // 友好中文错误映射：保留底层 error 供调试（console），但给用户看中文。
+  function cdFriendlyError(raw) {
+    const s = (raw == null ? '' : String(raw)).toLowerCase();
+    if (s.indexOf('429') !== -1 || s.indexOf('rate') !== -1 || s.indexOf('too many') !== -1 || s.indexOf('rate limit') !== -1) {
+      return '请求过于频繁，请稍候';
+    }
+    if (s.indexOf('401') !== -1 || s.indexOf('403') !== -1 || s.indexOf('unauthorized') !== -1 || s.indexOf('authentication') !== -1 || s.indexOf('invalid api') !== -1 || s.indexOf('invalid key') !== -1 || s.indexOf('api key') !== -1 || s.indexOf('key error') !== -1) {
+      return 'API Key 无效，请核对后重试';
+    }
+    if (s.indexOf('timeout') !== -1 || s.indexOf('timed out') !== -1 || s.indexOf('aborted') !== -1 || s.indexOf('econn') !== -1) {
+      return '连接超时，请稍后重试';
+    }
+    if (s.indexOf('network') !== -1 || s.indexOf('fetch') !== -1 || s.indexOf('enotfound') !== -1 || s.indexOf('dns') !== -1 || s.indexOf('offline') !== -1 || s.indexOf('failed to fetch') !== -1 || s.indexOf('getaddrinfo') !== -1) {
+      return '网络异常，请检查连接后重试';
+    }
+    return '配置失败，请重试';
+  }
+  // 「有 Key」验证成功后的引导：打开 Agent 对话（或降级 toast）
+  function cdOpenAgent() {
+    try {
+      if (typeof window.AgentOpen === 'function') {
+        window.AgentOpen();
+      } else {
+        App.showToast('Agent 已就绪，点击右下角助手开始对话', 'success');
+      }
+    } catch (e) {
+      App.showToast('Agent 已就绪，点击右下角助手开始对话', 'success');
+    }
+    closeConnectDrawer();
+  }
   async function cdTestAndApply() {
     const cfg = { baseUrl: CD.baseUrl, apiKey: CD.apiKey, model: CD.model };
     let test = { ok: false, error: '未配置' };
@@ -673,10 +703,16 @@ App.initPage({
     Store.saveSettings({ apiConfig: merged });
     updateTierStatus();
     if (test.ok) {
-      cdMsg('ai', '✅ <b>接入成功，已验证可用</b>！你现在是完全体，可以做复杂分析。在右下角的 Agent 浮窗里直接和我对话吧。窗口即将关闭。');
-      setTimeout(closeConnectDrawer, 2200);
+      cdMsg('ai', '✅ <b>接入成功，已验证可用</b>！你现在是完全体，可以做复杂分析。点下面的「试用 Agent 对话」马上开聊吧。');
+      cdChips([
+        { label: '🤖 试用 Agent 对话', onClick: cdOpenAgent },
+        { label: '关闭', onClick: closeConnectDrawer },
+      ]);
     } else {
-      cdMsg('ai', '❌ <b>测试未通过</b>：' + App.escapeHtml(test.error || '未知错误') + '。<br>已自动降级到<b>内置免费模型</b>。你的密钥已保留，可检查后重试（端点 / 模型名 / 密钥是否正确）。');
+      // 调试信息保留底层 error，但给用户中文友好提示
+      try { console.warn('[API接入] testConnection 未通过：', test.error); } catch (e) {}
+      const zh = cdFriendlyError(test.error);
+      cdMsg('ai', '❌ <b>' + zh + '</b>。<br>已自动降级到<b>内置免费模型</b>。你的密钥已保留，可检查后重试（端点 / 模型名 / 密钥是否正确）。');
       cdChips([
         { label: '重新输入密钥', onClick: function () { CD.state = 'key'; cdMsg('ai', '把密钥再发我一次：'); cdShowInput(true, 'sk-...'); cdClearChips(); } },
         { label: '关闭', onClick: closeConnectDrawer },

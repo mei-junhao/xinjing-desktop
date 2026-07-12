@@ -3,109 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>心镜 · 督导</title>
+  <title>心镜 · AI 督导</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    /* 页面专有布局（仅用令牌名，不粘贴 :root、不硬编码 hex） */
+    .main { position: relative; }
+    .ws { grid-template-columns: 1fr 6px var(--dock-w); }
+    .tpl-row { flex-shrink: 0; }
+    .doc-note { flex-shrink: 0; }
+  </style>
 </head>
 <body>
-  <div class="layout">
-    <div id="sidebar-mount"></div>
-    <main class="main">
-      <header class="main-header">
-        <div id="page-header"></div>
-      </header>
-      <div class="content">
-        <div class="sup-tabs">
-          <button class="sup-tab active" id="tab-manual" onclick="switchSupTab('manual')">手工记录</button>
-          <button class="sup-tab" id="tab-ai" onclick="switchSupTab('ai')">AI 督导</button>
-        </div>
+  <div class="layout"><div id="sidebar-mount"></div><main class="main">
+    <header class="topbar">
+      <div class="brand">心镜 <small>AI 督导</small></div>
+      <div class="orient" id="orient">
+        <button data-o="winnicott" class="active">温尼科特</button>
+        <button data-o="psychoanalysis">精神分析</button>
+        <button data-o="cbt">CBT</button>
+        <button data-o="rogers">人本-罗杰斯</button>
+        <button data-o="yalom">存在-亚隆</button>
+        <button data-o="generic">通用整合</button>
+      </div>
+    </header>
 
-        <!-- 手工记录面板 -->
-        <div id="panel-manual">
-          <div class="toolbar">
-            <div class="filter-group" id="sup-type-filter">
-              <span class="flabel">类型</span>
-              <span class="pill active" data-type="all" onclick="setSupType('all')">全部</span>
-              <span class="pill" data-type="individual" onclick="setSupType('individual')">个体督导</span>
-              <span class="pill" data-type="group" onclick="setSupType('group')">团体督导</span>
-            </div>
-          </div>
-          <div id="sup-list"></div>
-        </div>
+    <div class="tpl-row">
+      <span class="lbl">督导模板</span>
+      <span class="chip active" data-tpl="default">默认框架</span>
+      <span class="chip" data-tpl="brief">短程聚焦</span>
+      <span class="chip" data-tpl="longterm">长程成长视角</span>
+      <span class="chip locked" data-tpl="custom">我的自定义</span>
+    </div>
 
-        <!-- AI 督导面板（复刻 winnicott-chat ai-supervisor：版本切换 + 整体印象 + 多轮督导对话） -->
-        <div id="panel-ai" class="hidden">
-          <div class="ai-sup-relative">
-            <div class="ai-sup" id="ai-sup">
-              <div class="ai-sup-bar">
-                <div class="spv-switch">
-                  <button class="spv-mode active" id="spvNvwa" onclick="switchSpvMode('nvwa')">女娲版</button>
-                  <button class="spv-mode" id="spvCangjie" onclick="switchSpvMode('cangjie')">仓颉版</button>
-                  <button class="spv-mode" id="spvRealsup" onclick="switchSpvMode('realsup')">真人督导整理</button>
-                </div>
-                <div class="spv-mode-hint" id="spvHint">女娲版教你「怎么做督导」，仓颉版告诉你「我是怎么督导的」</div>
-              </div>
-
-              <div class="ai-disclaimer">
-                本 AI 督导基于温尼科特框架的方法论，<b>不能替代真人督导</b>，仅供临床参考；涉及自伤/伤人、儿童保护等危机情境，请直接联系真人督导师。
-                <label class="ack"><input type="checkbox" id="aiAck"> 我已阅读并理解上述说明</label>
-              </div>
-
-              <div class="ai-material">
-                <div class="ai-material-head">
-                  <span>临床材料（逐字稿 / 案例报告 / 反移情困惑）</span>
-                  <span class="ai-material-tools">
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('aiFile').click()">上传 .txt/.md/.docx</button>
-                    <input type="file" id="aiFile" accept=".txt,.md,.docx" style="display:none" onchange="aiHandleFile(this)">
-                    <select id="aiSessionSel" class="form-control" onchange="aiLoadSession(this.value)">
-                      <option value="">载入会谈…</option>
-                    </select>
-                  </span>
-                </div>
-                <textarea id="aiMaterial" class="form-control" style="min-height:170px" placeholder="粘贴逐字稿、案例报告，或描述你的反移情困惑……"></textarea>
-                <div class="ai-len-tip" id="aiLenTip"></div>
-              </div>
-
-              <div class="ai-actions">
-                <button class="btn btn-primary" id="aiGenBtn" onclick="generateImpression()">生成整体印象</button>
-                <button class="btn btn-secondary" id="aiOneClickBtn" onclick="generateAndSaveSupervision()" title="按当前模式一键生成并落库">一键生成完整记录</button>
-              </div>
-
-              <div id="aiImpression" class="ai-impression hidden">
-                <div class="imp-header">
-                  <h3>整体印象</h3>
-                  <button class="toggle-btn" onclick="toggleImpression()">收起 ▲</button>
-                </div>
-                <div class="imp-body" id="aiImpressionBody"></div>
-              </div>
-
-              <div id="aiChat" class="ai-chat hidden">
-                <div class="chat-msgs" id="aiChatMsgs"></div>
-                <div class="chat-input-row">
-                  <textarea id="aiChatInput" class="form-control" rows="1" placeholder="就整体印象中的内容继续讨论……" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229){event.preventDefault();aiSendChat()}"></textarea>
-                  <button class="btn btn-primary" id="aiChatSend" onclick="aiSendChat()">发送</button>
-                </div>
-              </div>
-
-              <div class="ai-save-row hidden" id="aiSaveRow">
-                <button class="btn btn-ghost" onclick="aiSaveSupervision()">保存为督导记录</button>
-              </div>
-            </div>
-
-            <div id="ai-sup-lock" class="ai-lock hidden">
-              <div class="lock-inner">
-                <div class="lock-emoji">🔒</div>
-                <div class="lock-title">AI 督导为付费功能</div>
-                <div class="lock-sub">激活后即可使用女娲版 / 仓颉版 AI 督导，输出整体印象并展开多轮督导对话。</div>
-                <button class="btn btn-primary btn-sm" onclick="openActivation()">去激活</button>
-              </div>
-            </div>
-          </div>
+    <div class="ws" id="ws">
+      <div class="editor-wrap" id="editorWrap">
+        <div class="editor" id="editor" contenteditable="true" data-ph="在此像编辑 Word 一样书写个案督导材料……选中文字出现格式工具栏；右侧 AI 坞可一键生成印象并直接插入。"></div>
+        <div class="floating-tb" id="floatTb">
+          <button data-cmd="bold"><b>B</b></button><button data-cmd="italic"><i>I</i></button>
+          <button data-cmd="formatBlock" data-val="H3">H</button>
+          <button data-cmd="insertUnorderedList">•</button>
+          <button data-cmd="formatBlock" data-val="BLOCKQUOTE">❝</button>
         </div>
       </div>
-    </main>
-  </div>
 
-  <!-- 新增/编辑督导模态框 -->
+      <div class="resizer" id="resizer"></div>
+
+      <div class="aidock" id="aidock">
+        <h3>⚙ AI 督导坞</h3>
+        <div class="hint" id="dockHint"></div>
+        <div class="ai-actions">
+          <button class="primary" id="btnImpression"><span class="ic">✨</span> 生成整体印象（插入文档）</button>
+          <button id="btnDeepen"><span class="ic">🔍</span> 就选区深化讨论</button>
+          <button id="btnSummarize"><span class="ic">📝</span> 总结选区</button>
+          <button id="btnPolish"><span class="ic">💡</span> 润色选区</button>
+          <button id="btnMaster"><span class="ic">🗣</span> 就此议题开启大师对话</button>
+          <button id="btnRealSup"><span class="ic">📼</span> 整理真人督导录音稿</button>
+        </div>
+
+        <div class="realsup" id="realsup">
+          <div class="hint">粘贴真人督导录音转写稿，AI 将其结构化为督导记录字段并插入文档。</div>
+          <textarea id="rsText" placeholder="粘贴转写文字稿（>=30 字）……"></textarea>
+          <button class="primary" id="rsRun">结构化整理并插入</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-note">无日期字段 · 取向自选 · 内置模板 · 会员可自定义 · realsup 融入坞内 · 一键桥接大师对话 · 右侧坞可拖拽调宽</div>
+    <button class="dock-toggle" id="dockToggle">收起 AI 坞</button>
+  </main></div>
+
+  <!-- 手工记录模态（保留日期字段） -->
   <div class="modal-overlay" id="sup-modal">
     <div class="modal">
       <div class="modal-header">
@@ -147,17 +115,6 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="App.closeModal('sup-modal')">取消</button>
         <button class="btn btn-primary" onclick="saveSupervision()">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="confirm-modal">
-    <div class="modal" style="max-width:380px">
-      <div class="modal-header"><h2>确认</h2></div>
-      <div class="modal-body"><p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p></div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
-        <button class="btn btn-primary" id="confirm-ok">确定</button>
       </div>
     </div>
   </div>

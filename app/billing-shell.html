@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>心镜 · 记账</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
   <style>
     #billing-frame {
       width: 100%;
-      height: calc(100vh - 138px);
+      height: calc(100vh - 110px);
       min-height: 540px;
       border: none;
-      border-radius: var(--radius);
-      background: #f0f4f9;
+      border-radius: var(--radius-lg, 14px);
+      background: var(--bg-sunken, #f0f4f9);
       display: block;
     }
 
@@ -97,11 +98,41 @@
   <div class="layout">
     <div id="sidebar-mount"></div>
     <main class="main">
-      <header class="main-header">
-        <div id="page-header"></div>
-      </header>
-      <div class="content">
-        <iframe id="billing-frame" title="记账系统" src="about:blank"></iframe>
+      <!-- 工作区顶栏：统计卡 + 操作按钮 -->
+      <div class="topbar">
+        <div class="brand">记账 <small>与心镜共用同一份数据</small></div>
+        <div class="cards" id="billing-stats">
+          <div class="card"><b id="stat-receivable">¥0</b><span>应收</span></div>
+          <div class="card"><b id="stat-received">¥0</b><span>已收</span></div>
+          <div class="card owe"><b id="stat-balance">¥0</b><span>未收余额</span></div>
+          <div class="card"><b id="stat-sessions">0</b><span>本月节次</span></div>
+        </div>
+        <div class="actions">
+          <button onclick="openImport()">⤓ 导入数据</button>
+          <button class="ai" onclick="toggleAiDock()">🤖 AI 记账</button>
+        </div>
+      </div>
+      <!-- 三栏：左 iframe + 拖拽条 + 右 AI 记账坞 -->
+      <div class="ws billing" id="billing-ws" style="grid-template-columns: 1fr 6px var(--dock-w)">
+        <div style="overflow:auto;padding:16px 20px;min-width:0">
+          <iframe id="billing-frame" title="记账系统" src="about:blank"></iframe>
+        </div>
+        <div class="resizer" id="billing-resizer"></div>
+        <aside class="aidock" id="billing-aidock">
+          <div class="dock-head">
+            🤖 AI 记账坞
+          </div>
+          <div class="dock-body">
+            <p class="hint">输入自然语言即可记账、月结、查统计。<br>例：「帮张明记 4月10号会谈 300块次结没付」</p>
+            <textarea class="ai-input" id="billing-ai-input" placeholder="描述要记的账、月结或查询统计…"></textarea>
+            <div class="dock-actions">
+              <button class="primary" onclick="billingAiSend()">✍️ 记账</button>
+              <button onclick="billingAiMonthly()">📊 月结</button>
+              <button onclick="billingAiQuery()">🔍 查统计</button>
+            </div>
+            <div class="chat-mini" id="billing-ai-result" style="display:none"></div>
+          </div>
+        </aside>
       </div>
     </main>
   </div>
@@ -198,20 +229,159 @@
   <script src="js/billing-sync.js"></script>
   <script>
   /* ============================================================
-     心镜 · 记账 · v1.0.14 壳页
+     心镜 · 记账 · v2.0 壳页
      职责：① 加载记账 iframe ② 「导入数据」modal 三 Tab 统一入口
-     三个导入源（syncing logic）共用同一份 Store.upsert 接口
+            ③ 统计卡渲染 ④ AI 记账坞 ⑤ 拖拽分隔条
      ============================================================ */
-  App.initPage({
-    title: '记账',
-    subtitle: '你的记账系统已与心镜共用同一份数据',
-    actions: '<button class="btn btn-primary" onclick="openImport()">⤓ 导入数据</button>',
-    onReady: function () {
-      document.getElementById('billing-frame').src = 'billing.html';
-    }
-  });
+  // 工作区壳页：topbar 直接写在 HTML 中，不走 page-header
+  document.getElementById('sidebar-mount').outerHTML = App.renderSidebar();
 
-  // ── 打开导入 modal（iframe 顶部栏「⤓ 导入数据」也通过 window.parent.App.openModal 触发）──
+  // 等待 Store 初始化后渲染统计
+  (async function() {
+    try {
+      await window.__XJ_API__ && typeof window.__XJ_API__.getState === 'function' ? window.__XJ_API__.getState() : null;
+    } catch(e) {}
+    if (window.Store && typeof Store.hydrate === 'function') {
+      try { await Store.hydrate(); } catch(e) {}
+    }
+    // 加载 iframe
+    document.getElementById('billing-frame').src = 'billing.html';
+    // 渲染统计卡
+    renderBillingStats();
+    // 初始化拖拽
+    initBillingResizer();
+    // 绑定 modal 关闭
+    if (typeof App.bindModalClose === 'function') {
+      App.bindModalClose('confirm-modal');
+      App.bindModalClose('import-modal');
+    }
+  })();
+
+  // ── 统计卡渲染 ──
+  function renderBillingStats() {
+    try {
+      var clients = Store.getClients();
+      var now = new Date();
+      var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+      var sessions = [];
+      clients.forEach(function(c) {
+        Store.getSessionsByClient(c.id).forEach(function(s) {
+          if (s.billing && s.date && s.date.startsWith(ym)) sessions.push(s);
+        });
+      });
+      var receivable = 0, received = 0;
+      sessions.forEach(function(s) {
+        var fee = (s.billing && s.billing.fee) || 0;
+        receivable += fee;
+        if (s.billing && s.billing.paid) received += fee;
+      });
+      var balance = receivable - received;
+      document.getElementById('stat-receivable').textContent = '¥' + receivable;
+      document.getElementById('stat-received').textContent = '¥' + received;
+      document.getElementById('stat-balance').textContent = '¥' + balance;
+      document.getElementById('stat-sessions').textContent = sessions.length;
+    } catch(e) { console.warn('[billing stats]', e); }
+  }
+  window.renderBillingStats = renderBillingStats;
+
+  // ── 拖拽分隔条（控制 --dock-w） ──
+  function initBillingResizer() {
+    var resizer = document.getElementById('billing-resizer');
+    if (!resizer) return;
+    var ws = document.getElementById('billing-ws');
+    var dragging = false;
+    resizer.addEventListener('mousedown', function(e) {
+      dragging = true;
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var w = window.innerWidth - e.clientX;
+      w = Math.max(280, Math.min(560, w));
+      ws.style.gridTemplateColumns = '1fr 6px ' + w + 'px';
+    });
+    document.addEventListener('mouseup', function() {
+      if (dragging) {
+        dragging = false;
+        document.body.style.cursor = '';
+        try {
+          var w = ws.style.gridTemplateColumns.split(' ').pop();
+          localStorage.setItem('xj_billing_dock_w', w);
+        } catch(e) {}
+      }
+    });
+    // 恢复
+    try {
+      var saved = localStorage.getItem('xj_billing_dock_w');
+      if (saved) ws.style.gridTemplateColumns = '1fr 6px ' + saved;
+    } catch(e) {}
+  }
+
+  // ── AI 记账坞 ──
+  function toggleAiDock() {
+    var dock = document.getElementById('billing-aidock');
+    if (dock.style.display === 'none' || !dock.style.display) {
+      dock.style.display = 'flex';
+    } else {
+      dock.style.display = 'none';
+    }
+  }
+  window.toggleAiDock = toggleAiDock;
+
+  function showAiResult(text, isUser) {
+    var box = document.getElementById('billing-ai-result');
+    box.style.display = 'block';
+    var div = document.createElement('div');
+    div.className = isUser ? 'u' : 'a';
+    div.innerHTML = App.escapeHtml(text) + (isUser ? '' : '');
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function billingAiSend() {
+    var text = (document.getElementById('billing-ai-input').value || '').trim();
+    if (!text) { App.showToast('请输入记账内容', 'warning'); return; }
+    showAiResult(text, true);
+    document.getElementById('billing-ai-input').value = '';
+    // 通过 Agent 执行（走 AgentCore 的 function-calling 流程）
+    if (typeof window.AgentSend === 'function') {
+      window.AgentSend(text);
+      App.showToast('已发送给心镜 Agent 执行', 'success');
+    } else if (typeof window.AgentOpen === 'function') {
+      window.AgentOpen();
+      setTimeout(function() { window.AgentSend(text); }, 200);
+    } else {
+      App.showToast('Agent 未就绪，请先激活', 'error');
+    }
+  }
+  window.billingAiSend = billingAiSend;
+
+  function billingAiMonthly() {
+    var now = new Date();
+    var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    var text = '月结 ' + ym;
+    showAiResult(text, true);
+    if (typeof window.AgentSend === 'function') {
+      window.AgentSend(text);
+    } else {
+      App.showToast('Agent 未就绪', 'error');
+    }
+  }
+  window.billingAiMonthly = billingAiMonthly;
+
+  function billingAiQuery() {
+    var text = '这个月应收已收统计';
+    showAiResult(text, true);
+    if (typeof window.AgentSend === 'function') {
+      window.AgentSend(text);
+    } else {
+      App.showToast('Agent 未就绪', 'error');
+    }
+  }
+  window.billingAiQuery = billingAiQuery;
+
+  // ── 打开导入 modal ──
   function openImport() {
     document.getElementById('billing-input').value = '';
     document.getElementById('meetings-json').value = '';

@@ -121,7 +121,6 @@ const App = (() => {
     { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consultations.html' },
     { key: 'clients', label: '来访者', icon: 'clients', href: 'clients.html' },
     { key: 'supervision', label: '督导', icon: 'cap', href: 'supervision.html' },
-    { key: 'reports', label: '报告中心', icon: 'bars', href: 'reports.html' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html' },
     { key: 'settings', label: '设置', icon: 'gear', href: 'settings.html' },
@@ -158,7 +157,6 @@ const App = (() => {
       'client-detail.html': 'clients',
       'session.html': 'clients',
       'supervision.html': 'supervision',
-      'reports.html': 'reports',
       'billing-shell.html': 'billing',
       'masters.html': 'masters',
       'settings.html': 'settings',
@@ -188,7 +186,13 @@ const App = (() => {
         </div>
         <nav class="nav">${items}</nav>
         <div class="nav-spacer"></div>
-        <div class="nav-footer">本地存储 · 数据不出本机</div>
+        <div class="nav-footer">
+          <button class="theme-toggle" id="xj-theme-toggle">
+            <span class="tt-icon">${document.documentElement.classList.contains('dark') ? '🌙' : '☀'}</span>
+            <span class="tt-label">${document.documentElement.classList.contains('dark') ? '深色模式' : '浅色模式'}</span>
+          </button>
+          <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">本地存储 · 数据不出本机</div>
+        </div>
       </aside>`;
   }
 
@@ -204,6 +208,18 @@ const App = (() => {
         <div class="header-actions">${headerActions}</div>`;
     }
     document.title = `心镜 · ${title}`;
+    // 绑定暗色切换按钮（侧边栏底部 #7）
+    const ttBtn = document.getElementById('xj-theme-toggle');
+    if (ttBtn) {
+      ttBtn.addEventListener('click', function () {
+        const isDark = document.documentElement.classList.toggle('dark');
+        try { localStorage.setItem('xj_theme', isDark ? 'dark' : 'light'); } catch (e) {}
+        const icon = ttBtn.querySelector('.tt-icon');
+        const label = ttBtn.querySelector('.tt-label');
+        if (icon) icon.textContent = isDark ? '🌙' : '☀';
+        if (label) label.textContent = isDark ? '深色模式' : '浅色模式';
+      });
+    }
   }
 
   // ---------- 页面初始化门控 ----------
@@ -383,51 +399,19 @@ const App = (() => {
     URL.revokeObjectURL(url);
   }
 
-  // ---------- 全局常驻：Agent 入口 FAB + Ctrl+K 命令面板 ----------
+  // ---------- 全局常驻：Ctrl+K 命令面板 ----------
+  // Agent 呼吸球 (#6) 由 agent-shell.js 统一渲染（可拖动 + 全屏/小屏切换），app.js 不再注入 FAB
   const CMD_COMMANDS = [
     { label: '新建来访者', hint: '创建一位新的咨询来访者', run: function () {
         if (document.getElementById('client-modal')) App.openModal('client-modal');
-        else location.href = 'index.html';
+        else location.href = 'clients.html';
       } },
-    { label: '记账', hint: '打开记账页面', run: function () { location.href = 'billing.html'; } },
+    { label: '记账', hint: '打开记账页面', run: function () { location.href = 'billing-shell.html'; } },
     { label: 'AI 督导', hint: '打开 AI 督导页面', run: function () { location.href = 'supervision.html'; } },
     { label: '大师对话', hint: '打开大师对话页面', run: function () { location.href = 'masters.html'; } },
-    { label: '报告', hint: '打开报告中心', run: function () { location.href = 'reports.html'; } },
+    { label: '咨询记录', hint: '打开咨询记录工作区', run: function () { location.href = 'consultations.html'; } },
     { label: '设置', hint: '打开设置页面', run: function () { location.href = 'settings.html'; } },
   ];
-  const CMD_FAB_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>';
-
-  function ensureAgentFab() {
-    if (document.getElementById('xj-agent-fab')) return;
-    const fab = document.createElement('button');
-    fab.id = 'xj-agent-fab';
-    fab.className = 'xj-agent-fab';
-    fab.type = 'button';
-    fab.title = '唤起心镜 Agent（Ctrl+K 打开命令面板）';
-    fab.setAttribute('aria-label', 'AI 助手');
-    fab.innerHTML = CMD_FAB_SVG;
-    fab.addEventListener('click', function () {
-      if (typeof window.AgentOpen !== 'function') return;
-      window.AgentOpen();
-      // 浮窗首次打开时才创建，挂 observer：展开态隐藏 FAB，避免右下角重叠
-      let tries = 0;
-      const tick = function () {
-        const p = document.querySelector('.xj-agent-panel');
-        if (p) {
-          const sync = function () {
-            const hidden = p.classList.contains('xj-agent-visible') && !p.classList.contains('xj-agent-collapsed');
-            fab.style.display = hidden ? 'none' : '';
-          };
-          sync();
-          new MutationObserver(sync).observe(p, { attributes: true, attributeFilter: ['class'] });
-        } else if (tries++ < 20) {
-          setTimeout(tick, 50);
-        }
-      };
-      setTimeout(tick, 60);
-    });
-    document.body.appendChild(fab);
-  }
 
   function ensureCmdPalette() {
     if (document.getElementById('xj-cmd-palette')) return;
@@ -494,7 +478,6 @@ const App = (() => {
   }
 
   function setupGlobalChrome() {
-    ensureAgentFab();
     ensureCmdPalette();
     if (window.__xjCmdKeyBound) return;
     window.__xjCmdKeyBound = true;

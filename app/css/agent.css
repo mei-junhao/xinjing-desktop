@@ -84,6 +84,14 @@
 }
 .xj-agent-panel.xj-agent-visible { display: flex; }
 .xj-agent-panel.xj-agent-collapsed .xj-agent-body { display: none; }
+.xj-agent-panel.xj-agent-fullscreen {
+  right: 0; bottom: 0; top: 0;
+  width: 50vw;
+  max-width: 800px;
+  max-height: 100vh;
+  border-radius: 0;
+  border-left: 1px solid var(--border-strong, rgba(0,0,0,.12));
+}
 
 .xj-agent-header {
   padding: 12px 16px;

@@ -148,23 +148,17 @@ App.initPage({
     container.innerHTML = clients
       .map((c) => {
         const sessionCount = Store.getSessionsByClient(c.id).length;
-        const lastDate = getLastSessionDate(c.id);
-        return `<div class="client-card ${c.status === 'ended' ? 'ended' : ''}" onclick="location.href='client-detail.html?id=${c.id}'">
-          <div class="avatar">${App.avatarText(c.name)}</div>
-          <div class="info">
-            <div class="name">
-              ${App.escapeHtml(c.name)}
-              <span class="status-dot status-${c.status}"></span>
-              <span style="font-size:12px;color:var(--muted);font-weight:400;font-family:var(--sans)">${App.statusLabel(c.status)}</span>
-            </div>
-            <div class="sub">
-              ${c.gender && c.gender !== 'unknown' ? `<span>${App.genderLabel(c.gender)}</span>` : ''}
-              ${sessionCount ? `<span>${sessionCount} 节</span>` : '<span>尚未会谈</span>'}
-              ${lastDate ? `<span>最后 ${App.formatDate(lastDate)}</span>` : ''}
-              ${(c.tags || []).slice(0, 3).map((t) => `<span style="color:var(--accent)">#${App.escapeHtml(t)}</span>`).join('')}
-            </div>
+        const firstVisit = c.firstVisitDate ? App.formatDate(c.firstVisitDate, true) : '未记录';
+        return `<div class="ccard" onclick="location.href='client-detail.html?id=${c.id}'">
+          <div class="row1">
+            <span class="dot ${c.status}"></span>
+            <span class="nm">${App.escapeHtml(c.name)}</span>
           </div>
-          <span style="color:var(--muted);font-size:18px">›</span>
+          <div class="meta">
+            <span>${App.statusLabel(c.status)}</span>
+            <span>${sessionCount} 节</span>
+            <span>首访 ${firstVisit}</span>
+          </div>
         </div>`;
       })
       .join('');

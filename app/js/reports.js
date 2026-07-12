@@ -2,6 +2,78 @@
    心镜 XinJing — 报告中心逻辑
    ============================================================ */
 
+/* ------------------------------------------------------------
+   可复用：全站报告矩阵渲染器
+   - 渲染 全部来访者 × 其会话 的矩阵表（table.matrix）
+   - 列：来访者 | 节次 | 逐字稿 | SOAP | DAP | 反思 | 督导
+   - 单元格点击：opts.onClickSession(sessionId, field) 或默认跳 session.html
+     field ∈ 'transcript'|'soap'|'dap'|'reflection'|'supervision'；节次列 field=undefined
+   - opts.clients：传入则只渲染这些来访者（咨询记录页的「报告矩阵」子面板用）
+   ------------------------------------------------------------ */
+window.Reports = {
+  renderMatrix: function (container, opts) {
+    opts = opts || {};
+    const clients = opts.clients || Store.getClients();
+    const supervisions = Store.getSupervisions();
+    const onClick = opts.onClickSession || null;
+
+    function supNamesForSession(sid) {
+      return supervisions
+        .filter((sv) => (sv.sessionIds || []).indexOf(sid) !== -1)
+        .map((sv) => sv.supervisorName)
+        .filter(Boolean);
+    }
+    function cell(sid, field, has, label) {
+      const txt = label != null ? label : (has ? '有' : '—');
+      if (onClick) {
+        return '<td class="cell" data-sid="' + sid + '" data-field="' + field + '">' + App.escapeHtml(txt) + '</td>';
+      }
+      return '<td class="cell"><a href="session.html?id=' + sid + '">' + App.escapeHtml(txt) + '</a></td>';
+    }
+
+    let rows = '';
+    clients.forEach(function (client) {
+      const sessions = Store.getSessionsByClient(client.id);
+      if (!sessions.length) return;
+      sessions.forEach(function (s) {
+        const supNames = supNamesForSession(s.id);
+        rows += '<tr>'
+          + '<td>' + App.escapeHtml(client.name) + '</td>'
+          + '<td class="cell" data-sid="' + s.id + '" data-field="">第' + s.sessionNumber + '节 ' + (App.formatDate(s.date, true) || '') + '</td>'
+          + cell(s.id, 'transcript', s.hasTranscript)
+          + cell(s.id, 'soap', s.hasSoap)
+          + cell(s.id, 'dap', s.hasDap)
+          + cell(s.id, 'reflection', s.hasReflection)
+          + cell(s.id, 'supervision', supNames.length > 0, supNames.join('、') || '—')
+          + '</tr>';
+      });
+    });
+
+    if (!rows) {
+      container.innerHTML = '<div class="empty">暂无符合条件的报告记录。</div>';
+      return;
+    }
+    container.innerHTML = '<table class="matrix"><thead><tr>'
+      + '<th>来访者</th><th>节次</th><th>逐字稿</th><th>SOAP</th><th>DAP</th><th>反思</th><th>督导</th>'
+      + '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+    if (!container.__matrixBound) {
+      container.addEventListener('click', function (e) {
+        const td = e.target.closest('[data-sid]');
+        if (!td) return;
+        const sid = td.getAttribute('data-sid');
+        const field = td.getAttribute('data-field') || undefined;
+        const cb = container.__matrixOnClick;
+        if (cb) cb(sid, field);
+        else location.href = 'session.html?id=' + sid;
+      });
+      container.__matrixBound = true;
+    }
+    container.__matrixOnClick = onClick;
+  },
+};
+
+if (document.getElementById('report-tbody')) {
 App.initPage({
   title: '报告中心',
   subtitle: '筛选、浏览与导出个案报告',
@@ -165,3 +237,4 @@ App.initPage({
     renderTable();
   },
 });
+}

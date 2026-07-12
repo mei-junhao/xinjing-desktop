@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>心镜 · 首页</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
   <div class="layout">
@@ -15,36 +16,32 @@
       </header>
       <div class="content">
         <!-- 统计卡片 -->
-        <div class="stat-grid" id="stat-grid">
-          <div class="stat-card">
-            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-            <div class="num" id="stat-receivable">¥0</div>
-            <div class="label">本月应收</div>
+        <div class="cards" id="stat-grid">
+          <div class="card">
+            <b id="stat-receivable">¥0</b>
+            <span>本月应收</span>
           </div>
-          <div class="stat-card">
-            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
-            <div class="num" id="stat-received">¥0</div>
-            <div class="label">本月已收</div>
+          <div class="card">
+            <b id="stat-received">¥0</b>
+            <span>本月已收</span>
           </div>
-          <div class="stat-card">
-            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
-            <div class="num" id="stat-pending-clients">0</div>
-            <div class="label">待收来访者</div>
+          <div class="card owe">
+            <b id="stat-pending-clients">0</b>
+            <span>待收来访者</span>
           </div>
-          <div class="stat-card">
-            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M16.6 13.4A5.4 5.4 0 0 1 20.4 19"/></svg></div>
-            <div class="num" id="stat-active-clients">0</div>
-            <div class="label">活跃来访者</div>
+          <div class="card">
+            <b id="stat-active-clients">0</b>
+            <span>活跃来访者</span>
           </div>
         </div>
 
         <!-- 快捷操作 -->
         <div class="card" style="margin-bottom:var(--gap-lg)">
           <div class="section-title">快捷操作</div>
-          <div class="btn-group">
+          <div class="actions">
             <button class="btn btn-primary" id="qa-supervise">AI 督导</button>
             <button class="btn btn-primary" id="qa-masters">大师对话</button>
-            <button class="btn btn-outline" id="qa-update">检查更新</button>
+            <button class="btn btn-primary" id="qa-update">检查更新</button>
           </div>
         </div>
 

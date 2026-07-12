@@ -260,3 +260,52 @@
   --text-faint: #6E6356;
   --bg-alt: #221B13;
 }
+
+/* ============================================================
+   v2.0 组件别名层（统一 components.css 单一视觉来源）
+   仅追加别名，不改既有令牌；所有皮肤生效。
+   ============================================================ */
+:root {
+  --dock-w: 380px;
+  --radius-lg: 14px;
+  --font-serif: var(--serif);
+  --font-sans: var(--sans);
+}
+:root,
+[data-skin="calm"] {
+  --text-secondary: var(--text-secondary-c);
+  --text-muted: var(--text-muted-c);
+  --border-strong: var(--border-strong-c);
+  --success: var(--success-c);
+  --warning: var(--warning-c);
+  --danger: var(--danger-c);
+  --shadow-md: var(--shadow);
+}
+:root.dark,
+[data-skin="calm"].dark {
+  --text-secondary: var(--text-secondary-c);
+  --text-muted: var(--text-muted-c);
+  --border-strong: var(--border-strong-c);
+  --success: var(--success-c);
+  --warning: var(--warning-c);
+  --danger: var(--danger-c);
+  --shadow-md: var(--shadow);
+}
+[data-skin="editorial"] {
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --border-strong: var(--hair-strong);
+  --success: var(--green);
+  --warning: var(--orange);
+  --danger: var(--red);
+  --shadow-md: var(--shadow);
+}
+[data-skin="editorial"].dark {
+  --text-secondary: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --border-strong: var(--hair-strong);
+  --success: var(--green);
+  --warning: var(--orange);
+  --danger: var(--red);
+  --shadow-md: var(--shadow);
+}

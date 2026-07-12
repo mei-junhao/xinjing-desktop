@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 记账（重构预览 · 含账单与趋势）</title>
+<link rel="stylesheet" href="app/css/tokens.css">
+<link rel="stylesheet" href="app/css/style.css">
+<style>
+  :root{
+    --bg:#F6F8FC; --bg-elevated:#FFFFFF; --bg-sunken:#EDF0F7; --bg-glass:rgba(255,255,255,.72);
+    --border:#E2E7F0; --border-strong:#D2D9E6;
+    --text:#2B3140; --text-secondary:#646B7D; --text-muted:#99A1B3;
+    --accent:#8B93C7; --accent-hover:#777FBC; --accent-soft:#ECEEF9; --accent-2:#9DB8D6;
+    --success:#6FAE8F; --warning:#D6A85C; --danger:#D98C8C;
+    --radius:14px; --radius-sm:10px; --radius-lg:22px;
+    --shadow-sm:0 1px 3px rgba(43,49,64,.05); --shadow-md:0 4px 16px rgba(43,49,64,.07); --shadow-lg:0 12px 36px rgba(43,49,64,.10);
+    --blur:14px;
+    --font-serif:"Noto Serif SC","Songti SC",Georgia,serif;
+    --font-sans:"Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --dock-w:380px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font-sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+  .topbar{display:flex;align-items:center;gap:14px;padding:12px 22px;background:var(--bg-elevated);border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .brand{font-family:var(--font-serif);font-size:19px;font-weight:600}
+  .brand small{font-family:var(--font-sans);color:var(--text-muted);font-weight:400;font-size:12px;margin-left:8px}
+  .cards{display:flex;gap:10px;margin-left:8px;flex-wrap:wrap}
+  .card{background:var(--bg-sunken);border:1px solid var(--border);border-radius:12px;padding:8px 14px;min-width:96px}
+  .card b{display:block;font-size:16px;font-family:var(--font-serif)}
+  .card span{font-size:11px;color:var(--text-muted)}
+  .card.owe b{color:var(--danger)}
+  .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .actions button{border:1px solid var(--border);background:var(--bg-elevated);border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer}
+  .actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .actions button.ai{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+
+  .ws{display:grid;grid-template-columns:280px 1fr 6px var(--dock-w);height:calc(100vh - 61px);min-height:0}
+
+  /* 左栏 */
+  .rail{background:var(--bg-elevated);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+  .rail .top{padding:14px;border-bottom:1px solid var(--border)}
+  .rail .top input{width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-family:var(--font-sans)}
+  .pills{display:flex;gap:6px;padding:12px 14px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+  .pills .pill{border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--text-secondary);cursor:pointer}
+  .pills .pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .clist{overflow:auto;flex:1;padding:8px}
+  .ccard{border:1px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:8px;cursor:pointer;transition:.15s;background:var(--bg-elevated)}
+  .ccard:hover{border-color:var(--accent)}
+  .ccard.active{border-color:var(--accent);background:var(--accent-soft)}
+  .ccard .r1{display:flex;justify-content:space-between;align-items:center}
+  .ccard .nm{font-weight:600;font-size:14.5px}
+  .mode{font-size:11px;padding:1px 8px;border-radius:7px;background:var(--bg-sunken);color:var(--text-secondary)}
+  .ccard .meta{font-size:12px;color:var(--text-muted);margin-top:5px;display:flex;gap:12px;flex-wrap:wrap}
+  .ccard .owe{color:var(--danger)}
+
+  /* 中栏 */
+  .center{overflow:auto;padding:22px 26px;min-width:0}
+  .client-head{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  .client-head h2{font-family:var(--font-serif);margin:0;font-size:23px}
+  .client-head .mode{font-size:12px}
+  .stats{display:flex;gap:22px;margin-left:auto;flex-wrap:wrap}
+  .stat b{display:block;font-size:17px;font-family:var(--font-serif)}.stat span{font-size:11.5px;color:var(--text-muted)}
+  .quick{display:flex;gap:8px;margin-bottom:16px}
+  .quick button{border:1px solid var(--border);background:var(--bg-elevated);border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer}
+  .quick button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  table.rec{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:18px}
+  table.rec th,table.rec td{border:1px solid var(--border);padding:9px 10px;text-align:left}
+  table.rec th{background:var(--bg-sunken);color:var(--text-secondary);font-weight:600}
+  .tag{font-size:11px;padding:1px 8px;border-radius:7px;background:var(--bg-sunken);color:var(--text-secondary)}
+  .paid-y{color:var(--success)}.paid-n{color:var(--danger)}
+  .sectitle{font-family:var(--font-serif);font-size:16px;margin:18px 0 10px;display:flex;align-items:center;gap:10px}
+  .sectitle .ln{flex:1;height:1px;background:var(--border)}
+  .inline-form{display:none;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;background:var(--bg-sunken);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px}
+  .inline-form.show{display:grid}
+  .inline-form label{font-size:11.5px;color:var(--text-muted);display:block;margin-bottom:4px}
+  .inline-form input,.inline-form select{border:1px solid var(--border);border-radius:8px;padding:7px 9px;width:100%;font-family:var(--font-sans);font-size:13px}
+  .inline-form .row-actions{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+
+  /* 分段控制 */
+  .seg{display:flex;gap:4px;background:var(--bg-sunken);border-radius:999px;padding:3px;margin-bottom:16px;width:fit-content}
+  .seg-btn{padding:7px 18px;border-radius:999px;font-size:13px;cursor:pointer;color:var(--text-secondary);user-select:none;transition:.15s}
+  .seg-btn.active{background:var(--bg-elevated);color:var(--accent);box-shadow:inset 0 0 0 1px var(--border);font-weight:600}
+
+  /* 趋势图 */
+  .chart-area{height:200px;display:flex;align-items:flex-end;gap:7px;padding:14px 16px 26px;position:relative;background:var(--bg-sunken);border-radius:var(--radius-sm);margin:8px 0 6px}
+  .bar{flex:1;background:linear-gradient(180deg,var(--accent),rgba(139,147,199,.28));border-radius:4px 4px 0 0;min-height:4px;position:relative;cursor:pointer;transition:.2s}
+  .bar:hover{filter:brightness(1.12)}
+  .b-lbl{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--accent);font-weight:700;opacity:0;transition:.2s;white-space:nowrap}
+  .bar:hover .b-lbl{opacity:1}
+  .b-x{position:absolute;bottom:-20px;left:0;width:100%;text-align:center;font-size:9.5px;color:var(--text-muted)}
+
+  /* 排行 */
+  .rank-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--border)}
+  .rank-row:last-child{border:none}
+  .rank-no{width:22px;font-weight:700;color:var(--text-muted)}
+  .rank-row .info{flex:1}
+  .rank-row .name{font-weight:600;font-size:13.5px}
+  .rank-row .sub{font-size:11px;color:var(--text-muted)}
+  .rank-row .amt{font-weight:600;font-size:13.5px}
+  .rank-row .amt small{color:var(--text-muted);font-weight:400;margin-left:6px}
+
+  /* 账单 */
+  .invoice{background:var(--bg-sunken);border:1px solid var(--border);border-radius:var(--radius);padding:24px;line-height:1.85}
+  .invoice h4{font-family:var(--font-serif);font-size:17px;margin:0 0 4px}
+  .invoice .meta-line{font-size:11px;color:var(--text-muted);margin-bottom:16px}
+  .invoice table{width:100%;border-collapse:collapse;margin:12px 0}
+  .invoice th,.invoice td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:left;font-size:12.5px}
+  .invoice .tl{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}
+  .invoice .tl.final{font-weight:700;font-size:16px;border-top:2px solid var(--text);margin-top:8px;padding-top:8px}
+  .formline{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+  .formline .fg{flex:1;min-width:150px}
+  .formline label{font-size:11.5px;color:var(--text-muted);display:block;margin-bottom:4px}
+  .formline select,.formline input{border:1px solid var(--border);border-radius:8px;padding:8px 10px;width:100%;font-family:var(--font-sans);font-size:13px}
+
+  /* 右栏 AI 记账坞 */
+  .resizer{background:transparent;cursor:col-resize;position:relative}
+  .resizer::after{content:"";position:absolute;left:2px;top:50%;transform:translateY(-50%);width:2px;height:40px;background:var(--border-strong);border-radius:2px}
+  .resizer:hover::after{background:var(--accent)}
+  .aidock{background:var(--bg-elevated);border-left:1px solid var(--border);display:flex;flex-direction:column;min-width:0;min-height:0}
+  .dock-head{padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;display:flex;align-items:center;gap:8px}
+  .dock-body{padding:16px 18px;display:flex;flex-direction:column;gap:12px;overflow:auto;flex:1}
+  .dock-body p.hint{font-size:12px;color:var(--text-muted);line-height:1.7;margin:0}
+  .ai-input{border:1px solid var(--border);border-radius:12px;padding:11px 13px;font-family:var(--font-sans);font-size:13.5px;width:100%;min-height:84px;resize:vertical}
+  .dock-actions{display:flex;flex-direction:column;gap:7px}
+  .dock-actions button{display:flex;gap:9px;align-items:center;text-align:left;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);padding:10px 13px;border-radius:11px;cursor:pointer;font-size:13px}
+  .dock-actions button:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .dock-actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .chat-mini{font-size:12.5px;line-height:1.7;background:var(--bg-sunken);border-radius:10px;padding:10px 12px;max-height:180px;overflow:auto}
+  .chat-mini .u{color:var(--accent);font-weight:600}.chat-mini .a{color:var(--text-secondary)}
+  .empty{color:var(--text-muted);text-align:center;margin-top:70px;font-size:13.5px;line-height:1.8}
+
+  /* modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(43,49,64,.32);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal-overlay.show{display:flex}
+  .modal{background:var(--bg-elevated);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);max-width:620px;width:92%;max-height:86vh;overflow:auto;padding:20px 22px}
+  .modal h2{font-family:var(--font-serif);margin:0 0 14px;font-size:20px}
+  .itabs{display:flex;gap:4px;background:var(--bg-sunken);border-radius:999px;padding:3px;margin-bottom:14px}
+  .itabs button{flex:1;border:none;background:transparent;padding:7px;border-radius:999px;font-size:13px;color:var(--text-secondary);cursor:pointer}
+  .itabs button.active{background:var(--bg-elevated);color:var(--accent);box-shadow:inset 0 0 0 1px var(--border);font-weight:600}
+  .ipane{display:none}.ipane.active{display:block}
+  .modal textarea{width:100%;min-height:120px;border:1px solid var(--border);border-radius:10px;padding:10px;font-family:monospace;font-size:12px}
+  .modal .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">心镜 <small>记账（重构预览）</small></div>
+    <div class="cards">
+      <div class="card"><b>¥3,200</b><span>本月应收</span></div>
+      <div class="card"><b>¥2,600</b><span>本月已收</span></div>
+      <div class="card owe"><b>¥600</b><span>本月欠费</span></div>
+      <div class="card"><b>¥18,400</b><span>总应收</span></div>
+      <div class="card"><b>¥15,900</b><span>总已收</span></div>
+      <div class="card owe"><b>¥2,500</b><span>总欠费</span></div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="toggleForm('add')">+ 记一笔</button>
+      <button onclick="toggleForm('settle')">月结</button>
+      <button onclick="openImport()">导入数据</button>
+      <button class="ai" onclick="focusAi()">AI 记账</button>
+    </div>
+  </div>
+
+  <div class="ws" id="ws">
+    <!-- 左栏 -->
+    <div class="rail">
+      <div class="top"><input placeholder="搜索来访者…"></div>
+      <div class="pills" id="modePills">
+        <span class="pill active" data-m="all">全部</span>
+        <span class="pill" data-m="per-session">次结</span>
+        <span class="pill" data-m="monthly">月结</span>
+      </div>
+      <div class="clist" id="clist"></div>
+    </div>
+
+    <!-- 中栏 -->
+    <div class="center" id="center">
+      <div class="seg" id="cseg">
+        <div class="seg-btn active" data-c="detail" onclick="switchCtab('detail')">明细</div>
+        <div class="seg-btn" data-c="trend" onclick="switchCtab('trend')">趋势</div>
+        <div class="seg-btn" data-c="invoice" onclick="switchCtab('invoice')">账单</div>
+      </div>
+      <div id="cpanel-detail"></div>
+      <div id="cpanel-trend" style="display:none"></div>
+      <div id="cpanel-invoice" style="display:none"></div>
+    </div>
+
+    <!-- 拖拽 -->
+    <div class="resizer" id="resizer"></div>
+
+    <!-- 右栏 AI 记账坞 -->
+    <div class="aidock" id="aidock">
+      <div class="dock-head">🤖 AI 记账坞</div>
+      <div class="dock-body">
+        <p class="hint">用自然语言记账，自动映射到记账工具：<br>「帮林小满记 7 月 10 号会谈 300 块次结没付」<br>「给陈默做 6 月月结 560」</p>
+        <textarea class="ai-input" id="aiInput" placeholder="说一句话就能记账…"></textarea>
+        <div class="dock-actions">
+          <button class="primary" onclick="aiGo()"><span>⚡</span> 发送并记账</button>
+          <button onclick="aiDemo('记一笔')"><span>📝</span> 记一笔示例</button>
+          <button onclick="aiDemo('月结')"><span>🗓</span> 月结示例</button>
+        </div>
+        <div class="chat-mini" id="chatMini"><span class="a">记账结果会显示在这里。</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导入 modal -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal">
+      <h2>导入数据</h2>
+      <div class="itabs" id="itabs">
+        <button class="active" data-t="billing">旧版记账</button>
+        <button data-t="meetings">腾讯会议</button>
+        <button data-t="manual">手动 JSON</button>
+      </div>
+      <div class="ipane active" data-t="billing">
+        <p class="hint" style="font-size:12.5px;color:var(--text-muted)">从原「心理咨询记账系统」导出的 JSON / CSV 导入，按来访者/记录幂等去重。</p>
+        <textarea placeholder="粘贴 JSON / CSV，或选择文件…"></textarea>
+      </div>
+      <div class="ipane" data-t="meetings">
+        <p class="hint" style="font-size:12.5px;color:var(--text-muted)">把腾讯会议参会记录转成心镜咨询会话，每位非本人参会者 → 匹配/新建来访者。</p>
+        <textarea placeholder="粘贴 latest_meetings.json…"></textarea>
+      </div>
+      <div class="ipane" data-t="manual">
+        <p class="hint" style="font-size:12.5px;color:var(--text-muted)">高级入口：直接写进心镜 Store（调试用）。</p>
+        <textarea placeholder='{"clients":[],"records":[],"monthlyPayments":[]}'></textarea>
+      </div>
+      <div class="foot">
+        <button class="btn btn-ghost" onclick="closeImport()">取消</button>
+        <button class="btn btn-primary" onclick="closeImport();alert('导入完成（预览）')">导入</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const clients=[
+    {id:'c1',name:'林小满',mode:'per-session',fee:300,receivable:1500,received:1200,owe:300,monthPaid:300,records:[
+      {date:'2026-07-10',n:5,fee:300,paid:true,type:'次结'},
+      {date:'2026-06-26',n:4,fee:300,paid:true,type:'次结'},
+      {date:'2026-06-12',n:3,fee:300,paid:false,type:'次结'}
+    ],monthly:[]},
+    {id:'c2',name:'陈默',mode:'per-session',fee:280,receivable:560,received:560,owe:0,monthPaid:280,records:[
+      {date:'2026-05-20',n:2,fee:280,paid:true,type:'次结'},
+      {date:'2026-05-06',n:1,fee:280,paid:true,type:'次结'}
+    ],monthly:[{month:'2026-05',amount:560}]},
+    {id:'c3',name:'王芳',mode:'monthly',fee:320,receivable:2560,received:2560,owe:0,monthPaid:320,records:[
+      {date:'2026-03-15',n:8,fee:320,paid:true,type:'月结'}
+    ],monthly:[{month:'2026-03',amount:2560}]}
+  ];
+  const monthData=[7800,8200,9500,8800,10200,9300,11000,9600,11500,10800,12000,12600];
+  const monthLabels=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  let curMode='all', curClient=null, curCtab='detail';
+  const modeText={ 'per-session':'次结','monthly':'月结' };
+
+  function clientAgg(c){
+    let total=0, received=0;
+    c.records.forEach(r=>{ total+=r.n*r.fee; if(r.paid) received+=r.n*r.fee; });
+    (c.monthly||[]).forEach(m=>received+=m.amount);
+    return { total, received };
+  }
+
+  function renderRail(){
+    const list=clients.filter(c=>curMode==='all'||c.mode===curMode);
+    document.getElementById('clist').innerHTML=list.map(c=>`<div class="ccard ${curClient&&curClient.id===c.id?'active':''}" onclick="selectClient('${c.id}')">
+      <div class="r1"><span class="nm">${c.name}</span><span class="mode">${modeText[c.mode]}</span></div>
+      <div class="meta"><span>应收 ¥${c.receivable}</span><span>已收 ¥${c.received}</span>
+      ${c.owe?`<span class="owe">欠 ¥${c.owe}</span>`:''}<span>本月 ¥${c.monthPaid}</span></div></div>`).join('')
+      ||'<div class="empty" style="margin-top:16px">无匹配来访者</div>';
+  }
+  document.querySelectorAll('#modePills .pill').forEach(p=>p.onclick=()=>{
+    document.querySelectorAll('#modePills .pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active');curMode=p.dataset.m;renderRail();
+  });
+
+  function selectClient(id){curClient=clients.find(c=>c.id===id);renderRail();renderDetail();}
+  function renderDetail(){
+    const c=curClient;
+    document.getElementById('cpanel-detail').innerHTML = c ? `
+      <div class="client-head">
+        <h2>${c.name}</h2><span class="mode">${modeText[c.mode]} · 单价 ¥${c.fee}</span>
+        <div class="stats">
+          <div class="stat"><b>¥${c.receivable}</b><span>应收</span></div>
+          <div class="stat"><b>¥${c.received}</b><span>已收</span></div>
+          <div class="stat"><b style="color:${c.owe?'var(--danger)':'inherit'}">¥${c.owe}</b><span>欠费</span></div>
+          <div class="stat"><b>¥${c.monthPaid}</b><span>本月</span></div>
+        </div>
+      </div>
+      <div class="quick">
+        <button class="primary" onclick="toggleForm('add')">+ 记一笔</button>
+        <button onclick="toggleForm('settle')">月结</button>
+      </div>
+      <div class="inline-form" id="form-add">
+        <div><label>日期</label><input type="date" value="2026-07-13"></div>
+        <div><label>节数</label><input type="number" value="1" min="1"></div>
+        <div><label>费用(元)</label><input type="number" value="${c.fee}"></div>
+        <div><label>已收</label><select><option>未收</option><option>已收</option></select></div>
+        <div class="row-actions"><button class="btn btn-ghost" onclick="closeForms()">取消</button><button class="btn btn-primary" onclick="alert('记一笔（预览）')">保存</button></div>
+      </div>
+      <div class="inline-form" id="form-settle">
+        <div><label>月份</label><input type="month" value="2026-07"></div>
+        <div><label>月结金额(元)</label><input type="number" value="0"></div>
+        <div class="row-actions"><button class="btn btn-ghost" onclick="closeForms()">取消</button><button class="btn btn-primary" onclick="alert('月结（预览）')">保存</button></div>
+      </div>
+      <div class="sectitle">会谈记录 <span class="ln"></span></div>
+      <table class="rec"><thead><tr><th>日期</th><th>节次</th><th>费用</th><th>已收</th><th>类型</th></tr></thead>
+      <tbody>${c.records.map(r=>`<tr><td>${r.date}</td><td>第${r.n}节</td><td>¥${r.fee}</td><td class="${r.paid?'paid-y':'paid-n'}">${r.paid?'已收':'未收'}</td><td><span class="tag">${r.type}</span></td></tr>`).join('')}</tbody></table>
+      ${c.monthly.length?`<div class="sectitle">月结记录 <span class="ln"></span></div>
+      <table class="rec"><thead><tr><th>月份</th><th>金额</th></tr></thead><tbody>${c.monthly.map(m=>`<tr><td>${m.month}</td><td>¥${m.amount}</td></tr>`).join('')}</tbody></table>`:''}`
+    : '<div class="empty">从左侧选择一位来访者查看其明细；「趋势 / 账单」无需选择来访者也可使用。</div>';
+  }
+
+  function renderTrend(){
+    const max=Math.max(...monthData);
+    const chart=monthData.map((v,i)=>`<div class="bar" style="height:${Math.max(4,v/max*150)}px;"><span class="b-lbl">¥${(v/1000).toFixed(1)}k</span></div>`).join('');
+    const xaxis=monthLabels.map(l=>`<span class="b-x">${l}</span>`).join('');
+    const ranked=clients.map(c=>{const a=clientAgg(c);return {name:c.name,total:a.total,received:a.received};}).sort((x,y)=>y.total-x.total);
+    document.getElementById('cpanel-trend').innerHTML=`
+      <div class="card" style="background:var(--bg-elevated);box-shadow:var(--shadow-sm);padding:18px">
+        <h2 style="font-family:var(--font-serif);font-size:16px;margin:0 0 4px">月度收入趋势</h2>
+        <div class="chart-area">${chart}<div style="position:absolute;bottom:4px;left:0;width:100%;display:flex;gap:7px;padding:0 16px;box-sizing:border-box">${xaxis}</div></div>
+        <div style="font-size:10.5px;color:var(--text-muted);text-align:center">悬停柱体查看数值</div>
+      </div>
+      <div class="sectitle">来访者收入排行 <span class="ln"></span></div>
+      <div class="card" style="background:var(--bg-elevated);box-shadow:var(--shadow-sm);padding:6px 14px">
+        ${ranked.map((r,i)=>`<div class="rank-row"><span class="rank-no">${i+1}</span><div class="info"><div class="name">${r.name}</div></div><span class="amt">¥${r.total.toLocaleString()}<small>已收 ¥${r.received.toLocaleString()}</small></span></div>`).join('')}
+      </div>`;
+  }
+
+  function renderInvoice(){
+    const opts=clients.map(c=>`<option value="${c.id}" ${curClient&&curClient.id===c.id?'selected':''}>${c.name}</option>`).join('');
+    document.getElementById('cpanel-invoice').innerHTML=`
+      <div class="card" style="background:var(--bg-elevated);box-shadow:var(--shadow-sm);padding:18px">
+        <h2 style="font-family:var(--font-serif);font-size:16px;margin:0 0 12px">生成来访者账单</h2>
+        <div class="formline">
+          <div class="fg"><label>来访者</label><select id="bill-client" onchange="renderBillPreview()">${opts}</select></div>
+          <div class="fg"><label>月份</label><input type="month" id="bill-month" value="2026-07" onchange="renderBillPreview()"></div>
+          <div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="alert('账单已导出 PDF（预览）')">导出 PDF 账单</button></div>
+        </div>
+        <div id="bill-preview"></div>
+      </div>`;
+    renderBillPreview();
+  }
+  function renderBillPreview(){
+    const cid=document.getElementById('bill-client')?.value;
+    const c=clients.find(x=>x.id===cid); if(!c){document.getElementById('bill-preview').innerHTML='';return;}
+    const month=document.getElementById('bill-month').value;
+    const rs=c.records.filter(r=>r.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date));
+    const a=clientAgg(c);
+    const monthlyThis=(c.monthly||[]).filter(m=>m.month===month).reduce((s,m)=>s+m.amount,0);
+    const paidThis=rs.filter(r=>r.paid).reduce((s,r)=>s+r.n*r.fee,0)+monthlyThis;
+    const totalDue=rs.reduce((s,r)=>s+r.n*r.fee,0);
+    const pending=totalDue-paidThis;
+    document.getElementById('bill-preview').innerHTML=`<div class="invoice">
+      <h4>${c.name} · ${month.replace('-','年')}月 咨询账单</h4>
+      <div class="meta-line">单价 ¥${c.fee}/次 · ${modeText[c.mode]}</div>
+      <table><thead><tr><th>日期</th><th>次数</th><th>金额</th><th>状态</th></tr></thead>
+      <tbody>${rs.map(r=>`<tr><td>${r.date}</td><td>${r.n}</td><td>¥${(r.n*r.fee).toLocaleString()}</td><td>${r.paid?'已缴':'未缴'}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:16px">本月无记录</td></tr>'}</tbody></table>
+      ${c.monthly.length?`<div class="tl"><span>月结已付</span><span>¥${monthlyThis.toLocaleString()}</span></div>`:''}
+      <div class="tl"><span>小计</span><span>¥${totalDue.toLocaleString()}</span></div>
+      <div class="tl"><span>已付</span><span style="color:var(--success)">¥${paidThis.toLocaleString()}</span></div>
+      <div class="tl final"><span>${pending>0?'待付':'余额'}</span><span style="color:${pending>0?'var(--warning)':'var(--success)'}">¥${Math.abs(pending).toLocaleString()}</span></div>
+    </div>`;
+  }
+
+  function switchCtab(t){curCtab=t;
+    document.querySelectorAll('#cseg .seg-btn').forEach(b=>b.classList.toggle('active',b.dataset.c===t));
+    document.getElementById('cpanel-detail').style.display=t==='detail'?'':'none';
+    document.getElementById('cpanel-trend').style.display=t==='trend'?'':'none';
+    document.getElementById('cpanel-invoice').style.display=t==='invoice'?'':'none';
+    if(t==='trend')renderTrend(); if(t==='invoice')renderInvoice();
+  }
+
+  // 内联表单
+  function toggleForm(k){closeForms();document.getElementById('form-'+k).classList.add('show');}
+  function closeForms(){['add','settle'].forEach(k=>{const e=document.getElementById('form-'+k);if(e)e.classList.remove('show');});}
+
+  // AI 记账坞
+  function focusAi(){document.getElementById('aidock').scrollIntoView();document.getElementById('aiInput').focus();}
+  function aiGo(){const t=document.getElementById('aiInput').value.trim();if(!t){alert('请输入自然语言记账指令');return;}
+    const m=document.getElementById('chatMini');m.innerHTML+=`<div class="u">我：${t}</div><div class="a">AI：已识别为记账指令，调用 billing 工具写入（预览）。可在咨询记录/记账页查看结果。</div>`;
+    m.scrollTop=m.scrollHeight;document.getElementById('aiInput').value='';}
+  function aiDemo(k){const t=k==='记一笔'?'帮林小满记 7 月 10 号会谈 300 块次结没付':'给陈默做 6 月月结 560';document.getElementById('aiInput').value=t;aiGo();}
+
+  // 导入 modal
+  function openImport(){document.getElementById('importModal').classList.add('show');}
+  function closeImport(){document.getElementById('importModal').classList.remove('show');}
+  document.querySelectorAll('#itabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#itabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+    document.querySelectorAll('.ipane').forEach(p=>p.classList.toggle('active',p.dataset.t===b.dataset.t));});
+
+  // 坞可拖拽调宽
+  const resizer=document.getElementById('resizer'),ws=document.getElementById('ws'),root=document.documentElement;
+  let drag=false;
+  resizer.addEventListener('mousedown',e=>{drag=true;document.body.style.cursor='col-resize';e.preventDefault();});
+  window.addEventListener('mousemove',e=>{if(!drag)return;const rect=ws.getBoundingClientRect();let w=rect.right-e.clientX;w=Math.max(300,Math.min(620,w));root.style.setProperty('--dock-w',w+'px');});
+  window.addEventListener('mouseup',()=>{if(drag){drag=false;document.body.style.cursor='';}});
+
+  // init
+  renderRail(); renderDetail();
+</script>
+</body>
+</html>

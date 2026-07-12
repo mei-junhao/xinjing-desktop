@@ -47,3 +47,9 @@ proxy.js
 # 本地发布产物（cnb-build.ps1 生成：上传 COS 的临时资产、coscli 二进制，不入库）
 cos-assets/
 scripts/coscli.exe
+
+# 代理共享密钥（不入库）
+.app-proxy-key
+
+# 服务端生产环境变量（含真实 provider key，绝不入库；仅本机部署用）
+server/.env*

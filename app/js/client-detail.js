@@ -31,15 +31,22 @@ App.initPage({
 
   // ---------- 基本信息 ----------
   function renderBasic() {
-    document.getElementById('detail-avatar').textContent = App.avatarText(client.name);
     document.getElementById('detail-name').textContent = client.name;
-    const subParts = [];
-    if (client.gender && client.gender !== 'unknown') subParts.push(App.genderLabel(client.gender));
-    if (client.birthDate) subParts.push('生于 ' + App.formatDate(client.birthDate, true));
-    if (client.phone) subParts.push('☎ ' + client.phone);
-    document.getElementById('detail-sub').innerHTML = subParts.join(' · ');
+    document.getElementById('detail-badge').textContent = App.statusLabel(client.status);
     document.getElementById('detail-tags').innerHTML = App.renderTags(client.tags);
-    document.getElementById('detail-notes').textContent = client.notes || '（暂无备注）';
+
+    const sessions = Store.getSessionsByClient(clientId);
+    const sessionIds = sessions.map((s) => s.id);
+    const sups = Store.getSupervisions().filter((sv) => (sv.sessionIds || []).some((sid) => sessionIds.includes(sid)));
+
+    document.getElementById('st-sessions').textContent = sessions.length;
+    document.getElementById('st-first').textContent = client.firstVisitDate ? App.formatDate(client.firstVisitDate, true) : '—';
+    const lastDate = sessions.length ? sessions.map((s) => s.date).filter(Boolean).sort().pop() : '';
+    document.getElementById('st-last').textContent = lastDate ? App.formatDate(lastDate, true) : '—';
+    document.getElementById('st-sup').textContent = sups.length;
+
+    const notesEl = document.getElementById('detail-notes');
+    if (notesEl) notesEl.textContent = client.notes || '（暂无备注）';
   }
 
   // ---------- 会话列表 ----------
@@ -170,9 +177,144 @@ App.initPage({
     }, true);
   };
 
+  // ---------- 成长轨迹（AI） ----------
+  function parseJSONRobustly(str) {
+    if (typeof str !== 'string') throw new Error('返回内容为空');
+    let s = str.trim();
+    const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fence) s = fence[1].trim();
+    try { return JSON.parse(s); } catch (e) { /* 继续尝试提取 */ }
+    const start = s.indexOf('{');
+    const end = s.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try { return JSON.parse(s.slice(start, end + 1)); } catch (e2) { /* 失败 */ }
+    }
+    throw new Error('返回内容不是合法 JSON');
+  }
+
+  window.analyzeGrowthTrajectory = function (cid) {
+    const c = Store.getClient(cid);
+    if (!c) return;
+    const sessions = Store.getSessionsByClient(cid);
+    const sessionIds = sessions.map((s) => s.id);
+    const sups = Store.getSupervisions().filter((sv) => (sv.sessionIds || []).some((id) => sessionIds.includes(id)));
+
+    const lines = sessions
+      .slice()
+      .sort((a, b) => (a.sessionNumber || 0) - (b.sessionNumber || 0))
+      .map((s) => {
+        const flags = [];
+        if (s.hasTranscript) flags.push('逐字稿');
+        if (s.hasSoap) flags.push('SOAP');
+        if (s.hasDap) flags.push('DAP');
+        if (s.hasReflection) flags.push('反思');
+        return `第${s.sessionNumber}节 ${s.date || ''} 含[${flags.join('/') || '无'}]`;
+      })
+      .join('\n');
+
+    const supThemes = sups
+      .map((sv) => `- ${sv.supervisorName || '未填督导师'}（${sv.type === 'group' ? '团体' : '个体'}督导）`)
+      .join('\n');
+
+    const prompt =
+      `你是一位资深心理咨询督导师。请基于以下来访者「${c.name}」的咨询记录与督导记录，生成一份结构化的「成长轨迹」分析。\n\n` +
+      `【会谈记录】\n${lines || '（暂无会谈记录）'}\n\n` +
+      `【督导主题】\n${supThemes || '（暂无督导记录）'}\n\n` +
+      `请只返回一个 JSON 对象，不要包含任何其他文字或 markdown 代码块，格式如下：\n` +
+      `{\n` +
+      `  "summary": "一段总体概括，描述来访者的成长脉络与当前状态",\n` +
+      `  "milestones": [ { "title": "里程碑标题", "note": "说明" } ],\n` +
+      `  "risks": [ "需要关注的风险点" ],\n` +
+      `  "resources": [ "来访者具备的内在/外在资源" ]\n` +
+      `}`;
+
+    App.showToast('正在生成成长轨迹…', 'info');
+    AI.send([{ role: 'user', content: prompt }], function (res) {
+      if (res.error) {
+        App.showToast('生成失败：' + (res.error.message || res.error), 'error');
+        return;
+      }
+      try {
+        var data = parseJSONRobustly(res.content);
+        Store.updateClient(cid, {
+          growthTrajectory: {
+            generatedAt: new Date().toISOString(),
+            model: AI.getTier(),
+            summary: data.summary || '',
+            milestones: data.milestones || [],
+            risks: data.risks || [],
+            resources: data.resources || [],
+          },
+        });
+        renderGrowth();
+      } catch (e) {
+        App.showToast('生成结果解析失败', 'error');
+      }
+    });
+  };
+
+  function renderGrowth() {
+    const el = document.getElementById('growth-trajectory');
+    if (!el) return;
+    const c = Store.getClient(clientId);
+    const gt = c && c.growthTrajectory;
+
+    const hasContent = gt && (gt.summary || (gt.milestones && gt.milestones.length) || (gt.risks && gt.risks.length) || (gt.resources && gt.resources.length));
+    if (!hasContent) {
+      el.innerHTML = `<div class="empty">尚无成长轨迹，点击上方按钮生成</div>`;
+      return;
+    }
+
+    let html = '';
+    if (gt.summary) {
+      html += `<div style="font-size:14px;line-height:1.85;color:var(--text);font-family:var(--sans);margin-bottom:14px">${App.escapeHtml(gt.summary)}</div>`;
+    }
+    if (gt.milestones && gt.milestones.length) {
+      html += `<div class="section-title" style="margin-top:0">里程碑</div>`;
+      html += gt.milestones
+        .map(
+          (m) => `<div class="list-card">
+            <div class="row1"><span class="title">${App.escapeHtml(m.title || '')}</span></div>
+            ${m.note ? `<div class="desc">${App.escapeHtml(m.note)}</div>` : ''}
+          </div>`
+        )
+        .join('');
+    }
+    if (gt.risks && gt.risks.length) {
+      html += `<div class="section-title">风险</div><div class="tags" style="margin-bottom:14px">${gt.risks
+        .map((r) => `<span class="tag">${App.escapeHtml(r)}</span>`)
+        .join('')}</div>`;
+    }
+    if (gt.resources && gt.resources.length) {
+      html += `<div class="section-title">资源</div><div class="tags" style="margin-bottom:14px">${gt.resources
+        .map((r) => `<span class="tag">${App.escapeHtml(r)}</span>`)
+        .join('')}</div>`;
+    }
+    if (gt.generatedAt) {
+      const modelLabel = gt.model === 'user' ? '高性能模型' : '内置模型';
+      html += `<div style="font-size:11.5px;color:var(--text-muted);margin-top:14px">生成于 ${App.formatDate(
+        gt.generatedAt,
+        true
+      )} · ${modelLabel}</div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // 成长轨迹按钮：按档位显示文案
+  (function setupGrowthButton() {
+    const btn = document.getElementById('growth-btn');
+    if (!btn) return;
+    const tier = AI.getTier();
+    btn.textContent = tier === 'user' ? '生成成长轨迹（高性能模型）' : '生成成长轨迹（内置模型·较简略）';
+    btn.onclick = function () {
+      analyzeGrowthTrajectory(clientId);
+    };
+  })();
+
     // ---------- 初始渲染 ----------
     renderBasic();
     renderSessions();
     renderSupervisions();
+    renderGrowth();
   },
 });

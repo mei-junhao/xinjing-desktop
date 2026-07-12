@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>心镜 · 来访者详情</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
   <div class="layout">
@@ -14,19 +15,20 @@
         <div id="page-header"></div>
       </header>
       <div class="content">
-        <!-- 基本信息卡片 -->
-        <div class="list-card" style="padding:var(--gap-lg);margin-bottom:var(--gap-lg);cursor:default">
-          <div style="display:flex;align-items:center;gap:var(--gap);margin-bottom:var(--gap)">
-            <div class="avatar" style="width:56px;height:56px;font-size:24px" id="detail-avatar"></div>
-            <div style="flex:1">
-              <div style="font-size:20px;font-weight:600" id="detail-name"></div>
-              <div style="font-size:13px;color:var(--muted);font-family:var(--sans)" id="detail-sub"></div>
-            </div>
-            <button class="btn btn-ghost btn-sm" onclick="openEditFromDetail()">编辑</button>
+        <!-- 基本信息 -->
+        <div class="client-head">
+          <h2 id="detail-name"></h2>
+          <span class="badge" id="detail-badge"></span>
+          <div class="tags" id="detail-tags"></div>
+          <div class="stats">
+            <div class="stat"><b id="st-sessions">0</b><span>节数</span></div>
+            <div class="stat"><b id="st-first">—</b><span>首访</span></div>
+            <div class="stat"><b id="st-last">—</b><span>末次</span></div>
+            <div class="stat"><b id="st-sup">0</b><span>督导</span></div>
           </div>
-          <div id="detail-tags" style="margin-bottom:var(--gap-sm)"></div>
-          <div id="detail-notes" style="font-size:14px;color:var(--text);font-family:var(--sans);line-height:1.7"></div>
+          <button class="btn btn-ghost btn-sm" onclick="openEditFromDetail()">编辑</button>
         </div>
+        <div id="detail-notes" style="font-size:13.5px;color:var(--text-secondary);font-family:var(--sans);line-height:1.7;margin:-6px 0 18px"></div>
 
         <!-- 会话记录 -->
         <div class="section-title">会话记录 <span class="count" id="session-count"></span></div>
@@ -35,7 +37,14 @@
 
         <!-- 督导记录 -->
         <div class="section-title">督导记录 <span class="count" id="sup-count"></span></div>
-        <div id="supervision-list"></div>
+        <div id="supervision-list" style="margin-bottom:var(--gap-lg)"></div>
+
+        <!-- 成长轨迹（AI） -->
+        <div class="section-title">成长轨迹</div>
+        <div class="quick">
+          <button class="primary" id="growth-btn">生成成长轨迹</button>
+        </div>
+        <div id="growth-trajectory"></div>
       </div>
     </main>
   </div>

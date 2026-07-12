@@ -5,35 +5,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>心镜 · 咨询记录</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
 </head>
 <body>
   <div class="layout">
     <div id="sidebar-mount"></div>
     <main class="main">
-      <header class="main-header">
-        <div id="page-header"></div>
+      <header class="topbar">
+        <div class="brand">心镜 <small>咨询记录</small></div>
+        <div class="viewswitch">
+          <button class="active" id="vw-workspace">工作区</button>
+          <button id="vw-matrix">全站报告矩阵</button>
+        </div>
       </header>
-      <div class="content">
-        <div class="card" style="padding:var(--gap-lg);text-align:center">
-          <div style="font-size:18px;font-weight:600;margin-bottom:8px">咨询记录页即将上线</div>
-          <p style="color:var(--muted);font-family:var(--sans);line-height:1.7;margin:0 auto 14px;max-width:520px">
-            本页将汇总所有来访者的会谈记录时间线（显示「第 N 次咨询」），点击任一条可跳转到对应的会话详情。
-            当前阶段（v1.5.0）为占位，完整功能在后续版本填充。
-          </p>
-          <a class="btn btn-primary" href="clients.html">前往「来访者」查看会谈记录</a>
+
+      <div class="ws" id="ws">
+        <!-- 左栏 -->
+        <div class="rail">
+          <div class="search"><input id="search" placeholder="搜索姓名、标签、备注…"></div>
+          <div class="status-pills" id="statusPills">
+            <span class="pill active" data-status="all">全部</span>
+            <span class="pill" data-status="active">咨询中</span>
+            <span class="pill" data-status="paused">暂停</span>
+            <span class="pill" data-status="ended">已结束</span>
+          </div>
+          <div class="clist" id="clist"></div>
+        </div>
+
+        <!-- 中栏 -->
+        <div class="center" id="center"></div>
+
+        <!-- 拖拽分隔条 -->
+        <div class="resizer" id="resizer"></div>
+
+        <!-- 右栏 AI 督导坞 -->
+        <div class="aidock" id="aidock">
+          <h3>AI 督导坞</h3>
+          <div class="orient-mini" id="orientMini">
+            <button class="active" data-o="winnicott">温尼科特</button>
+            <button data-o="psychoanalysis">精神分析</button>
+            <button data-o="cbt">CBT</button>
+            <button data-o="rogers">人本</button>
+            <button data-o="yalom">存在</button>
+            <button data-o="generic">通用</button>
+          </div>
+          <p class="hint">结果以紫色标记直接插入下方文档。取向与 AI 督导通用版共用。</p>
+          <div class="ai-actions">
+            <button class="primary" id="aiImpression"><span class="ic">✨</span> 生成整体印象（插入文档）</button>
+            <button id="aiDeepen"><span class="ic">🔍</span> 就选区深化</button>
+            <button id="aiPolish"><span class="ic">💡</span> 润色选区</button>
+            <button id="aiMasters"><span class="ic">🗣</span> 开启大师对话</button>
+          </div>
+          <div class="word" id="docEditor" contenteditable="true"></div>
         </div>
       </div>
     </main>
   </div>
 
+  <!-- 选区浮动工具栏 -->
+  <div class="floating-tb" id="floatTb">
+    <button data-cmd="bold"><b>B</b></button>
+    <button data-cmd="italic"><i>I</i></button>
+    <button data-cmd="formatBlock" data-val="H3">H</button>
+    <button data-cmd="insertUnorderedList">•</button>
+    <button data-cmd="formatBlock" data-val="BLOCKQUOTE">❝</button>
+  </div>
+
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
-  <script>
-    App.initPage({
-      title: '咨询记录',
-      subtitle: '所有来访者的会谈时间线（即将上线）',
-      actions: '',
-    });
-  </script>
+  <script src="js/reports.js"></script>
+  <script src="js/consultations.js"></script>
 </body>
 </html>
