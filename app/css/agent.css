@@ -85,6 +85,24 @@
   min-height: 0;
 }
 
+/* 档位横幅（内置低性能 / 用户高性能） */
+.xj-agent-tier {
+  padding: 8px 14px;
+  font-size: 11.5px;
+  font-family: var(--sans, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
+  line-height: 1.4;
+  text-align: center;
+  border-bottom: 1px solid var(--hair, rgba(0,0,0,.06));
+}
+.xj-agent-tier.tier-builtin {
+  color: var(--muted, #888);
+  background: var(--hover-tint, rgba(0,0,0,.04));
+}
+.xj-agent-tier.tier-user {
+  color: #3f6f4f;
+  background: rgba(110,126,98,.14);
+}
+
 .xj-agent-msgs {
   flex: 1;
   overflow-y: auto;
@@ -240,3 +258,7 @@
   color: var(--text, #E6E8F0);
 }
 .dark .xj-agent-input { background: var(--card, #1F2230); }
+.dark .xj-agent-tier.tier-user {
+  color: #9fd0b0;
+  background: rgba(110,126,98,.22);
+}

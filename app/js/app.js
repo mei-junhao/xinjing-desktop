@@ -6,6 +6,24 @@
    - 工具函数：日期格式化、HTML 转义、标签渲染
    ============================================================ */
 
+/* ------------------------------------------------------------
+   全局脚本注入：确保 ai.js 与 agent 三件套在「每一页」都可用。
+   历史问题：ai.js 此前只在 masters/session 页加载，导致督导页等页面
+   window.AI 未定义 → supervision-core 调 AI.send 报「AI 模块未就绪」。
+   这里在 app.js（每页都加载）顶部统一注入，已显式 <script> 加载过的不再重复。
+   ------------------------------------------------------------ */
+(function injectGlobalScripts() {
+  const list = ['js/ai.js', 'js/agent-core.js', 'js/agent-tools.js', 'js/agent-shell.js'];
+  list.forEach(function (src) {
+    // 已被本页 <script src> 显式加载过 → 不重复注入
+    if (document.querySelector('script[src="' + src + '"]')) return;
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false; // 保持顺序：ai.js → agent-core → agent-tools → agent-shell
+    document.head.appendChild(s);
+  });
+})();
+
 const App = (() => {
   'use strict';
 

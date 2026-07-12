@@ -60,9 +60,8 @@
         messages[0].content = AgentCore.buildSystemPrompt();
       }
     } catch (e) { /* ignore */ }
-    // 授权门控 UI
+    // 授权门控 UI（解锁时一并刷新档位横幅与欢迎语）
     refreshLock();
-    renderWelcome();
   }
 
   function refreshLock() {
@@ -79,7 +78,15 @@
     if (unlocked) {
       if (lockBanner) lockBanner.remove();
       if (inputRow) inputRow.style.display = '';
+      // 解锁：渲染档位横幅 + 欢迎语
+      refreshTierUI();
     } else {
+      // 锁定：移除档位横幅与欢迎语，避免与锁提示并存
+      const tierBanner = panelEl.querySelector('.xj-agent-tier');
+      if (tierBanner) tierBanner.remove();
+      const welcome = messagesEl && messagesEl.querySelector('#xj-agent-welcome');
+      if (welcome) welcome.remove();
+      if (inputRow) inputRow.style.display = 'none';
       if (!lockBanner && msgArea) {
         lockBanner = el('div', 'xj-agent-lock');
         lockBanner.innerHTML = '<div class="xj-agent-lock-inner">⚠ Agent 为付费功能，请先激活。<br><button class="btn btn-ghost btn-sm" style="margin-top:8px" id="xj-agent-activate-btn">输入激活码</button></div>';
@@ -90,15 +97,44 @@
           }
         });
       }
-      if (inputRow) inputRow.style.display = 'none';
     }
   }
 
-  function renderWelcome() {
-    if (!messagesEl) return;
-    if (messagesEl.querySelector('.xj-agent-lock')) return; // 有锁就不加欢迎
-    const welcome = el('div', 'xj-agent-msg xj-agent-system', '你好，我是心镜 Agent。可以帮你记账、月结、查统计、改来访者信息。比如：<br>「帮张明记 4 月 10 号会谈 300 块次结没付」<br>「张明这个月收了多少」<br>「把张明的电话改成 138xxxx」');
-    messagesEl.appendChild(welcome);
+  // 档位信息：'user' = 用户高性能模型；'builtin' = 内置低性能免费模型
+  function tierInfo() {
+    try {
+      if (typeof AI !== 'undefined' && AI.getTier) return AI.getTier();
+    } catch (e) { /* ignore */ }
+    return 'builtin';
+  }
+
+  // 根据当前档位刷新横幅 + 欢迎语（无锁时调用）
+  function refreshTierUI() {
+    if (!panelEl || !messagesEl) return;
+    const tier = tierInfo();
+
+    // 档位横幅（浮窗 body 顶部）
+    let banner = panelEl.querySelector('.xj-agent-tier');
+    if (!banner) {
+      banner = el('div', 'xj-agent-tier');
+      const body = panelEl.querySelector('.xj-agent-body');
+      if (body) body.insertBefore(banner, body.firstChild);
+    }
+    banner.className = 'xj-agent-tier ' + (tier === 'user' ? 'tier-user' : 'tier-builtin');
+    banner.textContent = tier === 'user'
+      ? '⚡ 已接入你的高性能模型（完全体）'
+      : '🌱 内置低性能免费模型 · 仅能完成普通任务（记账 / 月结 / 统计 / 改信息）';
+
+    // 欢迎语（消息流首条）
+    let welcome = messagesEl.querySelector('#xj-agent-welcome');
+    if (!welcome) {
+      welcome = el('div', 'xj-agent-msg xj-agent-system', '');
+      welcome.id = 'xj-agent-welcome';
+      messagesEl.insertBefore(welcome, messagesEl.firstChild);
+    }
+    welcome.innerHTML = tier === 'user'
+      ? '你已接入高性能模型，我现在是完全体，可以做更多事。可以帮你记账、月结、查统计、改来访者信息。'
+      : '我是内置低性能免费模型，只能完成普通任务（记账 / 月结 / 查统计 / 改来访者信息）。接入你的高性能模型后我能做更多。比如：<br>「帮张明记 4 月 10 号会谈 300 块次结没付」<br>「张明这个月收了多少」<br>「把张明的电话改成 138xxxx」';
   }
 
   function toggleCollapse() {
@@ -229,6 +265,12 @@
         clearTyping();
         if (status === 'executing') renderProgress('正在执行：' + name + '…');
         else if (status === 'done') {
+          // 配置 API 成功：自动切换到用户模型，刷新档位 UI + 完全体提示
+          if (data && data.switchedTo === 'user') {
+            refreshTierUI();
+            toast('已切换到你的高性能模型，我现在是完全体，可以做更多事', 'success');
+            return;
+          }
           // 成功结果由 OBSERVE→RESPOND 处理或简洁提示
           if (data && data.ok) {
             const summary = data.added !== undefined ? ('✓ 已新增 ' + data.added + ' 条记录' + (data.skipped ? '，跳过 ' + data.skipped + ' 条' : ''))

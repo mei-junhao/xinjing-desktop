@@ -14,43 +14,87 @@ App.initPage({
     const api = settings.apiConfig || {};
     document.getElementById('api-baseurl').value = api.baseUrl || '';
     document.getElementById('api-key').value = api.apiKey || '';
-    document.getElementById('api-model').value = api.modelPreference || 'deepseek-pro';
+    // 旧版四个档位（deepseek-pro/flash/minimax-m3/agnes）已取消，一次性迁移回内置模型
+    const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes'];
+    let modelPref = api.modelPreference || '';
+    if (OLD.indexOf(modelPref) !== -1) {
+      modelPref = '';
+      Store.saveSettings({ apiConfig: Object.assign({}, api, { modelPreference: '' }) });
+    }
+    document.getElementById('api-model').value = modelPref || '__builtin__';
+  }
+
+  // 显示当前生效档位（内置 / 用户），供用户感知低性能 vs 高性能
+  function updateTierStatus() {
+    const el = document.getElementById('api-tier-status');
+    if (!el) return;
+    let tier = 'builtin', cfg = null;
+    try {
+      if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier();
+      if (typeof AI !== 'undefined' && AI.getActiveConfig) cfg = AI.getActiveConfig();
+    } catch (e) { /* ignore */ }
+    if (tier === 'user' && cfg) {
+      el.innerHTML = '当前：<b>你的高性能模型</b> · ' + App.escapeHtml(cfg.model) + '（完全体，可做更复杂任务）';
+    } else {
+      el.innerHTML = '当前：<b>内置免费模型</b> · ' + App.escapeHtml((cfg && cfg.model) || 'Qwen/Qwen3.5-4B') + '（低性能，仅普通任务）';
+    }
   }
 
   window.saveApiConfig = function () {
-    Store.saveSettings({
-      apiConfig: {
-        baseUrl: document.getElementById('api-baseurl').value.trim(),
-        apiKey: document.getElementById('api-key').value.trim(),
-        modelPreference: document.getElementById('api-model').value,
-        maxTokens: 4000,
-      },
-    });
-    App.showToast('已保存 API 配置', 'success');
+    const model = document.getElementById('api-model').value;
+    // 选「内置免费模型」= 清除自有配置，回退到内置模型
+    if (model === '__builtin__') {
+      Store.saveSettings({ apiConfig: {} });
+      App.showToast('已切换回内置免费模型', 'success');
+    } else {
+      Store.saveSettings({
+        apiConfig: {
+          baseUrl: document.getElementById('api-baseurl').value.trim(),
+          apiKey: document.getElementById('api-key').value.trim(),
+          modelPreference: model,
+          maxTokens: 4000,
+        },
+      });
+      App.showToast('已保存 API 配置', 'success');
+    }
+    updateTierStatus();
+  };
+
+  // 一键清除自有配置，回到内置免费模型
+  window.useBuiltinModel = function () {
+    Store.saveSettings({ apiConfig: {} });
+    document.getElementById('api-baseurl').value = '';
+    document.getElementById('api-key').value = '';
+    document.getElementById('api-model').value = '__builtin__';
+    updateTierStatus();
+    App.showToast('已清除配置，改用内置免费模型', 'success');
   };
 
   window.testApi = async function () {
-    const config = Store.getSettings().apiConfig || {};
-    if (!config.baseUrl || !config.apiKey) {
-      App.showToast('请先填写端点和密钥', 'error');
+    let cfg = null;
+    try {
+      if (typeof AI !== 'undefined' && AI.getActiveConfig) cfg = AI.getActiveConfig();
+    } catch (e) { /* ignore */ }
+    if (!cfg || !cfg.baseUrl) {
+      App.showToast('无法获取接口地址', 'error');
       return;
     }
     App.showToast('正在测试连接...');
     try {
-      const resp = await fetch(config.baseUrl.replace(/\/$/, '') + '/v1/chat/completions', {
+      const resp = await fetch(cfg.baseUrl.replace(/\/$/, '') + '/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + config.apiKey,
+          Authorization: 'Bearer ' + (cfg.apiKey || ''),
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: cfg.model,
           messages: [{ role: 'user', content: 'ping' }],
           max_tokens: 10,
         }),
       });
       if (resp.ok) {
-        App.showToast('连接成功 ✓', 'success');
+        App.showToast('连接成功 ✓（' + (cfg.label || cfg.model) + '）', 'success');
       } else {
         App.showToast('连接失败：HTTP ' + resp.status, 'error');
       }
@@ -407,6 +451,7 @@ App.initPage({
   }
 
     loadConfig();
+    updateTierStatus();
     calcStorage();
     updateBackupTime();
     loadBackupConfigUI();

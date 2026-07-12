@@ -51,6 +51,10 @@ function createStoreMock() {
       sessions.push(s);
       return s;
     },
+    // 供 agent.configure_api / settings 测试：内存设置 + apiConfig
+    _settings: { apiConfig: {}, version: '1.0.0' },
+    getSettings() { return this._settings; },
+    saveSettings(patch) { Object.assign(this._settings, patch); return this._settings; },
   };
 }
 
@@ -611,6 +615,158 @@ const fs = require('fs');
     // 用 new Function 跑一遍——会抛 SyntaxError
     new Function(code);
   });
+});
+
+// ============================================================
+// 测试组 G：ai.js 单层直连 + 内置模型 + 档位
+// ============================================================
+console.log('\n[G] ai.js 内置模型 / 单层直连 / 档位');
+
+function loadAI(apiConfig) {
+  const Store = {
+    getSettings: () => ({ apiConfig: apiConfig || {} })
+  };
+  global.Store = Store;
+  global.window = global;
+  require(path.join(__dirname, '..', 'app', 'js', 'ai.js'));
+  const AI = global.window.AI;
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'app', 'js', 'ai.js'))];
+  return AI;
+}
+
+// G1. 无用户配置 → 档位 builtin，内置 Qwen3.5-4B，密钥非空
+test('G1 无用户配置 → getTier=builtin，内置 Qwen/Qwen3.5-4B 且密钥非空', function () {
+  const AI = loadAI({});
+  assert.strictEqual(AI.getTier(), 'builtin', '档位应为 builtin');
+  const cfg = AI.getActiveConfig();
+  assert.strictEqual(cfg.model, 'Qwen/Qwen3.5-4B', '内置模型应为 Qwen/Qwen3.5-4B');
+  assert.ok(cfg.apiKey && cfg.apiKey.indexOf('sk-') === 0, '内置密钥应以 sk- 开头');
+  assert.strictEqual(cfg.baseUrl, 'https://api.siliconflow.cn/v1', '内置 baseUrl 应为 SiliconFlow');
+});
+
+// G2. 用户配置 apiKey → 档位 user，直连用用户模型
+test('G2 有用户 apiKey → getTier=user，getActiveConfig 返回用户配置', function () {
+  const AI = loadAI({ baseUrl: 'https://my.api/v1', apiKey: 'sk-user-123', modelPreference: 'gpt-4o' });
+  assert.strictEqual(AI.getTier(), 'user');
+  const cfg = AI.getActiveConfig();
+  assert.strictEqual(cfg.model, 'gpt-4o');
+  assert.strictEqual(cfg.apiKey, 'sk-user-123');
+  assert.strictEqual(cfg.baseUrl, 'https://my.api/v1');
+  assert.strictEqual(cfg.label, '用户模型');
+});
+
+// G3. 用户有 key 但未填模型 → 回退内置模型名，档位仍 user
+test('G3 用户有 key 但 modelPreference 空 → 回退内置模型名，档位仍 user', function () {
+  const AI = loadAI({ baseUrl: 'https://my.api/v1', apiKey: 'sk-user-123', modelPreference: '' });
+  assert.strictEqual(AI.getTier(), 'user');
+  assert.strictEqual(AI.getActiveConfig().model, 'Qwen/Qwen3.5-4B', '未填模型应回退内置模型名');
+});
+
+// G4. 用户只填 key 无 baseUrl → baseUrl 回退内置
+test('G4 用户 key 但 baseUrl 空 → baseUrl 回退内置', function () {
+  const AI = loadAI({ apiKey: 'sk-user-123', modelPreference: 'deepseek-chat' });
+  assert.strictEqual(AI.getActiveConfig().baseUrl, 'https://api.siliconflow.cn/v1');
+});
+
+// G5. 调用内置 Qwen 模型时 fetch body 应注入 chat_template_kwargs.enable_thinking=false
+test('G5 调用内置 Qwen 模型 → body 注入 enable_thinking:false', async function () {
+  const AI = loadAI({});
+  let captured = null;
+  const origFetch = global.fetch;
+  global.fetch = async function (u, opts) {
+    captured = { url: u, body: JSON.parse(opts.body) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'ok', tool_calls: undefined } }] }), text: async () => '' };
+  };
+  try {
+    await new Promise((resolve) => AI.send([{ role: 'system', content: 's' }, { role: 'user', content: 'hi' }], resolve, { tools: [{ type: 'function', function: { name: 'x' } }], tool_choice: 'auto' }));
+  } finally {
+    global.fetch = origFetch;
+  }
+  assert.ok(captured, '应发起 fetch');
+  assert.ok(captured.body.chat_template_kwargs && captured.body.chat_template_kwargs.enable_thinking === false, 'Qwen 模型应注入 enable_thinking:false');
+  assert.ok(Array.isArray(captured.body.tools), 'tools 应注入');
+});
+
+// G6. 调用用户非 Qwen 模型时不应注入 chat_template_kwargs（避免严格端点 400）
+test('G6 用户非 Qwen 模型 → body 不注入 chat_template_kwargs', async function () {
+  const AI = loadAI({ baseUrl: 'https://my.api/v1', apiKey: 'sk-user', modelPreference: 'gpt-4o' });
+  let captured = null;
+  const origFetch = global.fetch;
+  global.fetch = async function (u, opts) {
+    captured = { body: JSON.parse(opts.body) };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'ok' } }] }), text: async () => '' };
+  };
+  try {
+    await new Promise((resolve) => AI.send([{ role: 'user', content: 'hi' }], resolve));
+  } finally {
+    global.fetch = origFetch;
+  }
+  assert.ok(captured, '应发起 fetch');
+  assert.ok(!captured.body.chat_template_kwargs, '非 Qwen 模型不应注入 chat_template_kwargs');
+});
+
+// ============================================================
+// 测试组 H：agent.configure_api 工具
+// ============================================================
+console.log('\n[H] agent.configure_api 工具');
+
+// H1. configure_api 写 apiConfig + 返回 switchedTo=user
+resetStore();
+test('H1 agent.configure_api 写入 apiConfig 并返回 switchedTo=user', async function () {
+  const r = await tools.invoke('agent.configure_api', {
+    apiKey: 'sk-user-new', baseUrl: 'https://api.siliconflow.cn/v1', model: 'deepseek-chat'
+  });
+  assert.ok(r.ok, '应 ok=true，实际：' + JSON.stringify(r));
+  assert.strictEqual(r.data.switchedTo, 'user');
+  assert.strictEqual(Store.getSettings().apiConfig.apiKey, 'sk-user-new');
+  assert.strictEqual(Store.getSettings().apiConfig.baseUrl, 'https://api.siliconflow.cn/v1');
+  assert.strictEqual(Store.getSettings().apiConfig.modelPreference, 'deepseek-chat');
+});
+
+// H2. configure_api 缺字段 → ok=false
+resetStore();
+test('H2 agent.configure_api 缺 model → ok=false', async function () {
+  const r = await tools.invoke('agent.configure_api', { apiKey: 'sk-x', baseUrl: 'https://a/v1' });
+  assert.ok(!r.ok, '缺 model 应 ok=false');
+});
+
+// H3. configure_api 后，用同一份 apiConfig 加载的 ai 档位= user（集成验证）
+resetStore();
+test('H3 configure_api 后 ai.getTier 变 user（自动切换生效）', async function () {
+  await tools.invoke('agent.configure_api', {
+    apiKey: 'sk-user-new', baseUrl: 'https://api.siliconflow.cn/v1', model: 'deepseek-chat'
+  });
+  const AI2 = loadAI(Store.getSettings().apiConfig);
+  assert.strictEqual(AI2.getTier(), 'user', '配置写入后档位应为 user');
+  assert.strictEqual(AI2.getActiveConfig().model, 'deepseek-chat');
+});
+
+// ============================================================
+// 测试组 I：agent-core buildSystemPrompt 档位提示注入
+// ============================================================
+console.log('\n[I] agent-core buildSystemPrompt 档位提示');
+
+// I1. builtin 档位 → 系统提示含「低性能/普通任务」提醒
+resetStore();
+test('I1 builtin 档位 → 系统提示含内置低性能提醒', function () {
+  const App = { aiUnlocked: () => true };
+  const AI = { getTier: () => 'builtin' };
+  const t = loadAgentTools(Store);
+  const c = loadAgentCore(Store, AI, t, App);
+  const prompt = c.buildSystemPrompt();
+  assert.ok(prompt.indexOf('低性能') !== -1, '应含"低性能"');
+  assert.ok(prompt.indexOf('普通任务') !== -1, '应含"普通任务"');
+});
+
+// I2. user 档位 → 系统提示含「完全体」
+resetStore();
+test('I2 user 档位 → 系统提示含完全体', function () {
+  const App = { aiUnlocked: () => true };
+  const AI = { getTier: () => 'user' };
+  const t = loadAgentTools(Store);
+  const c = loadAgentCore(Store, AI, t, App);
+  const prompt = c.buildSystemPrompt();
+  assert.ok(prompt.indexOf('完全体') !== -1, '应含"完全体"');
 });
 
 // ============================================================

@@ -315,13 +315,57 @@
   }
 
   // ============================================================
+  // 工具 5：agent.configure_api（配置 AI 接口，写设置但不弹确认卡，kind='config'）
+  // ============================================================
+  const SCHEMA_CONFIGURE_API = {
+    type: 'function',
+    function: {
+      name: 'agent.configure_api',
+      description: '为用户配置 AI 接口（apiKey / baseUrl / model）。自动写好后后续对话即用新模型。当用户给出自己的高性能模型 key 后调用本工具即可自动切换，无需再确认。',
+      parameters: {
+        type: 'object',
+        properties: {
+          apiKey: { type: 'string', description: 'API 密钥（Bearer Token），如 sk-...' },
+          baseUrl: { type: 'string', description: 'OpenAI 兼容 Base URL，如 https://api.siliconflow.cn/v1' },
+          model: { type: 'string', description: '模型名，如 Qwen/Qwen3.5-4B 或 deepseek-chat 或 gpt-4o' }
+        },
+        required: ['apiKey', 'baseUrl', 'model']
+      }
+    }
+  };
+
+  async function configureApi(args) {
+    const Store = getStore();
+    if (!args || !args.apiKey || !args.baseUrl || !args.model) {
+      return { ok: false, error: '需提供 apiKey + baseUrl + model' };
+    }
+    Store.saveSettings({
+      apiConfig: {
+        baseUrl: String(args.baseUrl).trim(),
+        apiKey: String(args.apiKey).trim(),
+        modelPreference: String(args.model).trim(),
+        maxTokens: 4000,
+      },
+    });
+    return sanitizeResult({
+      ok: true,
+      data: {
+        switchedTo: 'user',
+        model: args.model,
+        note: '已切换到你的高性能模型，我现在是完全体，可以做更多事',
+      },
+    });
+  }
+
+  // ============================================================
   // Tool Registry
   // ============================================================
   const TOOL_REGISTRY = {
     'billing.add_record':     { schema: SCHEMA_ADD_RECORD,     handler: addBillingRecord,  kind: 'write' },
     'billing.monthly_settle': { schema: SCHEMA_MONTHLY_SETTLE, handler: monthlySettle,     kind: 'write' },
     'billing.summary':        { schema: SCHEMA_SUMMARY,        handler: billingSummary,    kind: 'read' },
-    'client.update':          { schema: SCHEMA_UPDATE_CLIENT,  handler: updateClientInfo,  kind: 'write' }
+    'client.update':          { schema: SCHEMA_UPDATE_CLIENT,  handler: updateClientInfo,  kind: 'write' },
+    'agent.configure_api':    { schema: SCHEMA_CONFIGURE_API,  handler: configureApi,      kind: 'config' }
   };
   const TOOL_SCHEMAS = Object.keys(TOOL_REGISTRY).map(function (k) { return TOOL_REGISTRY[k].schema; });
 

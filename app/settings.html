@@ -29,9 +29,10 @@
         <!-- API 配置 -->
         <div class="section-title">AI 接口配置</div>
         <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
+          <div id="api-tier-status" style="font-size:12px;font-family:var(--sans);line-height:1.6;margin-bottom:12px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--accent-soft, rgba(139,147,199,.12))"></div>
           <div class="form-row">
             <label class="form-label">API 端点 (Base URL)</label>
-            <input class="form-control" id="api-baseurl" placeholder="https://your-api-endpoint/v1">
+            <input class="form-control" id="api-baseurl" placeholder="https://api.siliconflow.cn/v1">
           </div>
           <div class="form-row">
             <label class="form-label">API 密钥</label>
@@ -40,17 +41,19 @@
           <div class="form-row">
             <label class="form-label">默认模型</label>
             <select class="form-control" id="api-model">
-              <option value="deepseek-pro">DeepSeek Pro</option>
-              <option value="deepseek-flash">DeepSeek Flash</option>
-              <option value="minimax-m3">MiniMax M3</option>
-              <option value="agnes">Agnes</option>
+              <option value="__builtin__">内置免费模型 (Qwen3.5-4B，永久免费)</option>
+              <option value="Qwen/Qwen3.5-4B">Qwen3.5-4B（SiliconFlow）</option>
+              <option value="deepseek-chat">DeepSeek Chat</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o-mini</option>
             </select>
           </div>
-          <div class="form-row" style="display:flex;gap:var(--gap)">
+          <div class="form-row" style="display:flex;gap:var(--gap);flex-wrap:wrap">
             <button class="btn btn-primary" onclick="saveApiConfig()">保存配置</button>
             <button class="btn btn-ghost" onclick="testApi()">测试连接</button>
+            <button class="btn btn-ghost" onclick="useBuiltinModel()">清除配置·用内置模型</button>
           </div>
-          <p style="font-size:12px;color:var(--muted);font-family:var(--sans)">密钥仅存于本地浏览器，不会上传到任何服务器。</p>
+          <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-top:6px">未填写密钥时自动使用项目<b>内置免费模型</b>（低性能，仅能完成普通任务）。填入自己的高性能模型密钥后自动切换。密钥仅存于本机，不上传。</p>
         </div>
 
         <!-- 数据管理 -->

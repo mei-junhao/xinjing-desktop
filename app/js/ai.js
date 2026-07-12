@@ -1,41 +1,30 @@
 /* ============================================================
    心镜 XinJing — AI 集成模块
    职责：
-   - 调用外部 API 生成 SOAP / 总结 / 分析 / AI 督导
-   - 四层降级策略（复用 winnicott-chat 的模式骨架，但密钥体系完全独立）
-   - 从设置读取 API 配置
-   密钥安全（硬约束）：
-   - API 密钥的唯一合法来源是用户在「设置」页自行填写的 apiConfig.apiKey，
-     仅存于本机 localStorage（个人本地工具），不在页面明文显示。
-   - 本模块绝不沿用 winnicott-chat 项目的任何密钥、不读取任何环境变量、
-     不读取任何外部密钥文件、不在代码中硬编码任何 key。
-   - 下方 assertNoHardcodedKey() 在加载期强制校验，杜绝误引入 chat 密钥。
+   - 调用外部 API 生成 SOAP / 总结 / 分析 / AI 督导 / Agent 工具调用
+   - 单层直连：根据用户填写的「模型名 + Base URL + 密钥」直连大模型
+     （OpenAI 兼容 /chat/completions 接口）
+   - 内置一个永久免费的「低性能模型」（SiliconFlow Qwen3.5-4B）作为开箱即用兜底：
+     用户未填自己的 API 时自动使用；用户填入自己的模型后自动切换到用户模型。
+
+   密钥安全说明（重要变更）：
+   - 用户自己的 API 密钥唯一合法来源是「设置」页填写的 apiConfig（存于本机）。
+   - 内置低性能模型的密钥由本项目所有方提供、永久免费、仅供兜底，
+     按产品需求明文内置在源码常量 BUILTIN_MODEL 中（非用户密钥、非聊天项目密钥）。
+   - 任何「用户模型」的调用都不使用内置密钥；仅当无用户密钥时回退到内置模型。
    ============================================================ */
 
 const AI = (() => {
   'use strict';
 
-  // 四层 API 端点（可在设置中覆盖 baseUrl）
-  // 默认走 OpenAI 兼容接口格式。注意：此处严禁出现 key / apiKey / token 字段。
-  const DEFAULT_TIERS = [
-    { name: 'deepseek-pro', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Pro', supportsTools: true },
-    { name: 'deepseek-flash', path: '/v1/chat/completions', model: 'deepseek-chat', label: 'DeepSeek Flash', supportsTools: true },
-    { name: 'minimax-m3', path: '/v1/chat/completions', model: 'MiniMax-M3', label: 'MiniMax M3', supportsTools: false },
-    { name: 'agnes', path: '/v1/chat/completions', model: 'agnes', label: 'Agnes', supportsTools: false },
-  ];
-
-  // 已知支持 function-calling 的 model 名单（可扩展）。
-  // 最终判断以"解析后的 model 是否在此名单"为准，而非 tier.supportsTools（因为 ai.js:55 的实际模型由 modelPreference 决定，与 tier 解耦）。
-  const TOOL_CAPABLE_MODELS = ['deepseek-chat'];
-
-  // 安全断言：本模块严禁内置任何密钥。若有人误在 DEFAULT_TIERS 写入 key 字段，立即拒绝加载。
-  (function assertNoHardcodedKey() {
-    const bad = DEFAULT_TIERS.filter((t) => t && (t.key || t.apiKey || t.token));
-    if (bad.length) {
-      console.error('[AI] 安全断言失败：DEFAULT_TIERS 中检测到疑似密钥字段，已拒绝加载', bad.map((b) => b.name));
-      throw new Error('AI 模块不允许内置密钥');
-    }
-  })();
+  // 内置低性能模型（永久免费，开箱即用兜底）
+  // 用户未填自己的 API 时自动使用；填入自己的模型后自动切换。
+  const BUILTIN_MODEL = {
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKey: 'sk-jwbugvdncqelswmfkvpckxmjvzjnbnbhspjreeyqkdjugbns',
+    model: 'Qwen/Qwen3.5-4B',
+    label: '内置免费模型 (Qwen3.5-4B)',
+  };
 
   // 角色设定：温尼科特取向心理咨询师
   const SYSTEM_PROMPT = `你是一位资深心理咨询师，精通心理动力学与温尼科特理论取向。
@@ -51,25 +40,33 @@ const AI = (() => {
     return settings.apiConfig || {};
   }
 
-  // 解析 tier + config 得出实际发出的 model 名（与旧逻辑一致，L55）
-  function resolveModel(tier) {
-    const config = getConfig();
-    return config.modelPreference && config.modelPreference !== 'deepseek-pro' ? config.modelPreference : tier.model;
+  // 当前生效的配置：用户已填密钥 → 用用户配置；否则回退到内置免费模型。
+  function getActiveConfig() {
+    const user = getConfig();
+    if (user && user.apiKey && String(user.apiKey).trim()) {
+      return {
+        baseUrl: (user.baseUrl || '').trim() || BUILTIN_MODEL.baseUrl,
+        apiKey: user.apiKey.trim(),
+        model: (user.modelPreference || '').trim() || BUILTIN_MODEL.model,
+        maxTokens: user.maxTokens || 4000,
+        label: '用户模型',
+      };
+    }
+    return BUILTIN_MODEL;
   }
 
-  // 实际发送请求（单层）。
-  // options?: { tools?, tool_choice? } — 仅当传入且非空时条件注入 body。
-  // 返回值：整条 message 对象（保留 tool_calls），而非仅 content 字符串。
-  async function callOnce(tier, apiKey, messages, options) {
-    const config = getConfig();
-    const baseUrl = config.baseUrl || 'https://api.openai.com';
-    const url = baseUrl.replace(/\/$/, '') + tier.path;
-    const model = resolveModel(tier);
+  // 档位：'user' = 用户自有高性能模型；'builtin' = 内置低性能免费模型。
+  function getTier() {
+    const user = getConfig();
+    return (user && user.apiKey && String(user.apiKey).trim()) ? 'user' : 'builtin';
+  }
 
-    // 若调用方传了 tools 但当前解析出的 model 不支持 function-calling，直接抛错让降级链跳过此层
-    if (options && options.tools && options.tools.length && !TOOL_CAPABLE_MODELS.includes(model)) {
-      throw new Error('模型 ' + model + ' 不支持工具调用（tool_calls），跳过此层');
-    }
+  // 单层直连：根据传入的 config 直连大模型（OpenAI 兼容 /chat/completions）。
+  async function callDirect(config, messages, options) {
+    const baseUrl = (config.baseUrl || 'https://api.openai.com').replace(/\/$/, '');
+    const url = baseUrl + '/chat/completions';
+    const model = config.model || 'Qwen/Qwen3.5-4B';
+    const apiKey = config.apiKey || '';
 
     const body = {
       model,
@@ -77,6 +74,12 @@ const AI = (() => {
       temperature: 0.3,
       max_tokens: config.maxTokens || 4000,
     };
+    // Qwen3 系列为「思考模型」，禁用思考可降低延迟、避免 reasoning 占用 token、
+    // 并确保 function-calling 稳定输出 tool_calls。该参数为 SiliconFlow 专属，
+    // 其它 OpenAI 兼容端点会忽略未知字段，不影响用户模型。
+    if (model.indexOf('Qwen') !== -1) {
+      body.chat_template_kwargs = { enable_thinking: false };
+    }
     // 条件注入 tools / tool_choice（仅当传入且非空）
     if (options && options.tools && options.tools.length) {
       body.tools = options.tools;
@@ -102,44 +105,19 @@ const AI = (() => {
     return data.choices?.[0]?.message || { content: '' };
   }
 
-  // 四层降级调用。
-  // options?: { tools?, tool_choice? } — 透传给 callOnce；当 tools 存在时先按"解析 model ∈ TOOL_CAPABLE_MODELS"过滤候选档。
+  // 统一入口：取生效配置直连大模型；出错返回 { error }。
   async function callWithFallback(messages, options) {
-    const config = getConfig();
-    // 密钥唯一来源：用户在设置页填写的 apiConfig.apiKey（本机 localStorage）。
-    // 不读取任何 chat 项目密钥 / 环境变量 / 外部文件。
-    const apiKey = config.apiKey;
-    if (!apiKey) {
-      return { error: '未配置 API 密钥，请到"设置"页配置' };
+    const config = getActiveConfig();
+    try {
+      const message = await callDirect(config, messages, options);
+      return {
+        content: message.content || '',
+        tool_calls: message.tool_calls,
+        tier: config.label,
+      };
+    } catch (e) {
+      return { error: '模型调用失败：' + (e.message || '未知错误') };
     }
-    if (!config.baseUrl) {
-      return { error: '未配置 API 端点，请到"设置"页配置' };
-    }
-
-    // 当调用方传了 tools，先过滤候选档：只保留"解析后 model ∈ TOOL_CAPABLE_MODELS"的 tier
-    let tiers = DEFAULT_TIERS;
-    if (options && options.tools && options.tools.length) {
-      tiers = DEFAULT_TIERS.filter((t) => TOOL_CAPABLE_MODELS.includes(resolveModel(t)));
-      if (!tiers.length) {
-        return { error: '当前配置的模型不支持工具调用，请在设置中切换到 deepseek-chat 等支持模型' };
-      }
-    }
-
-    let lastErr = null;
-    for (let i = 0; i < tiers.length; i++) {
-      try {
-        const message = await callOnce(tiers[i], apiKey, messages, options);
-        return {
-          content: message.content || '',
-          tool_calls: message.tool_calls,
-          tier: tiers[i].label,
-        };
-      } catch (e) {
-        lastErr = e;
-        console.warn(`AI 层 ${tiers[i].label} 失败，尝试下一层`, e);
-      }
-    }
-    return { error: '所有 API 层均失败：' + (lastErr ? lastErr.message : '未知错误') };
   }
 
   // 解析 SOAP JSON 输出
@@ -250,7 +228,6 @@ ${transcript}
   // supervisorPrompt：督导师身份的方法论提示词（来自 Supervisors）；context：本次会谈材料文本。
   // history：（可选）该来访者既往督导记录摘要，注入后督导可给出「长时程成长视角」。
   //          兼容旧签名 supervise(prompt, context, callback)：history 传函数时视为 callback。
-  // 密钥来源同 chat —— 仅用户在设置页填写的 apiConfig.apiKey（不沿用 chat 项目密钥）。
   function supervise(supervisorPrompt, context, history, callback) {
     if (typeof history === 'function') { callback = history; history = ''; }
     const hasHistory = history && history.replace(/\s/g, '');
@@ -287,6 +264,9 @@ ${transcript}
     chat,
     send,
     supervise,
+    // 新增：暴露当前生效配置与档位（供 Agent / 设置页判断与提示）
+    getActiveConfig,
+    getTier,
   };
 })();
 
