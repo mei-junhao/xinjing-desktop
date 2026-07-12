@@ -702,6 +702,28 @@ function checkForUpdatesManual() {
   });
 }
 
+// 首页「检查更新」按钮经渲染进程桥接调用：有更新走现有下载弹窗，无更新给明确反馈，出错给网络提示
+let _xjChecking = false;
+function checkForUpdatesFromRenderer() {
+  if (_xjChecking) return;
+  if (!autoUpdater || typeof autoUpdater.checkForUpdates !== 'function') {
+    if (mainWindow) dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '当前环境不支持自动更新（开发模式）。' });
+    return;
+  }
+  _xjChecking = true;
+  autoUpdater.checkForUpdates()
+    .then((res) => {
+      if (!res && mainWindow) {
+        dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '已是最新版本 v' + app.getVersion() + '。' });
+      }
+    })
+    .catch(() => {
+      if (mainWindow) dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '暂时无法连接更新服务器，请检查网络后重试。' });
+    })
+    .finally(() => { _xjChecking = false; });
+}
+ipcMain.handle('xj:check-updates', () => { checkForUpdatesFromRenderer(); return true; });
+
 app.whenReady().then(async () => {
   if (!fs.existsSync(APP_DIR)) {
     console.error('app 目录缺失:', APP_DIR);

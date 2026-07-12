@@ -35,7 +35,9 @@ const api = {
   onLicenseState: (cb) => { if (typeof cb === 'function') stateListeners.push(cb); },
   // 旧端口历史数据迁移：主进程扫描到旧端口后通知渲染进程；迁移完成后回传关闭临时服务
   onLegacyPorts: (cb) => { if (typeof cb === 'function') legacyPortsListeners.push(cb); },
-  notifyMigrateDone: (ports) => ipcRenderer.send('xj:migrate-done', ports)
+  notifyMigrateDone: (ports) => ipcRenderer.send('xj:migrate-done', ports),
+  // 首页「检查更新」按钮：经主进程触发 autoUpdater 手动检查（有更新弹下载框，无更新弹「已是最新」）
+  checkForUpdates: () => ipcRenderer.invoke('xj:check-updates')
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];

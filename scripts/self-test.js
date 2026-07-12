@@ -1079,6 +1079,10 @@ const T_STYLE_CSS = S_CSS; // 复用已读取的 style.css 内容
 // v1.4.1 AI 接口对话化 + 档位诚实化
 const T_AI_JS = fs.readFileSync(path.join(APP_DIR, 'js', 'ai.js'), 'utf-8');
 const T_SETTINGS_JS = fs.readFileSync(path.join(APP_DIR, 'js', 'settings.js'), 'utf-8');
+// v1.5.0 P0 首页/导航/咨询记录占位/检查更新桥接
+const T_TOKENS_CSS = fs.readFileSync(path.join(APP_DIR, 'css', 'tokens.css'), 'utf-8');
+const T_MAIN_JS = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf-8');
+const T_PRELOAD_JS = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf-8');
 
 test('S1 P0 Bug1-3 style.css 无 editorial 暖棕硬编码 rgba(158,90,60)', function () {
   assert.ok(!/rgba\(158,\s*90,\s*60/.test(S_CSS), 'style.css 仍含 editorial 暖棕硬编码');
@@ -1303,6 +1307,66 @@ test('T31 防回归：旧 id stat-clients/supervision/reports 不在 settings.js
     assert.ok(T_SETTINGS_JS.indexOf(id) === -1, 'settings.js 误引用旧 dashboard id=' + id);
   });
   assert.ok(T_SETTINGS_HTML.indexOf('id="api-tier-status"') !== -1, 'settings.html 误删 #api-tier-status');
+});
+
+// ============================================================
+// v1.5.0 P0 首页/导航重构/咨询记录占位/检查更新桥接 — T32–T35
+// ============================================================
+test('T32 导航：首页(dashboard) 置顶，咨询记录(consultations) 紧邻来访者(clients) 之前', function () {
+  const mDash = S_APP.indexOf("key: 'dashboard'");
+  const mCons = S_APP.indexOf("key: 'consultations'");
+  const mClnt = S_APP.indexOf("key: 'clients'");
+  assert.ok(mDash !== -1 && mCons !== -1 && mClnt !== -1, 'NAV_ITEMS 缺 dashboard/consultations/clients 之一');
+  assert.ok(mDash < mCons, 'dashboard 必须排在 consultations 之前');
+  assert.ok(mCons < mClnt, 'consultations 必须排在 clients 之前');
+  // 顺序中 consultations 与 clients 之间不能插入其它项（between 含 consultations 自身 1 个 key:）
+  const between = S_APP.slice(mCons, mClnt);
+  const otherKeys = (between.match(/key:\s*'/g) || []).length;
+  assert.ok(otherKeys === 1, 'consultations 与 clients 之间混入了其它导航项');
+  // label 文本
+  assert.ok(/label:\s*'首页'/.test(S_APP), 'dashboard label 应为「首页」');
+  assert.ok(/label:\s*'咨询记录'/.test(S_APP), 'consultations label 应为「咨询记录」');
+});
+
+test('T33 设计令牌收敛：calm 圆角与重阴影已降级（极简化 #8）', function () {
+  // 圆角收敛
+  assert.ok(/--r-shell:\s*14px/.test(T_TOKENS_CSS), 'tokens --r-shell 未收敛为 14px');
+  assert.ok(/--r-card:\s*10px/.test(T_TOKENS_CSS), 'tokens --r-card 未收敛为 10px');
+  assert.ok(/--r-ctl:\s*8px/.test(T_TOKENS_CSS), 'tokens --r-ctl 未收敛为 8px');
+  assert.ok(/--r-sm:\s*6px/.test(T_TOKENS_CSS), 'tokens --r-sm 未收敛为 6px');
+  assert.ok(/--r-btn:\s*8px/.test(T_TOKENS_CSS), 'tokens --r-btn 未收敛为 8px（胶囊改小圆角）');
+  // calm 浅色阴影降级（非多环 bezel）
+  assert.ok(/--shadow-bezel:\s*0 2px 10px rgba\(43, 49, 64, 0\.08\)/.test(T_TOKENS_CSS), 'calm 浅色 --shadow-bezel 未降级');
+  // calm 暗色阴影降级
+  assert.ok(/--shadow-bezel:\s*0 2px 10px rgba\(0, 0, 0, 0\.30\)/.test(T_TOKENS_CSS), 'calm 暗色 --shadow-bezel 未降级');
+});
+
+test('T34 首页快捷操作 + 检查更新桥接全链路', function () {
+  // ① index.html 三按钮
+  ['qa-supervise', 'qa-masters', 'qa-update'].forEach(function (id) {
+    assert.ok(T_INDEX_HTML.indexOf('id="' + id + '"') !== -1, 'index.html 缺 #' + id);
+  });
+  // ② dashboard.js 绑定跳转
+  assert.ok(S_DASH.indexOf("getElementById('qa-supervise')") !== -1, 'dashboard.js 未绑定 #qa-supervise');
+  assert.ok(S_DASH.indexOf("getElementById('qa-masters')") !== -1, 'dashboard.js 未绑定 #qa-masters');
+  assert.ok(S_DASH.indexOf("getElementById('qa-update')") !== -1, 'dashboard.js 未绑定 #qa-update');
+  assert.ok(S_DASH.indexOf('supervision.html') !== -1, 'dashboard.js #qa-supervise 未跳转 supervision.html');
+  assert.ok(S_DASH.indexOf('masters.html') !== -1, 'dashboard.js #qa-masters 未跳转 masters.html');
+  // ③ preload 暴露 checkForUpdates
+  assert.ok(/checkForUpdates:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('xj:check-updates'\)/.test(T_PRELOAD_JS), 'preload 未暴露 checkForUpdates 桥接');
+  // ④ main.js 注册 ipc + 处理函数
+  assert.ok(T_MAIN_JS.indexOf("ipcMain.handle('xj:check-updates'") !== -1, 'main.js 未注册 xj:check-updates');
+  assert.ok(T_MAIN_JS.indexOf('function checkForUpdatesFromRenderer') !== -1, 'main.js 缺 checkForUpdatesFromRenderer');
+});
+
+test('T35 咨询记录占位页存在且引导至来访者', function () {
+  const html = fs.readFileSync(path.join(APP_DIR, 'consultations.html'), 'utf-8');
+  assert.ok(html.length > 200, 'consultations.html 内容过短（疑似空占位）');
+  assert.ok(/咨询记录页即将上线/.test(html), 'consultations.html 缺占位说明');
+  assert.ok(/clients\.html/.test(html), 'consultations.html 未提供前往来访者入口');
+  // 阻断回归：必须调用 App.initPage 否则侧边栏 #sidebar-mount 为空
+  assert.ok(/App\.initPage\(/.test(html), 'consultations.html 未调用 App.initPage，侧边栏不会渲染');
+  assert.ok(/id="sidebar-mount"/.test(html), 'consultations.html 缺侧边栏挂载点');
 });
 
 // ============================================================

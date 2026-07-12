@@ -3,7 +3,7 @@
    ============================================================ */
 
 App.initPage({
-  title: '工作台',
+  title: '首页',
   subtitle: App.todayFullCN(),
   actions: `<button class="btn btn-primary" onclick="App.openModal('client-modal')">新建来访者<span class="trail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>`,
   onReady: function () {
@@ -124,6 +124,21 @@ App.initPage({
     renderStats();
     renderRecentSessions();
     renderRecentReports();
+
+    // ---------- 快捷操作（#5 首页）----------
+    const qaSup = document.getElementById('qa-supervise');
+    const qaMas = document.getElementById('qa-masters');
+    const qaUpd = document.getElementById('qa-update');
+    if (qaSup) qaSup.onclick = function () { location.href = 'supervision.html'; };
+    if (qaMas) qaMas.onclick = function () { location.href = 'masters.html'; };
+    if (qaUpd) qaUpd.onclick = function () {
+      const api = window.__XJ_API__;
+      if (api && typeof api.checkForUpdates === 'function') {
+        try { api.checkForUpdates(); App.showToast('正在检查更新…', 'info'); } catch (e) { App.showToast('检查更新失败', 'error'); }
+      } else {
+        App.showToast('当前环境不支持检查更新', 'error');
+      }
+    };
 
     // ---------- Agent 浮窗首次引导 ----------
     try {

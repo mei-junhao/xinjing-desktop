@@ -117,7 +117,8 @@ const App = (() => {
   }
 
   const NAV_ITEMS = [
-    { key: 'dashboard', label: '工作台', icon: 'home', href: 'index.html' },
+    { key: 'dashboard', label: '首页', icon: 'home', href: 'index.html' },
+    { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consultations.html' },
     { key: 'clients', label: '来访者', icon: 'clients', href: 'clients.html' },
     { key: 'supervision', label: '督导', icon: 'cap', href: 'supervision.html' },
     { key: 'reports', label: '报告中心', icon: 'bars', href: 'reports.html' },

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>心镜 · 咨询记录</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="layout">
+    <div id="sidebar-mount"></div>
+    <main class="main">
+      <header class="main-header">
+        <div id="page-header"></div>
+      </header>
+      <div class="content">
+        <div class="card" style="padding:var(--gap-lg);text-align:center">
+          <div style="font-size:18px;font-weight:600;margin-bottom:8px">咨询记录页即将上线</div>
+          <p style="color:var(--muted);font-family:var(--sans);line-height:1.7;margin:0 auto 14px;max-width:520px">
+            本页将汇总所有来访者的会谈记录时间线（显示「第 N 次咨询」），点击任一条可跳转到对应的会话详情。
+            当前阶段（v1.5.0）为占位，完整功能在后续版本填充。
+          </p>
+          <a class="btn btn-primary" href="clients.html">前往「来访者」查看会谈记录</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    App.initPage({
+      title: '咨询记录',
+      subtitle: '所有来访者的会谈时间线（即将上线）',
+      actions: '',
+    });
+  </script>
+</body>
+</html>
