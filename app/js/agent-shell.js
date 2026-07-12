@@ -264,6 +264,18 @@
     return '<div style="font-size:12px;color:var(--muted)">参数：' + App.escapeHtml(JSON.stringify(args)) + '</div>';
   }
 
+  // 主动跟进提示卡（写工具成功后由 runRound 经 onEvent 推送；非确认卡、不阻断）
+  function renderFollowupCard(items) {
+    if (!messagesEl || !Array.isArray(items) || !items.length) return;
+    const wrap = el('div', 'xj-agent-msg xj-agent-followup-card');
+    const lis = items.map(function (t) {
+      return '<div class="xj-agent-followup-item">• ' + App.escapeHtml(t) + '</div>';
+    }).join('');
+    wrap.innerHTML = '<div class="xj-agent-followup-head">💡 跟进提示</div>' + lis;
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
   // ---------- toast ----------
   function toast(msg, type) {
     if (typeof App !== 'undefined' && typeof App.showToast === 'function') {
@@ -322,6 +334,11 @@
               : '✓ 已完成');
             renderProgress(summary);
           }
+        }
+      }, function (evt) {
+        // 层3 主动提示：写工具成功后经 onEvent 推送，渲染轻量跟进卡（非确认卡、不阻断）
+        if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
+          renderFollowupCard(evt.items);
         }
       });
       clearTyping();

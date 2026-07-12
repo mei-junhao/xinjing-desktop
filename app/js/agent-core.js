@@ -18,6 +18,7 @@
   const MAX_STEPS = 8;
   const WINDOW = 20;
   const TOOL_RESULT_MAX = 4000;
+  const READ_RESULT_MAX = 20000; // 读/洞察类工具结果较大，用更高上限避免半截 JSON（v1.6.0 B1 修复）
 
   // ---------- 宿主全局守卫 ----------
   function getAI() {
@@ -148,7 +149,7 @@
   // onConfirm(toolCall, args) → Promise<{ ok, edited?, args? }>
   // onProgress(toolName, status, result?) → 同步回调，状态：'executing' / 'done'
   // 返回 { reply, messages, error? }
-  async function runRound(messages, onConfirm, onProgress) {
+  async function runRound(messages, onConfirm, onProgress, onEvent) {
     const AI = getAI();
     const tools = getTools();
     const toolSchemas = tools.TOOL_SCHEMAS;
@@ -253,9 +254,15 @@
         try {
           if (typeof onProgress === 'function') onProgress(toolKey, 'executing');
           const result = await tool.handler(args);
-          const content = JSON.stringify(result).slice(0, TOOL_RESULT_MAX);
+          // 读/洞察类工具返回可能较大，用更高上限，避免半截 JSON（v1.6.0 B1 修复）
+          const cap = (tool.kind === 'read' || tool.kind === 'read-light') ? READ_RESULT_MAX : TOOL_RESULT_MAX;
+          const content = JSON.stringify(result).slice(0, cap);
           messages.push({ role: 'tool', tool_call_id: tc.id || '', content: content });
           if (typeof onProgress === 'function') onProgress(toolKey, 'done', result);
+          // 主动提示：写工具 handler 成功分支附 result.data.followups，由调用方渲染（层3，非阻断）
+          if (result && result.data && Array.isArray(result.data.followups) && typeof onEvent === 'function') {
+            onEvent({ type: 'followups', items: result.data.followups });
+          }
         } catch (e) {
           messages.push(toolError(tc, e.message || '工具执行异常'));
         }
@@ -289,7 +296,7 @@
     } catch (e) { /* ignore */ }
 
     return [
-      '你是心镜 XinJing 的工作助手。你可以通过工具帮用户完成：记账录入 / 月结 / 统计查询 / 改来访者信息 / 启动 AI 督导（女娲版或仓颉版）/ 督导追问 / 开启大师对话 / 向大师发消息 / API 接口配置。',
+      '你是心镜 XinJing 的工作助手。你可以通过工具帮用户完成：记账录入 / 月结 / 统计查询 / 改来访者信息 / 查询来访者与会谈数据 / 业务洞察 / 启动 AI 督导（女娲版或仓颉版）/ 督导追问 / 开启大师对话 / 向大师发消息 / API 接口配置。',
       '规则：',
       '1. 你只能调用提供的工具，不要凭空编造数据。',
       '2. 写操作（记账/月结/改信息/督导启动）执行前会向用户确认，你只需发起 tool_call，不要在回复里假装已执行。',
@@ -299,6 +306,7 @@
       '6. 你不生成诊断、不替代临床判断、不替代真人督导。',
       '7. 督导与大师对话涉及深度临床分析，请提醒用户：Agent 浮窗是便捷入口，完整界面请在对应页面使用。',
       '8. 配置 API 接口时，如果用户只说了服务商名（如 DeepSeek 或 硅基流动）和密钥，从 agent.configure_api 的 provider 参数填预设名即可——handler 会自动查出 baseUrl 和默认 model。不要让用户手动找 baseUrl 和 model 名。若用户说出未在预设列表的服务商，选 other 并问用户要 baseUrl 和 model 名。',
+      '9. 涉及「谁 / 几次 / 多久 / 欠费 / 最久」等事实问题，必须先调用 client.query / session.query / supervision.query / stats.overview / client.insight 查询真实数据，再基于返回回答，严禁凭记忆编造。例：想知道工作最久的来访，调 stats.overview（看 longestClient）或 client.query（默认按 tenure 降序）。',
       '',
       '可用工具：',
       toolList || '（未注入工具）',
@@ -324,7 +332,8 @@
       buildSystemPrompt: buildSystemPrompt,
       MAX_STEPS: MAX_STEPS,
       WINDOW: WINDOW,
-      TOOL_RESULT_MAX: TOOL_RESULT_MAX
+      TOOL_RESULT_MAX: TOOL_RESULT_MAX,
+      READ_RESULT_MAX: READ_RESULT_MAX
     };
   }
   if (typeof module !== 'undefined' && module.exports) {
@@ -334,7 +343,8 @@
       trimToWindow: trimToWindow,
       MAX_STEPS: MAX_STEPS,
       WINDOW: WINDOW,
-      TOOL_RESULT_MAX: TOOL_RESULT_MAX
+      TOOL_RESULT_MAX: TOOL_RESULT_MAX,
+      READ_RESULT_MAX: READ_RESULT_MAX
     };
   }
 })();

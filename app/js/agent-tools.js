@@ -61,6 +61,124 @@
   }
 
   // ============================================================
+  // 共享聚合核心（v1.6.0：层1读取 / 层2洞察 / 层3主动提示 复用；未来成长轨迹 #2 也复用）
+  // 全部只读 Store getter，无 DOM、无副作用；null 安全。
+  // ============================================================
+  function aggregateClient(client) {
+    const Store = getStore();
+    const sessions = (Store.getSessionsByClient(client.id) || []);
+    let totalFee = 0, received = 0;
+    for (const s of sessions) {
+      const fee = (s.billing && s.billing.fee) || 0;
+      totalFee += fee;
+      if (s.billing && s.billing.paid) received += fee;
+    }
+    let monthly = 0;
+    if (client.billing && Array.isArray(client.billing.monthlyPayments)) {
+      for (const mp of client.billing.monthlyPayments) monthly += (mp.amount || 0);
+    }
+    const receivedTotal = received + monthly;
+    const balance = totalFee - receivedTotal;
+    const dates = sessions.map(function (s) { return s.date; }).filter(Boolean).sort();
+    const firstSessionDate = dates.length ? dates[0] : null;
+    const lastSessionDate = dates.length ? dates[dates.length - 1] : null;
+    const sessionCount = sessions.length;
+    const tenureDays = firstSessionDate
+      ? Math.round((Date.now() - new Date(firstSessionDate).getTime()) / 86400000)
+      : null;
+    return {
+      id: client.id,
+      name: client.name,
+      createdAt: client.createdAt || null,
+      sessionCount: sessionCount,
+      firstSessionDate: firstSessionDate,
+      lastSessionDate: lastSessionDate,
+      tenureDays: tenureDays,
+      totalFee: totalFee,
+      received: receivedTotal,
+      balance: balance
+    };
+  }
+
+  function aggregateAll() {
+    const Store = getStore();
+    const clients = (Store.getClients() || []);
+    let totalClients = clients.length;
+    let totalSessions = 0, totalReceivable = 0, totalReceived = 0;
+    let busiest = null, longest = null;
+    let activeThisMonth = 0;
+    const now = new Date();
+    const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    for (const c of clients) {
+      const a = aggregateClient(c); // 复用已算的 a，避免 N+1 重复聚合（v1.6.0 P2 修复）
+      totalSessions += a.sessionCount;
+      totalReceivable += a.totalFee;
+      totalReceived += a.received;
+      if (!busiest || a.sessionCount > busiest.sessionCount) busiest = { name: a.name, sessionCount: a.sessionCount };
+      if (a.tenureDays != null) {
+        if (!longest) longest = { name: a.name, firstSessionDate: a.firstSessionDate, tenureDays: a.tenureDays };
+        else if (a.tenureDays > longest.tenureDays) longest = { name: a.name, firstSessionDate: a.firstSessionDate, tenureDays: a.tenureDays };
+      }
+      // 本月活跃：任一会谈在当月即算活跃（非仅最后一条），直接查 sessions 避免再调 aggregateClient
+      const cs = (Store.getSessionsByClient(c.id) || []);
+      if (cs.some(function (s) { return s.date && s.date.indexOf(monthStr) === 0; })) activeThisMonth++;
+    }
+    return {
+      totalClients: totalClients,
+      totalSessions: totalSessions,
+      activeThisMonth: activeThisMonth,
+      busiestClient: busiest,
+      longestClient: longest,
+      totalReceivable: totalReceivable,
+      totalReceived: totalReceived,
+      balance: totalReceivable - totalReceived
+    };
+  }
+
+  function computeInsight(clientId) {
+    const Store = getStore();
+    const client = Store.getClient(clientId);
+    if (!client) return { ok: false, error: '来访者不存在' };
+    const a = aggregateClient(client);
+    const sessions = (Store.getSessionsByClient(clientId) || []);
+    const now = new Date();
+    const months = [];
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+    }
+    const sessionTrend = months.map(function (m) {
+      return sessions.filter(function (s) { return (s.date || '').indexOf(m) === 0; }).length;
+    });
+    const daysSinceLast = a.lastSessionDate
+      ? Math.round((now.getTime() - new Date(a.lastSessionDate).getTime()) / 86400000)
+      : null;
+    const riskFlags = [];
+    if (daysSinceLast != null && daysSinceLast > 21) riskFlags.push('long_gap(>21天未复诊)');
+    if (a.balance > 0) riskFlags.push('outstanding_balance(欠费¥' + a.balance + ')');
+    const fees = sessions.map(function (s) { return (s.billing && s.billing.fee) || 0; });
+    // 任一会谈免费即提示（含纯免费客户）——可能是漏费录入（v1.6.0 P2 修复：原仅 mixed 才报）
+    if (fees.length && fees.some(function (f) { return f === 0; })) {
+      riskFlags.push('fee_anomaly(存在免费会谈，可能漏费)');
+    }
+    return sanitizeResult({ ok: true, data: { clientId: clientId, sessionTrend: sessionTrend, daysSinceLast: daysSinceLast, riskFlags: riskFlags } });
+  }
+
+  function computeFollowups(clientId) {
+    const Store = getStore();
+    const client = Store.getClient(clientId);
+    if (!client) return [];
+    const a = aggregateClient(client);
+    const followups = [];
+    if (a.lastSessionDate) {
+      const days = Math.round((Date.now() - new Date(a.lastSessionDate).getTime()) / 86400000);
+      if (days > 21) followups.push(client.name + ' 已 ' + days + ' 天未复诊，建议跟进。');
+    }
+    if (a.balance > 0) followups.push(client.name + ' 当前欠费 ¥' + a.balance + '，可提醒缴费。');
+    return followups;
+  }
+
+  // ============================================================
   // 工具 1：billing.add_record（批量新增会谈记账，写）
   // ============================================================
   const SCHEMA_ADD_RECORD = {
@@ -134,7 +252,12 @@
     }
     const added = results.filter(function (x) { return x.ok; }).length;
     const skipped = results.filter(function (x) { return x.skipped; }).length;
-    return sanitizeResult({ ok: true, data: { added: added, skipped: skipped, details: results } });
+    // 层3：主动提示 —— 收集涉及客户，算跟进提示附到 data.followups（runRound 统一推送）
+    const fClients = [];
+    for (const r of results) { if (r.clientId && fClients.indexOf(r.clientId) === -1) fClients.push(r.clientId); }
+    const followups = [];
+    for (const cid of fClients) { computeFollowups(cid).forEach(function (f) { followups.push(f); }); }
+    return sanitizeResult({ ok: true, data: { added: added, skipped: skipped, details: results, followups: followups } });
   }
 
   // ============================================================
@@ -182,7 +305,7 @@
     });
     try {
       Store.updateClient(clientId, { billing: billing });
-      return sanitizeResult({ ok: true, data: { clientId: clientId, month: args.month, amount: args.amount } });
+      return sanitizeResult({ ok: true, data: { clientId: clientId, month: args.month, amount: args.amount, followups: computeFollowups(clientId) } });
     } catch (e) {
       return { ok: false, error: '月结落库失败：' + e.message };
     }
@@ -599,7 +722,7 @@
       supervisionSessions[sv.id] = chatMessages;
       return sanitizeResult({
         ok: true,
-        data: { sessionId: sv.id, impression: chatMessages[1].content, clientId: clientId }
+        data: { sessionId: sv.id, impression: chatMessages[1].content, clientId: clientId, followups: computeFollowups(clientId) }
       });
     } catch (e) {
       return { ok: false, error: '\u7763\u5bfc\u542f\u52a8\u5931\u8d25\uff1a' + (e && e.message || e) };
@@ -768,6 +891,164 @@
   }
 
   // ============================================================
+  // 工具 11：client.query（来访者聚合查询，只读，kind:'read'）
+  // ============================================================
+  const SCHEMA_CLIENT_QUERY = {
+    type: 'function',
+    function: {
+      name: 'client.query',
+      description: '查询来访者列表及聚合统计：会谈次数 / 首末会谈日期 / 工作时长(tenureDays) / 应收已收余额。只读，不弹确认。用于回答"谁工作最久 / 谁欠费最多"等事实问题。name 可按姓名包含筛选；sortBy 默认 tenure(最长优先)，可选 balance / sessions。返回最多 20 行。',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '可选，按姓名包含筛选' },
+          sortBy: { type: 'string', enum: ['tenure', 'balance', 'sessions'], default: 'tenure', description: '排序字段，默认 tenure（工作时长最长优先）' }
+        },
+        required: []
+      }
+    }
+  };
+  async function clientQuery(args) {
+    const Store = getStore();
+    args = args || {};
+    let clients = (Store.getClients() || []);
+    if (args.name) clients = clients.filter(function (c) { return (c.name || '').indexOf(args.name) !== -1; });
+    const rows = clients.map(aggregateClient);
+    const sortBy = args.sortBy || 'tenure';
+    rows.sort(function (a, b) {
+      if (sortBy === 'balance') return (b.balance || 0) - (a.balance || 0);
+      if (sortBy === 'sessions') return (b.sessionCount || 0) - (a.sessionCount || 0);
+      const ta = (a.tenureDays == null) ? -1 : a.tenureDays;
+      const tb = (b.tenureDays == null) ? -1 : b.tenureDays;
+      return tb - ta;
+    });
+    if (rows.length > 20) rows = rows.slice(0, 20);
+    return sanitizeResult({ ok: true, data: { count: rows.length, clients: rows } });
+  }
+
+  // ============================================================
+  // 工具 12：session.query（会谈记录查询，只读，kind:'read'）
+  // ============================================================
+  const SCHEMA_SESSION_QUERY = {
+    type: 'function',
+    function: {
+      name: 'session.query',
+      description: '查询会谈记录。只读。clientId 查某来访者全部会谈（日期/节数/费用/已收/类型），省略 clientId 查全局最近会谈。支持 from/to 日期范围。返回最多 30 条。',
+      parameters: {
+        type: 'object',
+        properties: {
+          clientId: { type: 'string', description: '可选，来访者ID' },
+          from: { type: 'string', description: '起始日期 YYYY-MM-DD' },
+          to: { type: 'string', description: '结束日期 YYYY-MM-DD' },
+          limit: { type: 'integer', default: 30, description: '返回条数上限（最大 30）' }
+        },
+        required: []
+      }
+    }
+  };
+  async function sessionQuery(args) {
+    const Store = getStore();
+    args = args || {};
+    let sessions;
+    if (args.clientId) sessions = (Store.getSessionsByClient(args.clientId) || []);
+    else sessions = (Store.getSessions() || []);
+    sessions = sessions.slice().sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '') || ((b.sessionNumber || 0) - (a.sessionNumber || 0));
+    });
+    if (args.from) sessions = sessions.filter(function (s) { return (s.date || '') >= args.from; });
+    if (args.to) sessions = sessions.filter(function (s) { return (s.date || '') <= args.to; });
+    const limit = (typeof args.limit === 'number' && args.limit > 0) ? Math.min(args.limit, 30) : 30;
+    sessions = sessions.slice(0, limit);
+    const rows = sessions.map(function (s) {
+      const c = args.clientId ? null : (Store.getClient(s.clientId) || {});
+      return {
+        date: s.date,
+        sessionNumber: s.sessionNumber,
+        fee: (s.billing && s.billing.fee) || 0,
+        paid: !!(s.billing && s.billing.paid),
+        type: s.type,
+        clientName: c ? c.name : undefined
+      };
+    });
+    return sanitizeResult({ ok: true, data: { count: rows.length, sessions: rows } });
+  }
+
+  // ============================================================
+  // 工具 13：supervision.query（督导记录查询，只读，kind:'read'）
+  // ============================================================
+  const SCHEMA_SUPERVISION_QUERY = {
+    type: 'function',
+    function: {
+      name: 'supervision.query',
+      description: '查询 AI/真人督导记录。只读。clientId 查某来访者全部督导（日期/督导师/主题摘要），省略查全局。返回最多 20 条。',
+      parameters: {
+        type: 'object',
+        properties: {
+          clientId: { type: 'string', description: '可选，来访者ID' }
+        },
+        required: []
+      }
+    }
+  };
+  async function supervisionQuery(args) {
+    const Store = getStore();
+    args = args || {};
+    let sups;
+    if (args.clientId) sups = (Store.getSupervisionsByClient(args.clientId) || []);
+    else sups = (Store.getSupervisions() || []);
+    sups = sups.slice().sort(function (a, b) {
+      return (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || '');
+    });
+    if (sups.length > 20) sups = sups.slice(0, 20);
+    const rows = sups.map(function (sv) {
+      return {
+        date: sv.date || (sv.createdAt ? String(sv.createdAt).slice(0, 10) : ''),
+        supervisorName: sv.supervisorName,
+        contextSnippet: String(sv.context || sv.content || '').slice(0, 60)
+      };
+    });
+    return sanitizeResult({ ok: true, data: { count: rows.length, supervisions: rows } });
+  }
+
+  // ============================================================
+  // 工具 14：stats.overview（全站业务概览，只读，kind:'read'）
+  // ============================================================
+  const SCHEMA_STATS_OVERVIEW = {
+    type: 'function',
+    function: {
+      name: 'stats.overview',
+      description: '全站业务概览（只读）：客户数 / 会谈总数 / 本月活跃客户数 / 最忙客户 / 工作最久客户 / 应收已收余额。用于回答"我这月整体情况 / 谁工作最久"。',
+      parameters: { type: 'object', properties: {}, required: [] }
+    }
+  };
+  async function statsOverview() {
+    const data = aggregateAll();
+    return sanitizeResult({ ok: true, data: data });
+  }
+
+  // ============================================================
+  // 工具 15：client.insight（单客户洞察，只读，kind:'read'）
+  // ============================================================
+  const SCHEMA_CLIENT_INSIGHT = {
+    type: 'function',
+    function: {
+      name: 'client.insight',
+      description: '单客户洞察（只读）：近3月会谈趋势 / 距上次天数 / 风险标记(long_gap>21天未复诊 / outstanding_balance欠费 / fee_anomaly免费异常)。用于回答"谁该跟进 / 费用异常"。',
+      parameters: {
+        type: 'object',
+        properties: {
+          clientId: { type: 'string', description: '来访者ID（必需）' }
+        },
+        required: ['clientId']
+      }
+    }
+  };
+  async function clientInsight(args) {
+    if (!args || !args.clientId) return { ok: false, error: '需提供 clientId' };
+    return computeInsight(args.clientId);
+  }
+
+  // ============================================================
   // Tool Registry
   // ============================================================
   const TOOL_REGISTRY = {
@@ -780,7 +1061,12 @@
     'supervision.start':      { schema: SCHEMA_SUPERVISION_START, handler: startSupervision, kind: 'write' },
     'supervision.ask':        { schema: SCHEMA_SUPERVISION_ASK, handler: askSupervision,    kind: 'read' },
     'masters.open':           { schema: SCHEMA_MASTERS_OPEN,    handler: openMaster,        kind: 'write-light' },
-    'masters.message':        { schema: SCHEMA_MASTERS_MESSAGE, handler: messageMaster,     kind: 'write-light' }
+    'masters.message':        { schema: SCHEMA_MASTERS_MESSAGE, handler: messageMaster,     kind: 'write-light' },
+    'client.query':           { schema: SCHEMA_CLIENT_QUERY,    handler: clientQuery,       kind: 'read' },
+    'session.query':          { schema: SCHEMA_SESSION_QUERY,   handler: sessionQuery,      kind: 'read' },
+    'supervision.query':      { schema: SCHEMA_SUPERVISION_QUERY, handler: supervisionQuery, kind: 'read' },
+    'stats.overview':         { schema: SCHEMA_STATS_OVERVIEW,  handler: statsOverview,     kind: 'read' },
+    'client.insight':         { schema: SCHEMA_CLIENT_INSIGHT,  handler: clientInsight,     kind: 'read' }
   };
   const TOOL_SCHEMAS = Object.keys(TOOL_REGISTRY).map(function (k) { return TOOL_REGISTRY[k].schema; });
 
@@ -799,6 +1085,13 @@
     };
   }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { TOOL_REGISTRY: TOOL_REGISTRY, TOOL_SCHEMAS: TOOL_SCHEMAS };
+    module.exports = {
+      TOOL_REGISTRY: TOOL_REGISTRY,
+      TOOL_SCHEMAS: TOOL_SCHEMAS,
+      aggregateClient: aggregateClient,
+      aggregateAll: aggregateAll,
+      computeInsight: computeInsight,
+      computeFollowups: computeFollowups
+    };
   }
 })();
