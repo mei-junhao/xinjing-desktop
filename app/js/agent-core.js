@@ -38,20 +38,58 @@
   }
 
   // ---------- 工具：上下文截断（保留未闭合 tool_call/tool_result 对） ----------
+  // 关键约束（DeepSeek / OpenAI 兼容端点）：
+  //   ① 任何 role:'tool' 消息必须紧跟在含匹配 tool_call_id 的 assistant(tool_calls) 之后；
+  //   ② assistant 含 tool_calls 时，其每个 tool_call 都必须有对应的 tool 结果消息。
+  // 否则报 HTTP 400（"Messages with role 'tool' must be a response to a preceding message with 'tool_calls' id"）。
+  // 因此将 assistant(tool_calls)+其后连续的 tool* 视为一个【原子单元】，窗口截断时整组保留或整组丢弃，
+  // 绝不允许从中间拆开产生孤儿 tool 消息 / 未应答的 tool_call。
   function trimToWindow(messages, windowSize) {
     if (!Array.isArray(messages) || messages.length <= windowSize) return messages;
-    // system 消息始终保留
-    const system = messages.filter(function (m) { return m.role === 'system'; });
-    const nonSystem = messages.filter(function (m) { return m.role !== 'system'; });
-    if (nonSystem.length <= windowSize) return system.concat(nonSystem);
-    // 找最后一对未闭合的 tool_call/tool_result（assistant 消息含 tool_calls，后跟 tool 消息）
-    const take = nonSystem.slice(-windowSize);
-    // 防止从 tool_call 与 tool_result 之间截断：若 take[0] 是 role:tool 但其前一条不在 take 中，
-    // 跳过开头的孤立 tool 消息（无法配对）
-    while (take.length > 0 && take[0].role === 'tool') {
-      take.shift();
+    const system = [];
+    const nonSystem = [];
+    for (let k = 0; k < messages.length; k++) {
+      if (messages[k].role === 'system') system.push(messages[k]);
+      else nonSystem.push(messages[k]);
     }
-    return system.concat(take);
+    if (nonSystem.length <= windowSize) return system.concat(nonSystem);
+
+    // 切分为原子单元
+    const units = [];
+    let i = 0;
+    while (i < nonSystem.length) {
+      const m = nonSystem[i];
+      if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length) {
+        const unit = [m];
+        i++;
+        while (i < nonSystem.length && nonSystem[i].role === 'tool') {
+          unit.push(nonSystem[i]);
+          i++;
+        }
+        units.push(unit);
+      } else {
+        units.push([m]);
+        i++;
+      }
+    }
+    // 从尾部贪心取，整单元不拆；允许略微不足 windowSize 以保完整
+    const result = [];
+    let count = 0;
+    for (let j = units.length - 1; j >= 0; j--) {
+      const unit = units[j];
+      if (count + unit.length > windowSize && result.length > 0) break;
+      result.unshift.apply(result, unit);
+      count += unit.length;
+    }
+    // 极端兜底：若上述循环因首个单元就超窗口导致 result 为空，强制保留最后一个单元
+    if (result.length === 0 && units.length) {
+      result.push.apply(result, units[units.length - 1]);
+    }
+    // 安全保障：若首条仍是孤立 tool（理论不会），丢弃
+    while (result.length > 0 && result[0].role === 'tool') {
+      result.shift();
+    }
+    return system.concat(result);
   }
 
   // ---------- 工具：JSON Schema 简校验（draft-07 子集） ----------
@@ -150,6 +188,15 @@
       }
       // 兼容 {choices:[{message}]} 与 {content, tool_calls, tier} 两种形态
       const msg = (resp && resp.choices && resp.choices[0] && resp.choices[0].message) || resp;
+      // 归一化 tool_calls 的 id：个别端点可能省略 id，DeepSeek 要求必填且须与 tool 结果消息的
+      // tool_call_id 一一对应，否则报 HTTP 400
+      if (msg && Array.isArray(msg.tool_calls)) {
+        msg.tool_calls = msg.tool_calls.map(function (tc, idx) {
+          const id = (tc && tc.id) ? tc.id : ('call_' + Date.now() + '_' + idx);
+          const fn = (tc && tc.function) ? tc.function : {};
+          return { id: id, type: 'function', function: fn };
+        });
+      }
       messages.push(msg);
       if (!msg.tool_calls || !Array.isArray(msg.tool_calls) || !msg.tool_calls.length) {
         return { reply: msg.content || '', messages: messages };
@@ -281,6 +328,13 @@
     };
   }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { runRound: runRound, buildSystemPrompt: buildSystemPrompt, MAX_STEPS: MAX_STEPS };
+    module.exports = {
+      runRound: runRound,
+      buildSystemPrompt: buildSystemPrompt,
+      trimToWindow: trimToWindow,
+      MAX_STEPS: MAX_STEPS,
+      WINDOW: WINDOW,
+      TOOL_RESULT_MAX: TOOL_RESULT_MAX
+    };
   }
 })();

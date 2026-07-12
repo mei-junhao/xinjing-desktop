@@ -1415,6 +1415,47 @@ test('T37 DeepSeek 预设仅保留 v4-flash/v4-pro，弃用模型已清除', fun
   assert.ok(/'deepseek-chat'/.test(settingsText) || /'deepseek-reasoner'/.test(settingsText), '迁移 OLD 列表未含弃用模型');
 });
 
+test('T38 trimToWindow 保护 tool/tool_calls 原子配对（无孤儿 tool 消息 / 无未应答 tool_call）', function () {
+  // 直接 require 真代码（agent-core 在 Node 下经 module.exports 暴露 trimToWindow / WINDOW）
+  const core = require(path.join(APP_DIR, 'js', 'agent-core.js'));
+  assert.ok(typeof core.trimToWindow === 'function', 'agent-core 未导出 trimToWindow');
+  const W = core.WINDOW;
+  // 构造超过窗口的多组 (user / assistant(tool_calls) / tool / assistant(text))，
+  // 使截断必然发生 —— 旧实现会丢弃 assistant 却保留其 tool 结果 → 孤儿 tool 消息 → HTTP 400
+  const msgs = [{ role: 'system', content: 's' }];
+  for (let g = 0; g < 8; g++) {
+    msgs.push({ role: 'user', content: 'u' + g });
+    const aid = 'call_a' + g;
+    msgs.push({ role: 'assistant', content: '', tool_calls: [{ id: aid, type: 'function', function: { name: 'billing_add_record', arguments: '{}' } }] });
+    msgs.push({ role: 'tool', tool_call_id: aid, content: '{"ok":true}' });
+    msgs.push({ role: 'assistant', content: 'text' + g });
+  }
+  assert.ok(msgs.length > W, '测试样本不足，未触发截断（样本 ' + msgs.length + ' ≤ W ' + W + '）');
+  const trimmed = core.trimToWindow(msgs, W);
+  // ① 每个 tool 结果必能在其前的 assistant tool_calls 中找到匹配 id
+  const beforeIds = new Set();
+  for (const m of trimmed) {
+    if (m.role === 'assistant' && Array.isArray(m.tool_calls)) {
+      for (const tc of m.tool_calls) beforeIds.add(tc.id);
+    } else if (m.role === 'tool') {
+      assert.ok(beforeIds.has(m.tool_call_id), '孤儿 tool 消息（tool_call_id=' + m.tool_call_id + ' 无前置 assistant）');
+    }
+  }
+  // ② 每个 assistant tool_call 都应有对应 tool 结果（在其后）
+  const afterSet = new Set();
+  for (let k = trimmed.length - 1; k >= 0; k--) {
+    const m = trimmed[k];
+    if (m.role === 'tool') afterSet.add(m.tool_call_id);
+    else if (m.role === 'assistant' && Array.isArray(m.tool_calls)) {
+      for (const tc of m.tool_calls) {
+        assert.ok(afterSet.has(tc.id), '未应答的 tool_call（id=' + tc.id + ' 缺 tool 结果）→ 同样触发 HTTP 400');
+      }
+    }
+  }
+  // ③ 长度受控（不超过 system + W）
+  assert.ok(trimmed.length <= msgs.filter(function (x) { return x.role === 'system'; }).length + W, '截断后长度失控');
+});
+
 // ============================================================
 // 汇总
 // ============================================================
