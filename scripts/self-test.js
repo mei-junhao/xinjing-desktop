@@ -1370,6 +1370,52 @@ test('T35 咨询记录占位页存在且引导至来访者', function () {
 });
 
 // ============================================================
+// v1.5.1 — Agent 工具名线格式消毒 + DeepSeek 模型列表
+// ============================================================
+test('T36 工具名线格式消毒：发往模型无非法字符且可映射回内部名', function () {
+  const at = require(path.join(APP_DIR, 'js', 'agent-tools.js'));
+  const schemas = at.TOOL_SCHEMAS;
+  assert.ok(Array.isArray(schemas) && schemas.length >= 9, 'TOOL_SCHEMAS 数量异常');
+  const wireRe = /^[A-Za-z0-9_-]{1,64}$/;
+  const seen = {};
+  const internalMap = {};
+  schemas.forEach(function (s) {
+    const orig = s.function.name;
+    const wire = String(orig).replace(/[^A-Za-z0-9_-]/g, '_');
+    assert.ok(wireRe.test(wire), '消毒后工具名非法: ' + orig + ' -> ' + wire);
+    assert.ok(!seen[wire], '消毒后工具名碰撞: ' + wire);
+    seen[wire] = true;
+    internalMap[wire] = orig;
+  });
+  // 模拟模型回传 wire 名能映射回内部点号名
+  const sample = schemas[0].function.name.replace(/[^A-Za-z0-9_-]/g, '_');
+  assert.strictEqual(internalMap[sample], schemas[0].function.name, 'wire→internal 映射失败');
+});
+
+test('T37 DeepSeek 预设仅保留 v4-flash/v4-pro，弃用模型已清除', function () {
+  const settingsText = T_SETTINGS_JS;
+  const atText = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-tools.js'), 'utf-8');
+  // settings.js PROVIDER_PRESETS.deepseek
+  const m = settingsText.match(/deepseek:\s*\{[^}]*models:\s*\[([^\]]*)\]/);
+  assert.ok(m, 'settings.js 未找到 deepseek 预设 models');
+  const models = m[1].split(',').map(function (x) { return x.replace(/['"\s]/g, ''); }).filter(Boolean);
+  assert.ok(models.indexOf('deepseek-v4-flash') !== -1, 'settings.js 缺 deepseek-v4-flash');
+  assert.ok(models.indexOf('deepseek-v4-pro') !== -1, 'settings.js 缺 deepseek-v4-pro');
+  assert.ok(models.indexOf('deepseek-chat') === -1, 'settings.js 仍含已弃用 deepseek-chat');
+  assert.ok(models.indexOf('deepseek-reasoner') === -1, 'settings.js 仍含已弃用 deepseek-reasoner');
+  // agent-tools.js API_PROVIDERS.deepseek
+  const m2 = atText.match(/'deepseek':\s*\{[^}]*models:\s*\[([^\]]*)\]/);
+  assert.ok(m2, 'agent-tools.js 未找到 deepseek 预设 models');
+  const models2 = m2[1].split(',').map(function (x) { return x.replace(/['"\s]/g, ''); }).filter(Boolean);
+  assert.ok(models2.indexOf('deepseek-v4-flash') !== -1, 'agent-tools.js 缺 deepseek-v4-flash');
+  assert.ok(models2.indexOf('deepseek-v4-pro') !== -1, 'agent-tools.js 缺 deepseek-v4-pro');
+  assert.ok(models2.indexOf('deepseek-chat') === -1, 'agent-tools.js 仍含 deepseek-chat');
+  // 迁移 OLD 列表应包含弃用模型（避免存量配置二次 400）
+  assert.ok(/OLD\s*=\s*\[[^\]]*'deepseek-chat'/.test(settingsText), '迁移 OLD 列表未含 deepseek-chat');
+  assert.ok(/'deepseek-chat'/.test(settingsText) || /'deepseek-reasoner'/.test(settingsText), '迁移 OLD 列表未含弃用模型');
+});
+
+// ============================================================
 // 汇总
 // ============================================================
 console.log('\n========== 汇总 ==========');

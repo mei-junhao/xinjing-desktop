@@ -322,9 +322,9 @@
     'deepseek': {
       label: 'DeepSeek',
       baseUrl: 'https://api.deepseek.com/v1',
-      defaultModel: 'deepseek-chat',
-      models: ['deepseek-chat', 'deepseek-reasoner'],
-      hint: '国内性价比最高，深度思考能力出色'
+      defaultModel: 'deepseek-v4-flash',
+      models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+      hint: '国内性价比最高，深度思考能力出色（chat / reasoner 已弃用，请用 v4-flash / v4-pro）'
     },
     'siliconflow': {
       label: '硅基流动 SiliconFlow',

@@ -15,11 +15,11 @@ App.initPage({
     document.getElementById('api-baseurl').value = api.baseUrl || '';
     document.getElementById('api-key').value = api.apiKey || '';
     // 旧版四个档位（deepseek-pro/flash/minimax-m3/agnes）已取消，一次性迁移回内置模型
-    const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes'];
+    const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes', 'deepseek-chat', 'deepseek-reasoner'];
     let modelPref = api.modelPreference || '';
     if (OLD.indexOf(modelPref) !== -1) {
       modelPref = '';
-      Store.saveSettings({ apiConfig: Object.assign({}, api, { modelPreference: '' }) });
+      Store.saveSettings({ apiConfig: Object.assign({}, api, { modelPreference: '', verified: false }) });
     }
     document.getElementById('api-model').value = modelPref || '__builtin__';
   }
@@ -461,7 +461,7 @@ App.initPage({
   // ============================================================
   const CD = { state: 'ask', provider: '', baseUrl: '', model: '', models: [], defaultModel: '', apiKey: '' };
   const PROVIDER_PRESETS = {
-    deepseek:   { label: 'DeepSeek',   baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-chat', models: ['deepseek-chat', 'deepseek-reasoner'] },
+    deepseek:   { label: 'DeepSeek',   baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-v4-flash', models: ['deepseek-v4-flash', 'deepseek-v4-pro'] },
     siliconflow:{ label: '硅基流动',   baseUrl: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen3.5-4B', models: ['Qwen/Qwen3.5-4B', 'Qwen/Qwen3-235B-A22B', 'deepseek-ai/DeepSeek-V3'] },
     openai:     { label: 'OpenAI',     baseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'] },
     moonshot:   { label: '月之暗面',   baseUrl: 'https://api.moonshot.cn/v1', defaultModel: 'moonshot-v1-8k', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
@@ -546,7 +546,7 @@ App.initPage({
     }
     if (!CD.models.length) {
       cdMsg('ai', '该平台我没有预设模型列表，请直接发我<b>模型名</b>。');
-      cdShowInput(true, '模型名，如 deepseek-chat');
+      cdShowInput(true, '模型名，如 deepseek-v4-pro');
       CD.state = 'modelFree';
       cdClearChips();
       return;
@@ -557,8 +557,16 @@ App.initPage({
       return { label: m, onClick: function () { cdPickModel(m); } };
     });
     chips.push({ label: '用默认（' + CD.defaultModel + '）', onClick: function () { cdPickModel(CD.defaultModel); } });
+    chips.push({ label: '✏️ 其他模型名…', onClick: cdPickModelFree });
     cdChips(chips);
     cdShowInput(false);
+  }
+  function cdPickModelFree() {
+    CD.state = 'modelFree';
+    cdMsg('user', '其他模型名');
+    cdMsg('ai', '好的，请把<b>模型名</b>发我（如 ' + CD.defaultModel + ' 或 deepseek-v4-pro）。');
+    cdShowInput(true, '模型名，如 deepseek-v4-pro');
+    cdClearChips();
   }
   function cdPickModel(m) {
     CD.model = m;
@@ -585,7 +593,7 @@ App.initPage({
         CD.baseUrl = text.replace(/\/$/, '');
         CD.models = []; CD.defaultModel = '';
         cdMsg('user', text);
-        cdMsg('ai', '收到端点。再把<b>模型名</b>发我（如 deepseek-chat）。');
+        cdMsg('ai', '收到端点。再把<b>模型名</b>发我（如 deepseek-v4-pro）。');
         cdShowInput(true, '模型名');
         CD.state = 'modelFree';
         return;
@@ -636,7 +644,7 @@ App.initPage({
     Store.saveSettings({ apiConfig: merged });
     updateTierStatus();
     if (test.ok) {
-      cdMsg('ai', '✅ <b>接入成功，已验证可用</b>！你现在是完全体，可以做复杂分析。窗口即将关闭。');
+      cdMsg('ai', '✅ <b>接入成功，已验证可用</b>！你现在是完全体，可以做复杂分析。在右下角的 Agent 浮窗里直接和我对话吧。窗口即将关闭。');
       setTimeout(closeConnectDrawer, 2200);
     } else {
       cdMsg('ai', '❌ <b>测试未通过</b>：' + App.escapeHtml(test.error || '未知错误') + '。<br>已自动降级到<b>内置免费模型</b>。你的密钥已保留，可检查后重试（端点 / 模型名 / 密钥是否正确）。');

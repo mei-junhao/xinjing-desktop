@@ -116,6 +116,16 @@
     const toolSchemas = tools.TOOL_SCHEMAS;
     const registry = tools.TOOL_REGISTRY;
 
+    // 线格式消毒：DeepSeek / OpenAI 兼容端点要求工具名匹配 ^[A-Za-z0-9_-]{1,64}$
+    // 内部契约仍用点号名（billing.add_record 等），仅在发往模型时消毒，并建立 wire→internal 映射
+    const internalMap = {};
+    function wireName(n) { return String(n).replace(/[^A-Za-z0-9_-]/g, '_'); }
+    const wireSchemas = toolSchemas.map(function (s) {
+      const wn = wireName(s.function.name);
+      internalMap[wn] = s.function.name;
+      return { type: 'function', function: Object.assign({}, s.function, { name: wn }) };
+    });
+
     if (!isUnlocked()) {
       return { error: '授权已失效，请重新激活后继续' };
     }
@@ -133,7 +143,7 @@
           AI.send(trimmed, function (r) {
             if (r && r.error) reject(new Error(r.error));
             else resolve(r);
-          }, { tools: toolSchemas, tool_choice: 'auto' });
+          }, { tools: wireSchemas, tool_choice: 'auto' });
         });
       } catch (e) {
         return { error: '模型调用失败：' + (e.message || '未知错误') };
@@ -146,8 +156,13 @@
       }
       // 分发 tool_calls
       for (const tc of msg.tool_calls) {
-        const toolKey = tc.function && tc.function.name;
+        const rawName = (tc.function && tc.function.name) || '';
+        const toolKey = internalMap[rawName] || rawName; // 映射回内部点号名
         const tool = registry[toolKey];
+        // 归一化 tc（function.name 用内部名），供 onConfirm / 确认卡预览按点号名匹配
+        const normTc = tc.function
+          ? Object.assign({}, tc, { function: Object.assign({}, tc.function, { name: toolKey }) })
+          : tc;
         if (!tool) {
           messages.push(toolError(tc, '未知工具：' + toolKey));
           continue;
@@ -166,7 +181,7 @@
           }
           let decision;
           try {
-            decision = await onConfirm(tc, args);
+            decision = await onConfirm(normTc, args);
           } catch (e) {
             messages.push(toolError(tc, '确认回调异常：' + e.message));
             continue;
