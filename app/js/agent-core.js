@@ -169,6 +169,34 @@
       return { error: '授权已失效，请重新激活后继续' };
     }
 
+    // === 退化循环防护（v1.6.2 修复）===
+    // 症状：模型拿到工具结果后仍反复发同一查询工具调用、始终不产出最终文字——这是 DeepSeek 在
+    // 「必须先查工具」强约束下的典型退化循环（如问"工作最久的来访"连发 stats.overview 8 次撞步数上限）。
+    // 防护：① 拿到首个结果后注入"直接回答"提示；② 同一工具连续调用 ≥2 次即判定退化，强制
+    // tool_choice:'none' 文字回答；③ MAX_STEPS 兜底也强制回答，避免空手而归。
+    const ANSWER_NUDGE = {
+      role: 'system',
+      content: '你已通过工具取得真实业务数据。优先基于已有数据直接用自然语言回答用户（可引用具体姓名与数字）；除非确实需要另一项不同的数据，否则不要再调用工具，尤其不得重复调用已查过的同一工具。'
+    };
+    let resultSeen = false;
+    let prevSingleKey = null;
+    let repeatCount = 0;
+    async function forceTextAnswer(baseMessages) {
+      try {
+        const r = await new Promise(function (resolve, reject) {
+          // 声明工具 + tool_choice:'none'：模型无法再发 tool_call，只能回文字（且不触发"tool 消息无 tools"报错）
+          AI.send(baseMessages.concat([ANSWER_NUDGE]), function (rr) {
+            if (rr && rr.error) reject(new Error(rr.error));
+            else resolve(rr);
+          }, { tools: wireSchemas, tool_choice: 'none' });
+        });
+        const m = (r && r.choices && r.choices[0] && r.choices[0].message) || r;
+        return (m && typeof m.content === 'string') ? m.content : '';
+      } catch (e) {
+        return '';
+      }
+    }
+
     let steps = 0;
     while (steps < MAX_STEPS) {
       if (!isUnlocked()) {
@@ -179,7 +207,8 @@
       try {
         // ai.js send(messages, callback, options) 是回调形态；用 Promise 包裹，不修改 ai.js 签名
         resp = await new Promise(function (resolve, reject) {
-          AI.send(trimmed, function (r) {
+          // 已拿到过工具结果后注入"直接回答"提示，抑制反复调工具的退化循环
+          AI.send(resultSeen ? trimmed.concat([ANSWER_NUDGE]) : trimmed, function (r) {
             if (r && r.error) reject(new Error(r.error));
             else resolve(r);
           }, { tools: wireSchemas, tool_choice: 'auto' });
@@ -201,6 +230,23 @@
       messages.push(msg);
       if (!msg.tool_calls || !Array.isArray(msg.tool_calls) || !msg.tool_calls.length) {
         return { reply: msg.content || '', messages: messages };
+      }
+      // === 退化循环检测（v1.6.2）===
+      const willCallKeys = msg.tool_calls.map(function (tc) {
+        const rn = (tc.function && tc.function.name) || '';
+        return internalMap[rn] || rn;
+      });
+      const singleKey = willCallKeys.length === 1 ? willCallKeys[0] : null;
+      if (resultSeen && singleKey && singleKey === prevSingleKey) {
+        repeatCount++;
+      } else {
+        repeatCount = singleKey ? 1 : 0;
+      }
+      // 同一工具连续调用 ≥2 次 → 判定退化循环，强制文字回答（不再浪费步数）
+      if (resultSeen && singleKey && singleKey === prevSingleKey && repeatCount >= 2) {
+        const finalText = await forceTextAnswer(trimmed);
+        if (finalText) return { reply: finalText, messages: messages, forced: true };
+        // 强制回答为空（极端异常）→ 继续循环，交由 MAX_STEPS 兜底
       }
       // 分发 tool_calls
       for (const tc of msg.tool_calls) {
@@ -267,7 +313,14 @@
           messages.push(toolError(tc, e.message || '工具执行异常'));
         }
       }
+      prevSingleKey = singleKey;
+      resultSeen = true;
     }
+    // MAX_STEPS 兜底：仍尝试强制文字回答，避免空手而归
+    try {
+      const finalText = await forceTextAnswer(trimToWindow(messages, WINDOW));
+      if (finalText) return { reply: finalText, messages: messages, forced: true };
+    } catch (e) { /* ignore */ }
     return { error: '操作步数超限（' + MAX_STEPS + ' 步），请分步或改用批量 records' };
   }
 
@@ -307,6 +360,7 @@
       '7. 督导与大师对话涉及深度临床分析，请提醒用户：Agent 浮窗是便捷入口，完整界面请在对应页面使用。',
       '8. 配置 API 接口时，如果用户只说了服务商名（如 DeepSeek 或 硅基流动）和密钥，从 agent.configure_api 的 provider 参数填预设名即可——handler 会自动查出 baseUrl 和默认 model。不要让用户手动找 baseUrl 和 model 名。若用户说出未在预设列表的服务商，选 other 并问用户要 baseUrl 和 model 名。',
       '9. 涉及「谁 / 几次 / 多久 / 欠费 / 最久」等事实问题，必须先调用 client.query / session.query / supervision.query / stats.overview / client.insight 查询真实数据，再基于返回回答，严禁凭记忆编造。例：想知道工作最久的来访，调 stats.overview（看 longestClient）或 client.query（默认按 tenure 降序）。',
+      '10. 调用查询工具拿到结果后，用一次文字回复直接回答用户即可，不要再调用同一查询工具；同一查询工具连续调用两次即视为已获取足够信息，必须停止调用工具。',
       '',
       '可用工具：',
       toolList || '（未注入工具）',
