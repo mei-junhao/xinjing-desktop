@@ -328,14 +328,33 @@ App.initPage({
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
 
-  // 授权信息卡片：已激活用户展示档位与有效期；未激活给提示
+  // 授权信息卡片：已激活用户展示档位与有效期；未激活给提示 + 本地激活入口（preload 注入按钮）+ 云激活在线校验入口
   async function renderLicenseInfo() {
     const card = document.getElementById('license-info-card');
     if (!card) return;
     let state = {};
     try { state = (await window.__XJ_API__.getState()) || {}; } catch (e) { state = {}; }
     if (!state || state.mode !== 'full' || !state.identity) {
-      card.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:var(--sans);line-height:1.6">未激活。完整功能（含 AI 督导）需输入激活码解锁。</div>';
+      card.innerHTML =
+        '<div style="font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:8px">未激活</div>' +
+        '<div style="font-size:13px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:12px">完整功能（含 AI 督导）需输入激活码解锁。两种激活方式等效，任选其一。</div>' +
+        '<div style="border-top:1px dashed var(--border);padding-top:12px;margin-bottom:12px">' +
+          '<div style="font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:6px">本地激活（离线，无需联网）</div>' +
+          '<div style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:8px">使用本地激活码离线校验，无需联网。如已有激活码，点下方按钮输入。</div>' +
+          '<button class="btn btn-ghost btn-sm" onclick="window.__XJ_API__ && window.__XJ_API__.openActivation ? window.__XJ_API__.openActivation() : null">输入本地激活码</button>' +
+        '</div>' +
+        '<div style="border-top:1px dashed var(--border);padding-top:12px">' +
+          '<div style="font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:6px">云激活（在线校验，需联网）</div>' +
+          '<div style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:8px">云端校验激活码，本地不保存密钥。网络不可达时请改用本地激活。</div>' +
+          '<div class="form-row" style="display:flex;gap:8px;margin-bottom:8px">' +
+            '<input class="form-control" id="cloud-code-input" placeholder="输入云激活码" style="flex:1">' +
+            '<button class="btn btn-primary btn-sm" id="cloud-activate-btn">云激活</button>' +
+          '</div>' +
+          '<div id="cloud-activate-msg" style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.5;min-height:14px"></div>' +
+        '</div>';
+      // 绑定云激活按钮
+      const btn = document.getElementById('cloud-activate-btn');
+      if (btn) btn.onclick = cloudActivate;
       return;
     }
     const tierLabel = (function (t) {
@@ -352,6 +371,36 @@ App.initPage({
       '<div style="font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:4px">授权给：' + App.escapeHtml(state.identity) + (tierLabel ? ' · ' + tierLabel : '') + '</div>' +
       '<div style="font-size:13px;color:var(--muted);font-family:var(--sans)">' + expText + '</div>';
   }
+
+  // 云激活：调 __XJ_API__.cloudActivate（preload → main xj:cloud-activate → cloud-verify.js POST 云端 Worker）
+  async function cloudActivate() {
+    const input = document.getElementById('cloud-code-input');
+    const msg = document.getElementById('cloud-activate-msg');
+    const btn = document.getElementById('cloud-activate-btn');
+    if (!input || !btn) return;
+    const code = (input.value || '').trim();
+    if (!code) {
+      if (msg) { msg.textContent = '请输入云激活码'; msg.style.color = 'var(--red, #c0463a)'; }
+      return;
+    }
+    btn.disabled = true; btn.textContent = '校验中…';
+    if (msg) { msg.textContent = '正在云端校验，请稍候…'; msg.style.color = 'var(--muted)'; }
+    try {
+      const r = await window.__XJ_API__.cloudActivate(code);
+      if (r && r.ok) {
+        if (msg) { msg.textContent = '云激活成功：' + (r.identity || '') + '（已解锁全部功能）'; msg.style.color = 'var(--green, #6E7E62)'; }
+        App.showToast('云激活成功：' + (r.identity || ''), 'success');
+        setTimeout(() => { location.reload(); }, 800);
+      } else {
+        if (msg) { msg.textContent = (r && r.error) || '云激活失败'; msg.style.color = 'var(--red, #c0463a)'; }
+        btn.disabled = false; btn.textContent = '云激活';
+      }
+    } catch (e) {
+      if (msg) { msg.textContent = '云激活失败：' + (e && e.message ? e.message : '未知错误'); msg.style.color = 'var(--red, #c0463a)'; }
+      btn.disabled = false; btn.textContent = '云激活';
+    }
+  }
+  window.cloudActivate = cloudActivate;
   // 主进程激活后实时刷新授权卡片与督导师锁（跨 realm 经桥接方法订阅）
   if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
     window.__XJ_API__.onLicenseState(() => { try { renderLicenseInfo(); loadSupervisorUI(); } catch (e) {} });

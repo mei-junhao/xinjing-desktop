@@ -855,6 +855,43 @@ ipcMain.handle('xj:activate', (e, code) => {
   return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, expired: false };
 });
 
+// 云激活（与本地激活并行的第二条通道；本地激活 xj:activate 完全不动）。
+// 客户端收到云激活码后 POST 到云端 Cloudflare Worker（SECRET 只在云端），云端用同一 SECRET 验签后返回
+// {ok, identity, tier, expiresAt}。客户端写同一份 license.json（加 source:'cloud' 标记来源）+ 复用 computeState + 广播。
+// 实际的 Worker 部署见 cloud-verify.js 顶 CLOUD_VERIFY_HOST（env 可配）。
+ipcMain.handle('xj:cloud-activate', async (e, code) => {
+  const mc = getMachineCode();
+  let v;
+  try {
+    v = await require('./cloud-verify').verifyCloud(code, mc);
+  } catch (err) {
+    return { ok: false, error: '云激活失败：' + (err && err.message ? err.message : '未知错误') };
+  }
+  if (!v.ok || !v.identity) return { ok: false, error: v.error || '云端校验未通过' };
+  let finalExpires = v.expiresAt || 0;
+  let bonusDays = 0;
+  if (finalExpires !== 0) {
+    const aiTrial = license.aiTrialStatus(resolveFirstInstall(), Date.now());
+    bonusDays = aiTrial.daysLeft || 0;
+    if (bonusDays > 0) finalExpires = finalExpires + bonusDays * 86400000;
+  }
+  try {
+    fs.writeFileSync(
+      path.join(userDataDir(), 'license.json'),
+      JSON.stringify({ identity: v.identity, tier: v.tier, machineCode: mc, activatedAt: Date.now(), expiresAt: finalExpires, codeExpiresAt: v.expiresAt || 0, bonusDays, source: 'cloud' }, null, 2)
+    );
+  } catch (err) {
+    return { ok: false, error: '保存激活信息失败：' + err.message };
+  }
+  computeState();
+  try {
+    BrowserWindow.getAllWindows().forEach((w) => {
+      try { if (w && w.webContents) w.webContents.send('xj:license-state', licenseState); } catch (e2) {}
+    });
+  } catch (e2) { /* ignore */ }
+  return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, source: 'cloud' };
+});
+
 ipcMain.on('xj:activationDone', () => {
   if (activationWindow) {
     try { activationWindow.close(); } catch (e) { /* ignore */ }

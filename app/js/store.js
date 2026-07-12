@@ -616,11 +616,14 @@ const Store = (() => {
   function getRecentSessions(limit = 5) {
     return cache.sessions
       .slice()
+      .filter((s) => cache.clients.some((c) => c.id === s.clientId)) // 过滤孤儿 session（来访者已被删除但 session 残留）
       .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
       .slice(0, limit);
   }
   function getRecentReports(limit = 5) {
-    const sessions = cache.sessions.filter((s) => s.hasSoap || s.hasDap || s.hasReflection);
+    const sessions = cache.sessions
+      .filter((s) => s.hasSoap || s.hasDap || s.hasReflection)
+      .filter((s) => cache.clients.some((c) => c.id === s.clientId)); // 过滤孤儿 session
     sessions.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
     return sessions.slice(0, limit);
   }

@@ -1,0 +1,290 @@
+/* ============================================================
+ * 心镜 XinJing — Agent 浮窗壳（v1.3.0 U1 页面层）
+ *
+ * 委托 agent-core.js 纯核跑 function-calling 循环；自己管：
+ *   - 浮窗面板 DOM（展开/收起 + 消息流渲染）
+ *   - inline 确认卡（写工具执行前用户确认/修改/取消）
+ *   - toast 反馈 + 错误显示
+ *   - 授权门控 UI（未激活时锁定）
+ *
+ * 入口：window.AgentOpen() / window.AgentSend(text) / window.AgentClose()
+ * Agent DOM 注入主窗口 body 末尾固定定位（injectLayout 是 header.innerHTML 先清再赋值，
+ * agent DOM 不能放 header，见方案 §2.2 / §7）。
+ * ============================================================ */
+'use strict';
+
+(function () {
+  let panelEl = null;       // 浮窗根容器
+  let messagesEl = null;    // 消息流容器
+  let inputEl = null;       // 输入框
+  let messages = [];        // 对话历史（含 system）
+  let busy = false;         // 防重入
+
+  // ---------- 工具：DOM 创建 ----------
+  function el(tag, className, html) {
+    const e = document.createElement(tag);
+    if (className) e.className = className;
+    if (html !== undefined) e.innerHTML = html;
+    return e;
+  }
+
+  // ---------- 构建浮窗 DOM ----------
+  function buildPanel() {
+    panelEl = el('div', 'xj-agent-panel');
+    panelEl.innerHTML = `
+      <div class="xj-agent-header">
+        <span class="xj-agent-title">⚙ 心镜 Agent</span>
+        <button class="xj-agent-toggle" title="收起">–</button>
+      </div>
+      <div class="xj-agent-body">
+        <div class="xj-agent-msgs" id="xj-agent-msgs"></div>
+        <div class="xj-agent-input-row">
+          <input id="xj-agent-input" class="xj-agent-input" placeholder="对心镜 Agent 说点什么..." />
+          <button class="btn btn-primary btn-sm" id="xj-agent-send">发送</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(panelEl);
+    messagesEl = panelEl.querySelector('#xj-agent-msgs');
+    inputEl = panelEl.querySelector('#xj-agent-input');
+    // 绑定事件
+    panelEl.querySelector('.xj-agent-toggle').addEventListener('click', toggleCollapse);
+    panelEl.querySelector('#xj-agent-send').addEventListener('click', onSend);
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
+    });
+    // 初始化 messages
+    messages = [{ role: 'system', content: '' }];
+    try {
+      if (typeof AgentCore !== 'undefined' && AgentCore.buildSystemPrompt) {
+        messages[0].content = AgentCore.buildSystemPrompt();
+      }
+    } catch (e) { /* ignore */ }
+    // 授权门控 UI
+    refreshLock();
+    renderWelcome();
+  }
+
+  function refreshLock() {
+    if (!panelEl) return;
+    let unlocked = true;
+    try {
+      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') {
+        unlocked = App.aiUnlocked();
+      }
+    } catch (e) { /* ignore */ }
+    const inputRow = panelEl.querySelector('.xj-agent-input-row');
+    const msgArea = panelEl.querySelector('.xj-agent-msgs');
+    let lockBanner = panelEl.querySelector('.xj-agent-lock');
+    if (unlocked) {
+      if (lockBanner) lockBanner.remove();
+      if (inputRow) inputRow.style.display = '';
+    } else {
+      if (!lockBanner && msgArea) {
+        lockBanner = el('div', 'xj-agent-lock');
+        lockBanner.innerHTML = '<div class="xj-agent-lock-inner">⚠ Agent 为付费功能，请先激活。<br><button class="btn btn-ghost btn-sm" style="margin-top:8px" id="xj-agent-activate-btn">输入激活码</button></div>';
+        msgArea.appendChild(lockBanner);
+        lockBanner.querySelector('#xj-agent-activate-btn').addEventListener('click', function () {
+          if (window.__XJ_API__ && typeof window.__XJ_API__.openActivation === 'function') {
+            window.__XJ_API__.openActivation();
+          }
+        });
+      }
+      if (inputRow) inputRow.style.display = 'none';
+    }
+  }
+
+  function renderWelcome() {
+    if (!messagesEl) return;
+    if (messagesEl.querySelector('.xj-agent-lock')) return; // 有锁就不加欢迎
+    const welcome = el('div', 'xj-agent-msg xj-agent-system', '你好，我是心镜 Agent。可以帮你记账、月结、查统计、改来访者信息。比如：<br>「帮张明记 4 月 10 号会谈 300 块次结没付」<br>「张明这个月收了多少」<br>「把张明的电话改成 138xxxx」');
+    messagesEl.appendChild(welcome);
+  }
+
+  function toggleCollapse() {
+    if (!panelEl) return;
+    panelEl.classList.toggle('xj-agent-collapsed');
+    const btn = panelEl.querySelector('.xj-agent-toggle');
+    if (btn) btn.textContent = panelEl.classList.contains('xj-agent-collapsed') ? '+' : '–';
+  }
+
+  // ---------- 渲染单条消息 ----------
+  function renderMsg(role, content) {
+    if (!messagesEl) return;
+    const cls = 'xj-agent-msg ' + (role === 'user' ? 'xj-agent-user' : (role === 'assistant' ? 'xj-agent-ai' : 'xj-agent-system'));
+    const bubble = el('div', cls);
+    bubble.innerHTML = App.escapeHtml ? App.escapeHtml(content || '') : (content || '');
+    // 保留换行
+    bubble.style.whiteSpace = 'pre-wrap';
+    messagesEl.appendChild(bubble);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function renderTyping() {
+    if (!messagesEl) return;
+    const t = el('div', 'xj-agent-msg xj-agent-typing', '<span class="xj-typing-dot"></span><span class="xj-typing-dot"></span><span class="xj-typing-dot"></span> 思考中…');
+    t.id = 'xj-agent-typing';
+    messagesEl.appendChild(t);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return t;
+  }
+  function clearTyping() {
+    const t = messagesEl && messagesEl.querySelector('#xj-agent-typing');
+    if (t) t.remove();
+  }
+
+  function renderProgress(msg) {
+    if (!messagesEl) return;
+    const p = el('div', 'xj-agent-msg xj-agent-progress', msg || '执行中…');
+    messagesEl.appendChild(p);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // ---------- inline 确认卡（写工具） ----------
+  // 确认卡渲染：返回 Promise<{ ok, edited?, args? }>
+  function requestConfirm(toolCall, args) {
+    return new Promise(function (resolve) {
+      if (!messagesEl) { resolve({ ok: false }); return; }
+      const card = el('div', 'xj-agent-confirm-card');
+      const toolName = (toolCall && toolCall.function && toolCall.function.name) || '';
+      // 预览关键字段（不同工具渲染不同的字段）
+      let previewHtml = '';
+      try {
+        previewHtml = renderConfirmPreview(toolName, args);
+      } catch (e) { previewHtml = '<div style="font-size:12px;color:var(--muted)">参数：' + App.escapeHtml(JSON.stringify(args)) + '</div>'; }
+      card.innerHTML =
+        '<div class="xj-agent-confirm-title">⚠ 即将执行写入操作</div>' +
+        '<div class="xj-agent-confirm-tool">工具：' + App.escapeHtml(toolName) + '</div>' +
+        '<div class="xj-agent-confirm-preview">' + previewHtml + '</div>' +
+        '<div class="xj-agent-confirm-actions">' +
+          '<button class="btn btn-primary btn-sm xj-agent-confirm-ok">确认执行</button>' +
+          '<button class="btn btn-ghost btn-sm xj-agent-confirm-cancel">取消</button>' +
+        '</div>';
+      messagesEl.appendChild(card);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      // 确认
+      card.querySelector('.xj-agent-confirm-ok').addEventListener('click', function () {
+        card.remove();
+        resolve({ ok: true });
+      });
+      // 取消
+      card.querySelector('.xj-agent-confirm-cancel').addEventListener('click', function () {
+        card.remove();
+        resolve({ ok: false });
+      });
+      // 本版暂不实现"修改"按钮（避免交互复杂化）；用户取消后可在对话里重新发起
+    });
+  }
+
+  function renderConfirmPreview(toolName, args) {
+    if (toolName === 'billing.add_record' && Array.isArray(args.records)) {
+      const rows = args.records.map(function (r, i) {
+        return '<div class="xj-agent-confirm-row">' +
+          '<span>①</span>'.replace('①', (i + 1) + '.') +
+          ' 来访者：<b>' + App.escapeHtml(r.clientName || r.clientId || '') + '</b> ' +
+          '日期：<b>' + App.escapeHtml(r.date || '') + '</b> ' +
+          '费用：<b>¥' + App.escapeHtml(String(r.fee || 0)) + '</b> ' +
+          (r.settleType ? App.escapeHtml(r.settleType) + '·' : '') +
+          (r.paid ? '已收' : '未收') +
+        '</div>';
+      }).join('');
+      return '<div class="xj-agent-confirm-row-list">' + rows + '</div>';
+    }
+    if (toolName === 'billing.monthly_settle') {
+      return '<div class="xj-agent-confirm-row">来访者：<b>' + App.escapeHtml(args.clientName || args.clientId || '') + '</b> 月份：<b>' + App.escapeHtml(args.month || '') + '</b> 金额：<b>¥' + App.escapeHtml(String(args.amount || 0)) + '</b></div>';
+    }
+    if (toolName === 'client.update') {
+      const keys = Object.keys(args.patch || {}).join(', ');
+      return '<div class="xj-agent-confirm-row">来访者 ID：<b>' + App.escapeHtml(args.clientId || '') + '</b><br>修改字段：<b>' + App.escapeHtml(keys) + '</b></div>';
+    }
+    return '<div style="font-size:12px;color:var(--muted)">参数：' + App.escapeHtml(JSON.stringify(args)) + '</div>';
+  }
+
+  // ---------- toast ----------
+  function toast(msg, type) {
+    if (typeof App !== 'undefined' && typeof App.showToast === 'function') {
+      App.showToast(msg, type || 'success');
+    }
+  }
+
+  // ---------- 发送 ----------
+  async function onSend() {
+    if (busy) return;
+    refreshLock();
+    let unlocked = true;
+    try {
+      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') unlocked = App.aiUnlocked();
+    } catch (e) { /* ignore */ }
+    if (!unlocked) { toast('Agent 为付费功能，请先激活', 'error'); return; }
+    if (!inputEl) return;
+    const text = (inputEl.value || '').trim();
+    if (!text) return;
+    inputEl.value = '';
+    renderMsg('user', text);
+    messages.push({ role: 'user', content: text });
+    busy = true;
+    const typingEl = renderTyping();
+    try {
+      const result = await AgentCore.runRound(messages, requestConfirm, function (name, status, data) {
+        clearTyping();
+        if (status === 'executing') renderProgress('正在执行：' + name + '…');
+        else if (status === 'done') {
+          // 成功结果由 OBSERVE→RESPOND 处理或简洁提示
+          if (data && data.ok) {
+            const summary = data.added !== undefined ? ('✓ 已新增 ' + data.added + ' 条记录' + (data.skipped ? '，跳过 ' + data.skipped + ' 条' : ''))
+              : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
+              : '✓ 已完成');
+            renderProgress(summary);
+          }
+        }
+      });
+      clearTyping();
+      if (result.error) {
+        renderMsg('system', '⚠ ' + result.error);
+      } else if (result.reply) {
+        renderMsg('assistant', result.reply);
+      }
+    } catch (e) {
+      clearTyping();
+      renderMsg('system', '⚠ 执行异常：' + (e.message || '未知错误'));
+    }
+    busy = false;
+  }
+
+  // ---------- 入口：window.AgentOpen / Close / Send ----------
+  window.AgentOpen = function () {
+    if (!panelEl) buildPanel();
+    panelEl.classList.add('xj-agent-visible');
+    if (inputEl) inputEl.focus();
+  };
+  window.AgentClose = function () {
+    if (panelEl) panelEl.classList.remove('xj-agent-visible');
+  };
+  window.AgentSend = function (text) {
+    if (!panelEl) buildPanel();
+    if (!panelEl.classList.contains('xj-agent-visible')) panelEl.classList.add('xj-agent-visible');
+    if (inputEl && text) { inputEl.value = text; onSend(); }
+  };
+
+  // 订阅主进程授权状态广播（激活/登出实时刷新锁）
+  try {
+    if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+      window.__XJ_API__.onLicenseState(function () { refreshLock(); });
+    }
+  } catch (e) { /* ignore */ }
+
+  // 在右下角加一个固定的"启动"按钮（首次展开浮窗）
+  let startBtn = null;
+  function ensureStartBtn() {
+    if (startBtn) return;
+    startBtn = el('button', 'xj-agent-start-btn', '⚙');
+    startBtn.title = '打开心镜 Agent';
+    startBtn.addEventListener('click', function () { window.AgentOpen(); });
+    document.body.appendChild(startBtn);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureStartBtn);
+  } else {
+    ensureStartBtn();
+  }
+})();

@@ -26,6 +26,7 @@ const api = {
   // 返回构建期注入的版本（不再经 IPC，避免运行时桥接失败退回写死兜底）
   getVersion: () => BUILD_VERSION,
   activate: (code) => ipcRenderer.invoke('xj:activate', code),
+  cloudActivate: (code) => ipcRenderer.invoke('xj:cloud-activate', code),
   getMachineCode: () => ipcRenderer.invoke('xj:getMachineCode'),
   done: () => ipcRenderer.send('xj:activationDone'),
   saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
@@ -88,6 +89,32 @@ try {
       lockExportPrint();
     }
     if (state.mode !== 'full') injectSettingsPanel(state);
+  });
+
+  // 独立的监听器：注入 Agent 浮窗资源（所有模式，已激活用户也能用）
+  // 注意：必须独立，因为上面受限模式的回调对已激活用户会 early return。
+  // 资源路径相对应用根目录（main.js 的 file:// 服务）。
+  window.addEventListener('DOMContentLoaded', () => {
+    try {
+      // Agent CSS
+      if (!document.querySelector('link[data-xj-agent]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'css/agent.css';
+        link.setAttribute('data-xj-agent', '1');
+        document.head.appendChild(link);
+      }
+      // Agent 工具集 + 纯核 + 浮窗壳（顺序：tools → core → shell，依赖关系）
+      const scripts = ['js/agent-tools.js', 'js/agent-core.js', 'js/agent-shell.js'];
+      scripts.forEach((src) => {
+        if (document.querySelector('script[data-xj-agent="' + src + '"]')) return;
+        const s = document.createElement('script');
+        s.src = src;
+        s.setAttribute('data-xj-agent', src);
+        s.defer = true;
+        document.body.appendChild(s);
+      });
+    } catch (e) { /* ignore */ }
   });
 
   // 激活成功后由主进程广播最新授权状态：无需整页 reload 即可实时刷新解锁 UI
