@@ -1061,6 +1061,8 @@ const S_DASH = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf-8'
 const T_TOOLS = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-tools.js'), 'utf-8');
 const T_CORE = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-core.js'), 'utf-8');
 const T_SHELL = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-shell.js'), 'utf-8');
+// v1.3.8 API 服务商预设
+const T_SETTINGS_HTML = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf-8');
 
 test('S1 P0 Bug1-3 style.css 无 editorial 暖棕硬编码 rgba(158,90,60)', function () {
   assert.ok(!/rgba\(158,\s*90,\s*60/.test(S_CSS), 'style.css 仍含 editorial 暖棕硬编码');
@@ -1156,6 +1158,52 @@ test('T11 agent-core.js buildSystemPrompt 含督导与大师描述', function ()
 
 test('T12 agent-shell.js renderConfirmPreview 含 supervision.start 预览', function () {
   assert.ok(T_SHELL.indexOf('supervision.start') !== -1, '缺 supervision.start 确认卡预览');
+});
+
+// ============================================================
+// v1.3.8 API 服务商预设 — T13–T19
+// ============================================================
+test('T13 agent-tools.js 含 API_PROVIDERS 预设表声明', function () {
+  assert.ok(/const\s+API_PROVIDERS/.test(T_TOOLS) || /var\s+API_PROVIDERS/.test(T_TOOLS), '缺 API_PROVIDERS 声明');
+});
+
+test('T14 agent-tools.js 含 8 个 provider key（用 dict key 上下文精确锁定）', function () {
+  var providers = ['deepseek', 'siliconflow', 'openai', 'moonshot', 'zhipu', 'qwen', 'doubao', 'other'];
+  providers.forEach(function (k) {
+    var re = new RegExp("['\"]" + k + "['\"]\\s*:\\s*\\{");
+    assert.ok(re.test(T_TOOLS), '缺 provider key: ' + k);
+  });
+});
+
+test('T15 agent-tools.js SCHEMA_CONFIGURE_API provider enum 含 8 项', function () {
+  var providers = ['deepseek', 'siliconflow', 'openai', 'moonshot', 'zhipu', 'qwen', 'doubao', 'other'];
+  var enumBlocks = T_TOOLS.match(/enum:\s*\[[^\]]+\]/g) || [];
+  assert.ok(enumBlocks.length > 0, '未找到任何 enum 数组');
+  // 配合 configure_api schema 的 enum block——查含 provider context 的 enum
+  var providerEnumBlock = enumBlocks.find(function (block) {
+    return providers.every(function (k) { return new RegExp("['\"]" + k + "['\"]").test(block); });
+  });
+  assert.ok(!!providerEnumBlock, '未找到含全部 8 项 provider 的 enum 块');
+});
+
+test('T16 agent-core.js buildSystemPrompt 含 API 接口配置描述', function () {
+  assert.ok(T_CORE.indexOf('API 接口配置') !== -1, '缺 API 接口配置描述');
+});
+
+test('T17 settings.html 含 6 个新增服务商 optgroup label', function () {
+  var labels = ['DeepSeek', '硅基流动 SiliconFlow', '月之暗面 Kimi', '智谱 AI GLM', '阿里通义千问', '字节豆包'];
+  labels.forEach(function (label) {
+    assert.ok(T_SETTINGS_HTML.indexOf('<optgroup label="' + label + '"') !== -1, '缺 optgroup: ' + label);
+  });
+});
+
+test('T18 行为级：handler 含 provider === other 强校验 baseUrl 分支', function () {
+  // 验证 provider='other' 时强制校验 baseUrl 缺失报错
+  assert.ok(/provider\s*===?\s*'other'[\s\S]{0,200}baseUrl/.test(T_TOOLS), 'handler 漏 provider=other 的 baseUrl 缺失校验');
+});
+
+test('T19 行为级：handler 含旧式 baseUrl && args.model 兼容分支', function () {
+  assert.ok(/args\.baseUrl\s*&&\s*args\.model/.test(T_TOOLS), 'handler 漏旧式 baseUrl+model 兼容分支');
 });
 
 // ============================================================

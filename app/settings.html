@@ -42,10 +42,37 @@
             <label class="form-label">默认模型</label>
             <select class="form-control" id="api-model">
               <option value="__builtin__">内置免费模型 (Qwen3.5-4B，永久免费)</option>
-              <option value="Qwen/Qwen3.5-4B">Qwen3.5-4B（SiliconFlow）</option>
-              <option value="deepseek-chat">DeepSeek Chat</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini">GPT-4o-mini</option>
+              <optgroup label="DeepSeek">
+                <option value="deepseek-chat">DeepSeek Chat</option>
+                <option value="deepseek-reasoner">DeepSeek Reasoner R1</option>
+              </optgroup>
+              <optgroup label="硅基流动 SiliconFlow">
+                <option value="Qwen/Qwen3.5-4B">Qwen3.5-4B</option>
+                <option value="Qwen/Qwen3-235B-A22B">Qwen3-235B-A22B（大参数）</option>
+                <option value="deepseek-ai/DeepSeek-V3">DeepSeek-V3</option>
+              </optgroup>
+              <optgroup label="OpenAI">
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o-mini</option>
+              </optgroup>
+              <optgroup label="月之暗面 Kimi">
+                <option value="moonshot-v1-8k">Kimi 8k</option>
+                <option value="moonshot-v1-32k">Kimi 32k</option>
+                <option value="moonshot-v1-128k">Kimi 128k</option>
+              </optgroup>
+              <optgroup label="智谱 AI GLM">
+                <option value="glm-4-flash">GLM-4-Flash（有免费额度）</option>
+                <option value="glm-4">GLM-4</option>
+              </optgroup>
+              <optgroup label="阿里通义千问">
+                <option value="qwen-turbo">Qwen Turbo</option>
+                <option value="qwen-plus">Qwen Plus</option>
+                <option value="qwen-max">Qwen Max</option>
+              </optgroup>
+              <optgroup label="字节豆包">
+                <option value="doubao-pro-32k">豆包 Pro 32k</option>
+                <option value="doubao-1.5-pro-256k">豆包 1.5 Pro 256k</option>
+              </optgroup>
             </select>
           </div>
           <div class="form-row" style="display:flex;gap:var(--gap);flex-wrap:wrap">

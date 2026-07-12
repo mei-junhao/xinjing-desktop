@@ -315,44 +315,134 @@
   }
 
   // ============================================================
-  // 工具 5：agent.configure_api（配置 AI 接口，写设置但不弹确认卡，kind='config'）
+  // 工具 5：agent.configure_api（配置 AI 接口，kind='config' 不弹确认卡）
+  // v1.3.8：新增 provider 预设——用户只需给服务商名 + apiKey，handler 自动查 baseUrl + 默认 model
   // ============================================================
-  const SCHEMA_CONFIGURE_API = {
+  var API_PROVIDERS = {
+    'deepseek': {
+      label: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com/v1',
+      defaultModel: 'deepseek-chat',
+      models: ['deepseek-chat', 'deepseek-reasoner'],
+      hint: '国内性价比最高，深度思考能力出色'
+    },
+    'siliconflow': {
+      label: '硅基流动 SiliconFlow',
+      baseUrl: 'https://api.siliconflow.cn/v1',
+      defaultModel: 'Qwen/Qwen3.5-4B',
+      models: ['Qwen/Qwen3.5-4B', 'Qwen/Qwen3-235B-A22B', 'deepseek-ai/DeepSeek-V3', 'meta-llama/Meta-Llama-3.1-405B-Instruct'],
+      hint: '聚合多模型，内置免费模型即此平台'
+    },
+    'openai': {
+      label: 'OpenAI',
+      baseUrl: 'https://api.openai.com/v1',
+      defaultModel: 'gpt-4o',
+      models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+      hint: '需海外网络，能力强但国内访问不便'
+    },
+    'moonshot': {
+      label: '月之暗面 Kimi',
+      baseUrl: 'https://api.moonshot.cn/v1',
+      defaultModel: 'moonshot-v1-8k',
+      models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+      hint: '长文本上下文，适合长材料分析'
+    },
+    'zhipu': {
+      label: '智谱 AI GLM',
+      baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+      defaultModel: 'glm-4-flash',
+      models: ['glm-4', 'glm-4-flash', 'glm-4-air', 'glm-4-long'],
+      hint: '清华系，Flash 版有免费额度'
+    },
+    'qwen': {
+      label: '阿里通义千问',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      defaultModel: 'qwen-plus',
+      models: ['qwen-turbo', 'qwen-plus', 'qwen-max', 'qwen-long'],
+      hint: '阿里云生态，长文本和 max 版能力强'
+    },
+    'doubao': {
+      label: '字节豆包',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      defaultModel: 'doubao-pro-32k',
+      models: ['doubao-pro-32k', 'doubao-pro-4k', 'doubao-lite-32k', 'doubao-1.5-pro-256k'],
+      hint: '火山引擎，需先在控制台创建接入点 ID'
+    },
+    'other': {
+      label: '自定义 / 其他',
+      baseUrl: '',
+      defaultModel: '',
+      hint: '其他 OpenAI 兼容平台，需手动指定 baseUrl 和 model'
+    }
+  };
+
+  var SCHEMA_CONFIGURE_API = {
     type: 'function',
     function: {
       name: 'agent.configure_api',
-      description: '为用户配置 AI 接口（apiKey / baseUrl / model）。自动写好后后续对话即用新模型。当用户给出自己的高性能模型 key 后调用本工具即可自动切换，无需再确认。',
+      description: '为用户配置 AI 接口。用户只需提供服务商预设名（provider）+ API Key 即可——handler 会从内置预设表自动查出 baseUrl 和推荐默认模型。也可手动指定 baseUrl + model 自定义配置。自动写好后后续对话即用新模型。',
       parameters: {
         type: 'object',
         properties: {
-          apiKey: { type: 'string', description: 'API 密钥（Bearer Token），如 sk-...' },
-          baseUrl: { type: 'string', description: 'OpenAI 兼容 Base URL，如 https://api.siliconflow.cn/v1' },
-          model: { type: 'string', description: '模型名，如 Qwen/Qwen3.5-4B 或 deepseek-chat 或 gpt-4o' }
+          provider: {
+            type: 'string',
+            enum: ['deepseek', 'siliconflow', 'openai', 'moonshot', 'zhipu', 'qwen', 'doubao', 'other'],
+            description: '服务商预设名，handler 自动查出 baseUrl + 默认 model。选 other 时需手动给 baseUrl + model。'
+          },
+          apiKey: { type: 'string', description: 'API 密钥，如 sk-...' },
+          model: { type: 'string', description: '可选。不传则用该服务商推荐默认模型。' },
+          baseUrl: { type: 'string', description: '可选。provider 为 other 或需自定义覆盖预设时填。' }
         },
-        required: ['apiKey', 'baseUrl', 'model']
+        required: ['apiKey']
       }
     }
   };
 
   async function configureApi(args) {
-    const Store = getStore();
-    if (!args || !args.apiKey || !args.baseUrl || !args.model) {
-      return { ok: false, error: '需提供 apiKey + baseUrl + model' };
+    var Store = getStore();
+    if (!args || !args.apiKey) {
+      return { ok: false, error: '需提供 apiKey' };
+    }
+    var baseUrl = '', model = '';
+    if (args.provider && API_PROVIDERS[args.provider]) {
+      var p = API_PROVIDERS[args.provider];
+      if (args.provider === 'other') {
+        if (!args.baseUrl) return { ok: false, error: 'other 服务商需手动指定 baseUrl' };
+        baseUrl = String(args.baseUrl).trim();
+        if (!args.model) return { ok: false, error: 'other 服务商需手动指定 model' };
+        model = String(args.model).trim();
+      } else {
+        baseUrl = (args.baseUrl || p.baseUrl || '').trim();
+        model = (args.model || p.defaultModel || '').trim();
+        if (!baseUrl) return { ok: false, error: '服务商「' + p.label + '」预设 baseUrl 缺失，需手动指定' };
+        if (!model) return { ok: false, error: '需指定 model 名' };
+      }
+    } else if (args.baseUrl && args.model) {
+      baseUrl = String(args.baseUrl).trim();
+      model = String(args.model).trim();
+    } else {
+      return {
+        ok: false,
+        error: '需提供 provider（可从预设表自动查出 baseUrl+model）或手动给出 baseUrl+model'
+      };
     }
     Store.saveSettings({
       apiConfig: {
-        baseUrl: String(args.baseUrl).trim(),
+        baseUrl: baseUrl,
         apiKey: String(args.apiKey).trim(),
-        modelPreference: String(args.model).trim(),
+        modelPreference: model,
         maxTokens: 4000,
       },
     });
+    var providerLabel = (args.provider && API_PROVIDERS[args.provider]) ? API_PROVIDERS[args.provider].label : '自定义';
     return sanitizeResult({
       ok: true,
       data: {
         switchedTo: 'user',
-        model: args.model,
-        note: '已切换到你的高性能模型，我现在是完全体，可以做更多事',
+        provider: providerLabel,
+        model: model,
+        baseUrl: baseUrl,
+        hint: '已切换到 ' + providerLabel + ' 的 ' + model + ' 模型，我现在是完全体，可以做更多事'
       },
     });
   }
