@@ -171,7 +171,7 @@
 
   function renderProgress(msg) {
     if (!messagesEl) return;
-    const p = el('div', 'xj-agent-msg xj-agent-progress', msg || '执行中…');
+    const p = el('div', 'xj-agent-msg xj-agent-progress', App.escapeHtml ? App.escapeHtml(msg || '执行中…') : (msg || '执行中…'));
     messagesEl.appendChild(p);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
@@ -328,7 +328,7 @@
             return;
           }
           // 成功结果由 OBSERVE→RESPOND 处理或简洁提示
-          if (data && data.ok) {
+          if (data) {
             const summary = data.added !== undefined ? ('✓ 已新增 ' + data.added + ' 条记录' + (data.skipped ? '，跳过 ' + data.skipped + ' 条' : ''))
               : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
               : '✓ 已完成');

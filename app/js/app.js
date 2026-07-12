@@ -480,7 +480,7 @@ const App = (() => {
       const items = filterItems(input.value);
       if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, items.length - 1); render(input.value); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); render(input.value); }
-      else if (e.key === 'Enter') { e.preventDefault(); exec(); }
+      else if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); exec(); }
       else if (e.key === 'Escape') { e.preventDefault(); close(); }
     });
     input.addEventListener('input', function () { sel = 0; render(input.value); });

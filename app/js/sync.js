@@ -213,33 +213,39 @@ function renderPreview(parsed) {
 }
 
 // ---------- 执行导入 ----------
-function doImport(parsed) {
+async function doImport(parsed) {
   const plan = computePlan(parsed);
   const nameToId = plan.nameToId;
   const createdClients = [];
+  const errors = [];
 
   // 1. 确保来访者存在（含计费信息：单价/结算方式/手动次数）
   parsed.clients.forEach((c) => {
     const name = c.name.trim();
     if (!nameToId[name]) {
-      const created = Store.createClient({
-        name: c.name,
-        status: c.status || 'active',
-        tags: ['记账同步'],
-        billing: {
-          feePerSession: c.feePerSession || 0,
-          billingMode: c.billingMode || 'per-session',
-          manualSessions: c.manualSessions || 0,
-        },
-        notes: [
-          '来源：记账系统同步',
-          '单价 ¥' + (c.feePerSession || 0),
-          c.billingMode === 'monthly' ? '月结' : '次结',
-          c.manualSessions ? '手动次数 ' + c.manualSessions : '',
-        ].filter(Boolean).join('｜'),
-      });
-      nameToId[name] = created.id;
-      createdClients.push(created);
+      try {
+        const created = Store.createClient({
+          name: c.name,
+          status: c.status || 'active',
+          tags: ['记账同步'],
+          billing: {
+            feePerSession: c.feePerSession || 0,
+            billingMode: c.billingMode || 'per-session',
+            manualSessions: c.manualSessions || 0,
+          },
+          notes: [
+            '来源：记账系统同步',
+            '单价 ¥' + (c.feePerSession || 0),
+            c.billingMode === 'monthly' ? '月结' : '次结',
+            c.manualSessions ? '手动次数 ' + c.manualSessions : '',
+          ].filter(Boolean).join('｜'),
+        });
+        nameToId[name] = created.id;
+        createdClients.push(created);
+      } catch (e) {
+        // 受限模式达上限等：捕获后跳过该来访者，避免整批导入崩溃（UI-5）
+        errors.push(`来访者「${name}」未导入：${e.message}`);
+      }
     } else {
       // 已存在：若缺计费信息则按导入值补全（不覆盖已有单价）
       const ec = Store.getClient(nameToId[name]);
@@ -257,6 +263,7 @@ function doImport(parsed) {
 
   // 2. 导入咨询节次（按记录去重）
   let added = 0;
+  const sessionTasks = [];
   parsed.records.forEach((r) => {
     const name = (r.clientName || '').trim();
     const cid = nameToId[name];
@@ -266,28 +273,36 @@ function doImport(parsed) {
     const need = Math.max(0, r.sessions - already);
     let nextNo = Store.nextSessionNumber(cid);
     for (let i = 0; i < need; i++) {
-      Store.createSession({
-        clientId: cid,
-        sessionNumber: nextNo++,
-        date: r.date,
-        durationMinutes: 0,
-        type: 'individual',
-        billing: {
-          fee: r.feePerSession || 0,
-          paid: !!r.paid,
-        },
-        notes: [
-          '来源：记账系统同步',
-          r.feePerSession ? '单价 ¥' + r.feePerSession : '',
-          r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '',
-          '[billing:' + r.key + ']',
-        ].filter(Boolean).join('｜'),
-      });
-      added++;
+      sessionTasks.push(
+        Store.createSession({
+          clientId: cid,
+          sessionNumber: nextNo++,
+          date: r.date,
+          durationMinutes: 0,
+          type: 'individual',
+          billing: {
+            fee: r.feePerSession || 0,
+            paid: !!r.paid,
+          },
+          notes: [
+            '来源：记账系统同步',
+            r.feePerSession ? '单价 ¥' + r.feePerSession : '',
+            r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '',
+            '[billing:' + r.key + ']',
+          ].filter(Boolean).join('｜'),
+        }).then(function () { added++; })
+          .catch(function (e) { errors.push(`节次导入失败：${e.message}`); })
+      );
     }
   });
+  await Promise.all(sessionTasks);
 
-  App.showToast(`导入完成：新增 ${createdClients.length} 位来访者、${added} 节咨询`, 'success');
+  if (errors.length) {
+    // 部分受限/失败：提示首条并标注数量，不掩盖成功部分
+    App.showToast(`导入完成（${errors.length} 条受限）：${errors[0]}`, 'warning');
+  } else {
+    App.showToast(`导入完成：新增 ${createdClients.length} 位来访者、${added} 节咨询`, 'success');
+  }
   renderPreview(parsed); // 重新计算，此时应全部为「跳过」
 }
 

@@ -300,7 +300,7 @@
               <div class="ai-msg ai"><div class="bubble">你好，我已经阅读了本次会谈的全部内容。你可以让我生成报告、分析主题，或就具体议题提问。</div></div>
             </div>
             <div class="ai-input-row">
-              <input class="form-control" id="ai-input" placeholder="输入问题，回车发送" onkeydown="if(event.key==='Enter')aiSend()">
+              <input class="form-control" id="ai-input" placeholder="输入问题，回车发送" onkeydown="if(event.key==='Enter'&&!event.isComposing&&event.keyCode!==229)aiSend()">
               <button class="btn btn-primary" onclick="aiSend()">发送</button>
             </div>
 

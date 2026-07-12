@@ -39,8 +39,9 @@
     return out;
   }
 
-  // ---------- 工具：解析 clientId（优先 clientId 精确；fallback clientName 精确匹配；都不中则 createClient） ----------
-  function resolveClientId(clientId, clientName) {
+  // ---------- 工具：解析 clientId（优先 clientId 精确；fallback clientName 精确匹配；都不中则按 allowCreate 决定新建/报错） ----------
+  // allowCreate=false（默认）：拼写错误时不再静默建幽灵客户，改为返回近似候选提示（AG-9 修复）
+  function resolveClientId(clientId, clientName, allowCreate) {
     const Store = getStore();
     if (clientId) {
       const c = Store.getClient(clientId);
@@ -51,13 +52,22 @@
     const match = Store.getClients().find(function (c) { return c.name === clientName; });
     if (match) return { ok: true, clientId: match.id };
     // 多个同名（理论上 Store 用 id 唯一，name 可重）—— 取第一个
-    // 无匹配 → 新建
-    try {
-      const created = Store.createClient({ name: clientName });
-      return { ok: true, clientId: created.id, created: true };
-    } catch (e) {
-      return { ok: false, error: '来访者「' + clientName + '」不存在且新建失败：' + e.message };
+    if (allowCreate) {
+      // 仅 billing.add_record 等确需「不存在即新建」的场景才自动创建
+      try {
+        const created = Store.createClient({ name: clientName });
+        return { ok: true, clientId: created.id, created: true };
+      } catch (e) {
+        return { ok: false, error: '来访者「' + clientName + '」不存在且新建失败：' + e.message };
+      }
     }
+    // 非创建场景：给出近似候选，避免拼写错误静默建幽灵客户
+    const near = Store.getClients()
+      .filter(function (c) { return c.name && c.name.indexOf(clientName) !== -1; })
+      .slice(0, 3)
+      .map(function (c) { return c.name; });
+    const hint = near.length ? ('，近似来访者：' + near.join('、')) : '';
+    return { ok: false, error: '来访者「' + clientName + '」不存在' + hint + '（请确认名称或改用 clientId）' };
   }
 
   // ============================================================
@@ -204,7 +214,7 @@
                 settleType: { type: 'string', enum: ['次结', '月结'], default: '次结', description: '结算类型（仅作认知用，handler 不落库为 session 顶层字段）' },
                 note: { type: 'string', description: '备注' }
               },
-              required: ['clientName', 'date', 'fee']
+              required: ['date', 'fee']
             }
           }
         },
@@ -221,7 +231,7 @@
     const results = [];
     for (const r of args.records) {
       // 1. 解析 clientId
-      const resolved = resolveClientId(r.clientId, r.clientName);
+      const resolved = resolveClientId(r.clientId, r.clientName, true);
       if (!resolved.ok) { results.push({ skipped: true, reason: resolved.error }); continue; }
       const clientId = resolved.clientId;
       // 2. 写前查重：复用 [billing:KEY] tag 惯例，细化为 [billing:clientId:date:fee]
@@ -276,7 +286,7 @@
           month: { type: 'string', pattern: '^\\d{4}-\\d{2}$', description: '月份 YYYY-MM' },
           amount: { type: 'number', minimum: 0, description: '月结付款金额（元）' }
         },
-        required: ['clientName', 'month', 'amount']
+        required: ['month', 'amount']
       }
     }
   };
@@ -288,7 +298,7 @@
     }
     if (args.amount < 0) return { ok: false, error: 'amount 不能为负' };
     // 1. 解析 clientId
-    const resolved = resolveClientId(args.clientId, args.clientName);
+    const resolved = resolveClientId(args.clientId, args.clientName, false);
     if (!resolved.ok) return { ok: false, error: resolved.error };
     const clientId = resolved.clientId;
     // 2. 先 getClient 读全量 client（含 billing）
@@ -516,7 +526,7 @@
           model: { type: 'string', description: '可选。不传则用该服务商推荐默认模型。' },
           baseUrl: { type: 'string', description: '可选。provider 为 other 或需自定义覆盖预设时填。' }
         },
-        required: ['apiKey']
+        required: []
       }
     }
   };
@@ -695,9 +705,12 @@
     if (typeof SupervisionCore === 'undefined') {
       return { ok: false, error: 'SupervisionCore 未注入，请在督导页使用' };
     }
-    var resolved = resolveClientId(args.clientId, args.clientName);
-    if (!resolved.ok) return { ok: false, error: resolved.error };
-    var clientId = resolved.clientId;
+    var clientId = null;
+    if (args.clientId || args.clientName) {
+      var resolved = resolveClientId(args.clientId, args.clientName, false);
+      if (!resolved.ok) return { ok: false, error: resolved.error };
+      clientId = resolved.clientId;
+    }
     try {
       var result = await SupervisionCore.runImpression(args.supervisorName, args.material);
       if (result.error) return { ok: false, error: result.error };
@@ -722,7 +735,7 @@
       supervisionSessions[sv.id] = chatMessages;
       return sanitizeResult({
         ok: true,
-        data: { sessionId: sv.id, impression: chatMessages[1].content, clientId: clientId, followups: computeFollowups(clientId) }
+        data: { sessionId: sv.id, impression: chatMessages[1].content, clientId: clientId, followups: clientId ? computeFollowups(clientId) : [] }
       });
     } catch (e) {
       return { ok: false, error: '\u7763\u5bfc\u542f\u52a8\u5931\u8d25\uff1a' + (e && e.message || e) };
@@ -756,6 +769,16 @@
       return { ok: false, error: 'SupervisionCore 未注入' };
     }
     var chatMessages = supervisionSessions[args.sessionId];
+    // AG-7 修复：reload 后内存会话丢失，从 Store 回退重建（用已存整体印象作为上下文继续追问）
+    if (!chatMessages) {
+      try {
+        var sv = Store.getSupervision(args.sessionId);
+        if (sv && sv.content) {
+          chatMessages = [{ role: 'assistant', content: sv.content }];
+          supervisionSessions[args.sessionId] = chatMessages;
+        }
+      } catch (e) {}
+    }
     if (!chatMessages) {
       return { ok: false, error: '\u7763\u5bfc\u4f1a\u8bdd\u5df2\u8fc7\u671f\u6216\u4e0d\u5b58\u5728\uff0c\u8bf7\u91cd\u65b0\u542f\u52a8\u7763\u5bfc' };
     }

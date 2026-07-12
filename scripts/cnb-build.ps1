@@ -57,6 +57,19 @@ Push-Location $proj
 node scripts/codegen-version.js
 Pop-Location
 
+# --- 1.5 (C3 修复)：重生成 gitignored 的 builtin 提示词（prompts.builtin.js），
+# 否则干净机器打包后 Agent 功能因缺失提示词文件而静默失效。失败仅告警，不阻断构建。
+Push-Location $proj
+$pyBin = $null
+if (Get-Command python -ErrorAction SilentlyContinue) { $pyBin = 'python' }
+elseif (Get-Command py -ErrorAction SilentlyContinue) { $pyBin = 'py' }
+if ($pyBin) {
+  try { & $pyBin scripts/gen-prompts-builtin.py } catch { Write-Warning ("gen-prompts-builtin 失败: " + $_) }
+} else {
+  Write-Warning 'python 不可用，跳过 prompts.builtin.js 重新生成（干净机器上 Agent 可能静默失效）'
+}
+Pop-Location
+
 # --- 2-4. clean rebuild (dist MUST match the bumped version) + postbuild ---
 # always remove old dist so electron-builder emits the new versioned assets
 # raw .NET delete bypasses the PowerShell Remove-Item safe-delete guard (which

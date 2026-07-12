@@ -78,7 +78,7 @@
     let count = 0;
     for (let j = units.length - 1; j >= 0; j--) {
       const unit = units[j];
-      if (count + unit.length > windowSize && result.length > 0) break;
+      if (count + unit.length > windowSize) break;
       result.unshift.apply(result, unit);
       count += unit.length;
     }
@@ -143,6 +143,40 @@
   }
   function toolAbort(tc) {
     return { role: 'tool', tool_call_id: tc.id || '', content: '{"ok":false,"error":"用户取消"}' };
+  }
+
+  // 结构化截断：保证 result 序列化为【合法 JSON】，绝不从中途切断字符（避免半截 JSON 被模型误解析）
+  // 做法：仅对字符串值按长度截断（字符串值内部切断仍是合法 JSON），必要时逐步缩小单串上限直到整体 <= cap。
+  function _truncateStrings(v, maxStr) {
+    if (typeof v === 'string') {
+      return v.length > maxStr ? v.slice(0, maxStr) + '…[已截断]' : v;
+    }
+    if (Array.isArray(v)) {
+      return v.map(function (x) { return _truncateStrings(x, maxStr); });
+    }
+    if (v && typeof v === 'object') {
+      const o = {};
+      for (const k in v) {
+        if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+        o[k] = _truncateStrings(v[k], maxStr);
+      }
+      return o;
+    }
+    return v;
+  }
+  function safeStringify(result, cap) {
+    const full = JSON.stringify(result);
+    if (full.length <= cap) return full;
+    let maxStr = Math.max(120, Math.floor(cap / 8));
+    let last = full;
+    while (maxStr >= 60) {
+      const t = JSON.stringify(_truncateStrings(result, maxStr));
+      if (t.length <= cap) return t;
+      last = t;
+      maxStr = Math.floor(maxStr / 2);
+    }
+    // 兜底：返回最后一次「仅切字符串值」的结果（仍是合法 JSON，可能略超 cap，但绝不会半截损坏）
+    return last;
   }
 
   // ---------- 主循环：runRound ----------
@@ -302,9 +336,9 @@
           const result = await tool.handler(args);
           // 读/洞察类工具返回可能较大，用更高上限，避免半截 JSON（v1.6.0 B1 修复）
           const cap = (tool.kind === 'read' || tool.kind === 'read-light') ? READ_RESULT_MAX : TOOL_RESULT_MAX;
-          const content = JSON.stringify(result).slice(0, cap);
+          const content = safeStringify(result, cap);
           messages.push({ role: 'tool', tool_call_id: tc.id || '', content: content });
-          if (typeof onProgress === 'function') onProgress(toolKey, 'done', result);
+          if (typeof onProgress === 'function') onProgress(toolKey, 'done', result.data);
           // 主动提示：写工具 handler 成功分支附 result.data.followups，由调用方渲染（层3，非阻断）
           if (result && result.data && Array.isArray(result.data.followups) && typeof onEvent === 'function') {
             onEvent({ type: 'followups', items: result.data.followups });

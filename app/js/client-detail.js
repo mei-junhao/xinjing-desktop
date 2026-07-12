@@ -120,9 +120,14 @@ App.initPage({
         return;
       }
     }
-    const session = await Store.createSession({ clientId, sessionNumber: num });
-    App.closeModal('session-number-modal');
-    location.href = 'session.html?id=' + session.id;
+    try {
+      const session = await Store.createSession({ clientId, sessionNumber: num });
+      App.closeModal('session-number-modal');
+      location.href = 'session.html?id=' + session.id;
+    } catch (e) {
+      // createSession 在受限模式下可能对只读(溢出)来访者抛错（S9 守卫），需提示而非静默失败
+      App.showToast(e && e.message ? e.message : '新建节次失败', 'error');
+    }
   };
 
   window.openEditFromDetail = function () {

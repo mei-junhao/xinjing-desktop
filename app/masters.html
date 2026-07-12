@@ -114,7 +114,7 @@
             </div>
             <div class="chat-input">
               <textarea id="msg-input" placeholder="输入你的问题，回车发送（圆桌模式下可 @大师 指定发言）" disabled
-                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"></textarea>
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229){event.preventDefault();sendMessage()}"></textarea>
               <button id="send-btn" onclick="sendMessage()" disabled>发送</button>
             </div>
 

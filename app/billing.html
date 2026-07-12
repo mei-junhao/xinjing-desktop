@@ -1208,7 +1208,7 @@
             const mode = c?.billingMode==='monthly'?'月结':'次结';
             let status = '';
             if(c?.billingMode==='monthly'){
-                const m = r.date.slice(0,7);
+                const m = (r.date || '').slice(0,7);
                 const due = getMonthlyDue(r.clientId, m);
                 const paid = getMonthlyPayment(r.clientId, m);
                 const bal = due - paid;
@@ -1232,12 +1232,12 @@
             const ym = prompt('请输入年月（如 2025-04）：', new Date().toISOString().slice(0,7));
             if (!ym || !/^\d{4}-\d{2}$/.test(ym)) { toast('格式无效','warning'); return; }
             filename = ym+'_记录';
-            data.records.filter(r=>r.date.startsWith(ym)).forEach(r=>addRow(r,getClient(r.clientId)));
+            data.records.filter(r=>(r.date||'').startsWith(ym)).forEach(r=>addRow(r,getClient(r.clientId)));
         } else if (type === 'year') {
             const y = prompt('请输入年份（如 2025）：', String(new Date().getFullYear()));
             if (!y || !/^\d{4}$/.test(y)) { toast('格式无效','warning'); return; }
             filename = y+'_记录';
-            data.records.filter(r=>r.date.startsWith(y)).forEach(r=>addRow(r,getClient(r.clientId)));
+            data.records.filter(r=>(r.date||'').startsWith(y)).forEach(r=>addRow(r,getClient(r.clientId)));
         }
         if (rows.length <= 1) { toast('没有可导出的记录','warning'); return; }
         exportCSV(rows, filename);

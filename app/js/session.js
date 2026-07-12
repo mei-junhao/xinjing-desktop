@@ -203,7 +203,8 @@ App.initPage({
       next: '基于当前会谈资料，建议下次咨询可以聚焦的方向。',
     };
     AI.chat(prompts[type] + '\n\n逐字稿：\n' + transcript, (reply) => {
-      addAiMessage(reply, false);
+      if (reply && reply.error) { App.showToast('生成失败：' + reply.error, 'error'); return; }
+      addAiMessage(reply && reply.content != null ? reply.content : reply, false);
     });
   };
 
@@ -216,7 +217,8 @@ App.initPage({
     input.value = '';
     const context = `逐字稿：\n${document.getElementById('t-transcript').value}\n\nSOAP：\n${document.getElementById('soap-s').value} ${document.getElementById('soap-a').value}\n\n反思：\n${document.getElementById('t-reflection').value}`;
     AI.chat(text + '\n\n参考材料：\n' + context, (reply) => {
-      addAiMessage(reply, false);
+      if (reply && reply.error) { App.showToast('生成失败：' + reply.error, 'error'); return; }
+      addAiMessage(reply && reply.content != null ? reply.content : reply, false);
     });
   };
 

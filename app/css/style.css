@@ -6,6 +6,9 @@
 
 @import url('tokens.css');
 
+/* C1 修复：统一圆角 token 别名（实际令牌为 --r-sm，旧代码误用 --radius-sm 致 AI 面板变直角） */
+:root { --radius-sm: var(--r-sm); }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 /* 通用隐藏（供 settings/masters/session 等页的 classList.toggle('hidden') 使用） */

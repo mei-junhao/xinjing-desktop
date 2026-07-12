@@ -3,6 +3,10 @@
  * 引用 tokens.css 的 calm 皮肤令牌（v1.2.0 已就绪），不硬编码颜色。
  * ============================================================ */
 
+/* C2 修复：定义 --clay 令牌，避免未定义时退回固定色导致暗色/calm 下错色 */
+:root { --clay: #9c5a3c; }
+[data-theme="dark"], .dark { --clay: #c8926f; }
+
 /* 启动按钮：右下角固定 */
 .xj-agent-start-btn {
   position: fixed;

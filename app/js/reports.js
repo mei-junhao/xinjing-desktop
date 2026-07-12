@@ -100,7 +100,7 @@ App.initPage({
         rows += `<tr>
           <td><span class="checkbox ${isSel ? 'checked' : ''}" data-sid="${s.id}" onclick="toggleSelect('${s.id}')">${isSel ? '✓' : ''}</span></td>
           <td><span class="session-link" onclick="location.href='session.html?id=${s.id}'">第${s.sessionNumber}节</span><br><span style="font-size:11px;color:var(--muted)">${App.formatDate(s.date, true)}</span></td>
-          <td>${s.hasTranscript ? `<span class="tag tag-confirmed">✓已确认</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+          <td>${s.hasTranscript ? `<span class="tag tag-transcript">逐字稿</span>` : '<span style="color:var(--muted)">—</span>'}</td>
           <td>
             ${s.hasSoap ? '<span class="tag tag-soap">SOAP</span> ' : ''}
             ${s.hasDap ? '<span class="tag tag-dap">DAP</span>' : ''}

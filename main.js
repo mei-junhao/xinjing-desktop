@@ -91,6 +91,10 @@ checkDataAnomaly();
 
 const APP_DIR = path.join(__dirname, 'app');
 const BUILD_DIR = path.join(__dirname, 'build');
+// M7 修复补充：以 APP_DIR 自身的真实路径为基准（APP_DIR 自身可能是软链接，
+// 若直接拿字符串 APP_DIR 比较，realpathSync(resolved) 会因前缀不匹配而全部 403）。
+let APP_DIR_REAL = APP_DIR;
+try { APP_DIR_REAL = fs.realpathSync(APP_DIR); } catch (e) { APP_DIR_REAL = APP_DIR; }
 
 // ---- 单实例锁：避免开多个心镜窗口 ----
 if (!app.requestSingleInstanceLock()) {
@@ -139,6 +143,11 @@ function exportBackup() {
     // 2) 自定义多位置（多份容灾）
     (cfg.locations || []).forEach((loc) => {
       try {
+        if (!loc || typeof loc !== 'string') return;
+        // M8 修复：导出前校验目标路径（存在且为目录），避免对失效/非法/已删除的路径静默 cpSync 失败
+        let st;
+        try { st = fs.statSync(loc); } catch (e) { console.warn('[backup] 跳过无效备份位置（不存在）:', loc); return; }
+        if (!st.isDirectory()) { console.warn('[backup] 跳过无效备份位置（非目录）:', loc); return; }
         const d = path.join(loc, 'XinJing-' + ts);
         fs.mkdirSync(path.dirname(d), { recursive: true });
         fs.cpSync(src, d, { recursive: true });
@@ -323,6 +332,15 @@ function serveApp(req, res) {
         res.end('Not Found');
         return;
       }
+      // M7 修复：fs.stat 会跟随符号链接，需再校验真实路径仍在 APP_DIR 内，
+      // 否则 APP_DIR 内的 symlink 可指向任意外部文件实现穿越读取。
+      let realPath;
+      try { realPath = fs.realpathSync(resolved); } catch (e) { res.writeHead(403); res.end('Forbidden'); return; }
+      if (realPath !== APP_DIR_REAL && !realPath.startsWith(APP_DIR_REAL + path.sep)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+      }
       const ext = path.extname(resolved).toLowerCase();
       res.writeHead(200, {
         'Content-Type': MIME[ext] || 'application/octet-stream',
@@ -501,11 +519,14 @@ function createWindow() {
     if (app.isQuiting) return;            // 明确退出（托盘"退出"/确认选"完全退出"）不拦截
     e.preventDefault();
     if (closeConfirmWin) { try { closeConfirmWin.focus(); } catch (_) {} return; }
+    // M9 修复：若主窗口已隐藏（托盘后台常驻），不可把确认窗作为「隐藏父窗口的 modal」——
+    // 那样确认窗会因父窗口不可见而无法显示/点击。此时改为无父、非 modal 的独立窗口。
+    const parentVisible = !!(mainWindow && mainWindow.isVisible());
     closeConfirmWin = new BrowserWindow({
       width: 360,
       height: 252,
-      parent: mainWindow,
-      modal: true,
+      parent: parentVisible ? mainWindow : undefined,
+      modal: parentVisible,
       frame: false,
       resizable: false,
       show: false,
@@ -730,7 +751,7 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
-  computeState(); // 启动即确定授权/试用状态
+  try { computeState(); } catch (e) { console.error('[computeState] 启动计算授权状态失败，使用默认未激活态:', (e && e.message) || e); } // M1 修复：抛错不得阻断窗口创建
   PORT = await startStaticServer();
   // 当前端口 orphan 预合并：渲染进程打开 IndexedDB 之前，先把「恰好是当前端口」的 .orphan 旧库还原，
   // 否则它因端口冲突无法经临时服务迁移而永久丢失（store.js migrateOldPorts 负责其余非当前端口）。
@@ -742,8 +763,13 @@ app.whenReady().then(async () => {
   // 由渲染进程用隐藏 iframe 在旧 origin 上下文读出数据、合并写入当前端口库（根治「换端口=历史丢失」）
   if (mainWindow) {
     mainWindow.webContents.once('did-finish-load', async () => {
-      const ports = await startLegacyMigrateServers();
-      if (ports.length) mainWindow.webContents.send('xj:legacy-ports', ports);
+      // M2 修复：窗口加载完成即推送授权/试用状态，避免付费/试用用户短暂读到默认 aiUnlocked=false 而锁死 AI
+      try { if (licenseState) mainWindow.webContents.send('xj:license-state', licenseState); } catch (e) {}
+      // M4 修复：迁移服务启动必须 try/catch，否则异常会变成未处理的 rejection 并阻断后续 legacy-ports 推送
+      try {
+        const ports = await startLegacyMigrateServers();
+        if (ports.length) mainWindow.webContents.send('xj:legacy-ports', ports);
+      } catch (e) { console.error('[migrate] 启动旧端口迁移服务失败（已跳过）', (e && e.message) || e); }
     });
   }
   createTray();

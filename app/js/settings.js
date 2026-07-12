@@ -662,7 +662,7 @@ App.initPage({
     bind('link-use-builtin', 'click', function () { if (window.useBuiltinModel) window.useBuiltinModel(); });
     bind('cd-close', 'click', closeConnectDrawer);
     bind('cd-send', 'click', cdOnInputSend);
-    bind('cd-input', 'keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); cdOnInputSend(); } });
+    bind('cd-input', 'keydown', function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); cdOnInputSend(); } });
     bind('connect-drawer', 'click', function (e) { if (e.target === cdEl('connect-drawer')) closeConnectDrawer(); });
     bind('ds-guide-close', 'click', hideDsGuide);
     bind('ds-guide-done', 'click', function () { hideDsGuide(); openConnectDrawer(); });

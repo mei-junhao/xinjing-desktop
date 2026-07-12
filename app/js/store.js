@@ -53,6 +53,9 @@ const Store = (() => {
         reject(e.target.error);
       };
     });
+    // S11 修复：打开失败时清空被缓存的 rejected promise，使后续调用能够重试，
+    // 避免「一次性打开失败导致永久所有 DB 操作不可用」（缓存永久 rejected）。
+    _dbPromise.catch(() => { _dbPromise = null; });
     return _dbPromise;
   }
 
@@ -103,6 +106,24 @@ const Store = (() => {
     }
   }
 
+  async function idbDelete(key) {
+    if (!_dbAvailable) {
+      try { localStorage.removeItem('xj2_' + key); } catch (e) {}
+      return;
+    }
+    try {
+      const db = await getDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {
+      _dbAvailable = false;
+      try { localStorage.removeItem('xj2_' + key); } catch (e2) {}
+    }
+  }
   function persist(key) {
     // 不阻塞：异步写回，失败静默告警
     idbPut(key, cache[key]).catch((e) => console.warn('[Store] 持久化失败', key, e));
@@ -169,6 +190,9 @@ const Store = (() => {
       settings && typeof settings === 'object'
         ? Object.assign({ apiConfig: {}, version: '1.0.0' }, settings)
         : { apiConfig: {}, version: '1.0.0' };
+    // S8 修复：把旧版拆出的大字段（transcript/soap 等）合并回对应 session，
+    // 必须在 maybeDedupe 之前完成，否则去重看不到合并后的会话。
+    try { await mergeLegacyBlobs(); } catch (e) { console.error('[Store] 合并旧版 blob 失败（已跳过）', e); }
     hydrated = true;
     // 升级后一次性去重：根治「换端口迁移后同记录出现多份」(1.0.21 暴露 4 份重复)。
     // 去重前会备份原数据到 __xj_dedup_backup_*，并写防重标记，绝不误删内容不同的记录。
@@ -186,6 +210,42 @@ const Store = (() => {
 
   function isHydrated() {
     return hydrated;
+  }
+
+  // S8 修复：旧版把大字段（transcript / soap / dap / reflection / summary 等）拆到
+  // localStorage 的 xj_blob_<sessionId>:<field>，migrateFromLocalStorage 已将其落到
+  // IndexedDB 的 clients_blob_<sessionId>:<field>，但此前无人读取 → 数据等于丢失。
+  // 此处把它们合并回对应 session 对象（存于 'sessions' 数组），让旧数据真正可用，随后删除孤儿键。
+  async function mergeLegacyBlobs() {
+    const PREFIX = 'clients_blob_';
+    const all = await readAllKv();
+    const matches = Object.keys(all).filter((k) => k.indexOf(PREFIX) === 0);
+    if (!matches.length) return;
+    let changed = 0;
+    for (const k of matches) {
+      const rest = k.slice(PREFIX.length); // <sessionId>:<field>
+      const idx = rest.indexOf(':');
+      if (idx <= 0) { try { await idbDelete(k); } catch (e) {} continue; }
+      const sessionId = rest.slice(0, idx);
+      const field = rest.slice(idx + 1);
+      const session = cache.sessions.find((s) => s.id === sessionId);
+      if (!session) { try { await idbDelete(k); } catch (e) {} continue; }
+      const val = all[k];
+      // 仅当目标字段为空才覆盖，绝不覆盖已存在的正式数据
+      if (val != null && session[field] == null) {
+        session[field] = val;
+        changed++;
+      }
+      try { await idbDelete(k); } catch (e) {}
+    }
+    if (changed > 0) {
+      // 重新计算报告标记后写回
+      for (const s of cache.sessions) {
+        Object.assign(s, computeSessionFlags(s));
+      }
+      persist('sessions');
+      console.info('[Store] 已合并', changed, '条旧版大字段到对应会话');
+    }
   }
 
   // ---------- 工具 ----------
@@ -327,7 +387,9 @@ const Store = (() => {
     const remainingSessionIds = sessions.map((s) => s.id);
     cache.supervisions = cache.supervisions.filter((sv) => {
       const ids = sv.sessionIds || [];
-      return ids.every((sid) => remainingSessionIds.includes(sid));
+      // 仅当督导关联的全部 session 都已被删（一个不剩）才级联删除该督导；
+      // 用 some（而非 every）避免「任一 session 被删就整条督导丢失」（S5 修复）
+      return ids.length === 0 ? true : ids.some((sid) => remainingSessionIds.includes(sid));
     });
     persist('supervisions');
     return true;
@@ -366,9 +428,14 @@ const Store = (() => {
     if (idx >= 0) cache.sessions[idx] = meta;
     else cache.sessions.push(meta);
     persist('sessions');
-    return session;
+    // S10 修复：返回带 flags 的 meta（hasTranscript 等），而非原始 session，
+    // 否则调用方拿到的对象缺报告标记，报告中心/工作台会误判「无逐字稿/无 SOAP」。
+    return meta;
   }
   async function createSession(data) {
+    // S9 修复：受限模式下，溢出（前 5 名之后）的来访者为只读，新建节次应被拦截，
+    // 与 updateClient/deleteClient 的 licenseGuard 行为保持一致。
+    licenseGuard('client', data.clientId);
     const session = Object.assign(
       {
         id: genId('s'),
@@ -783,7 +850,18 @@ const Store = (() => {
           // 设置：当前为空（或缺失）时用旧的，否则保留当前（最新激活态优先）
           const curObj = merged[k];
           const curEmpty = !curObj || (typeof curObj === 'object' && !Array.isArray(curObj) && Object.keys(curObj).length === 0);
-          if (curEmpty) merged[k] = ov;
+          if (curEmpty) { merged[k] = ov; }
+          else {
+            // 深度合并：当前优先，但当前缺的真实配置（如 apiConfig.apiKey）用旧的补，
+            // 避免「当前默认 {apiConfig:{}} 非空 → 旧端口真实密钥被忽略」(S6 修复)
+            const mergedSettings = Object.assign({}, ov, curObj);
+            const curApi = (curObj && curObj.apiConfig) || {};
+            const oldApi = (ov && ov.apiConfig) || {};
+            if ((!curApi.apiKey || !String(curApi.apiKey).trim()) && oldApi.apiKey && String(oldApi.apiKey).trim()) {
+              mergedSettings.apiConfig = Object.assign({}, curApi, oldApi);
+            }
+            merged[k] = mergedSettings;
+          }
           continue;
         }
         const cur = (merged[k] && typeof merged[k] === 'object' && !Array.isArray(merged[k])) ? merged[k] : {};
@@ -816,20 +894,24 @@ const Store = (() => {
       if (data && typeof data === 'object') mergeInto(merged, data);
     }
 
-    // 写回合并结果
+    // 写回合并结果（S7 修复：任一写入失败即整体 reject，绝不以「部分成功」冒充成功 → 避免静默丢旧端口数据）
     await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
       const store = tx.objectStore(STORE);
       const keys = Object.keys(merged);
       if (keys.length === 0) { resolve(); return; }
       let pending = keys.length;
-      const dec = () => { if (--pending === 0) resolve(); };
+      let failed = false;
+      const dec = () => {
+        if (--pending === 0) { if (failed) reject(new Error('部分数据写入失败')); else resolve(); }
+      };
       for (const k of keys) {
         const putReq = store.put({ key: k, value: merged[k] });
         putReq.onsuccess = dec;
-        putReq.onerror = dec;
+        putReq.onerror = () => { failed = true; dec(); };
       }
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('事务被中止'));
     });
 
     console.log('[migrate] 已合并旧端口数据到当前库，keys=', Object.keys(merged).length);
@@ -870,13 +952,15 @@ const Store = (() => {
     if (c.id != null) return 'id:' + c.id;
     return '';
   }
-  // 会谈：clientId + 日期 + 费用/已付/来源 + 正文内容（排除动态字段 updatedAt/sessionNumber）
+  // 会谈：clientId + 日期 + 费用/已付/来源 + 正文内容 + 唯一字段（sessionNumber 或 id）
+  // 含唯一字段可区分「同日多个空 session」（内容都空），避免互相误判为重复被删（S4 修复）
   function sessionKey(s) {
     if (!s) return '';
     const b = s.billing || {};
     const soap = s.soap || {};
     const content = [s.transcript || '', soap.subjective || '', soap.objective || '', soap.assessment || '', soap.plan || '', s.summary || '', s.reflection || ''].join('');
-    return [s.clientId || '', s.date || '', b.fee != null ? b.fee : '', b.paid ? 1 : 0, b.source || '', content].join('|');
+    const unique = (s.sessionNumber != null ? 'n' + s.sessionNumber : '') + (s.id != null ? '#' + s.id : '');
+    return [s.clientId || '', s.date || '', b.fee != null ? b.fee : '', b.paid ? 1 : 0, b.source || '', unique, content].join('|');
   }
   // 督导：clientId + 日期 + 督导师 + 正文
   function supervisionKey(sv) {

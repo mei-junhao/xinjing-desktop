@@ -26,6 +26,16 @@ const AI = (() => {
     label: '内置免费模型 (Qwen3.5-4B)',
   };
 
+  // 模型是否支持 function-calling（tools）。
+  // 已知不支持的 reasoning/专属模型列入 denylist；其余 OpenAI 兼容 chat 模型默认支持。
+  // 盲注 tools 到不支持的模型会触发 HTTP 400，故注入前先判断（修复 A1）。
+  const NO_TOOL_MODEL_RE = /(^|[\/\-_])(o1|o2|o3|o4|reasoning|deepseek-reasoner|r1|reasoning-)([\/\-_ ]|$)/i;
+  function supportsFunctionCalling(config) {
+    const model = (config && config.model) || '';
+    if (NO_TOOL_MODEL_RE.test(model)) return false;
+    return true;
+  }
+
   // 角色设定：温尼科特取向心理咨询师
   const SYSTEM_PROMPT = `你是一位资深心理咨询师，精通心理动力学与温尼科特理论取向。
 你的任务是协助咨询师整理会谈资料，生成标准化临床报告。
@@ -40,10 +50,12 @@ const AI = (() => {
     return settings.apiConfig || {};
   }
 
-  // 当前生效的配置：用户已填密钥 → 用用户配置；否则回退到内置免费模型。
+  // 当前生效的配置：用户已填密钥 且 已通过连接验证（verified===true）→ 用用户配置；
+  // 否则回退到内置免费模型。关键修复（A3）：必须与 getTier 一致以 verified 为事实来源，
+  // 否则「填了错误密钥却仍用其发起调用」会违背 v1.4.1 档位诚实化铁律。
   function getActiveConfig() {
     const user = getConfig();
-    if (user && user.apiKey && String(user.apiKey).trim()) {
+    if (user && user.apiKey && String(user.apiKey).trim() && user.verified === true) {
       return {
         baseUrl: (user.baseUrl || '').trim() || BUILTIN_MODEL.baseUrl,
         apiKey: user.apiKey.trim(),
@@ -111,8 +123,12 @@ const AI = (() => {
         continue;
       }
       const last = out[out.length - 1];
+      // 合并连续相同 role 的消息，修复硅基流动 20015「messages 格式非法」
+      // （含思考段 + tool_calls 段被拆成两条 assistant 的情形，必须并回一条）。
+      // 注：此合并经下方 (a)(b) 的 orphan/悬空 tool 配对二次修正保护，不会破坏 tool 配对。
+      // 原 A5「误合并 assistant」经核对：在合法对话序列（assistant 之间必有 user/tool 隔开）
+      // 不会误伤；若强行不合并反而回归 Q1/Q5 的 20015 修复，故保留合并。
       if ((role === 'user' || role === 'assistant') && last && last.role === role) {
-        // 合并连续相同 role（核心修复：content + tool_calls 进同一条消息）
         if (cloned.content) {
           last.content = (last.content ? last.content + '\n\n' : '') + cloned.content;
         }
@@ -181,35 +197,54 @@ const AI = (() => {
     // Qwen3 系列为「思考模型」，禁用思考可降低延迟、避免 reasoning 占用 token、
     // 并确保 function-calling 稳定输出 tool_calls。该参数为 SiliconFlow 专属，
     // 其它 OpenAI 兼容端点会忽略未知字段，不影响用户模型。
-    if (model.indexOf('Qwen') !== -1) {
+    if (/qwen/i.test(model)) {
       body.chat_template_kwargs = { enable_thinking: false };
     }
-    // 条件注入 tools / tool_choice（仅当传入且非空）
-    if (options && options.tools && options.tools.length) {
+    // 条件注入 tools / tool_choice：仅当模型支持 function-calling 时注入（A1 修复：盲注会触发 HTTP 400）
+    const canTools = !!(options && options.tools && options.tools.length && supportsFunctionCalling(config));
+    if (canTools) {
       body.tools = options.tools;
       if (options.tool_choice) body.tool_choice = options.tool_choice;
     }
 
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + apiKey,
-      },
-      body: JSON.stringify(body),
-    });
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + apiKey,
+    };
+    let resp = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
+      // 工具不支持类错误（部分模型对 tools 报 400）→ 去掉 tools 重试一次，避免硬失败
+      if (canTools && /tool|function_call|function-calling|tools/i.test(errText)) {
+        delete body.tools;
+        delete body.tool_choice;
+        try {
+          const resp2 = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+          if (resp2.ok) {
+            const data2 = await resp2.json().catch(() => null);
+            return data2 && data2.choices ? (data2.choices[0].message || { content: '' }) : { content: '' };
+          }
+        } catch (e2) { /* 忽略，抛原错误 */ }
+      }
       throw new Error(`HTTP ${resp.status}: ${errText.slice(0, 100)}`);
     }
 
-    const data = await resp.json();
+    const data = await resp.json().catch(() => null);
+    // 防御：非 JSON 响应（如网关 HTML 错误页）或缺少 choices 时给出清晰错误，
+    // 而非抛出难以理解的 "Unexpected token <" 或访问 undefined.choices（A7 修复）
+    if (!data || !Array.isArray(data.choices) || !data.choices.length) {
+      const preview = (data && typeof data === 'object' && (data.error && data.error.message))
+        ? data.error.message
+        : '模型返回了非预期响应';
+      throw new Error(preview);
+    }
     // 返回整条 message 对象，保留 tool_calls（若有）
-    return data.choices?.[0]?.message || { content: '' };
+    return data.choices[0].message || { content: '' };
   }
 
   // 统一入口：取生效配置直连大模型；出错返回 { error }。
+  // 真降级（A2 修复）：用户模型调用失败时回退到内置免费模型，而非直接抛错。
   async function callWithFallback(messages, options) {
     const config = getActiveConfig();
     try {
@@ -220,6 +255,21 @@ const AI = (() => {
         tier: config.label,
       };
     } catch (e) {
+      // 仅当当前确实用的是用户模型（非内置）才降级，避免无意义自递归
+      if (config !== BUILTIN_MODEL && config.apiKey) {
+        try {
+          const builtinMsg = await callDirect(BUILTIN_MODEL, messages, options);
+          return {
+            content: builtinMsg.content || '',
+            tool_calls: builtinMsg.tool_calls,
+            tier: BUILTIN_MODEL.label,
+            degraded: true,
+            degradedReason: '用户模型调用失败：' + (e.message || '未知错误') + '，已自动降级到内置免费模型',
+          };
+        } catch (e2) {
+          return { error: '模型调用失败（含内置兜底仍失败）：' + (e2.message || e.message || '未知错误') };
+        }
+      }
       return { error: '模型调用失败：' + (e.message || '未知错误') };
     }
   }
@@ -297,6 +347,8 @@ ${transcript}
     });
   }
 
+  // 通用问答：与 send 保持一致的错误回调形状 { error } / { content }，
+  // 避免 chat 单独返回字符串错误导致调用方无法统一处理（A4 修复）
   function chat(userMessage, callback) {
     const messages = [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -304,10 +356,10 @@ ${transcript}
     ];
     callWithFallback(messages).then((res) => {
       if (res.error) {
-        callback(res.error);
+        callback({ error: res.error });
         return;
       }
-      callback(res.content);
+      callback({ content: res.content });
     });
   }
 

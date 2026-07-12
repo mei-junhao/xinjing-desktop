@@ -81,7 +81,7 @@
               <div id="aiChat" class="ai-chat hidden">
                 <div class="chat-msgs" id="aiChatMsgs"></div>
                 <div class="chat-input-row">
-                  <textarea id="aiChatInput" class="form-control" rows="1" placeholder="就整体印象中的内容继续讨论……" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSendChat()}"></textarea>
+                  <textarea id="aiChatInput" class="form-control" rows="1" placeholder="就整体印象中的内容继续讨论……" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229){event.preventDefault();aiSendChat()}"></textarea>
                   <button class="btn btn-primary" id="aiChatSend" onclick="aiSendChat()">发送</button>
                 </div>
               </div>

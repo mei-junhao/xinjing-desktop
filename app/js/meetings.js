@@ -126,13 +126,19 @@ const Meetings = (() => {
     if (!toImport.length) { App.showToast('没有可导入的记录', 'warning'); return; }
 
     let created = 0, visitorsCreated = 0;
+    const errors = [];
     toImport.forEach((r) => {
       let clientId = r.matchedClientId;
       if (!clientId) {
-        // 新建来访者
-        const c = Store.createClient({ name: r.visitorName, status: 'active', billing: {} });
-        clientId = c.id;
-        visitorsCreated++;
+        // 新建来访者（受限模式达上限会抛错，需捕获避免整批导入崩溃；UI-5）
+        try {
+          const c = Store.createClient({ name: r.visitorName, status: 'active', billing: {} });
+          clientId = c.id;
+          visitorsCreated++;
+        } catch (e) {
+          errors.push(`来访者「${r.visitorName}」未导入：${e.message}`);
+          return; // 跳过该记录
+        }
       }
       const date = (r.start_time || '').slice(0, 10);
       const client = Store.getClient(clientId);
@@ -150,7 +156,11 @@ const Meetings = (() => {
       created++;
     });
 
-    App.showToast(`已导入 ${created} 节会话${visitorsCreated ? `（新建 ${visitorsCreated} 位来访者）` : ''}`, 'success');
+    if (errors.length) {
+      App.showToast(`已导入 ${created} 节会话${visitorsCreated ? `（新建 ${visitorsCreated} 位来访者）` : ''}，${errors.length} 条受限未导入`, 'warning');
+    } else {
+      App.showToast(`已导入 ${created} 节会话${visitorsCreated ? `（新建 ${visitorsCreated} 位来访者）` : ''}`, 'success');
+    }
     document.getElementById('raw-json').value = '';
     rows = [];
     render();
