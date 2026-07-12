@@ -61,6 +61,56 @@ const AI = (() => {
     return (user && user.apiKey && String(user.apiKey).trim()) ? 'user' : 'builtin';
   }
 
+  // ---------- 发送前消息序列归一化（防御硅基流动 20015「messages 数组格式非法」）----------
+  // 根因：工具调用场景下模型返回的 content 与 tool_calls 被拆开，或 reasoning_content 被夹带，
+  // 累积进历史后下一轮发送给 API 时序列出现「连续两个相同 role / system 不在首位」→ 报错 20015。
+  // 本函数在真正发送边界统一修正：
+  //  1. system 仅保留在首位（后续 system 合并进首位）
+  //  2. 合并连续相同 role 的 user / assistant（assistant 合并时拼接 content + 合并 tool_calls）
+  //  3. 剥离 reasoning_content / ts / masterKey 等回声或业务字段，只留 API 所需
+  //  4. 收敛悬空 tool_calls（带 tool_calls 但后面没有 tool 消息时删除，避免次级报错）
+  function normalizeMessageSequence(messages) {
+    if (!Array.isArray(messages) || !messages.length) return messages;
+    const out = [];
+    for (const m of messages) {
+      if (!m || typeof m !== 'object' || !m.role) continue;
+      const role = m.role;
+      const cloned = { role: role };
+      if (m.content !== undefined && m.content !== null) cloned.content = m.content;
+      if (Array.isArray(m.tool_calls)) cloned.tool_calls = m.tool_calls;
+      if (m.tool_call_id !== undefined) cloned.tool_call_id = m.tool_call_id;
+      if (role === 'system') {
+        // system 仅允许在首位：已有 system 则合并内容；否则提到首位（不追加到末尾）
+        if (out.length && out[0].role === 'system') {
+          out[0].content = (out[0].content ? out[0].content + '\n\n' : '') + (cloned.content || '');
+        } else {
+          out.unshift(cloned);
+        }
+        continue;
+      }
+      const last = out[out.length - 1];
+      if ((role === 'user' || role === 'assistant') && last && last.role === role) {
+        // 合并连续相同 role（核心修复：content + tool_calls 进同一条消息）
+        if (cloned.content) {
+          last.content = (last.content ? last.content + '\n\n' : '') + cloned.content;
+        }
+        if (role === 'assistant' && Array.isArray(cloned.tool_calls) && cloned.tool_calls.length) {
+          last.tool_calls = (Array.isArray(last.tool_calls) ? last.tool_calls : []).concat(cloned.tool_calls);
+        }
+        continue;
+      }
+      out.push(cloned);
+    }
+    // 二次修正：收敛悬空 tool_calls（防止「tool_calls 无对应 tool 结果」次级报错）
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].role === 'assistant' && Array.isArray(out[i].tool_calls) && out[i].tool_calls.length) {
+        const next = out[i + 1];
+        if (!next || next.role !== 'tool') delete out[i].tool_calls;
+      }
+    }
+    return out;
+  }
+
   // 单层直连：根据传入的 config 直连大模型（OpenAI 兼容 /chat/completions）。
   async function callDirect(config, messages, options) {
     const baseUrl = (config.baseUrl || 'https://api.openai.com').replace(/\/$/, '');
@@ -68,9 +118,11 @@ const AI = (() => {
     const model = config.model || 'Qwen/Qwen3.5-4B';
     const apiKey = config.apiKey || '';
 
+    // 发送前归一化角色序列，防御硅基流动 20015
+    const safeMessages = normalizeMessageSequence(messages);
     const body = {
       model,
-      messages,
+      messages: safeMessages,
       temperature: 0.3,
       max_tokens: config.maxTokens || 4000,
     };
@@ -267,9 +319,15 @@ ${transcript}
     // 新增：暴露当前生效配置与档位（供 Agent / 设置页判断与提示）
     getActiveConfig,
     getTier,
+    // 测试可访问：发送前消息序列归一化（防御硅基流动 20015）
+    normalizeMessageSequence,
   };
 })();
 
 if (typeof window !== 'undefined') {
   window.AI = AI;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { normalizeMessageSequence: AI.normalizeMessageSequence };
 }

@@ -910,6 +910,103 @@ test('P12d supervision.html 含 aiGenBtn 与 aiSaveRow 元素', function () {
 });
 
 // ============================================================
+// 测试组 Q：硅基流动 20015 messages 序列归一化（ai.js normalizeMessageSequence）
+// ============================================================
+console.log('\n[Q] ai.js normalizeMessageSequence 防御 20015');
+
+function loadNormalize() {
+  global.window = global;
+  const mod = require(path.join(__dirname, '..', 'app', 'js', 'ai.js'));
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'app', 'js', 'ai.js'))];
+  return mod.normalizeMessageSequence;
+}
+
+// Q1. 连续两个 assistant（content 思考 + 空 content 带 tool_calls）= 用户报的 20015 典型触发 → 合并为一条
+// 真实 runRound 流程：模型返回 assistant('',tool_calls) 后，runRound 会紧接着追加 tool 结果，
+// 故发送给 API 前的实际序列里 tool_calls 之后必有 tool 消息（不可被悬空收敛误删）。
+test('Q1 连续 assistant(content+tool_calls) 合并为一条（修复 20015 典型场景）', function () {
+  const norm = loadNormalize();
+  const inMsgs = [
+    { role: 'user', content: '你好' },
+    { role: 'assistant', content: '我在思考...' },
+    { role: 'assistant', content: '', tool_calls: [{ id: 'c1', function: { name: 'x' } }] },
+    { role: 'tool', tool_call_id: 'c1', content: '{"ok":true}' }
+  ];
+  const out = norm(inMsgs);
+  assert.strictEqual(out.length, 3, '合并两条 assistant 后应剩 3 条');
+  assert.strictEqual(out[1].role, 'assistant', '第二条应为 assistant');
+  assert.strictEqual(out[1].content, '我在思考...', 'content 应保留');
+  assert.ok(Array.isArray(out[1].tool_calls) && out[1].tool_calls.length === 1, 'tool_calls 应并入同一条且不被悬空收敛误删');
+  assert.strictEqual(out[2].role, 'tool', 'tool 消息应保留在 assistant 之后');
+});
+
+// Q2. 连续两个 user → 合并为一条
+test('Q2 连续两个 user 合并为一条', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'system', content: 's' },
+    { role: 'user', content: 'A' },
+    { role: 'user', content: 'B' }
+  ]);
+  assert.strictEqual(out.length, 2, 'system + 合并后 user = 2 条');
+  assert.strictEqual(out[1].role, 'user');
+  assert.ok(out[1].content.indexOf('A') !== -1 && out[1].content.indexOf('B') !== -1, 'content 应拼接');
+});
+
+// Q3. system 不在首位 → 合并进首位 system
+test('Q3 非首位的 system 合并到首位', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'user', content: 'u' },
+    { role: 'system', content: '中段误插的system' }
+  ]);
+  assert.strictEqual(out[0].role, 'system', '首位必须是 system');
+  assert.ok(out[0].content.indexOf('中段误插的system') !== -1, '误插 system 内容应归并到首位');
+});
+
+// Q4. assistant(tool_calls) → tool → tool → assistant 合法序列不被破坏
+test('Q4 合法 assistant/tool 序列保持原样（不误合并 tool）', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'system', content: 's' },
+    { role: 'user', content: '记账' },
+    { role: 'assistant', content: '', tool_calls: [{ id: 't1', function: { name: 'billing.add_record' } }] },
+    { role: 'tool', tool_call_id: 't1', content: '{"ok":true}' },
+    { role: 'assistant', content: '已记好' }
+  ]);
+  assert.strictEqual(out.length, 5, '合法序列长度不变');
+  assert.strictEqual(out[2].role, 'assistant');
+  assert.strictEqual(out[3].role, 'tool', 'tool 消息不得被合并');
+  assert.strictEqual(out[4].role, 'assistant');
+});
+
+// Q5. 悬空 tool_calls（assistant 带 tool_calls 但后续无 tool 消息）→ 收敛删除
+test('Q5 悬空 tool_calls（无对应 tool 结果）被收敛', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'user', content: 'u' },
+    { role: 'assistant', content: 'x', tool_calls: [{ id: 'z', function: { name: 'y' } }] },
+    { role: 'assistant', content: '继续' }
+  ]);
+  // assistant(tool_calls) 与 后续 assistant 合并 → 一条，且 tool_calls 被收敛（因后无 tool 消息）
+  assert.strictEqual(out.length, 2, '应合并为 2 条');
+  assert.ok(!Array.isArray(out[1].tool_calls) || out[1].tool_calls.length === 0, '悬空 tool_calls 应被删除');
+});
+
+// Q6. 剥离 reasoning_content / ts / masterKey 等回声/业务字段
+test('Q6 输出只含 API 字段（剥离 reasoning_content/ts/masterKey）', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'user', content: 'u', ts: 123, masterKey: 'winnicott' },
+    { role: 'assistant', content: 'a', reasoning_content: '偷偷的推理', ts: 456 }
+  ]);
+  assert.strictEqual(out[0].ts, undefined, '应剥离 ts');
+  assert.strictEqual(out[0].masterKey, undefined, '应剥离 masterKey');
+  assert.strictEqual(out[1].reasoning_content, undefined, '应剥离 reasoning_content');
+  assert.strictEqual(out[1].content, 'a');
+});
+
+// ============================================================
 // 汇总
 // ============================================================
 console.log('\n========== 汇总 ==========');
