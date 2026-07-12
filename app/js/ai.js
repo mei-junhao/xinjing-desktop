@@ -123,12 +123,42 @@ const AI = (() => {
       }
       out.push(cloned);
     }
-    // 二次修正：收敛悬空 tool_calls（防止「tool_calls 无对应 tool 结果」次级报错）
-    for (let i = 0; i < out.length; i++) {
-      if (out[i].role === 'assistant' && Array.isArray(out[i].tool_calls) && out[i].tool_calls.length) {
-        const next = out[i + 1];
-        if (!next || next.role !== 'tool') delete out[i].tool_calls;
+    // 二次修正：保证 tool 配对完整性（防御 DeepSeek / OpenAI 兼容端点的两类 HTTP 400）
+    //   (a) 孤儿 tool 消息：其 tool_call_id 在前面任何 assistant 的 tool_calls 中找不到匹配
+    //       → 直接删除（无法配对，留着会让端点报 "Messages with role 'tool' must be a response
+    //       to a preceding message with 'tool_calls' id"）。
+    //   (b) 悬空 tool_calls：assistant 的某个 tool_call 在后面没有对应 tool 结果
+    //       → 从 assistant 删除该 tool_call（否则端点报 "tool_calls 缺少 tool 响应"）。
+    // 这两步让最终发给模型的 payload 在 tool 配对上「物理不可能」非法，无论上游如何拼装。
+    const assistToolCallIds = new Set();
+    for (const m of out) {
+      if (m.role === 'assistant' && Array.isArray(m.tool_calls)) {
+        for (const tc of m.tool_calls) {
+          if (tc && tc.id) assistToolCallIds.add(tc.id);
+        }
       }
+    }
+    // (a) 删除孤儿 tool 消息（逆序 splice 安全）
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (out[i].role === 'tool') {
+        if (!out[i].tool_call_id || !assistToolCallIds.has(out[i].tool_call_id)) out.splice(i, 1);
+      }
+    }
+    // (b) 删除悬空 tool_calls（孤儿 tool 已删，重算已配对 id 集合）
+    const pairedIds = new Set();
+    for (const m of out) {
+      if (m.role === 'tool' && m.tool_call_id) pairedIds.add(m.tool_call_id);
+    }
+    for (const m of out) {
+      if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length) {
+        const kept = m.tool_calls.filter(function (tc) { return tc && tc.id && pairedIds.has(tc.id); });
+        if (kept.length) m.tool_calls = kept; else delete m.tool_calls;
+      }
+    }
+    // 兜底：被清空 tool_calls 的 assistant（无 content 且无 tool_calls）补空 content，
+    // 规避个别端点对纯空 assistant 消息的苛刻校验
+    for (const m of out) {
+      if (m.role === 'assistant' && !m.tool_calls && (m.content === undefined || m.content === null)) m.content = '';
     }
     return out;
   }

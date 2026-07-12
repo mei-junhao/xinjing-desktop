@@ -1015,6 +1015,57 @@ test('Q6 输出只含 API 字段（剥离 reasoning_content/ts/masterKey）', fu
   assert.strictEqual(out[1].content, 'a');
 });
 
+// Q7. 孤儿 tool 消息（其 tool_call_id 在前置 assistant 中无匹配）→ 直接删除，
+//     否则 DeepSeek / OpenAI 兼容端点报 "Messages with role 'tool' must be a response to a preceding message with 'tool_calls' id" (HTTP 400)
+test('Q7 孤儿 tool 消息被删除（防御 DeepSeek 400: tool 须紧跟 tool_calls）', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'system', content: 's' },
+    { role: 'user', content: '记账' },
+    { role: 'assistant', content: '已记录' },
+    { role: 'tool', tool_call_id: '孤儿id', content: '{"ok":true}' }
+  ]);
+  // 前面没有任何 assistant 持有 tool_call_id='孤儿id' → 该 tool 必须被剔除
+  assert.ok(!out.some(function (m) { return m.role === 'tool'; }), '孤儿 tool 消息应被删除');
+  assert.strictEqual(out.length, 3, '删除后仅剩 system/user/assistant');
+});
+
+// Q8. 合法配对（assistant.tool_calls ↔ tool）在清洗后必须完整保留
+test('Q8 合法 tool 配对清洗后完整保留', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'system', content: 's' },
+    { role: 'user', content: '记账' },
+    { role: 'assistant', content: '', tool_calls: [{ id: 't9', type: 'function', function: { name: 'billing_add_record' } }] },
+    { role: 'tool', tool_call_id: 't9', content: '{"ok":true}' },
+    { role: 'assistant', content: '完成' }
+  ]);
+  const a = out.find(function (m) { return m.role === 'assistant' && Array.isArray(m.tool_calls); });
+  const t = out.find(function (m) { return m.role === 'tool'; });
+  assert.ok(a && a.tool_calls && a.tool_calls.length === 1 && a.tool_calls[0].id === 't9', 'assistant.tool_calls 应保留');
+  assert.ok(t && t.tool_call_id === 't9', 'tool 结果应保留且 id 匹配');
+});
+
+// Q9. 悬空 tool_call（assistant 含 tool_call 但后续无对应 tool 结果）→ 该 tool_call 被删除、合法配对保留
+test('Q9 悬空 tool_call 被删除且合法配对保留', function () {
+  const norm = loadNormalize();
+  const out = norm([
+    { role: 'system', content: 's' },
+    { role: 'user', content: '记账' },
+    { role: 'assistant', content: '', tool_calls: [
+      { id: 'ok1', type: 'function', function: { name: 'billing_add_record' } },
+      { id: '悬空', type: 'function', function: { name: 'billing_summary' } }
+    ] },
+    { role: 'tool', tool_call_id: 'ok1', content: '{"ok":true}' },
+    { role: 'assistant', content: '完成' }
+  ]);
+  const a = out.find(function (m) { return m.role === 'assistant' && Array.isArray(m.tool_calls); });
+  assert.ok(a, '含合法 tool_calls 的 assistant 应保留');
+  assert.strictEqual(a.tool_calls.length, 1, '悬空 tool_call(悬空) 应被删除，仅留 ok1');
+  assert.strictEqual(a.tool_calls[0].id, 'ok1', '合法 tool_call 应保留');
+  assert.ok(out.some(function (m) { return m.role === 'tool' && m.tool_call_id === 'ok1'; }), '对应 tool 结果应保留');
+});
+
 // ============================================================
 // [R] v1.4.0 U2 大师提示词对齐（Task #133）静态校验
 // ============================================================
