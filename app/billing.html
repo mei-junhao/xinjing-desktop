@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>心镜 · 记账</title>
     <!-- 心镜桥接层：把记账的 localStorage 读写翻译成对心镜 Store(IndexedDB) 的操作 -->
+    <link rel="stylesheet" href="css/style.css">
     <script src="js/billing-sync.js"></script>
     <style>
         /* ============================================================
@@ -14,26 +15,7 @@
            数据契约：localStorage['psyc_billing_v8'] schema + 30+ 函数名 + 80+ ID 全部保留
            ============================================================ */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
-            --paper: #FBF8F3;        --paper-2: #FFFDF9;
-            --sidebar: #F4EDE3;     --shell: #F4EDE3;
-            --ink: #2A2420;          --ink-2: #6F655C;     --ink-3: #9A8F82;
-            --hair: #ECE3D8;         --hair-strong: #DCCFBE;
-            --accent: #9E5A3C;       --accent-2: #874A2E;
-            --accent-soft: #F1E4DA;  --accent-line: #C99A82;
-            --green: #6E7E62;   --green-soft: #ECEFE6;
-            --orange: #BC8A4E;  --orange-soft: #F6ECDD;
-            --red: #B06A62;     --red-soft: #F5E8E6;
-            --blue: #7C93A0;    --blue-soft: #E9EFF2;
-            --shadow-sm: 0 1px 2px rgba(42,36,32,.05);
-            --shadow: 0 1px 2px rgba(42,36,32,.04), 0 12px 30px rgba(42,36,32,.06);
-            --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 12px 30px rgba(42,36,32,.05);
-            --r-card: 16px;  --r-ctl: 12px;  --r-sm: 9px;  --r-btn: 999px;
-            --ease: cubic-bezier(.22,1,.36,1);
-            --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
-            --sans:  "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-            --mono:  "JetBrains Mono", "SF Mono", ui-monospace, monospace;
-        }
+        /* 视觉令牌已被 tokens.css 经 style.css @import 接管（v1.2.2 改造）：~ calm 皮肤 ~ */
         body {
             font-family: var(--sans); color: var(--ink);
             background: var(--paper);
@@ -51,7 +33,7 @@
             width: 32px; height: 32px; border-radius: 10px;
             background: var(--accent); color: #fff;
             display: grid; place-items: center; font-family: var(--serif); font-size: 16px;
-            box-shadow: inset 0 1px 1px rgba(255,255,255,.3), 0 3px 8px rgba(158,90,60,.25);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,.3), 0 3px 8px var(--shadow-sm);
         }
         .topbar .name { font-family: var(--serif); font-size: 18px; font-weight: 600; letter-spacing: .02em; }
         .topbar .name small { font-size: 11px; color: var(--ink-3); margin-left: 6px; font-family: var(--sans); font-weight: 500; }
@@ -74,7 +56,7 @@
         .tabs button:hover { color: var(--ink); }
         .tabs button.active {
             background: var(--paper-2); color: var(--accent); font-weight: 600;
-            box-shadow: 0 2px 8px rgba(42,36,32,.06), inset 0 0 0 1px var(--accent-line);
+            box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--accent-line);
         }
         .tabbar .month-picker { margin-left: auto; display: flex; align-items: center; gap: 8px; }
         .tabbar .month-picker select {
@@ -275,7 +257,7 @@
             transition: background .18s var(--ease), transform .12s var(--ease), box-shadow .18s var(--ease);
         }
         .btn:active { transform: translateY(1px); }
-        .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 16px rgba(158,90,60,.22); }
+        .btn-primary { background: var(--accent); color: #fff; box-shadow: var(--shadow); }
         .btn-primary:hover { background: var(--accent-2); }
         .btn-secondary { background: var(--sidebar); color: var(--ink-2); }
         .btn-secondary:hover { background: var(--hair); }
@@ -325,11 +307,11 @@
             border-radius: var(--r-btn); font-size: 12.5px; cursor: pointer;
             color: var(--ink-2); white-space: nowrap; font-family: var(--sans); font-weight: 500;
         }
-        .view-tabs button.active { background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 4px 12px rgba(158,90,60,.2); }
+        .view-tabs button.active { background: var(--accent); color: #fff; font-weight: 600; box-shadow: var(--shadow-sm); }
         .export-dropdown { position: relative; display: inline-block; }
         .export-menu {
             display: none; position: absolute; right: 0; top: 100%; background: var(--paper-2);
-            border-radius: var(--r-card); box-shadow: 0 16px 40px rgba(42,36,32,.16);
+            border-radius: var(--r-card); box-shadow: var(--shadow-lg);
             z-index: 99; min-width: 168px; padding: 6px 0; border: 1px solid var(--hair-strong);
         }
         .export-menu.show { display: block; }
@@ -379,7 +361,7 @@
         .empty-detail { text-align: center; padding: 60px 20px; color: var(--ink-3); font-size: 14px; }
 
         /* ── 弹层（修改记录 / 月结）── */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(42,36,32,.42); display: none; align-items: center; justify-content: center; z-index: 5000; padding: 16px; }
+        .modal-overlay { position: fixed; inset: 0; background: var(--scrim); display: none; align-items: center; justify-content: center; z-index: 5000; padding: 16px; }
         .modal-overlay.show { display: flex; }
         .modal {
             background: var(--paper-2); border: 1px solid var(--hair-strong);
@@ -402,7 +384,7 @@
             background: var(--ink); color: #fff; padding: 11px 24px; border-radius: var(--r-btn);
             font-weight: 500; font-size: 13px; z-index: 9999; opacity: 0;
             transition: all .3s var(--ease); pointer-events: none;
-            box-shadow: 0 12px 30px rgba(42,36,32,.22);
+            box-shadow: var(--shadow-lg);
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast.success { background: var(--green); }
@@ -413,23 +395,12 @@
         .client-list::-webkit-scrollbar-track, .sub-records::-webkit-scrollbar-track { background: var(--sidebar); border-radius: 6px; }
         .client-list::-webkit-scrollbar-thumb, .sub-records::-webkit-scrollbar-thumb { background: var(--hair-strong); border-radius: 6px; }
 
-        /* ── 暗色模式 ── */
-        :root.dark {
-            --paper: #19150F; --paper-2: #211B14; --sidebar: #1F1810; --shell: #1F1810;
-            --ink: #EDE4D8; --ink-2: #B6A89A; --ink-3: #8A7E70;
-            --hair: #322A20; --hair-strong: #473B2D;
-            --accent: #C0906F; --accent-2: #D2A484; --accent-soft: #3A2C20; --accent-line: #6E4A33;
-            --green: #94A585; --green-soft: #26301F;
-            --orange: #D3A066; --orange-soft: #2E281C;
-            --red: #CF8B82; --red-soft: #2E231F;
-            --blue: #9AAEBB; --blue-soft: #1C242A;
-            --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px rgba(0,0,0,.45);
-            --shadow-bezel: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong), 0 12px 30px rgba(0,0,0,.45);
-        }
+        /* ── 暗色模式（令牌进入 tokens.css 经 style.css 接管：calm dark）── */
+        /* 以下保留组件级暗色规则（引用令牌变量，自动应用 calm dark 色） */
         :root.dark .sub-table tr:hover td { background: var(--paper-2); }
         :root.dark .client-status.active { border-color: var(--green-soft); }
         :root.dark .client-status.ended { border-color: var(--red-soft); }
-        :root.dark .modal { box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+        :root.dark .modal { box-shadow: var(--shadow-lg); }
         :root.dark .modal .m-row input { background: var(--paper); }
     </style>
     <script>

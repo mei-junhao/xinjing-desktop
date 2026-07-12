@@ -81,8 +81,6 @@ const App = (() => {
     { key: 'reports', label: '报告中心', icon: 'bars', href: 'reports.html' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html' },
-    { key: 'meetings', label: '会议同步', icon: 'calendar', href: 'meetings.html' },
-    { key: 'sync', label: '数据迁移', icon: 'sync', href: 'sync.html' },
     { key: 'settings', label: '设置', icon: 'gear', href: 'settings.html' },
     { key: 'feedback', label: '意见建议', icon: 'chat', href: 'feedback.html' },
   ];
@@ -120,8 +118,6 @@ const App = (() => {
       'reports.html': 'reports',
       'billing-shell.html': 'billing',
       'masters.html': 'masters',
-      'meetings.html': 'meetings',
-      'sync.html': 'sync',
       'settings.html': 'settings',
       'feedback.html': 'feedback',
     };

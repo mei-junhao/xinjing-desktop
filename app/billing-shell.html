@@ -205,6 +205,7 @@
   App.initPage({
     title: '记账',
     subtitle: '你的记账系统已与心镜共用同一份数据',
+    actions: '<button class="btn btn-primary" onclick="openImport()">⤓ 导入数据</button>',
     onReady: function () {
       document.getElementById('billing-frame').src = 'billing.html';
     }
