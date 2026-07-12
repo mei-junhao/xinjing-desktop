@@ -29,6 +29,20 @@
   box-shadow: 0 6px 18px var(--shadow-lg, rgba(0,0,0,.22));
 }
 
+/* navigate_to 跳转提示卡 */
+.xj-agent-nav-card {
+  background: var(--accent-soft, #ECEEF9);
+  border: 1px solid var(--accent-line, #B5BDE0);
+  border-radius: var(--radius-sm, 10px);
+  padding: 10px 12px;
+  margin: 4px 0;
+  font-family: var(--sans);
+  font-size: 13px;
+}
+.xj-agent-nav-head { font-weight: 600; color: var(--accent, #6A6191); margin-bottom: 4px; }
+.xj-agent-nav-reason { color: var(--ink-2, #555); margin-bottom: 8px; line-height: 1.6; }
+.xj-agent-nav-go { font-size: 13px; }
+
 /* 浮窗面板：右下角固定，默认隐藏，.xj-agent-visible 显示 */
 .xj-agent-panel {
   position: fixed;

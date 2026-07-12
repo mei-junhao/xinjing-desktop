@@ -97,5 +97,110 @@ const SupervisionCore = (() => {
     return full;
   }
 
-  return { buildSystemPrompt, buildImpressionPrompt, runImpression, runRound, saveSupervision };
+  // ===================== U1-C 真人督导整理模式 =====================
+  // M1 决议：realsup 不调 Supervisors.buildSystemPrompt，独立写 system prompt
+  function buildRealSupPrompt() {
+    return [
+      '你是心理咨询师助理，你的任务是把「真人督导录音转写文字稿」结构化为督导记录字段。',
+      '不要发表评论，不要补充内容，不要把转写中的口语化片段当作你的输出。',
+      '严格按照下方 JSON schema 输出，5 个字段缺一不可：',
+      '- clientName: 来访者姓名（或代号）',
+      '- sessionDate: 督导日期 YYYY-MM-DD；如无法判断留空字符串',
+      '- summary: 一段话总结本次督导要点（200 字以内）',
+      '- keyFrags: 数组，3-5 条原文关键片段（带引号，照抄不重写）',
+      '- techniques: 数组，督导师提出的核心技术/建议要点',
+      '只输出 JSON 对象本身，不要 markdown 围栏、不要解释、不要前后文字。',
+    ].join('\n');
+  }
+
+  // R1 决议：resolve 前轻量 sanitize + 5 字段名校验 prune
+  function sanitizeRealSupInput(text) {
+    if (typeof text !== 'string') return '';
+    return String(text)
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+      .replace(/\bsystem\s*:/gi, '')
+      .replace(/忽略(上述|以上)?(指令|规则|前述)/g, '')
+      .replace(/disregard previous/gi, '')
+      .replace(/ignore previous/gi, '')
+      .slice(0, 40000); // 长度上限防超长注入
+  }
+
+  function parseRealSupJson(raw) {
+    let s = String(raw || '').trim();
+    s = s.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+    const i = s.indexOf('{'), j = s.lastIndexOf('}');
+    if (i < 0 || j < 0 || j <= i) throw new Error('AI 输出非 JSON');
+    try {
+      return JSON.parse(s.slice(i, j + 1));
+    } catch (e) {
+      try {
+        return JSON.parse(s.slice(i, j + 1).replace(/'/g, '"').replace(/(\w+)\s*:/g, '"$1":'));
+      } catch (e2) {
+        throw new Error('AI 输出 JSON 解析失败：' + e2.message);
+      }
+    }
+  }
+
+  function pruneRealSupFields(obj) {
+    const ALLOWED = ['clientName', 'sessionDate', 'summary', 'keyFrags', 'techniques'];
+    const pruned = {};
+    ALLOWED.forEach(function (k) { pruned[k] = obj ? obj[k] : undefined; });
+    if (typeof pruned.clientName !== 'string') pruned.clientName = String(pruned.clientName || '');
+    if (typeof pruned.sessionDate !== 'string') pruned.sessionDate = String(pruned.sessionDate || '');
+    if (typeof pruned.summary !== 'string') pruned.summary = String(pruned.summary || '');
+    if (!Array.isArray(pruned.keyFrags)) pruned.keyFrags = [];
+    if (!Array.isArray(pruned.techniques)) pruned.techniques = [];
+    pruned.keyFrags = pruned.keyFrags.filter(function (x) { return typeof x === 'string'; }).slice(0, 8);
+    pruned.techniques = pruned.techniques.filter(function (x) { return typeof x === 'string'; }).slice(0, 8);
+    return pruned;
+  }
+
+  // 接收转写文字稿，调 AI，返回结构化对象
+  async function runRealSupParse(rawDocText) {
+    const safe = sanitizeRealSupInput(rawDocText);
+    if (!safe || safe.length < 30) throw new Error('文字稿过短或未通过 sanitize');
+    const systemPrompt = buildRealSupPrompt();
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: safe },
+    ];
+    const r = await new Promise(function (resolve) {
+      if (typeof AI === 'undefined' || typeof AI.send !== 'function') {
+        resolve({ error: 'AI 通道未就绪' }); return;
+      }
+      AI.send(messages, function (res) {
+        if (res && res.error) { resolve({ error: String(res.error) }); return; }
+        resolve({ text: (res && res.content) || '' });
+      });
+    });
+    if (r.error) throw new Error(r.error);
+    const json = parseRealSupJson(r.text);
+    return pruneRealSupFields(json);
+  }
+
+  // 落 type='individual' 记录（C1 决议）
+  function saveRealSupRecord(parsed, rawDocText) {
+    if (typeof Store === 'undefined' || typeof Store.createSupervision !== 'function') return null;
+    const sv = Store.createSupervision({
+      type: 'individual',
+      supervisorName: '真人督导整理',
+      date: (parsed && parsed.sessionDate) || (new Date()).toISOString().slice(0, 10),
+      content: rawDocText || '',
+      conclusion: [
+        '【来访者】' + ((parsed && parsed.clientName) || '未识别'),
+        '【督导要点】' + ((parsed && parsed.summary) || ''),
+        (parsed && parsed.keyFrags && parsed.keyFrags.length) ? '【关键片段】\n' + parsed.keyFrags.map(function (s) { return '· ' + s; }).join('\n') : '',
+        (parsed && parsed.techniques && parsed.techniques.length) ? '【技术建议】\n' + parsed.techniques.map(function (s) { return '· ' + s; }).join('\n') : '',
+      ].filter(Boolean).join('\n\n'),
+      sessionIds: [],
+    });
+    return sv ? sv.id : null;
+  }
+
+  return {
+    buildSystemPrompt, buildImpressionPrompt, runImpression, runRound, saveSupervision,
+    // U1-C 新增
+    buildRealSupPrompt, runRealSupParse, saveRealSupRecord,
+  };
 })();

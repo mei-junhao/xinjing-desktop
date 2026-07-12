@@ -176,6 +176,25 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  // navigate_to 跳转提示卡（方案 B：仅提示，用户主动点击才跳转）
+  function renderNavCard(card) {
+    if (!messagesEl) return;
+    const wrap = el('div', 'xj-agent-msg xj-agent-nav-card');
+    const reason = card.reason ? ('<div class="xj-agent-nav-reason">' + App.escapeHtml(card.reason) + '</div>') : '';
+    wrap.innerHTML =
+      '<div class="xj-agent-nav-head">💡 建议前往「' + App.escapeHtml(card.label) + '」</div>' +
+      reason +
+      '<button class="btn btn-secondary btn-sm xj-agent-nav-go">' + App.escapeHtml(card.label) + ' →</button>';
+    const goBtn = wrap.querySelector('.xj-agent-nav-go');
+    if (goBtn) {
+      goBtn.addEventListener('click', function () {
+        if (card.href) location.href = card.href;
+      });
+    }
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
   // ---------- inline 确认卡（写工具） ----------
   // 确认卡渲染：返回 Promise<{ ok, edited?, args? }>
   function requestConfirm(toolCall, args) {
@@ -269,6 +288,11 @@
           if (data && data.switchedTo === 'user') {
             refreshTierUI();
             toast('已切换到你的高性能模型，我现在是完全体，可以做更多事', 'success');
+            return;
+          }
+          // navigate_to：渲染跳转提示卡（用户主动点击才跳转）
+          if (data && data.card && data.card.kind === 'navigate_hint') {
+            renderNavCard(data.card);
             return;
           }
           // 成功结果由 OBSERVE→RESPOND 处理或简洁提示

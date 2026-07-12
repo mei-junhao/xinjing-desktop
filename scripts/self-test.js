@@ -86,6 +86,30 @@ function loadAgentCore(Store, AI, AgentTools, App) {
   return core;
 }
 
+// ---------- 拿到 supervision-core.js 的 SupervisionCore ----------
+// supervision-core.js 顶层是 `const SupervisionCore = (()=>{})()`，不直接挂 window；
+// 用 vm 沙箱执行并把 `const SupervisionCore =` 改写为 `globalThis.SupervisionCore =` 以捕获实例。
+function loadSupervisionCore(opts) {
+  opts = opts || {};
+  const vm = require('vm');
+  const fs = require('fs');
+  const AI = { send: opts.send || function () {} };
+  const Store = {
+    createSupervision: opts.createSupervision || function () { return { id: 'sv-shim' }; },
+    saveAiSupervision: opts.saveAiSupervision || function () {},
+  };
+  const sandbox = {
+    AI: AI, Store: Store, Supervisors: undefined,
+    console: console, JSON: JSON, Date: Date, Object: Object, Array: Array, String: String,
+  };
+  sandbox.globalThis = sandbox;
+  const file = path.join(__dirname, '..', 'app', 'js', 'supervision-core.js');
+  let src = fs.readFileSync(file, 'utf8').replace('const SupervisionCore =', 'globalThis.SupervisionCore =');
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox);
+  return sandbox.globalThis.SupervisionCore;
+}
+
 // ---------- 测试用例 ----------
 let pass = 0;
 let fail = 0;
@@ -767,6 +791,122 @@ test('I2 user 档位 → 系统提示含完全体', function () {
   const c = loadAgentCore(Store, AI, t, App);
   const prompt = c.buildSystemPrompt();
   assert.ok(prompt.indexOf('完全体') !== -1, '应含"完全体"');
+});
+
+// ============================================================
+// 测试组 P：v1.4.0 U1-A/B/C + U3-B 集成与单元
+// ============================================================
+console.log('\n[P] v1.4.0 U1 mammoth/docx + 真人督导整理 + navigate_to');
+
+const APP_DIR = path.join(__dirname, '..', 'app');
+const HTML_SUP = fs.readFileSync(path.join(APP_DIR, 'supervision.html'), 'utf8');
+const CSS = fs.readFileSync(path.join(APP_DIR, 'css', 'style.css'), 'utf8');
+
+// P1. mammoth vendor 文件存在
+test('P1 mammoth.browser.min.js 已下载到 app/vendor', function () {
+  assert.ok(fs.existsSync(path.join(APP_DIR, 'vendor', 'mammoth.browser.min.js')), 'vendor 文件缺失');
+});
+
+// P2. supervision.html 含 mammoth script 且在 supervision.js 之前
+test('P2 supervision.html 含 mammoth script 且在 supervision.js 之前', function () {
+  const iMammoth = HTML_SUP.indexOf('vendor/mammoth.browser.min.js');
+  const iSup = HTML_SUP.indexOf('js/supervision.js');
+  assert.ok(iMammoth !== -1, 'html 应含 mammoth script');
+  assert.ok(iSup !== -1, 'html 应含 supervision.js script');
+  assert.ok(iMammoth < iSup, 'mammoth 必须早于 supervision.js 加载');
+});
+
+// P3. aiFile accept 含 .docx
+test('P3 supervision.html aiFile accept 含 .docx', function () {
+  assert.ok(/accept="\.txt,\.md,\.docx"/.test(HTML_SUP), 'accept 应含 .docx');
+});
+
+// P4. style.css 含 .xj-dragover
+test('P4 style.css 含 .xj-dragover 拖拽高亮样式', function () {
+  assert.ok(/\.xj-dragover\s*\{/.test(CSS), '应定义 .xj-dragover');
+});
+
+// P5. supervision.js 含 generateAndSaveSupervision 与 realsup 分支
+test('P5 supervision.js 含 generateAndSaveSupervision + spvMode==="realsup" 分支', function () {
+  const src = fs.readFileSync(path.join(APP_DIR, 'js', 'supervision.js'), 'utf8');
+  assert.ok(src.indexOf('window.generateAndSaveSupervision') !== -1, '应有 window.generateAndSaveSupervision');
+  assert.ok(src.indexOf("spvMode === 'realsup'") !== -1, '一键生成应有 realsup 分支');
+});
+
+// P6. supervision.html 含 aiOneClickBtn 与 realsup 选项
+test('P6 supervision.html 含 aiOneClickBtn + 真人督导整理按钮', function () {
+  assert.ok(HTML_SUP.indexOf('id="aiOneClickBtn"') !== -1, '应有 aiOneClickBtn');
+  assert.ok(HTML_SUP.indexOf('spvRealsup') !== -1, '应有 realsup 模式按钮');
+});
+
+// P7. supervision-core.js 导出三个新函数
+test('P7 supervision-core.js 导出 buildRealSupPrompt/runRealSupParse/saveRealSupRecord', function () {
+  const SC = loadSupervisionCore();
+  assert.strictEqual(typeof SC.buildRealSupPrompt, 'function', '应导出 buildRealSupPrompt');
+  assert.strictEqual(typeof SC.runRealSupParse, 'function', '应导出 runRealSupParse');
+  assert.strictEqual(typeof SC.saveRealSupRecord, 'function', '应导出 saveRealSupRecord');
+});
+
+// P8. runRealSupParse 注入面：sanitize 剥 <script>
+test('P8 runRealSupParse 输入含 <script> 被 sanitize 剥离', async function () {
+  // AI 把 script 原样回传，runRealSupParse 应先 sanitize 再去 JSON 解析
+  const SC = loadSupervisionCore({
+    send: (msgs, cb) => cb({ content: '<script>alert(1)</script>{"clientName":"张三","sessionDate":"2026-04-10","summary":"督导要点","keyFrags":["片段A"],"techniques":["技术B"]}' })
+  });
+  const parsed = await SC.runRealSupParse('一段转写稿含 <script>alert(1)</script> 危险内容');
+  assert.strictEqual(parsed.clientName, '张三');
+  assert.ok(JSON.stringify(parsed).indexOf('<script>') === -1, '结果不得含 <script>');
+});
+
+// P9. runRealSupParse → saveRealSupRecord 落 type='individual'
+test('P9 真人督导整理落库 type=individual 且 supervisorName=真人督导整理', async function () {
+  let saved = null;
+  const SC = loadSupervisionCore({
+    send: (msgs, cb) => cb({ content: '{"clientName":"李四","sessionDate":"2026-05-01","summary":"要点","keyFrags":["a","b"],"techniques":["c"]}' }),
+    createSupervision: (data) => { saved = data; return { id: 'sv-test' }; }
+  });
+  const parsed = await SC.runRealSupParse('转写稿内容足够长用于通过 sanitize 长度校验的一段临床材料描述');
+  const id = SC.saveRealSupRecord(parsed, '原始转写');
+  assert.strictEqual(id, 'sv-test');
+  assert.ok(saved, '应调用 createSupervision');
+  assert.strictEqual(saved.type, 'individual', '真人督导必须 type=individual');
+  assert.strictEqual(saved.supervisorName, '真人督导整理');
+  assert.ok((saved.content || '').indexOf('原始转写') !== -1, 'content 应保留原始转写');
+});
+
+// P10. agent-tools navigate_to 返回 navigate_hint 卡
+resetStore();
+test('P10 navigate_to → card.kind=navigate_hint 且 label/href 正确', async function () {
+  const r = await tools.invoke('navigate_to', { target: 'supervision', reason: '建议看督导记录' });
+  assert.ok(r.ok, '应 ok');
+  assert.strictEqual(r.card.kind, 'navigate_hint');
+  assert.strictEqual(r.card.label, '督导');
+  assert.strictEqual(r.card.href, 'supervision.html');
+  assert.strictEqual(r.card.reason, '建议看督导记录');
+});
+
+// P11. navigate_to 未知 target → ok:false
+resetStore();
+test('P11 navigate_to 未知 target → ok:false', async function () {
+  const r = await tools.invoke('navigate_to', { target: 'nope', reason: 'test' });
+  assert.strictEqual(r.ok, false, '未知 target 应失败');
+  assert.ok(r.error && r.error.indexOf('unknown target') !== -1);
+});
+
+// P12. U1-C 防护：realsup 模式不可误走 AI 督导流程写 type:'ai'
+const SUP_JS = fs.readFileSync(path.join(APP_DIR, 'js', 'supervision.js'), 'utf8');
+test('P12a generateImpression 在 realsup 模式短路（含 spvMode==="realsup" 守卫）', function () {
+  assert.ok(/window\.generateImpression[\s\S]*?spvMode\s*===\s*['"]realsup['"]/.test(SUP_JS), 'generateImpression 缺少 realsup 守卫');
+});
+test('P12b aiSaveSupervision 在 realsup 模式短路（含 spvMode==="realsup" 守卫）', function () {
+  assert.ok(/window\.aiSaveSupervision[\s\S]*?spvMode\s*===\s*['"]realsup['"]/.test(SUP_JS), 'aiSaveSupervision 缺少 realsup 守卫');
+});
+test('P12c switchSpvMode 在 realsup 隐藏 aiGenBtn（toggle hidden）', function () {
+  assert.ok(/aiGenBtnEl\.classList\.toggle\('hidden',\s*mode\s*===\s*['"]realsup['"]\)/.test(SUP_JS), 'switchSpvMode 未隐藏 realsup 下的 aiGenBtn');
+});
+test('P12d supervision.html 含 aiGenBtn 与 aiSaveRow 元素', function () {
+  assert.ok(/id="aiGenBtn"/.test(HTML_SUP), '缺 aiGenBtn');
+  assert.ok(/id="aiSaveRow"/.test(HTML_SUP), '缺 aiSaveRow');
 });
 
 // ============================================================

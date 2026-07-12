@@ -40,6 +40,7 @@
                 <div class="spv-switch">
                   <button class="spv-mode active" id="spvNvwa" onclick="switchSpvMode('nvwa')">女娲版</button>
                   <button class="spv-mode" id="spvCangjie" onclick="switchSpvMode('cangjie')">仓颉版</button>
+                  <button class="spv-mode" id="spvRealsup" onclick="switchSpvMode('realsup')">真人督导整理</button>
                 </div>
                 <div class="spv-mode-hint" id="spvHint">女娲版教你「怎么做督导」，仓颉版告诉你「我是怎么督导的」</div>
               </div>
@@ -53,8 +54,8 @@
                 <div class="ai-material-head">
                   <span>临床材料（逐字稿 / 案例报告 / 反移情困惑）</span>
                   <span class="ai-material-tools">
-                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('aiFile').click()">上传 .txt/.md</button>
-                    <input type="file" id="aiFile" accept=".txt,.md" style="display:none" onchange="aiHandleFile(this)">
+                    <button class="btn btn-ghost btn-sm" onclick="document.getElementById('aiFile').click()">上传 .txt/.md/.docx</button>
+                    <input type="file" id="aiFile" accept=".txt,.md,.docx" style="display:none" onchange="aiHandleFile(this)">
                     <select id="aiSessionSel" class="form-control" onchange="aiLoadSession(this.value)">
                       <option value="">载入会谈…</option>
                     </select>
@@ -66,6 +67,7 @@
 
               <div class="ai-actions">
                 <button class="btn btn-primary" id="aiGenBtn" onclick="generateImpression()">生成整体印象</button>
+                <button class="btn btn-secondary" id="aiOneClickBtn" onclick="generateAndSaveSupervision()" title="按当前模式一键生成并落库">一键生成完整记录</button>
               </div>
 
               <div id="aiImpression" class="ai-impression hidden">
@@ -165,6 +167,7 @@
   <script src="js/prompts.builtin.js"></script>
   <script src="js/supervisors.js"></script>
   <script src="js/supervision-core.js"></script>
+  <script src="vendor/mammoth.browser.min.js"></script>
   <script src="js/supervision.js"></script>
 </body>
 </html>

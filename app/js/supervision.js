@@ -171,27 +171,66 @@ App.initPage({
   window.switchSpvMode = function (mode) {
     spvMode = mode;
     localStorage.setItem('xj_spv_mode', mode);
+    // 三模式 active 态（支持 realsup 第三按钮）
     document.getElementById('spvNvwa').classList.toggle('active', mode === 'nvwa');
     document.getElementById('spvCangjie').classList.toggle('active', mode === 'cangjie');
+    const spvRealsupEl = document.getElementById('spvRealsup');
+    if (spvRealsupEl) spvRealsupEl.classList.toggle('active', mode === 'realsup');
     document.getElementById('spvHint').textContent = mode === 'nvwa'
       ? '女娲版教你「怎么做督导」，仓颉版告诉你「我是怎么督导的」'
-      : '仓颉版以「认知植入」的方式，用数十年督导经历里的信念与伤疤来看临床问题';
-    refreshSpvSystem();
-    // 若已有对话，刷新 system 消息，使后续回复跟随新版本
-    if (chatMessages.length && chatMessages[0].role === 'system') {
-      chatMessages[0].content = spvSystem;
-    }
+      : (mode === 'realsup'
+        ? '真人督导整理：粘贴录音转写稿，一键结构化为督导记录（不调用督导师人设）'
+        : '仓颉版以「认知植入」的方式，用数十年督导经历里的信念与伤疤来看临床问题');
+    // M1 决议：realsup 不调 Supervisors.buildSystemPrompt（零侵入 supervisors.js）
+    spvSystem = (mode === 'realsup' || !window.Supervisors)
+      ? ''
+      : (Supervisors.buildSystemPrompt(mode) || '');
+    // M2 决议：切换模式时 reset 状态（避免跨模式污染）
+    const aiMaterial = document.getElementById('aiMaterial');
+    if (aiMaterial) aiMaterial.value = '';
+    chatMessages = [];
+    ['aiImpression', 'aiChat', 'aiSaveRow'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+    if (typeof updateLenTip === 'function') updateLenTip();
+    // U1-C 防护：realsup 模式隐藏「生成整体印象」，避免误走 AI 督导流程写 type:'ai'
+    const aiGenBtnEl = document.getElementById('aiGenBtn');
+    if (aiGenBtnEl) aiGenBtnEl.classList.toggle('hidden', mode === 'realsup');
   };
 
-  window.aiHandleFile = function (input) {
+  window.aiHandleFile = async function (input) {
     const file = input.files && input.files[0];
     if (!file) return;
+    const ta = document.getElementById('aiMaterial');
+    const name = file.name || '';
+    // .docx 走 mammoth 纯前端解析（U1-A）
+    if (/\.docx$/i.test(name)) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const Mammoth = window.Mammoth;
+        if (!Mammoth || !Mammoth.extractRawText) {
+          App.showToast('docx 解析库未就绪，请稍候重试', 'error');
+          return;
+        }
+        const result = await Mammoth.extractRawText({ arrayBuffer });
+        const text = (result && result.value) ? result.value : '';
+        ta.value = (ta.value.trim() ? ta.value.trim() + '\n\n' : '') + '[docx 解析] ' + name + '\n\n' + text;
+        if (typeof updateLenTip === 'function') updateLenTip();
+        App.showToast('已解析 docx：' + name, 'success');
+      } catch (err) {
+        App.showToast('docx 解析失败：' + (err && err.message ? err.message : err), 'error');
+      } finally {
+        input.value = '';
+      }
+      return;
+    }
+    // 原 .txt/.md 路径不变
     const reader = new FileReader();
     reader.onload = function () {
-      const ta = document.getElementById('aiMaterial');
       const add = (reader.result || '').trim();
       ta.value = (ta.value.trim() ? ta.value.trim() + '\n\n' : '') + add;
-      updateLenTip();
+      if (typeof updateLenTip === 'function') updateLenTip();
     };
     reader.readAsText(file);
     input.value = '';
@@ -245,6 +284,7 @@ App.initPage({
   }
 
   window.generateImpression = async function () {
+    if (spvMode === 'realsup') { App.showToast('真人督导整理模式请使用「一键生成完整记录」', 'warn'); return; }
     if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 督导为付费功能，请先激活', 'error'); return; }
     const ack = document.getElementById('aiAck');
     if (!ack.checked) { App.showToast('请先勾选「我已阅读并理解上述说明」', 'error'); ack.focus(); return; }
@@ -328,6 +368,7 @@ App.initPage({
   };
 
   window.aiSaveSupervision = function () {
+    if (spvMode === 'realsup') { App.showToast('真人督导整理模式请使用「一键生成完整记录」', 'warn'); return; }
     if (!chatMessages.length || chatMessages[0].role !== 'system') {
       App.showToast('请先生成整体印象', 'error');
       return;
@@ -338,6 +379,44 @@ App.initPage({
       App.showToast('已保存为督导记录', 'success');
     } catch (e) {
       App.showToast(e.message, 'error');
+    }
+  };
+
+  // U1-B：一键生成完整记录（按 spvMode 分两条分支）
+  window.generateAndSaveSupervision = async function () {
+    const material = document.getElementById('aiMaterial').value.trim();
+    if (!material) {
+      App.showToast('请先粘贴材料或上传文件', 'warn');
+      return;
+    }
+    const btn = document.getElementById('aiOneClickBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+    try {
+      if (spvMode === 'realsup') {
+        // 真人督导整理：结构化落 type='individual'
+        const parsed = await SupervisionCore.runRealSupParse(material);
+        const recordId = SupervisionCore.saveRealSupRecord(parsed, material);
+        if (recordId) App.showToast('真人督导整理记录已保存', 'success');
+        else App.showToast('保存失败：createSupervision 不可用', 'error');
+      } else {
+        // 温尼科特取向督导师 AI：整体印象 + 落 type='ai'
+        const r = await SupervisionCore.runImpression(spvMode, material);
+        if (r && r.error) { App.showToast(r.error, 'error'); return; }
+        const full = SupervisionCore.saveSupervision(spvMode, r.chatMessages, material, loadedSession);
+        App.showToast('AI 督导记录已保存', 'success');
+        // 同步渲染整体印象，便于用户核对
+        if (r && r.impression) {
+          const imp = document.getElementById('aiImpression');
+          const impBody = document.getElementById('aiImpressionBody');
+          if (imp && impBody) { impBody.textContent = r.impression; imp.classList.remove('hidden'); }
+          const saveRow = document.getElementById('aiSaveRow');
+          if (saveRow) saveRow.classList.remove('hidden');
+        }
+      }
+    } catch (err) {
+      App.showToast('生成失败：' + (err && err.message ? err.message : err), 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '一键生成完整记录'; }
     }
   };
 
@@ -366,6 +445,31 @@ App.initPage({
   });
   const mat = document.getElementById('aiMaterial');
   if (mat) mat.addEventListener('input', updateLenTip);
+
+  // U1-B：拖拽上传绑定（复用 aiHandleFile，支持 .docx/.txt/.md）
+  if (mat) {
+    ['dragenter', 'dragover'].forEach(function (evt) {
+      mat.addEventListener(evt, function (e) {
+        e.preventDefault(); e.stopPropagation();
+        mat.classList.add('xj-dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(function (evt) {
+      mat.addEventListener(evt, function (e) {
+        e.preventDefault(); e.stopPropagation();
+        mat.classList.remove('xj-dragover');
+      });
+    });
+    mat.addEventListener('drop', async function (e) {
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      await window.aiHandleFile({ files: [file] });
+    });
+  }
+  // 阻止整页拖入文件时 Electron 打开外部程序
+  document.body.addEventListener('dragover', function (e) { e.preventDefault(); });
+  document.body.addEventListener('drop', function (e) { e.preventDefault(); });
+
   switchSpvMode(spvMode);
   applyAiLock();
   App.onLicenseStateChange(function () { try { applyAiLock(); } catch (e) {} });

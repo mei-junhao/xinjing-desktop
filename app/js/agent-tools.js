@@ -358,6 +358,50 @@
   }
 
   // ============================================================
+  // 工具 6：navigate_to（提示跳转，不真跳转，kind='read' 不弹确认卡）
+  // ============================================================
+  const NAV_TARGETS = {
+    dashboard:  { label: '工作台',   href: 'index.html' },
+    clients:    { label: '来访者',   href: 'clients.html' },
+    supervision:{ label: '督导',     href: 'supervision.html' },
+    billing:    { label: '记账',     href: 'billing-shell.html' },
+    masters:    { label: '大师对话', href: 'masters.html' },
+    reports:    { label: '报告中心', href: 'reports.html' }
+  };
+  const SCHEMA_NAVIGATE_TO = {
+    type: 'function',
+    function: {
+      name: 'navigate_to',
+      description: '建议用户跳转到指定页面（督导 / 大师对话 / 记账 / 来访者 / 工作台等）。仅生成跳转提示卡片，由用户主动点击才跳转，不强制跳转。',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', enum: Object.keys(NAV_TARGETS), description: '目标页面 key' },
+          reason: { type: 'string', description: '为何建议跳转，一句话原因（会出现在提示卡中）' }
+        },
+        required: ['target', 'reason']
+      }
+    }
+  };
+  function handleNavigateTo(args) {
+    const target = args && args.target;
+    const m = NAV_TARGETS[target];
+    if (!m) return { ok: false, error: 'unknown target: ' + target };
+    return sanitizeResult({
+      ok: true,
+      card: {
+        kind: 'navigate_hint',
+        target: target,
+        label: m.label,
+        href: m.href,
+        reason: (args && args.reason) || '',
+        hint: m.label + '页面：可执行更专业的操作'
+      },
+      summary: '建议跳转到「' + m.label + '」：' + ((args && args.reason) || '')
+    });
+  }
+
+  // ============================================================
   // Tool Registry
   // ============================================================
   const TOOL_REGISTRY = {
@@ -365,7 +409,8 @@
     'billing.monthly_settle': { schema: SCHEMA_MONTHLY_SETTLE, handler: monthlySettle,     kind: 'write' },
     'billing.summary':        { schema: SCHEMA_SUMMARY,        handler: billingSummary,    kind: 'read' },
     'client.update':          { schema: SCHEMA_UPDATE_CLIENT,  handler: updateClientInfo,  kind: 'write' },
-    'agent.configure_api':    { schema: SCHEMA_CONFIGURE_API,  handler: configureApi,      kind: 'config' }
+    'agent.configure_api':    { schema: SCHEMA_CONFIGURE_API,  handler: configureApi,      kind: 'config' },
+    'navigate_to':            { schema: SCHEMA_NAVIGATE_TO,    handler: handleNavigateTo,  kind: 'read' }
   };
   const TOOL_SCHEMAS = Object.keys(TOOL_REGISTRY).map(function (k) { return TOOL_REGISTRY[k].schema; });
 
