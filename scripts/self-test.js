@@ -1007,6 +1007,48 @@ test('Q6 输出只含 API 字段（剥离 reasoning_content/ts/masterKey）', fu
 });
 
 // ============================================================
+// [R] v1.4.0 U2 大师提示词对齐（Task #133）静态校验
+// ============================================================
+const fsU2 = require('fs');
+const APP_JS_R = path.join(__dirname, '..', 'app', 'js');
+const APP_HTML_R = path.join(__dirname, '..', 'app');
+const HTML_MASTERS_R = fsU2.readFileSync(path.join(APP_HTML_R, 'masters.html'), 'utf8');
+const SRC_MASTERS_CORE_R = fsU2.readFileSync(path.join(APP_JS_R, 'masters-core.js'), 'utf8');
+const SRC_SUPERVISORS_R = fsU2.readFileSync(path.join(APP_JS_R, 'supervisors.js'), 'utf8');
+const SRC_PROMPTS_BUILTIN_R = fsU2.readFileSync(path.join(APP_JS_R, 'prompts.builtin.js'), 'utf8');
+const SRC_GEN_SUP_R = fsU2.readFileSync(path.join(__dirname, 'gen-supervisors.py'), 'utf8');
+
+test('R1 masters.html 加载 prompts.builtin.js 且早于 masters-core.js', function () {
+  const iBuiltin = HTML_MASTERS_R.indexOf('js/prompts.builtin.js');
+  const iData = HTML_MASTERS_R.indexOf('js/masters-data.js');
+  const iCore = HTML_MASTERS_R.indexOf('js/masters-core.js');
+  assert.ok(iBuiltin !== -1, 'masters.html 应加载 prompts.builtin.js');
+  assert.ok(iData !== -1 && iBuiltin < iData, 'prompts.builtin.js 应早于 masters-data.js');
+  assert.ok(iCore !== -1 && iBuiltin < iCore, 'prompts.builtin.js 应早于 masters-core.js');
+});
+
+test('R2 masters-core.buildMessages 注入 STYLE_CONSTRAINTS（去 AI 文风，不加 PERSONA_GUARD）', function () {
+  assert.ok(/PromptsBuiltin\.STYLE_CONSTRAINTS/.test(SRC_MASTERS_CORE_R), 'buildMessages 应引用 STYLE_CONSTRAINTS');
+  assert.ok(/typeof PromptsBuiltin/.test(SRC_MASTERS_CORE_R), '应做 PromptsBuiltin 存在性保护');
+  assert.ok(!/WINNICOTT_PERSONA_GUARD/.test(SRC_MASTERS_CORE_R), 'masters-core 不应注入 WINNICOTT_PERSONA_GUARD（与大师人设冲突）');
+});
+
+test('R3 supervisors.buildSystemPrompt 消除跨模式静默回落', function () {
+  assert.ok(!/getByMode\(mode\)\s*\|\|\s*NVWA_PROMPT/.test(SRC_SUPERVISORS_R), 'buildSystemPrompt 不得含 || NVWA_PROMPT 回落');
+  assert.ok(/mode\s*===\s*['"]cangjie['"]\s*\?\s*CANGJIE_PROMPT/.test(SRC_SUPERVISORS_R), '应按 mode 严格取 CANGJIE_PROMPT');
+});
+
+test('R4 prompts.builtin.js 仓颉 typo 已修正', function () {
+  assert.ok(/仓颉版方法论提示词/.test(SRC_PROMPTS_BUILTIN_R), '应为「仓颉」');
+  assert.ok(!/仓颈版方法论提示词/.test(SRC_PROMPTS_BUILTIN_R), '不得残留「仓颈」');
+});
+
+test('R5 gen-supervisors.py 已废弃（防误跑污染 prompts.builtin.js）', function () {
+  assert.ok(/DEPRECATED/.test(SRC_GEN_SUP_R), '应标记 DEPRECATED');
+  assert.ok(/sys\.exit\(1\)/.test(SRC_GEN_SUP_R), '应 sys.exit(1) 中止');
+});
+
+// ============================================================
 // 汇总
 // ============================================================
 console.log('\n========== 汇总 ==========');

@@ -45,14 +45,11 @@ const Supervisors = (() => {
     'builtin-cangjie': Object.assign({}, BUILTINS_META['builtin-cangjie'], { prompt: CANGJIE_PROMPT }),
   };
 
-  // 按模式取方法论提示词（'cangjie' | 'nvwa'，默认 nvwa）
-  function getByMode(mode) {
-    return mode === 'cangjie' ? CANGJIE_PROMPT : NVWA_PROMPT;
-  }
-
   // 构建与 chat 完全一致的 system prompt：方法论 + 风格约束 + 身份 guard
   function buildSystemPrompt(mode) {
-    const base = getByMode(mode) || NVWA_PROMPT;
+    // U2 #4：严格按模式取提示词，禁止跨模式静默回落（避免选 cangjie 却用 nvwa）
+    const base = mode === 'cangjie' ? CANGJIE_PROMPT : NVWA_PROMPT;
+    if (!base) return '';
     return base + '\n\n' + STYLE_CONSTRAINTS + '\n\n' + WINNICOTT_PERSONA_GUARD;
   }
 
@@ -90,7 +87,6 @@ const Supervisors = (() => {
     WINNICOTT_PERSONA_GUARD,
     WINNICOTT_PROMPT,
     BUILTINS,
-    getByMode,
     buildSystemPrompt,
     ensureSeed,
     list,

@@ -6,6 +6,13 @@
 并复刻 chat 的 system prompt 结构：方法论 + 表达风格约束 + 身份 guard。
 不引入任何密钥（与 xinjing 的 AI 模块一致）。
 """
+import sys as _sys
+_sys.stderr.write(
+    "DEPRECATED: gen-supervisors.py 已废弃。prompts.builtin.js 现由 scripts/gen-prompts-builtin.py 生成；"
+    "运行本脚本会把过时的明文模板写入 prompts.builtin.js 造成损坏。已中止。\n"
+)
+_sys.exit(1)
+
 import io
 import os
 import json

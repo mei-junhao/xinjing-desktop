@@ -57,7 +57,9 @@ const MastersCore = (() => {
     const summaryLine = conv.summary
       ? '\n\n以下是你与这位咨询师的【既往对话摘要（长时记忆）】，请在回应时保持脉络连贯，不必重复已讨论过的内容：\n' + conv.summary
       : '';
-    const system = master.systemPrompt + summaryLine;
+    // U2 #1：注入表达风格约束（去 AI 文风/互联网黑话）。不加 PERSONA_GUARD——与大师各自人设冲突。
+    const styleC = (typeof PromptsBuiltin !== 'undefined') ? PromptsBuiltin.STYLE_CONSTRAINTS : '';
+    const system = master.systemPrompt + summaryLine + (styleC ? '\n\n' + styleC : '');
 
     const hist = conv.messages
       .filter((x) => x.role === 'user' || x.role === 'assistant')
