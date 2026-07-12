@@ -43,6 +43,35 @@ App.initPage({
     } else {
       el.innerHTML = '🌱 <b>内置免费模型</b> · ' + App.escapeHtml((cfg && cfg.model) || 'Qwen/Qwen3.5-4B') + '（低性能，仅普通任务）';
     }
+    renderTrialQuota();
+  }
+
+  // 试用额度展示（v1.7.0）：免费档显示剩余百分比进度条 + 购买引导；用户档不显示
+  function renderTrialQuota() {
+    const box = document.getElementById('trial-quota-box');
+    if (!box) return;
+    let tier = 'builtin';
+    try { if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier(); } catch (e) {}
+    if (tier === 'user') { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const q = (typeof AI !== 'undefined' && AI.getQuota) ? AI.getQuota() : null;
+    const pct = q && q.percent != null ? q.percent : null;
+    const remain = q && q.remainingYuan != null ? q.remainingYuan : null;
+    const reset = q && q.resetAt ? q.resetAt : null;
+    const isBasic = q && q.tier === 'basic';
+    const pctText = pct == null ? '查询中…' : (pct + '%');
+    box.style.display = 'block';
+    const barColor = isBasic ? 'var(--muted)' : (pct != null && pct <= 15 ? '#d98a3a' : 'var(--accent, #8b93c7)');
+    box.innerHTML =
+      '<div style="font-size:12px;font-family:var(--sans);line-height:1.5;margin-bottom:6px">' +
+        '🌱 <b>免费试用额度</b> · 剩余 <b>' + pctText + '</b>' +
+        (remain != null ? '（约 ¥' + remain.toFixed(2) + ' / ¥5）' : '') +
+        (isBasic ? ' · <span style="color:#d98a3a">已降级为基础模型</span>' : ' · 当前使用 v4-flash') +
+      '</div>' +
+      '<div style="height:8px;border-radius:6px;background:var(--accent-soft, rgba(139,147,199,.18));overflow:hidden">' +
+        '<div style="height:100%;width:' + (pct == null ? 0 : Math.max(2, Math.min(100, pct))) + '%;background:' + barColor + ';transition:width .3s"></div>' +
+      '</div>' +
+      (reset ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">额度周期重置：' + App.escapeHtml(reset) + '</div>' : '') +
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px">额度用尽或过期可<b>购买会员 / 增量包</b>恢复 v4-flash 高性能使用。</div>';
   }
 
   window.saveApiConfig = function () {
@@ -672,6 +701,13 @@ App.initPage({
     loadConfig();
     bindConnectDrawer();
     updateTierStatus();
+    // 订阅试用额度变更，实时刷新进度条（v1.7.0）
+    if (typeof AI !== 'undefined' && AI.onQuotaChange) {
+      try { AI.onQuotaChange(renderTrialQuota); } catch (e) {}
+    }
+    if (typeof AI !== 'undefined' && AI.fetchQuota) {
+      try { AI.fetchQuota(); } catch (e) {}
+    }
     calcStorage();
     updateBackupTime();
     loadBackupConfigUI();

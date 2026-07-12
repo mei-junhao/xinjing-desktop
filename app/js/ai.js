@@ -4,27 +4,130 @@
    - 调用外部 API 生成 SOAP / 总结 / 分析 / AI 督导 / Agent 工具调用
    - 单层直连：根据用户填写的「模型名 + Base URL + 密钥」直连大模型
      （OpenAI 兼容 /chat/completions 接口）
-   - 内置一个永久免费的「低性能模型」（SiliconFlow Qwen3.5-4B）作为开箱即用兜底：
-     用户未填自己的 API 时自动使用；用户填入自己的模型后自动切换到用户模型。
+   - 免费档（未填用户密钥）：统一走韩国代理（xinjingchat.online），
+     由代理按机器码做 ¥5 / 30 天额度门控：额度内用 DeepSeek-V4-Flash，
+     超额/过期自动降级到内置基础模型 Qwen3.5-4B。
+   - 用户填了自己的密钥且验证通过 → 用用户模型（最高优先）。
 
    密钥安全说明（重要变更）：
    - 用户自己的 API 密钥唯一合法来源是「设置」页填写的 apiConfig（存于本机）。
-   - 内置低性能模型的密钥由本项目所有方提供、永久免费、仅供兜底，
-     按产品需求明文内置在源码常量 BUILTIN_MODEL 中（非用户密钥、非聊天项目密钥）。
-   - 任何「用户模型」的调用都不使用内置密钥；仅当无用户密钥时回退到内置模型。
+   - 代理共享密钥（APP_PROXY_KEY）由构建期注入 secret.generated.js，仅供客户端向
+     本项目代理鉴权；非 provider 密钥、被逆向也无妨——服务端按机器码硬限额兜底。
+   - 任何 provider 密钥（DeepSeek / SiliconFlow）只存在于服务端 .env，永不进客户端/仓库。
    ============================================================ */
 
 const AI = (() => {
   'use strict';
 
-  // 内置低性能模型（永久免费，开箱即用兜底）
-  // 用户未填自己的 API 时自动使用；填入自己的模型后自动切换。
-  const BUILTIN_MODEL = {
-    baseUrl: 'https://api.siliconflow.cn/v1',
-    apiKey: 'sk-jwbugvdncqelswmfkvpckxmjvzjnbnbhspjreeyqkdjugbns',
-    model: 'Qwen/Qwen3.5-4B',
-    label: '内置免费模型 (Qwen3.5-4B)',
+  // 试用代理基址（韩国服务器，HTTPS + 共享密钥 + 机器码鉴权）
+  const PROXY_BASE = 'https://xinjingchat.online/v1';
+  // 从 preload 桥接读取代理共享密钥（构建期注入，不入源码）
+  function getProxyKey() {
+    try {
+      if (typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.appProxyKey) {
+        return window.__XJ_API__.appProxyKey() || '';
+      }
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+  // 机器码：经 preload 桥接（主进程 getMachineCode，跨重装稳定）
+  let _mcPromise = null;
+  function getMachineCode() {
+    if (!_mcPromise) {
+      _mcPromise = Promise.resolve(
+        (typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.getMachineCode)
+          ? window.__XJ_API__.getMachineCode()
+          : ''
+      );
+    }
+    return _mcPromise;
+  }
+  // 构建一份试用代理配置（每次取最新代理密钥，避免 preload 未就绪时拿到空串）
+  function buildTrialConfig(model) {
+    return {
+      baseUrl: PROXY_BASE,
+      apiKey: getProxyKey(),
+      model: model,
+      label: model === 'deepseek-v4-flash' ? '试用 v4-flash' : '内置基础模型',
+      isTrial: true,
+    };
+  }
+  // 内置基础模型（免费兜底，走代理；保留常量名供旧引用）
+  const BUILTIN_MODEL = buildTrialConfig('Qwen3.5-4B');
+
+  // ---------- 试用额度（代理侧记账，服务端硬限额 ¥5 / 30 天 / 机器码）----------
+  const QUOTA_TOTAL_YUAN = 5;
+  // 缓存：percent 为剩余百分比(0-100，null=未知)，tier 为代理确认的实际档位
+  const QUOTA_CACHE = {
+    percent: null,
+    remainingYuan: null,
+    resetAt: null,
+    tier: null, // 'v4-flash' | 'basic' | null
+    updatedAt: 0,
   };
+  let _quotaSubs = [];
+  function emitQuota() {
+    _quotaSubs.slice().forEach(function (cb) { try { cb(QUOTA_CACHE); } catch (e) {} });
+  }
+  function onQuotaChange(cb) {
+    if (typeof cb === 'function') _quotaSubs.push(cb);
+    return QUOTA_CACHE;
+  }
+  function applyQuotaInfo(info) {
+    if (!info || typeof info !== 'object') return;
+    if (info.percent != null) QUOTA_CACHE.percent = info.percent;
+    if (info.remainingYuan != null) QUOTA_CACHE.remainingYuan = info.remainingYuan;
+    if (info.resetAt != null) QUOTA_CACHE.resetAt = info.resetAt;
+    if (info.tier != null) QUOTA_CACHE.tier = info.tier;
+    QUOTA_CACHE.updatedAt = Date.now();
+    emitQuota();
+  }
+  // 从 chat 响应头更新额度（代理每次响应都带 X-Quota-* / X-Tier）
+  function updateQuotaFromHeaders(headers) {
+    if (!headers || typeof headers.get !== 'function') return;
+    try {
+      const p = headers.get('X-Quota-Percent');
+      const r = headers.get('X-Quota-Remaining');
+      const t = headers.get('X-Tier');
+      const rt = headers.get('X-Quota-Reset');
+      const info = {};
+      if (p != null && p !== '') info.percent = parseInt(p, 10);
+      if (r != null && r !== '') info.remainingYuan = parseFloat(r);
+      if (t != null && t !== '') info.tier = t;
+      if (rt != null && rt !== '') info.resetAt = rt;
+      if (Object.keys(info).length) applyQuotaInfo(info);
+    } catch (e) { /* ignore */ }
+  }
+  // 主动查询额度（GET /v1/quota?mid=...），供 UI 初始化展示与「刷新」按钮
+  async function fetchQuota() {
+    try {
+      const mc = await getMachineCode();
+      if (!mc) return QUOTA_CACHE;
+      const url = PROXY_BASE + '/quota?mid=' + encodeURIComponent(mc);
+      const headers = { 'Content-Type': 'application/json' };
+      const key = getProxyKey();
+      if (key) headers['Authorization'] = 'Bearer ' + key;
+      const resp = await fetch(url, { method: 'GET', headers: headers });
+      if (!resp.ok) return QUOTA_CACHE;
+      const data = await resp.json().catch(() => null);
+      if (data && data.remainingYuan != null) {
+        applyQuotaInfo({
+          percent: data.percent != null ? data.percent : Math.max(0, Math.round((data.remainingYuan / QUOTA_TOTAL_YUAN) * 100)),
+          remainingYuan: data.remainingYuan,
+          resetAt: data.resetAt || null,
+          tier: data.tier || null,
+        });
+      }
+      updateQuotaFromHeaders(resp.headers);
+    } catch (e) { /* 离线/代理不可达：保留上次缓存或 null */ }
+    return QUOTA_CACHE;
+  }
+  function getQuota() { return QUOTA_CACHE; }
+  // 试用档实际请求模型：代理确认降级(basic)则直接走 Qwen；否则乐观请求 v4-flash（代理会在超额时自动降级并回传 X-Tier）
+  function getTrialModel() {
+    if (QUOTA_CACHE.tier === 'basic') return 'Qwen3.5-4B';
+    return 'deepseek-v4-flash';
+  }
 
   // 模型是否支持 function-calling（tools）。
   // 已知不支持的 reasoning/专属模型列入 denylist；其余 OpenAI 兼容 chat 模型默认支持。
@@ -50,9 +153,9 @@ const AI = (() => {
     return settings.apiConfig || {};
   }
 
-  // 当前生效的配置：用户已填密钥 且 已通过连接验证（verified===true）→ 用用户配置；
-  // 否则回退到内置免费模型。关键修复（A3）：必须与 getTier 一致以 verified 为事实来源，
-  // 否则「填了错误密钥却仍用其发起调用」会违背 v1.4.1 档位诚实化铁律。
+  // 当前生效的配置：用户已填密钥 且 已通过连接验证（verified===true）→ 用用户配置（最高优先）；
+  // 否则走试用代理：额度内 v4-flash，超额/过期由代理确认降级后回退 Qwen3.5-4B。
+  // 关键修复（A3）：必须与 getTier 一致以 verified 为事实来源，避免「填错密钥谎报高性能」。
   function getActiveConfig() {
     const user = getConfig();
     if (user && user.apiKey && String(user.apiKey).trim() && user.verified === true) {
@@ -62,13 +165,14 @@ const AI = (() => {
         model: (user.modelPreference || '').trim() || BUILTIN_MODEL.model,
         maxTokens: user.maxTokens || 4000,
         label: '用户模型',
+        isUser: true,
       };
     }
-    return BUILTIN_MODEL;
+    return buildTrialConfig(getTrialModel());
   }
 
-  // 档位：'user' = 用户自有高性能模型（且已验证可用）；'builtin' = 内置低性能免费模型。
-  // 关键修复：必须有 verified===true 才认作 user，避免「填了错误密钥却谎报高性能」。
+  // 档位：'user' = 用户自有高性能模型（且已验证可用）；'builtin' = 免费/试用档（经韩国代理，
+  // 额度内 v4-flash，超额降级基础模型）。注意保留 'builtin' 字符串供 agent-core/shell/settings 既判定。
   function getTier() {
     const user = getConfig();
     return (user && user.apiKey && String(user.apiKey).trim() && user.verified === true) ? 'user' : 'builtin';
@@ -211,6 +315,11 @@ const AI = (() => {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + apiKey,
     };
+    // 试用代理档：附机器码供服务端按机器限额记账（X-Machine-Id）
+    if (config.isTrial) {
+      const mc = await getMachineCode();
+      if (mc) headers['X-Machine-Id'] = mc;
+    }
     let resp = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
 
     if (!resp.ok) {
@@ -221,6 +330,7 @@ const AI = (() => {
         delete body.tool_choice;
         try {
           const resp2 = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+          updateQuotaFromHeaders(resp2.headers);
           if (resp2.ok) {
             const data2 = await resp2.json().catch(() => null);
             return data2 && data2.choices ? (data2.choices[0].message || { content: '' }) : { content: '' };
@@ -229,6 +339,8 @@ const AI = (() => {
       }
       throw new Error(`HTTP ${resp.status}: ${errText.slice(0, 100)}`);
     }
+    // 读取代理回传的额度/档位响应头，实时更新 UI
+    updateQuotaFromHeaders(resp.headers);
 
     const data = await resp.json().catch(() => null);
     // 防御：非 JSON 响应（如网关 HTML 错误页）或缺少 choices 时给出清晰错误，
@@ -255,8 +367,8 @@ const AI = (() => {
         tier: config.label,
       };
     } catch (e) {
-      // 仅当当前确实用的是用户模型（非内置）才降级，避免无意义自递归
-      if (config !== BUILTIN_MODEL && config.apiKey) {
+      // 仅当当前确实用的是用户模型（非试用代理）才降级，避免无意义自递归
+      if (config.isUser && config.apiKey) {
         try {
           const builtinMsg = await callDirect(BUILTIN_MODEL, messages, options);
           return {
@@ -432,11 +544,19 @@ ${transcript}
     isToolCapable: function (model, baseUrl) {
       return supportsFunctionCalling({ model: model, baseUrl: baseUrl });
     },
+    // 试用额度（v1.7.0）：代理侧记账，客户端只读展示 + 订阅变更
+    getQuota,
+    fetchQuota,
+    refreshQuota: fetchQuota,
+    onQuotaChange,
+    getTrialModel,
   };
 })();
 
 if (typeof window !== 'undefined') {
   window.AI = AI;
+  // 页面加载即拉取一次试用额度（用于 UI 显示剩余百分比）；失败静默（离线/代理不可达）
+  if (AI.fetchQuota) { try { AI.fetchQuota(); } catch (e) {} }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -37,7 +37,10 @@ const api = {
   onLegacyPorts: (cb) => { if (typeof cb === 'function') legacyPortsListeners.push(cb); },
   notifyMigrateDone: (ports) => ipcRenderer.send('xj:migrate-done', ports),
   // 首页「检查更新」按钮：经主进程触发 autoUpdater 手动检查（有更新弹下载框，无更新弹「已是最新」）
-  checkForUpdates: () => ipcRenderer.invoke('xj:check-updates')
+  checkForUpdates: () => ipcRenderer.invoke('xj:check-updates'),
+  // 代理共享密钥：构建期注入 secret.generated.js，供渲染进程（ai.js）经韩国代理访问试用模型。
+  // 仅共享密钥（非 provider 密钥），被逆向也无妨——服务端按机器码硬限额兜底。
+  appProxyKey: () => { try { return require('./secret.generated').APP_PROXY_KEY || ''; } catch (e) { return ''; } }
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];

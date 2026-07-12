@@ -121,9 +121,13 @@
       if (body) body.insertBefore(banner, body.firstChild);
     }
     banner.className = 'xj-agent-tier ' + (tier === 'user' ? 'tier-user' : 'tier-builtin');
-    banner.textContent = tier === 'user'
-      ? '⚡ 已接入你的高性能模型（完全体）'
-      : '🌱 内置低性能免费模型 · 仅能完成普通任务（记账 / 月结 / 统计 / 改信息）';
+    if (tier === 'user') {
+      banner.textContent = '⚡ 已接入你的高性能模型（完全体）';
+    } else {
+      banner.innerHTML = '🌱 免费试用 · <span id="xj-agent-quota">v4-flash</span>（额度用尽降级基础模型）'
+        + '<span id="xj-agent-quota-pct" style="float:right;opacity:.85"></span>';
+    }
+    updateAgentQuotaBadge();
 
     // 欢迎语（消息流首条）
     let welcome = messagesEl.querySelector('#xj-agent-welcome');
@@ -135,6 +139,20 @@
     welcome.innerHTML = tier === 'user'
       ? '你已接入高性能模型，我现在是完全体，可以做更多事。可以帮你记账、月结、查统计、改来访者信息。'
       : '我是内置低性能免费模型，只能完成普通任务（记账 / 月结 / 查统计 / 改来访者信息）。接入你的高性能模型后我能做更多。比如：<br>「帮张明记 4 月 10 号会谈 300 块次结没付」<br>「张明这个月收了多少」<br>「把张明的电话改成 138xxxx」';
+  }
+
+  // 试用额度小徽标（v1.7.0）：实时更新 Agent 浮窗档位横幅上的模型名与剩余百分比
+  function updateAgentQuotaBadge() {
+    if (!panelEl) return;
+    const pctEl = panelEl.querySelector('#xj-agent-quota-pct');
+    const qEl = panelEl.querySelector('#xj-agent-quota');
+    if (!pctEl && !qEl) return;
+    let tier = 'builtin';
+    try { if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier(); } catch (e) {}
+    if (tier === 'user') return;
+    const q = (typeof AI !== 'undefined' && AI.getQuota) ? AI.getQuota() : null;
+    if (pctEl) pctEl.textContent = (q && q.percent != null) ? ('剩余 ' + q.percent + '%') : '';
+    if (qEl) qEl.textContent = (q && q.tier === 'basic') ? '基础模型（已降级）' : 'v4-flash';
   }
 
   function toggleCollapse() {
@@ -373,6 +391,13 @@
   try {
     if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
       window.__XJ_API__.onLicenseState(function () { refreshLock(); });
+    }
+  } catch (e) { /* ignore */ }
+
+  // 订阅试用额度变更，实时刷新浮窗档位徽标（v1.7.0）
+  try {
+    if (typeof AI !== 'undefined' && AI.onQuotaChange) {
+      AI.onQuotaChange(function () { updateAgentQuotaBadge(); });
     }
   } catch (e) { /* ignore */ }
 
