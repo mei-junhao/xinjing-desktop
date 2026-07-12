@@ -402,6 +402,238 @@
   }
 
   // ============================================================
+  // 工具 7：supervision.start（启动 AI 督导，写，确认）
+  // ============================================================
+  const SCHEMA_SUPERVISION_START = {
+    type: 'function',
+    function: {
+      name: 'supervision.start',
+      description: '启动 AI 督导（女娲版或仓颉版）。传入督导材料（个案详情），生成整体印象并落库。返回 sessionId 供后续 supervision.ask 追问。写操作，执行前确认。',
+      parameters: {
+        type: 'object',
+        properties: {
+          supervisorName: { type: 'string', enum: ['nvwa', 'cangjie'], description: '督导师版本：nvwa=女娲版, cangjie=仓颉版' },
+          material: { type: 'string', description: '督导材料（个案详情，至少10字）' },
+          clientId: { type: 'string', description: '可选，来访者ID（精确匹配）' },
+          clientName: { type: 'string', description: '可选，来访者姓名（模糊匹配或新建）' }
+        },
+        required: ['supervisorName', 'material']
+      }
+    }
+  };
+
+  const supervisionSessions = {};
+
+  async function startSupervision(args) {
+    const Store = getStore();
+    if (!args || !args.supervisorName || !args.material) {
+      return { ok: false, error: '需提供 supervisorName + material' };
+    }
+    if (['nvwa', 'cangjie'].indexOf(args.supervisorName) === -1) {
+      return { ok: false, error: 'supervisorName 只能是 nvwa 或 cangjie' };
+    }
+    if (String(args.material).trim().length < 10) {
+      return { ok: false, error: '材料至少需要 10 字' };
+    }
+    if (typeof SupervisionCore === 'undefined') {
+      return { ok: false, error: 'SupervisionCore 未注入，请在督导页使用' };
+    }
+    var resolved = resolveClientId(args.clientId, args.clientName);
+    if (!resolved.ok) return { ok: false, error: resolved.error };
+    var clientId = resolved.clientId;
+    try {
+      var result = await SupervisionCore.runImpression(args.supervisorName, args.material);
+      if (result.error) return { ok: false, error: result.error };
+      var chatMessages = result.chatMessages;
+      if (!chatMessages || chatMessages.length < 2) {
+        return { ok: false, error: '整体印象生成失败：返回消息不完整' };
+      }
+      var full = '\u3010\u6574\u4f53\u5370\u8c61\u3011\n' + chatMessages[1].content;
+      var supervisorDisplayName = args.supervisorName === 'cangjie'
+        ? '\u6e29\u5c3c\u79d1\u7279\u53d6\u5411\u7763\u5bfc\u5e08 \u00b7 \u4ed3\u988d\u7248'
+        : '\u6e29\u5c3c\u79d1\u7279\u53d6\u5411\u7763\u5bfc\u5e08 \u00b7 \u5973\u5a23\u7248';
+      var sv = Store.saveAiSupervision({
+        supervisorName: supervisorDisplayName,
+        clientId: clientId,
+        sessionId: '',
+        context: args.material,
+        content: full
+      });
+      if (!sv) {
+        return { ok: false, error: '\u4fdd\u5b58\u5931\u8d25\uff08\u53ef\u80fd\u53d7\u9650\u6a21\u5f0f\u5df2\u8fbe\u7763\u5bfc\u8bb0\u5f55\u4e0a\u9650\uff09' };
+      }
+      supervisionSessions[sv.id] = chatMessages;
+      return sanitizeResult({
+        ok: true,
+        data: { sessionId: sv.id, impression: chatMessages[1].content, clientId: clientId }
+      });
+    } catch (e) {
+      return { ok: false, error: '\u7763\u5bfc\u542f\u52a8\u5931\u8d25\uff1a' + (e && e.message || e) };
+    }
+  }
+
+  // ============================================================
+  // 工具 8：supervision.ask（督导追问，读/对话，不确认）
+  // ============================================================
+  const SCHEMA_SUPERVISION_ASK = {
+    type: 'function',
+    function: {
+      name: 'supervision.ask',
+      description: '在已有 AI 督导会话中追加追问。对话类，无需确认。返回督导师回复与更新后的会话ID。',
+      parameters: {
+        type: 'object',
+        properties: {
+          sessionId: { type: 'string', description: '督导会话ID（supervision.start 返回）' },
+          question: { type: 'string', description: '追问内容' }
+        },
+        required: ['sessionId', 'question']
+      }
+    }
+  };
+
+  async function askSupervision(args) {
+    if (!args || !args.sessionId || !args.question) {
+      return { ok: false, error: '需提供 sessionId + question' };
+    }
+    if (typeof SupervisionCore === 'undefined') {
+      return { ok: false, error: 'SupervisionCore 未注入' };
+    }
+    var chatMessages = supervisionSessions[args.sessionId];
+    if (!chatMessages) {
+      return { ok: false, error: '\u7763\u5bfc\u4f1a\u8bdd\u5df2\u8fc7\u671f\u6216\u4e0d\u5b58\u5728\uff0c\u8bf7\u91cd\u65b0\u542f\u52a8\u7763\u5bfc' };
+    }
+    try {
+      var result = await SupervisionCore.runRound(chatMessages, args.question);
+      if (result.error) return { ok: false, error: result.error };
+      var updatedCMs = result.chatMessages;
+      supervisionSessions[args.sessionId] = updatedCMs;
+      var fullUpdatedText = '\u3010\u6574\u4f53\u5370\u8c61\u3011\n' + updatedCMs[1].content + '\n\n' +
+        updatedCMs.slice(2).map(function (m) {
+          return (m.role === 'user' ? '\u54a8\u8be2\u5e08\uff1a' : '\u7763\u5bfc\u5e08\uff1a') + m.content;
+        }).join('\n\n');
+      try {
+        Store.updateSupervision(args.sessionId, { conclusion: fullUpdatedText, content: fullUpdatedText });
+      } catch (e) {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[Agent] supervision.ask \u9644\u52a0\u5b58\u50a8\u672a\u4fdd\u5b58:', e && e.message || e);
+        }
+      }
+      return sanitizeResult({ ok: true, data: { sessionId: args.sessionId, reply: result.reply } });
+    } catch (e) {
+      return { ok: false, error: '\u7763\u5bfc\u8ffd\u95ee\u5931\u8d25\uff1a' + (e && e.message || e) };
+    }
+  }
+
+  // ============================================================
+  // 工具 9：masters.open（开启大师对话，轻量写，不确认）
+  // ============================================================
+  const SCHEMA_MASTERS_OPEN = {
+    type: 'function',
+    function: {
+      name: 'masters.open',
+      description: '开启某位心理学大师的对话会话（1v1 或圆桌）。轻量写操作。返回 sessionId 供后续 masters.message 使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          masterId: {
+            type: 'string',
+            enum: ['winnicott', 'lacan', 'freud', 'klein', 'jung', 'bion', 'rogers', 'beck', 'yalom', 'adler', 'susan_johnson'],
+            description: '大师 ID'
+          },
+          mode: { type: 'string', enum: ['1v1', 'round'], default: '1v1', description: '1v1 或圆桌' },
+          topic: { type: 'string', description: '可选，首条消息（会立即发送并获取回复）' }
+        },
+        required: ['masterId']
+      }
+    }
+  };
+
+  const masterConvs = {};
+
+  async function openMaster(args) {
+    if (!args || !args.masterId) {
+      return { ok: false, error: '需提供 masterId' };
+    }
+    if (typeof MastersCore === 'undefined') {
+      return { ok: false, error: 'MastersCore 未注入' };
+    }
+    try {
+      var mode = args.mode || '1v1';
+      var conv = MastersCore.openOrCreateConv(args.masterId, mode);
+      if (!conv) return { ok: false, error: '\u5927\u5e08\u4f1a\u8bdd\u521b\u5efa\u5931\u8d25' };
+      var firstReply = null;
+      if (args.topic) {
+        var master = (typeof getMasterByKey === 'function') ? getMasterByKey(args.masterId) : null;
+        if (!master) return { ok: false, error: '\u672a\u627e\u5230\u5927\u5e08\uff1a' + args.masterId };
+        var res = await MastersCore.callMaster(conv, master, args.topic);
+        if (res && res.error) return { ok: false, error: res.error };
+        conv.messages.push({ role: 'user', content: args.topic });
+        conv.messages.push({ role: 'assistant', content: res.content, masterKey: args.masterId });
+        firstReply = res.content;
+        MastersCore.maybeSummarize(conv);
+        Store.saveMasterConversation(conv);
+      }
+      masterConvs[conv.id] = conv;
+      return sanitizeResult({
+        ok: true,
+        data: { sessionId: conv.id, masterName: conv.title, firstReply: firstReply }
+      });
+    } catch (e) {
+      return { ok: false, error: '\u5927\u5e08\u5bf9\u8bdd\u5f00\u542f\u5931\u8d25\uff1a' + (e && e.message || e) };
+    }
+  }
+
+  // ============================================================
+  // 工具 10：masters.message（向大师发消息，轻量写，不确认）
+  // ============================================================
+  const SCHEMA_MASTERS_MESSAGE = {
+    type: 'function',
+    function: {
+      name: 'masters.message',
+      description: '向已开启的大师会话发送一条消息并获取回复。轻量写操作。',
+      parameters: {
+        type: 'object',
+        properties: {
+          sessionId: { type: 'string', description: '大师会话ID（masters.open 返回）' },
+          message: { type: 'string', description: '发送内容' },
+          masterId: { type: 'string', description: '可选。圆桌模式下指定回复的大师ID。1v1模式忽略（自动用 conv.masterKeys[0]）。' }
+        },
+        required: ['sessionId', 'message']
+      }
+    }
+  };
+
+  async function messageMaster(args) {
+    if (!args || !args.sessionId || !args.message) {
+      return { ok: false, error: '需提供 sessionId + message' };
+    }
+    if (typeof MastersCore === 'undefined') {
+      return { ok: false, error: 'MastersCore 未注入' };
+    }
+    try {
+      var conv = masterConvs[args.sessionId];
+      if (!conv && typeof Store !== 'undefined') {
+        conv = Store.getMasterConversation(args.sessionId);
+      }
+      if (!conv) return { ok: false, error: '\u5927\u5e08\u4f1a\u8bdd\u4e0d\u5b58\u5728\u6216\u5df2\u8fc7\u671f' };
+      var masterKey = (conv.mode === 'round' && args.masterId) ? args.masterId : conv.masterKeys[0];
+      var master = (typeof getMasterByKey === 'function') ? getMasterByKey(masterKey) : null;
+      if (!master) master = (typeof getMasterByKey === 'function') ? getMasterByKey(conv.masterKeys[0]) : null;
+      if (!master) return { ok: false, error: '\u672a\u627e\u5230\u5927\u5e08\uff1a' + masterKey };
+      var res = await MastersCore.callMaster(conv, master, args.message);
+      if (res && res.error) return { ok: false, error: res.error };
+      conv.messages.push({ role: 'user', content: args.message });
+      conv.messages.push({ role: 'assistant', content: res.content, masterKey: masterKey });
+      MastersCore.maybeSummarize(conv);
+      Store.saveMasterConversation(conv);
+      masterConvs[args.sessionId] = conv;
+      return sanitizeResult({ ok: true, data: { sessionId: args.sessionId, reply: res.content } });
+    } catch (e) {
+      return { ok: false, error: '\u5927\u5e08\u6d88\u606f\u53d1\u9001\u5931\u8d25\uff1a' + (e && e.message || e) };
+    }
+  }
+
+  // ============================================================
   // Tool Registry
   // ============================================================
   const TOOL_REGISTRY = {
@@ -410,7 +642,11 @@
     'billing.summary':        { schema: SCHEMA_SUMMARY,        handler: billingSummary,    kind: 'read' },
     'client.update':          { schema: SCHEMA_UPDATE_CLIENT,  handler: updateClientInfo,  kind: 'write' },
     'agent.configure_api':    { schema: SCHEMA_CONFIGURE_API,  handler: configureApi,      kind: 'config' },
-    'navigate_to':            { schema: SCHEMA_NAVIGATE_TO,    handler: handleNavigateTo,  kind: 'read' }
+    'navigate_to':            { schema: SCHEMA_NAVIGATE_TO,    handler: handleNavigateTo,  kind: 'read' },
+    'supervision.start':      { schema: SCHEMA_SUPERVISION_START, handler: startSupervision, kind: 'write' },
+    'supervision.ask':        { schema: SCHEMA_SUPERVISION_ASK, handler: askSupervision,    kind: 'read' },
+    'masters.open':           { schema: SCHEMA_MASTERS_OPEN,    handler: openMaster,        kind: 'write-light' },
+    'masters.message':        { schema: SCHEMA_MASTERS_MESSAGE, handler: messageMaster,     kind: 'write-light' }
   };
   const TOOL_SCHEMAS = Object.keys(TOOL_REGISTRY).map(function (k) { return TOOL_REGISTRY[k].schema; });
 

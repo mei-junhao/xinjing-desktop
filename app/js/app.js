@@ -13,13 +13,37 @@
    这里在 app.js（每页都加载）顶部统一注入，已显式 <script> 加载过的不再重复。
    ------------------------------------------------------------ */
 (function injectGlobalScripts() {
-  const list = ['js/ai.js', 'js/agent-core.js', 'js/agent-tools.js', 'js/agent-shell.js'];
+  const list = [
+    'js/ai.js',
+    'js/prompts.builtin.js',
+    'js/supervisors.js',
+    'js/supervision-core.js',
+    'js/masters-data.js',
+    'js/masters-core.js',
+    'js/agent-core.js',
+    'js/agent-tools.js',
+    'js/agent-shell.js'
+  ];
   list.forEach(function (src) {
-    // 已被本页 <script src> 显式加载过 → 不重复注入
+    // 双重守卫：typeof 检测全局是否已声明（防重复加载 const SyntaxError）
+    // + querySelector 检测 <script> 标签是否已显式加载
+    // 注意：typeof 对未声明的顶层 const/let 在 Script scope 安全返回 'undefined'
+    var guards = {
+      'js/ai.js': function () { return typeof AI !== 'undefined'; },
+      'js/prompts.builtin.js': function () { return typeof PromptsBuiltin !== 'undefined'; },
+      'js/supervisors.js': function () { return typeof Supervisors !== 'undefined'; },
+      'js/supervision-core.js': function () { return typeof SupervisionCore !== 'undefined'; },
+      'js/masters-data.js': function () { return typeof MASTERS !== 'undefined'; },
+      'js/masters-core.js': function () { return typeof MastersCore !== 'undefined'; },
+      'js/agent-core.js': function () { return typeof AgentCore !== 'undefined'; },
+      'js/agent-tools.js': function () { return typeof AgentTools !== 'undefined'; },
+      'js/agent-shell.js': function () { return typeof AgentShell !== 'undefined'; }
+    };
+    if (guards[src] && guards[src]()) return;
     if (document.querySelector('script[src="' + src + '"]')) return;
-    const s = document.createElement('script');
+    var s = document.createElement('script');
     s.src = src;
-    s.async = false; // 保持顺序：ai.js → agent-core → agent-tools → agent-shell
+    s.async = false;
     document.head.appendChild(s);
   });
 })();

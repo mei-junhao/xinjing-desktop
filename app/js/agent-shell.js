@@ -252,6 +252,15 @@
       const keys = Object.keys(args.patch || {}).join(', ');
       return '<div class="xj-agent-confirm-row">来访者 ID：<b>' + App.escapeHtml(args.clientId || '') + '</b><br>修改字段：<b>' + App.escapeHtml(keys) + '</b></div>';
     }
+    if (toolName === 'supervision.start') {
+      var modeName = args.supervisorName === 'cangjie' ? '\u4ed3\u988d\u7248' : '\u5973\u5a23\u7248';
+      var materialPreview = String(args.material || '').slice(0, 200) + (String(args.material || '').length > 200 ? '\u2026' : '');
+      return '<div class="xj-agent-confirm-row">' +
+        '\u7763\u5bfc\u5e08\uff1a<b>' + App.escapeHtml(modeName) + '</b><br>' +
+        '\u6765\u8bbf\u8005\uff1a<b>' + App.escapeHtml(args.clientName || args.clientId || '') + '</b><br>' +
+        '\u6750\u6599\u9884\u89c8\uff1a<span style="font-size:12px;color:var(--muted)">' + App.escapeHtml(materialPreview) + '</span>' +
+      '</div>';
+    }
     return '<div style="font-size:12px;color:var(--muted)">参数：' + App.escapeHtml(JSON.stringify(args)) + '</div>';
   }
 

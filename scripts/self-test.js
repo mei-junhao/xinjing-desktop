@@ -1057,6 +1057,11 @@ const S_BILLING = fs.readFileSync(path.join(APP_DIR, 'billing.html'), 'utf-8');
 const S_APP = fs.readFileSync(path.join(APP_DIR, 'js', 'app.js'), 'utf-8');
 const S_DASH = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf-8');
 
+// v1.3.7 Agent 写工具深化 — T1–T12
+const T_TOOLS = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-tools.js'), 'utf-8');
+const T_CORE = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-core.js'), 'utf-8');
+const T_SHELL = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-shell.js'), 'utf-8');
+
 test('S1 P0 Bug1-3 style.css 无 editorial 暖棕硬编码 rgba(158,90,60)', function () {
   assert.ok(!/rgba\(158,\s*90,\s*60/.test(S_CSS), 'style.css 仍含 editorial 暖棕硬编码');
 });
@@ -1085,6 +1090,72 @@ test('S6 P2 常驻 Agent 入口 + Ctrl+K 命令面板（app.js）', function () 
 test('S7 P2 Agent 首次引导（dashboard.js）', function () {
   assert.ok(/xj_agent_onboarded/.test(S_DASH), 'dashboard.js 缺引导 localStorage 标记');
   assert.ok(/xj-agent-onboard/.test(S_DASH), 'dashboard.js 缺引导气泡 class');
+});
+
+// ============================================================
+// v1.3.7 Agent 写工具深化 — T1–T12
+// ============================================================
+test('T1 agent-tools.js 含 4 新工具名', function () {
+  assert.ok(T_TOOLS.indexOf("'supervision.start'") !== -1, '缺 supervision.start');
+  assert.ok(T_TOOLS.indexOf("'supervision.ask'") !== -1, '缺 supervision.ask');
+  assert.ok(T_TOOLS.indexOf("'masters.open'") !== -1, '缺 masters.open');
+  assert.ok(T_TOOLS.indexOf("'masters.message'") !== -1, '缺 masters.message');
+});
+
+test('T2 agent-tools.js 含 supervisorName enum [nvwa, cangjie]', function () {
+  assert.ok(T_TOOLS.indexOf("'nvwa'") !== -1 && T_TOOLS.indexOf("'cangjie'") !== -1, '缺 nvwa/cangjie enum');
+});
+
+test('T3 agent-tools.js 含 masterId enum 11 位全量', function () {
+  var masters = ['winnicott', 'lacan', 'freud', 'klein', 'jung', 'bion', 'rogers', 'beck', 'yalom', 'adler', 'susan_johnson'];
+  for (var i = 0; i < masters.length; i++) {
+    assert.ok(T_TOOLS.indexOf("'" + masters[i] + "'") !== -1, '缺 masterId: ' + masters[i]);
+  }
+});
+
+test('T4 agent-tools.js 委托 SupervisionCore.runImpression / runRound', function () {
+  assert.ok(T_TOOLS.indexOf('SupervisionCore.runImpression') !== -1, '缺 runImpression 委托');
+  assert.ok(T_TOOLS.indexOf('SupervisionCore.runRound') !== -1, '缺 runRound 委托');
+});
+
+test('T5 agent-tools.js 委托 MastersCore.openOrCreateConv / callMaster / maybeSummarize', function () {
+  assert.ok(T_TOOLS.indexOf('MastersCore.openOrCreateConv') !== -1, '缺 openOrCreateConv 委托');
+  assert.ok(T_TOOLS.indexOf('MastersCore.callMaster') !== -1, '缺 callMaster 委托');
+  assert.ok(T_TOOLS.indexOf('MastersCore.maybeSummarize') !== -1, '缺 maybeSummarize 委托');
+});
+
+test('T6 agent-tools.js 持久化 Store.saveAiSupervision（supervision.start）', function () {
+  assert.ok(T_TOOLS.indexOf('Store.saveAiSupervision') !== -1, '缺 saveAiSupervision 持久化');
+});
+
+test('T7 agent-tools.js 持久化 Store.saveMasterConversation（masters handler）', function () {
+  assert.ok(T_TOOLS.indexOf('Store.saveMasterConversation') !== -1, '缺 saveMasterConversation 持久化');
+});
+
+test('T8 agent-tools.js 持久化 Store.updateSupervision（supervision.ask）', function () {
+  assert.ok(T_TOOLS.indexOf('Store.updateSupervision') !== -1, '缺 updateSupervision 持久化');
+});
+
+test('T9 agent-tools.js 含内存映射 supervisionSessions / masterConvs', function () {
+  assert.ok(T_TOOLS.indexOf('supervisionSessions') !== -1, '缺 supervisionSessions 映射');
+  assert.ok(T_TOOLS.indexOf('masterConvs') !== -1, '缺 masterConvs 映射');
+});
+
+test('T10 app.js 注入链含 5 宿主全局文件', function () {
+  assert.ok(S_APP.indexOf('js/prompts.builtin.js') !== -1, '缺 prompts.builtin.js 注入');
+  assert.ok(S_APP.indexOf('js/supervisors.js') !== -1, '缺 supervisors.js 注入');
+  assert.ok(S_APP.indexOf('js/supervision-core.js') !== -1, '缺 supervision-core.js 注入');
+  assert.ok(S_APP.indexOf('js/masters-data.js') !== -1, '缺 masters-data.js 注入');
+  assert.ok(S_APP.indexOf('js/masters-core.js') !== -1, '缺 masters-core.js 注入');
+});
+
+test('T11 agent-core.js buildSystemPrompt 含督导与大师描述', function () {
+  assert.ok(T_CORE.indexOf('启动 AI 督导') !== -1, '缺督导描述');
+  assert.ok(T_CORE.indexOf('开启大师对话') !== -1, '缺大师描述');
+});
+
+test('T12 agent-shell.js renderConfirmPreview 含 supervision.start 预览', function () {
+  assert.ok(T_SHELL.indexOf('supervision.start') !== -1, '缺 supervision.start 确认卡预览');
 });
 
 // ============================================================
