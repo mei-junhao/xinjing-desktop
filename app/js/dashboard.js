@@ -16,9 +16,11 @@ App.initPage({
   // ---------- 渲染统计 ----------
   function renderStats() {
     const stats = Store.getStats();
-    document.getElementById('stat-clients').textContent = stats.activeClients;
-    document.getElementById('stat-supervision').textContent = stats.supervisionCount;
-    document.getElementById('stat-reports').textContent = stats.recentReports;
+    const money = function (n) { return '¥' + Number(n || 0).toLocaleString('zh-CN'); };
+    document.getElementById('stat-receivable').textContent = money(stats.monthlyReceivable);
+    document.getElementById('stat-received').textContent = money(stats.monthlyReceived);
+    document.getElementById('stat-pending-clients').textContent = stats.pendingClients;
+    document.getElementById('stat-active-clients').textContent = stats.activeClients;
   }
 
   // ---------- 最近会谈 ----------

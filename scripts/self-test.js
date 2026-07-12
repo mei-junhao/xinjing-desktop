@@ -1063,6 +1063,10 @@ const T_CORE = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-core.js'), 'utf-8
 const T_SHELL = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-shell.js'), 'utf-8');
 // v1.3.8 API 服务商预设
 const T_SETTINGS_HTML = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf-8');
+// v1.4.0 Dashboard 统计卡 3→4 改造
+const T_INDEX_HTML = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf-8');
+const T_STORE_JS = fs.readFileSync(path.join(APP_DIR, 'js', 'store.js'), 'utf-8');
+const T_STYLE_CSS = S_CSS; // 复用已读取的 style.css 内容
 
 test('S1 P0 Bug1-3 style.css 无 editorial 暖棕硬编码 rgba(158,90,60)', function () {
   assert.ok(!/rgba\(158,\s*90,\s*60/.test(S_CSS), 'style.css 仍含 editorial 暖棕硬编码');
@@ -1204,6 +1208,47 @@ test('T18 行为级：handler 含 provider === other 强校验 baseUrl 分支', 
 
 test('T19 行为级：handler 含旧式 baseUrl && args.model 兼容分支', function () {
   assert.ok(/args\.baseUrl\s*&&\s*args\.model/.test(T_TOOLS), 'handler 漏旧式 baseUrl+model 兼容分支');
+});
+
+// ============================================================
+// T 组 · v1.4.0 Dashboard 统计卡 3→4 改造
+// ============================================================
+test('T20 getStats 含 monthlyReceivable / monthlyReceived / pendingClients 字段', function () {
+  assert.ok(T_STORE_JS.indexOf('monthlyReceivable') !== -1, 'store.js 缺 monthlyReceivable');
+  assert.ok(T_STORE_JS.indexOf('monthlyReceived') !== -1, 'store.js 缺 monthlyReceived');
+  assert.ok(T_STORE_JS.indexOf('pendingClients') !== -1, 'store.js 缺 pendingClients');
+});
+
+test('T21 index.html 含 stat-receivable / stat-received / stat-pending-clients / stat-active-clients 四个 id', function () {
+  ['stat-receivable', 'stat-received', 'stat-pending-clients', 'stat-active-clients'].forEach(function (id) {
+    assert.ok(T_INDEX_HTML.indexOf('id="' + id + '"') !== -1, 'index.html 缺 id=' + id);
+  });
+});
+
+test('T22 index.html 不含 stat-supervision / stat-reports / stat-clients 旧 id（已被 4 卡替换）', function () {
+  ['stat-supervision', 'stat-reports', 'stat-clients'].forEach(function (id) {
+    assert.ok(T_INDEX_HTML.indexOf('id="' + id + '"') === -1, 'index.html 残留旧 id=' + id + '，应被 4 卡替换删除');
+  });
+});
+
+test('T23 dashboard.js renderStats 调 4 个新 id（stat-receivable / stat-received / stat-pending-clients / stat-active-clients）', function () {
+  ['stat-receivable', 'stat-received', 'stat-pending-clients', 'stat-active-clients'].forEach(function (id) {
+    assert.ok(S_DASH.indexOf("getElementById('" + id + "')") !== -1 || S_DASH.indexOf('getElementById("' + id + '")') !== -1, 'dashboard.js 缺 getElementById(' + id + ')');
+  });
+});
+
+test('T24 style.css .stat-grid 是 repeat(4, 1fr) 而非 repeat(3, 1fr)', function () {
+  assert.ok(T_STYLE_CSS.indexOf('repeat(4, 1fr)') !== -1, 'style.css .stat-grid 漏 repeat(4, 1fr)');
+  // 确保 .stat-grid 规则附近无 repeat(3, 1fr) 残留（排除其他 grid 规则干扰，直接检查 .stat-grid 行）
+  var gridLine = T_STYLE_CSS.match(/\.stat-grid\s*\{[^}]*\}/);
+  if (gridLine) {
+    assert.ok(gridLine[0].indexOf('repeat(4, 1fr)') !== -1, '.stat-grid 规则块内漏 repeat(4, 1fr)');
+    assert.ok(gridLine[0].indexOf('repeat(3, 1fr)') === -1, '.stat-grid 规则块内仍含 repeat(3, 1fr)');
+  }
+});
+
+test('T25 dashboard.js renderStats 含 toLocaleString 调用（金钱千位分隔格式）', function () {
+  assert.ok(/toLocaleString\(['"]zh-CN['"]\)/.test(S_DASH), 'dashboard.js 缺 toLocaleString("zh-CN") 千位分隔调用');
 });
 
 // ============================================================

@@ -603,14 +603,56 @@ const Store = (() => {
     const clients = cache.clients;
     const sessions = cache.sessions;
     const sups = cache.supervisions;
-    const activeClients = clients.filter((c) => c.status === 'active').length;
+    const activeClientsArr = clients.filter((c) => c.status === 'active');
+    const activeClients = activeClientsArr.length;
     const recentReports = sessions.filter((s) => s.hasSoap || s.hasDap || s.hasReflection).length;
+
+    // v1.4.0 新增：本月应收 / 已收 / 待收来访者数（口径与 agent-tools.js billingSummary 对齐）
+    const ym = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const activeIds = new Set(activeClientsArr.map((c) => c.id));
+    let monthlyReceivable = 0;
+    let monthlyReceived = 0;
+    let pendingClients = 0;
+    // 按来访者合并遍历：一次循环同时算应收/已收/待收，避免重复迭代
+    const perClient = {}; // id -> { rec, paid }
+    for (const s of sessions) {
+      if (!activeIds.has(s.clientId)) continue;
+      if (!s.date || s.date.slice(0, 7) !== ym) continue;
+      const fee = (s.billing && Number(s.billing.fee)) || 0;
+      monthlyReceivable += fee;
+      if (s.billing && s.billing.paid) monthlyReceived += fee;
+      if (!perClient[s.clientId]) perClient[s.clientId] = { rec: 0, paid: 0 };
+      perClient[s.clientId].rec += fee;
+      if (s.billing && s.billing.paid) perClient[s.clientId].paid += fee;
+    }
+    // 累加月结 payment 到 monthlyReceived 和对应来访者已收
+    for (const c of activeClientsArr) {
+      if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
+        for (const mp of c.billing.monthlyPayments) {
+          if (mp.month === ym) {
+            const amt = Number(mp.amount) || 0;
+            monthlyReceived += amt;
+            if (!perClient[c.id]) perClient[c.id] = { rec: 0, paid: 0 };
+            perClient[c.id].paid += amt;
+          }
+        }
+      }
+    }
+    // 统计待收来访者：应收 > 已收
+    for (const id in perClient) {
+      if (perClient[id].rec > perClient[id].paid) pendingClients++;
+    }
+
     return {
       activeClients,
       supervisionCount: sups.length,
       recentReports,
       totalClients: clients.length,
       totalSessions: sessions.length,
+      // v1.4.0 新增
+      monthlyReceivable,
+      monthlyReceived,
+      pendingClients,
     };
   }
   function getRecentSessions(limit = 5) {
