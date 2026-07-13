@@ -53,3 +53,16 @@ scripts/coscli.exe
 
 # 服务端生产环境变量（含真实 provider key，绝不入库；仅本机部署用）
 server/.env*
+
+# Demo 与设计稿 HTML（不入库）
+*-demo-*.html
+*-v3-*.html
+*-design-*.html
+*-redesign*.html
+*-board-*.html
+homepage-*.html
+billing-redesign.html
+*-demo*.html
+
+# 设计文档 / 交接文档 / 技术方案 .md（不入库，仅本地参考）
+XinJing-*.md
