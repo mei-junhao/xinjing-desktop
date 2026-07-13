@@ -119,7 +119,6 @@ const App = (() => {
   const NAV_ITEMS = [
     { key: 'dashboard', label: '首页', icon: 'home', href: 'index.html' },
     { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consultations.html' },
-    { key: 'clients', label: '来访者', icon: 'clients', href: 'clients.html' },
     { key: 'supervision', label: '督导', icon: 'cap', href: 'supervision.html' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html' },
@@ -153,11 +152,13 @@ const App = (() => {
     const path = location.pathname.split('/').pop() || 'index.html';
     const map = {
       'index.html': 'dashboard',
-      'clients.html': 'clients',
-      'client-detail.html': 'clients',
-      'session.html': 'clients',
+      'consultations.html': 'consultations',
+      'clients.html': 'consultations',
+      'client-detail.html': 'consultations',
+      'session.html': 'consultations',
       'supervision.html': 'supervision',
       'billing-shell.html': 'billing',
+      'billing.html': 'billing',
       'masters.html': 'masters',
       'settings.html': 'settings',
       'feedback.html': 'feedback',
@@ -196,12 +197,38 @@ const App = (() => {
       </aside>`;
   }
 
+  function buildBackButton() {
+    // 首页（工作台）不显示返回键——它就是顶层
+    const path = location.pathname.split('/').pop() || 'index.html';
+    if (path === 'index.html' || path === '' || path === '/') return '';
+    // 智能判断返回目标：
+    // - 如果有同源 referrer 且不是当前页，用 history.back()
+    // - 否则回首页 index.html
+    const ref = document.referrer;
+    let onClick;
+    try {
+      const refUrl = ref ? new URL(ref, location.origin) : null;
+      const sameOrigin = refUrl && refUrl.origin === location.origin && refUrl.pathname !== location.pathname;
+      onClick = sameOrigin
+        ? 'history.back();'
+        : 'location.href="index.html";';
+    } catch (e) {
+      onClick = 'location.href="index.html";';
+    }
+    return `<button class="btn-back" onclick="${onClick}" title="返回上一层" aria-label="返回上一层">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M15 5l-7 7 7 7"/></svg>
+      <span class="btn-back-label">返回</span>
+    </button>`;
+  }
+
   function injectLayout(title, subtitle, headerActions = '') {
     document.getElementById('sidebar-mount').outerHTML = renderSidebar();
     const header = document.getElementById('page-header');
     if (header) {
+      const backBtn = buildBackButton();
       header.innerHTML = `
         <div>
+          ${backBtn ? `<div class="back-row">${backBtn}</div>` : ''}
           <h1>${title}</h1>
           ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
         </div>
@@ -404,7 +431,7 @@ const App = (() => {
   const CMD_COMMANDS = [
     { label: '新建来访者', hint: '创建一位新的咨询来访者', run: function () {
         if (document.getElementById('client-modal')) App.openModal('client-modal');
-        else location.href = 'clients.html';
+        else location.href = 'consultations.html';
       } },
     { label: '记账', hint: '打开记账页面', run: function () { location.href = 'billing-shell.html'; } },
     { label: 'AI 督导', hint: '打开 AI 督导页面', run: function () { location.href = 'supervision.html'; } },

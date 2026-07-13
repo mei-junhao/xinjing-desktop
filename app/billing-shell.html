@@ -7,16 +7,6 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/components.css">
   <style>
-    #billing-frame {
-      width: 100%;
-      height: calc(100vh - 110px);
-      min-height: 540px;
-      border: none;
-      border-radius: var(--radius-lg, 14px);
-      background: var(--bg-sunken, #f0f4f9);
-      display: block;
-    }
-
     /* ── 导入数据 modal（三 Tab）── */
     .import-tabs {
       display: flex; gap: 4px; background: var(--bg-soft);
@@ -92,6 +82,99 @@
 
     .file-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
     .file-row input[type="file"] { font-family: var(--sans); font-size: 13px; }
+
+    /* ====== 原生三栏记账工作区（v2.0 P0-2）====== */
+    .ws.billing { min-height: 0; }
+    /* 左栏：客户记账列表 */
+    .rail { background: var(--paper-2, var(--bg-elevated, #fff)); border-right: 1px solid var(--border, var(--hair)); display: flex; flex-direction: column; min-height: 0; }
+    .rail .top { padding: 14px; border-bottom: 1px solid var(--border, var(--hair)); }
+    .rail .top input { width: 100%; border: 1px solid var(--border, var(--hair-strong)); border-radius: 10px; padding: 9px 12px; font-size: 13px; font-family: var(--sans); background: var(--paper, #fff); color: var(--text, var(--ink)); }
+    .pills { display: flex; gap: 6px; padding: 12px 14px; flex-wrap: wrap; border-bottom: 1px solid var(--border, var(--hair)); }
+    .pills .pill { border: 1px solid var(--border, var(--hair)); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; color: var(--text-secondary, var(--ink-2)); cursor: pointer; background: var(--paper, #fff); user-select: none; transition: .15s; }
+    .pills .pill:hover { border-color: var(--accent, var(--accent-2)); color: var(--accent); }
+    .pills .pill.active { background: var(--accent, #9E5A3C); color: #fff; border-color: var(--accent, #9E5A3C); }
+    .clist { overflow: auto; flex: 1; padding: 8px; }
+    .ccard { border: 1px solid var(--border, var(--hair)); border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; cursor: pointer; transition: .15s; background: var(--paper-2, var(--bg-elevated, #fff)); }
+    .ccard:hover { border-color: var(--accent, #9E5A3C); }
+    .ccard.active { border-color: var(--accent, #9E5A3C); background: var(--accent-soft, rgba(158,90,60,.08)); }
+    .ccard .r1 { display: flex; justify-content: space-between; align-items: center; }
+    .ccard .nm { font-weight: 600; font-size: 14.5px; color: var(--text, var(--ink)); }
+    .ccard .mode { font-size: 11px; padding: 1px 8px; border-radius: 7px; background: var(--bg-sunken, var(--bg-soft)); color: var(--text-secondary, var(--ink-2)); }
+    .ccard .meta { font-size: 12px; color: var(--text-muted, var(--muted)); margin-top: 5px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .ccard .meta .owe { color: var(--danger, #B85450); }
+    .ccard-empty { color: var(--text-muted, var(--muted)); text-align: center; padding: 28px 12px; font-size: 13px; line-height: 1.7; }
+
+    /* 中栏 */
+    .center { overflow: auto; padding: 22px 26px; min-width: 0; background: var(--bg, var(--paper)); }
+    .client-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    .client-head h2 { font-family: var(--serif); margin: 0; font-size: 23px; color: var(--text, var(--ink)); }
+    .client-head .mode { font-size: 12px; padding: 2px 10px; border-radius: 8px; background: var(--bg-sunken, var(--bg-soft)); color: var(--text-secondary, var(--ink-2)); }
+    .stats { display: flex; gap: 22px; margin-left: auto; flex-wrap: wrap; }
+    .stat b { display: block; font-size: 17px; font-family: var(--serif); }
+    .stat span { font-size: 11.5px; color: var(--text-muted, var(--muted)); }
+    .quick { display: flex; gap: 8px; margin-bottom: 16px; }
+    .quick button { border: 1px solid var(--border, var(--hair-strong)); background: var(--paper, #fff); border-radius: 10px; padding: 8px 14px; font-size: 13px; font-family: var(--sans); cursor: pointer; color: var(--text, var(--ink)); transition: .15s; }
+    .quick button:hover { border-color: var(--accent, #9E5A3C); color: var(--accent); }
+    .quick button.primary { background: var(--accent, #9E5A3C); color: #fff; border-color: var(--accent, #9E5A3C); }
+    .quick button.primary:hover { filter: brightness(1.07); color: #fff; }
+    table.rec { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 18px; font-family: var(--sans); }
+    table.rec th, table.rec td { border: 1px solid var(--border, var(--hair)); padding: 9px 10px; text-align: left; color: var(--text, var(--ink)); }
+    table.rec th { background: var(--bg-sunken, var(--bg-soft)); color: var(--text-secondary, var(--ink-2)); font-weight: 600; }
+    .tag { font-size: 11px; padding: 1px 8px; border-radius: 7px; background: var(--bg-sunken, var(--bg-soft)); color: var(--text-secondary, var(--ink-2)); }
+    .paid-y { color: var(--success, #6E7E62); font-weight: 600; }
+    .paid-n { color: var(--danger, #B85450); font-weight: 600; }
+    .sectitle { font-family: var(--serif); font-size: 16px; margin: 18px 0 10px; display: flex; align-items: center; gap: 10px; color: var(--text, var(--ink)); }
+    .sectitle .ln { flex: 1; height: 1px; background: var(--border, var(--hair)); }
+    .inline-form { display: none; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; background: var(--bg-sunken, var(--bg-soft)); border: 1px solid var(--border, var(--hair)); border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+    .inline-form.show { display: grid; }
+    .inline-form label { font-size: 11.5px; color: var(--text-muted, var(--muted)); display: block; margin-bottom: 4px; }
+    .inline-form input, .inline-form select { border: 1px solid var(--border, var(--hair-strong)); border-radius: 8px; padding: 7px 9px; width: 100%; font-family: var(--sans); font-size: 13px; background: var(--paper, #fff); color: var(--text, var(--ink)); }
+    .inline-form .row-actions { grid-column: 1/-1; display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* 分段控制（明细/趋势/账单） */
+    .seg { display: flex; gap: 4px; background: var(--bg-sunken, var(--bg-soft)); border-radius: 999px; padding: 3px; margin-bottom: 16px; width: fit-content; }
+    .seg-btn { padding: 7px 18px; border-radius: 999px; font-size: 13px; cursor: pointer; color: var(--text-secondary, var(--ink-2)); user-select: none; transition: .15s; font-family: var(--sans); }
+    .seg-btn:hover { color: var(--accent); }
+    .seg-btn.active { background: var(--paper, #fff); color: var(--accent, #9E5A3C); box-shadow: inset 0 0 0 1px var(--border, var(--hair)); font-weight: 600; }
+
+    /* 趋势图 */
+    .chart-area { height: 200px; display: flex; align-items: flex-end; gap: 7px; padding: 14px 16px 26px; position: relative; background: var(--bg-sunken, var(--bg-soft)); border-radius: var(--radius-sm, 10px); margin: 8px 0 6px; }
+    .bar { flex: 1; background: linear-gradient(180deg, var(--accent, #9E5A3C), rgba(158,90,60,.28)); border-radius: 4px 4px 0 0; min-height: 4px; position: relative; cursor: pointer; transition: .2s; }
+    .bar:hover { filter: brightness(1.12); }
+    .b-lbl { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--accent, #9E5A3C); font-weight: 700; opacity: 0; transition: .2s; white-space: nowrap; }
+    .bar:hover .b-lbl { opacity: 1; }
+    .b-x { position: absolute; bottom: -20px; left: 0; width: 100%; text-align: center; font-size: 9.5px; color: var(--text-muted, var(--muted)); font-family: var(--sans); }
+    .rank-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border, var(--hair)); }
+    .rank-row:last-child { border: none; }
+    .rank-no { width: 22px; font-weight: 700; color: var(--text-muted, var(--muted)); }
+    .rank-row .info { flex: 1; }
+    .rank-row .name { font-weight: 600; font-size: 13.5px; color: var(--text, var(--ink)); }
+    .rank-row .amt { font-weight: 600; font-size: 13.5px; color: var(--text, var(--ink)); }
+    .rank-row .amt small { color: var(--text-muted, var(--muted)); font-weight: 400; margin-left: 6px; }
+
+    /* 账单 */
+    .invoice { background: var(--bg-sunken, var(--bg-soft)); border: 1px solid var(--border, var(--hair)); border-radius: var(--radius, 14px); padding: 24px; line-height: 1.85; font-family: var(--sans); }
+    .invoice h4 { font-family: var(--serif); font-size: 17px; margin: 0 0 4px; color: var(--text, var(--ink)); }
+    .invoice .meta-line { font-size: 11px; color: var(--text-muted, var(--muted)); margin-bottom: 16px; }
+    .invoice table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    .invoice th, .invoice td { padding: 7px 10px; border-bottom: 1px solid var(--border, var(--hair)); text-align: left; font-size: 12.5px; color: var(--text, var(--ink)); }
+    .invoice .tl { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; color: var(--text, var(--ink)); }
+    .invoice .tl.final { font-weight: 700; font-size: 16px; border-top: 2px solid var(--text, var(--ink)); margin-top: 8px; padding-top: 8px; }
+    .formline { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+    .formline .fg { flex: 1; min-width: 150px; }
+    .formline label { font-size: 11.5px; color: var(--text-muted, var(--muted)); display: block; margin-bottom: 4px; }
+    .formline select, .formline input { border: 1px solid var(--border, var(--hair-strong)); border-radius: 8px; padding: 8px 10px; width: 100%; font-family: var(--sans); font-size: 13px; background: var(--paper, #fff); color: var(--text, var(--ink)); }
+    .b-empty { color: var(--text-muted, var(--muted)); text-align: center; margin-top: 70px; font-size: 13.5px; line-height: 1.8; font-family: var(--sans); }
+    .card-panel { background: var(--paper-2, #fff); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,.04)); padding: 18px; border: 1px solid var(--border, var(--hair)); border-radius: var(--radius, 14px); }
+    .card-panel h2 { font-family: var(--serif); font-size: 16px; margin: 0 0 4px; color: var(--text, var(--ink)); }
+
+    .dock-actions { display: flex; flex-direction: column; gap: 7px; }
+    .dock-actions button { display: flex; gap: 9px; align-items: center; text-align: left; border: 1px solid var(--border, var(--hair-strong)); background: var(--paper, #fff); color: var(--text, var(--ink)); padding: 10px 13px; border-radius: 11px; cursor: pointer; font-size: 13px; font-family: var(--sans); transition: .15s; }
+    .dock-actions button:hover { border-color: var(--accent, #9E5A3C); background: var(--accent-soft, rgba(158,90,60,.08)); color: var(--accent, #9E5A3C); }
+    .dock-actions button.primary { background: var(--accent, #9E5A3C); color: #fff; border-color: var(--accent, #9E5A3C); }
+    .dock-actions button.primary:hover { filter: brightness(1.07); color: #fff; }
+    .chat-mini .u { color: var(--accent, #9E5A3C); font-weight: 600; margin-bottom: 6px; }
+    .chat-mini .a { color: var(--text-secondary, var(--ink-2)); }
   </style>
 </head>
 <body>
@@ -99,36 +182,64 @@
     <div id="sidebar-mount"></div>
     <main class="main">
       <!-- 工作区顶栏：统计卡 + 操作按钮 -->
+      <div class="back-row" style="padding:18px 40px 0">
+        <button class="btn-back" onclick="location.href='index.html'" title="返回上一层" aria-label="返回上一层">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M15 5l-7 7 7 7"/></svg>
+          <span class="btn-back-label">返回</span>
+        </button>
+      </div>
       <div class="topbar">
         <div class="brand">记账 <small>与心镜共用同一份数据</small></div>
         <div class="cards" id="billing-stats">
-          <div class="card"><b id="stat-receivable">¥0</b><span>应收</span></div>
-          <div class="card"><b id="stat-received">¥0</b><span>已收</span></div>
-          <div class="card owe"><b id="stat-balance">¥0</b><span>未收余额</span></div>
-          <div class="card"><b id="stat-sessions">0</b><span>本月节次</span></div>
+          <div class="card"><b id="stat-m-receivable">¥0</b><span>本月应收</span></div>
+          <div class="card"><b id="stat-m-received">¥0</b><span>本月已收</span></div>
+          <div class="card owe"><b id="stat-m-balance">¥0</b><span>本月欠费</span></div>
+          <div class="card"><b id="stat-t-receivable">¥0</b><span>总应收</span></div>
+          <div class="card"><b id="stat-t-received">¥0</b><span>总已收</span></div>
+          <div class="card owe"><b id="stat-t-balance">¥0</b><span>总欠费</span></div>
         </div>
         <div class="actions">
-          <button onclick="openImport()">⤓ 导入数据</button>
-          <button class="ai" onclick="toggleAiDock()">🤖 AI 记账</button>
+          <button class="primary" onclick="toggleAddForm()">+ 记一笔</button>
+          <button onclick="toggleSettleForm()">月结</button>
+          <button onclick="openImport()">导入数据</button>
+          <button class="ai" onclick="focusAi()">🤖 AI 记账</button>
         </div>
       </div>
-      <!-- 三栏：左 iframe + 拖拽条 + 右 AI 记账坞 -->
-      <div class="ws billing" id="billing-ws" style="grid-template-columns: 1fr 6px var(--dock-w)">
-        <div style="overflow:auto;padding:16px 20px;min-width:0">
-          <iframe id="billing-frame" title="记账系统" src="about:blank"></iframe>
+      <!-- 三栏：左客户列表 + 拖拽条 + 右 AI 记账坞 -->
+      <div class="ws billing" id="billing-ws" style="grid-template-columns: 280px 1fr 6px var(--dock-w)">
+        <!-- 左栏：客户记账列表 -->
+        <div class="rail" id="b-rail">
+          <div class="top"><input id="b-search" placeholder="搜索来访者…"></div>
+          <div class="pills" id="b-modePills">
+            <span class="pill active" data-m="all">全部</span>
+            <span class="pill" data-m="per-session">次结</span>
+            <span class="pill" data-m="monthly">月结</span>
+          </div>
+          <div class="clist" id="b-clist"></div>
         </div>
+
+        <!-- 中栏：客户明细 + 三分段（明细/趋势/账单） -->
+        <div class="center" id="b-center">
+          <div class="seg" id="b-cseg">
+            <div class="seg-btn active" data-c="detail" onclick="switchCtab('detail')">明细</div>
+            <div class="seg-btn" data-c="trend" onclick="switchCtab('trend')">趋势</div>
+            <div class="seg-btn" data-c="invoice" onclick="switchCtab('invoice')">账单</div>
+          </div>
+          <div id="cpanel-detail"></div>
+          <div id="cpanel-trend" style="display:none"></div>
+          <div id="cpanel-invoice" style="display:none"></div>
+        </div>
+
         <div class="resizer" id="billing-resizer"></div>
         <aside class="aidock" id="billing-aidock">
-          <div class="dock-head">
-            🤖 AI 记账坞
-          </div>
+          <div class="dock-head">🤖 AI 记账坞</div>
           <div class="dock-body">
-            <p class="hint">输入自然语言即可记账、月结、查统计。<br>例：「帮张明记 4月10号会谈 300块次结没付」</p>
-            <textarea class="ai-input" id="billing-ai-input" placeholder="描述要记的账、月结或查询统计…"></textarea>
+            <p class="hint">用自然语言记账，自动映射到记账工具：<br>「帮林小满记 7 月 10 号会谈 300 块次结没付」<br>「给陈默做 6 月月结 560」</p>
+            <textarea class="ai-input" id="billing-ai-input" placeholder="说一句话就能记账…"></textarea>
             <div class="dock-actions">
-              <button class="primary" onclick="billingAiSend()">✍️ 记账</button>
-              <button onclick="billingAiMonthly()">📊 月结</button>
-              <button onclick="billingAiQuery()">🔍 查统计</button>
+              <button class="primary" onclick="billingAiSend()"><span>⚡</span> 发送并记账</button>
+              <button onclick="billingAiDemo('记一笔')"><span>📝</span> 记一笔示例</button>
+              <button onclick="billingAiDemo('月结')"><span>🗓</span> 月结示例</button>
             </div>
             <div class="chat-mini" id="billing-ai-result" style="display:none"></div>
           </div>
@@ -229,157 +340,450 @@
   <script src="js/billing-sync.js"></script>
   <script>
   /* ============================================================
-     心镜 · 记账 · v2.0 壳页
-     职责：① 加载记账 iframe ② 「导入数据」modal 三 Tab 统一入口
-            ③ 统计卡渲染 ④ AI 记账坞 ⑤ 拖拽分隔条
+     心镜 · 记账 · v2.0 壳页（原生三栏，无 iframe）
+     职责：① 6 统计卡渲染 ② 左客户列表+中客户明细+三分段（明细/趋势/账单）
+            ③ 内联「记一笔 / 月结」表单 ④ AI 记账坞 ⑤ 拖拽分隔条
+            ⑥ 「导入数据」modal 三 Tab 统一入口（保留）
      ============================================================ */
-  // 工作区壳页：topbar 直接写在 HTML 中，不走 page-header
   document.getElementById('sidebar-mount').outerHTML = App.renderSidebar();
 
-  // 等待 Store 初始化后渲染统计
-  (async function() {
-    try {
-      await window.__XJ_API__ && typeof window.__XJ_API__.getState === 'function' ? window.__XJ_API__.getState() : null;
-    } catch(e) {}
-    if (window.Store && typeof Store.hydrate === 'function') {
-      try { await Store.hydrate(); } catch(e) {}
-    }
-    // 加载 iframe
-    document.getElementById('billing-frame').src = 'billing.html';
-    // 渲染统计卡
-    renderBillingStats();
-    // 初始化拖拽
-    initBillingResizer();
-    // 绑定 modal 关闭
-    if (typeof App.bindModalClose === 'function') {
-      App.bindModalClose('confirm-modal');
-      App.bindModalClose('import-modal');
-    }
-  })();
+  // ====== 内部状态 ======
+  let bCurMode = 'all';
+  let bCurClient = null;
+  let bCurCtab = 'detail';
+  let bQuery = '';
+  const MODE_TEXT = { 'per-session': '次结', monthly: '月结' };
 
-  // ── 统计卡渲染 ──
+  // ====== 聚合某 client 的应收/已收/欠费 ======
+  function clientAgg(c) {
+    const sessions = Store.getSessionsByClient(c.id);
+    let total = 0, received = 0;
+    sessions.forEach(function (s) {
+      const fee = (s.billing && Number(s.billing.fee)) || 0;
+      if (fee > 0) {
+        total += fee;
+        if (s.billing && s.billing.paid) received += fee;
+      }
+    });
+    if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
+      c.billing.monthlyPayments.forEach(function (mp) {
+        const amt = Number(mp.amount) || 0;
+        if (amt > 0) received += amt;
+      });
+    }
+    return { total: total, received: received, owe: total - received };
+  }
+
+  // ====== 6 统计卡渲染 ======
   function renderBillingStats() {
     try {
-      var clients = Store.getClients();
-      var now = new Date();
-      var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-      var sessions = [];
-      clients.forEach(function(c) {
-        Store.getSessionsByClient(c.id).forEach(function(s) {
-          if (s.billing && s.date && s.date.startsWith(ym)) sessions.push(s);
-        });
+      const clients = Store.getClients();
+      const allSessions = Store.getSessions();
+      const ym = new Date().toISOString().slice(0, 7);
+      let mRec = 0, mPaid = 0, tRec = 0, tPaid = 0;
+      allSessions.forEach(function (s) {
+        const fee = (s.billing && Number(s.billing.fee)) || 0;
+        if (fee <= 0) return;
+        tRec += fee;
+        if (s.billing && s.billing.paid) tPaid += fee;
+        if (s.date && s.date.slice(0, 7) === ym) {
+          mRec += fee;
+          if (s.billing && s.billing.paid) mPaid += fee;
+        }
       });
-      var receivable = 0, received = 0;
-      sessions.forEach(function(s) {
-        var fee = (s.billing && s.billing.fee) || 0;
-        receivable += fee;
-        if (s.billing && s.billing.paid) received += fee;
+      clients.forEach(function (c) {
+        if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
+          c.billing.monthlyPayments.forEach(function (mp) {
+            const amt = Number(mp.amount) || 0;
+            if (amt > 0) {
+              tPaid += amt;
+              if (mp.month === ym) mPaid += amt;
+            }
+          });
+        }
       });
-      var balance = receivable - received;
-      document.getElementById('stat-receivable').textContent = '¥' + receivable;
-      document.getElementById('stat-received').textContent = '¥' + received;
-      document.getElementById('stat-balance').textContent = '¥' + balance;
-      document.getElementById('stat-sessions').textContent = sessions.length;
-    } catch(e) { console.warn('[billing stats]', e); }
+      document.getElementById('stat-m-receivable').textContent = '¥' + mRec.toLocaleString();
+      document.getElementById('stat-m-received').textContent = '¥' + mPaid.toLocaleString();
+      document.getElementById('stat-m-balance').textContent = '¥' + Math.max(0, mRec - mPaid).toLocaleString();
+      document.getElementById('stat-t-receivable').textContent = '¥' + tRec.toLocaleString();
+      document.getElementById('stat-t-received').textContent = '¥' + tPaid.toLocaleString();
+      document.getElementById('stat-t-balance').textContent = '¥' + Math.max(0, tRec - tPaid).toLocaleString();
+    } catch (e) { console.warn('[billing stats]', e); }
   }
   window.renderBillingStats = renderBillingStats;
 
-  // ── 拖拽分隔条（控制 --dock-w） ──
+  // ====== 左栏客户列表 ======
+  function renderBRail() {
+    const q = (bQuery || '').toLowerCase();
+    const list = Store.getClients().filter(function (c) {
+      const mode = (c.billing && c.billing.billingMode) || 'per-session';
+      if (bCurMode !== 'all' && mode !== bCurMode) return false;
+      if (q && (c.name || '').toLowerCase().indexOf(q) < 0) return false;
+      return c.status !== 'ended';
+    });
+    const html = list.length ? list.map(function (c) {
+      const mode = (c.billing && c.billing.billingMode) || 'per-session';
+      const agg = clientAgg(c);
+      const ym = new Date().toISOString().slice(0, 7);
+      const monthSessions = Store.getSessionsByClient(c.id).filter(function (s) {
+        return s.date && s.date.slice(0, 7) === ym;
+      });
+      const monthPaid = monthSessions.reduce(function (acc, s) {
+        return acc + ((s.billing && s.billing.paid) ? Number(s.billing.fee) || 0 : 0);
+      }, 0);
+      return '<div class="ccard' + (bCurClient && bCurClient.id === c.id ? ' active' : '') + '" onclick="selectBClient(\'' + c.id + '\')">'
+        + '<div class="r1"><span class="nm">' + App.escapeHtml(c.name) + '</span><span class="mode">' + (MODE_TEXT[mode] || '次结') + '</span></div>'
+        + '<div class="meta"><span>应收 ¥' + agg.total.toLocaleString() + '</span><span>已收 ¥' + agg.received.toLocaleString() + '</span>'
+        + (agg.owe > 0 ? '<span class="owe">欠 ¥' + agg.owe.toLocaleString() + '</span>' : '')
+        + '<span>本月 ¥' + monthPaid.toLocaleString() + '</span></div></div>';
+    }).join('') : '<div class="ccard-empty">无匹配来访者<br>请先在「来访者」页创建</div>';
+    document.getElementById('b-clist').innerHTML = html;
+  }
+  function selectBClient(id) {
+    bCurClient = Store.getClients().find(function (c) { return c.id === id; }) || null;
+    renderBRail();
+    if (bCurCtab !== 'detail') { bCurCtab = 'detail'; updateCtabActive(); }
+    renderBDetail();
+    // 切到明细面板显示
+    document.getElementById('cpanel-detail').style.display = '';
+    document.getElementById('cpanel-trend').style.display = 'none';
+    document.getElementById('cpanel-invoice').style.display = 'none';
+  }
+  window.selectBClient = selectBClient;
+
+  // ====== 中栏 · 明细 ======
+  function renderBDetail() {
+    const panel = document.getElementById('cpanel-detail');
+    const c = bCurClient;
+    if (!c) {
+      panel.innerHTML = '<div class="b-empty">从左侧选择一位来访者查看其明细<br>「趋势 / 账单」无需选择来访者也可使用</div>';
+      return;
+    }
+    const mode = (c.billing && c.billing.billingMode) || 'per-session';
+    const fee = (c.billing && Number(c.billing.feePerSession)) || 0;
+    const sessions = Store.getSessionsByClient(c.id).slice().sort(function (a, b) {
+      return (a.date || '').localeCompare(b.date || '');
+    });
+    const agg = clientAgg(c);
+    const ym = new Date().toISOString().slice(0, 7);
+    const monthSessions = sessions.filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
+    const monthPaid = monthSessions.reduce(function (acc, s) {
+      return acc + ((s.billing && s.billing.paid) ? Number(s.billing.fee) || 0 : 0);
+    }, 0);
+    const mps = (c.billing && c.billing.monthlyPayments) || [];
+    panel.innerHTML =
+      '<div class="client-head"><h2>' + App.escapeHtml(c.name) + '</h2>'
+      + '<span class="mode">' + (MODE_TEXT[mode] || '次结') + ' · 单价 ¥' + fee + '</span>'
+      + '<div class="stats">'
+      + '<div class="stat"><b>¥' + agg.total.toLocaleString() + '</b><span>应收</span></div>'
+      + '<div class="stat"><b>¥' + agg.received.toLocaleString() + '</b><span>已收</span></div>'
+      + '<div class="stat"><b style="color:' + (agg.owe > 0 ? 'var(--danger,#B85450)' : 'inherit') + '">¥' + agg.owe.toLocaleString() + '</b><span>欠费</span></div>'
+      + '<div class="stat"><b>¥' + monthPaid.toLocaleString() + '</b><span>本月</span></div>'
+      + '</div></div>'
+      + '<div class="quick"><button class="primary" onclick="toggleAddForm()">+ 记一笔</button><button onclick="toggleSettleForm()">月结</button></div>'
+      + '<div class="inline-form" id="b-form-add">'
+      + '<div><label>日期</label><input type="date" id="bf-date" value="' + App.todayStr() + '"></div>'
+      + '<div><label>费用(元)</label><input type="number" id="bf-fee" value="' + fee + '" min="0"></div>'
+      + '<div><label>已收</label><select id="bf-paid"><option value="0">未收</option><option value="1">已收</option></select></div>'
+      + '<div class="row-actions"><button class="btn btn-ghost" onclick="closeBForms()">取消</button><button class="btn btn-primary" onclick="addRecord()">保存</button></div>'
+      + '</div>'
+      + '<div class="inline-form" id="b-form-settle">'
+      + '<div><label>月份</label><input type="month" id="bf-month" value="' + ym + '"></div>'
+      + '<div><label>月结金额(元)</label><input type="number" id="bf-amount" value="0" min="0"></div>'
+      + '<div class="row-actions"><button class="btn btn-ghost" onclick="closeBForms()">取消</button><button class="btn btn-primary" onclick="settleMonth()">保存</button></div>'
+      + '</div>'
+      + '<div class="sectitle">会谈记录 <span class="ln"></span></div>'
+      + '<table class="rec"><thead><tr><th>日期</th><th>节次</th><th>费用</th><th>已收</th><th>类型</th></tr></thead><tbody>'
+      + (sessions.length ? sessions.map(function (s) {
+        const sf = (s.billing && Number(s.billing.fee)) || 0;
+        const paid = !!(s.billing && s.billing.paid);
+        const stype = (s.billing && s.billing.source === 'tmeet') ? '会议' : (s.billing && s.billing.source === 'billing' ? '导入' : '次结');
+        return '<tr><td>' + App.escapeHtml(s.date || '') + '</td><td>第' + (s.sessionNumber || '?') + '节</td><td>¥' + sf.toLocaleString() + '</td>'
+          + '<td class="' + (paid ? 'paid-y' : 'paid-n') + '">' + (paid ? '已收' : '未收') + '</td>'
+          + '<td><span class="tag">' + stype + '</span></td></tr>';
+      }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">暂无会谈记录</td></tr>')
+      + '</tbody></table>'
+      + (mps.length ? '<div class="sectitle">月结记录 <span class="ln"></span></div>'
+        + '<table class="rec"><thead><tr><th>月份</th><th>金额</th></tr></thead><tbody>'
+        + mps.map(function (m) { return '<tr><td>' + App.escapeHtml(m.month || '') + '</td><td>¥' + (Number(m.amount) || 0).toLocaleString() + '</td></tr>'; }).join('')
+        + '</tbody></table>' : '');
+  }
+
+  // ====== 中栏 · 趋势 ======
+  function renderBTrend() {
+    const months = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+    }
+    const allSess = Store.getSessions();
+    const allC = Store.getClients();
+    const data = months.map(function (ym) {
+      let total = 0;
+      allSess.forEach(function (s) {
+        if (s.date && s.date.slice(0, 7) === ym) {
+          const fee = (s.billing && Number(s.billing.fee)) || 0;
+          if (fee > 0 && s.billing && s.billing.paid) total += fee;
+        }
+      });
+      allC.forEach(function (c) {
+        if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
+          c.billing.monthlyPayments.forEach(function (mp) {
+            if (mp.month === ym) total += Number(mp.amount) || 0;
+          });
+        }
+      });
+      return total;
+    });
+    const max = Math.max.apply(null, data.concat([1]));
+    const chartBars = data.map(function (v) {
+      const h = Math.max(4, v / max * 150);
+      return '<div class="bar" style="height:' + h + 'px;"><span class="b-lbl">¥' + (v / 1000).toFixed(1) + 'k</span></div>';
+    }).join('');
+    const xAxis = months.map(function (ym) {
+      return '<span style="font-size:9.5px;text-align:center;flex:1">' + ym.slice(5) + '月</span>';
+    }).join('');
+    const ranked = allC.map(function (c) {
+      const a = clientAgg(c);
+      return { name: c.name, total: a.total, received: a.received };
+    }).filter(function (r) { return r.total > 0; }).sort(function (x, y) { return y.total - x.total; }).slice(0, 10);
+    document.getElementById('cpanel-trend').innerHTML =
+      '<div class="card-panel"><h2>月度已收趋势（近 12 个月）</h2>'
+      + '<div class="chart-area">' + chartBars + '</div>'
+      + '<div style="display:flex;gap:7px;padding:0 16px 4px;box-sizing:border-box">' + xAxis + '</div>'
+      + '<div style="font-size:10.5px;color:var(--text-muted,var(--muted));text-align:center">悬停柱体查看数值 · 仅统计已收金额</div>'
+      + '</div>'
+      + '<div class="sectitle">来访者应收排行 <span class="ln"></span></div>'
+      + '<div class="card-panel" style="padding:6px 14px">'
+      + (ranked.length ? ranked.map(function (r, i) {
+        return '<div class="rank-row"><span class="rank-no">' + (i + 1) + '</span>'
+          + '<div class="info"><div class="name">' + App.escapeHtml(r.name) + '</div></div>'
+          + '<span class="amt">¥' + r.total.toLocaleString() + '<small>已收 ¥' + r.received.toLocaleString() + '</small></span></div>';
+      }).join('') : '<div class="b-empty" style="margin-top:16px">暂无来访者应收数据</div>')
+      + '</div>';
+  }
+
+  // ====== 中栏 · 账单 ======
+  function renderBInvoice() {
+    const opts = Store.getClients().map(function (c) {
+      return '<option value="' + c.id + '"' + (bCurClient && bCurClient.id === c.id ? ' selected' : '') + '>' + App.escapeHtml(c.name) + '</option>';
+    }).join('');
+    const ym = new Date().toISOString().slice(0, 7);
+    document.getElementById('cpanel-invoice').innerHTML =
+      '<div class="card-panel"><h2>生成来访者账单</h2>'
+      + '<div class="formline">'
+      + '<div class="fg"><label>来访者</label><select id="bill-client" onchange="renderBillPreview()">' + opts + '</select></div>'
+      + '<div class="fg"><label>月份</label><input type="month" id="bill-month" value="' + ym + '" onchange="renderBillPreview()"></div>'
+      + '<div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="exportInvoice()">导出 HTML 账单</button></div>'
+      + '</div><div id="bill-preview"></div></div>';
+    renderBillPreview();
+  }
+  function renderBillPreview() {
+    const sel = document.getElementById('bill-client');
+    if (!sel) return;
+    const cid = sel.value;
+    const c = Store.getClients().find(function (x) { return x.id === cid; });
+    const box = document.getElementById('bill-preview');
+    if (!c) { box.innerHTML = ''; return; }
+    const monthEl = document.getElementById('bill-month');
+    const month = monthEl ? monthEl.value : '';
+    const mode = (c.billing && c.billing.billingMode) || 'per-session';
+    const fee = (c.billing && Number(c.billing.feePerSession)) || 0;
+    const rs = Store.getSessionsByClient(c.id).filter(function (s) {
+      return s.date && s.date.slice(0, 7) === month;
+    }).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+    const totalDue = rs.reduce(function (acc, s) { return acc + ((s.billing && Number(s.billing.fee)) || 0); }, 0);
+    const paidThis = rs.reduce(function (acc, s) {
+      return acc + ((s.billing && s.billing.paid) ? Number(s.billing.fee) || 0 : 0);
+    }, 0);
+    const monthlyThis = ((c.billing && c.billing.monthlyPayments) || []).filter(function (m) { return m.month === month; }).reduce(function (s, m) { return s + (Number(m.amount) || 0); }, 0);
+    const totalPaid = paidThis + monthlyThis;
+    const pending = totalDue - totalPaid;
+    box.innerHTML = '<div class="invoice">'
+      + '<h4>' + App.escapeHtml(c.name) + ' · ' + month.replace('-', '年') + '月 咨询账单</h4>'
+      + '<div class="meta-line">单价 ¥' + fee + '/次 · ' + (MODE_TEXT[mode] || '次结') + '</div>'
+      + '<table><thead><tr><th>日期</th><th>次数</th><th>金额</th><th>状态</th></tr></thead><tbody>'
+      + (rs.length ? rs.map(function (r) {
+        const sf = (r.billing && Number(r.billing.fee)) || 0;
+        return '<tr><td>' + App.escapeHtml(r.date || '') + '</td><td>第' + (r.sessionNumber || '?') + '节</td>'
+          + '<td>¥' + sf.toLocaleString() + '</td><td>' + ((r.billing && r.billing.paid) ? '已缴' : '未缴') + '</td></tr>';
+      }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">本月无记录</td></tr>')
+      + '</tbody></table>'
+      + (monthlyThis > 0 ? '<div class="tl"><span>月结已付</span><span style="color:var(--success,#6E7E62)">¥' + monthlyThis.toLocaleString() + '</span></div>' : '')
+      + '<div class="tl"><span>小计</span><span>¥' + totalDue.toLocaleString() + '</span></div>'
+      + '<div class="tl"><span>已付</span><span style="color:var(--success,#6E7E62)">¥' + totalPaid.toLocaleString() + '</span></div>'
+      + '<div class="tl final"><span>' + (pending > 0 ? '待付' : '余额') + '</span><span style="color:' + (pending > 0 ? 'var(--warning,#D6A85C)' : 'var(--success,#6E7E62)') + '">¥' + Math.abs(pending).toLocaleString() + '</span></div>'
+      + '</div>';
+  }
+  function exportInvoice() {
+    const cid = document.getElementById('bill-client').value;
+    const month = document.getElementById('bill-month').value;
+    const c = Store.getClients().find(function (x) { return x.id === cid; });
+    if (!c) return;
+    const html = document.querySelector('.invoice') ? document.querySelector('.invoice').outerHTML : '';
+    const fname = c.name + '_' + month + '_账单.html';
+    App.downloadFile(fname, '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + App.escapeHtml(fname) + '</title><style>body{font-family:sans-serif;padding:24px}.invoice{max-width:560px;border:1px solid #ccc;padding:24px;border-radius:14px}.tl{display:flex;justify-content:space-between}table{width:100%;border-collapse:collapse}th,td{padding:7px 10px;border-bottom:1px solid #ddd;text-align:left}</style></head><body>' + html + '</body></html>', 'text/html');
+    App.showToast('账单已导出', 'success');
+  }
+  window.renderBillPreview = renderBillPreview;
+  window.exportInvoice = exportInvoice;
+
+  // ====== 分段切换 ======
+  function switchCtab(t) {
+    bCurCtab = t;
+    updateCtabActive();
+    document.getElementById('cpanel-detail').style.display = t === 'detail' ? '' : 'none';
+    document.getElementById('cpanel-trend').style.display = t === 'trend' ? '' : 'none';
+    document.getElementById('cpanel-invoice').style.display = t === 'invoice' ? '' : 'none';
+    if (t === 'trend') renderBTrend();
+    if (t === 'invoice') renderBInvoice();
+  }
+  function updateCtabActive() {
+    document.querySelectorAll('#b-cseg .seg-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.c === bCurCtab);
+    });
+  }
+  window.switchCtab = switchCtab;
+
+  // ====== 内联表单 ======
+  function toggleAddForm() {
+    if (!bCurClient) { App.showToast('请先选择来访者', 'warning'); return; }
+    closeBForms();
+    document.getElementById('b-form-add').classList.add('show');
+  }
+  function toggleSettleForm() {
+    if (!bCurClient) { App.showToast('请先选择来访者', 'warning'); return; }
+    closeBForms();
+    document.getElementById('b-form-settle').classList.add('show');
+  }
+  function closeBForms() {
+    ['b-form-add', 'b-form-settle'].forEach(function (k) {
+      const el = document.getElementById(k);
+      if (el) el.classList.remove('show');
+    });
+  }
+  function addRecord() {
+    if (!bCurClient) return;
+    const date = document.getElementById('bf-date').value;
+    const fee = Number(document.getElementById('bf-fee').value) || 0;
+    const paid = document.getElementById('bf-paid').value === '1';
+    if (!date) { App.showToast('请选择日期', 'warning'); return; }
+    if (fee <= 0) { App.showToast('费用需 > 0', 'warning'); return; }
+    Store.createSession({
+      clientId: bCurClient.id,
+      date: date,
+      durationMinutes: 0,
+      billing: { fee: fee, paid: paid, source: 'billing' },
+      notes: ['来源：手动记账', '单价 ¥' + fee, paid ? '已缴' : '未缴', '[billing:' + bCurClient.id + ':' + date + ':' + fee + ']'].join('｜')
+    });
+    App.showToast('已记一笔', 'success');
+    closeBForms();
+    bCurClient = Store.getClients().find(function (c) { return c.id === bCurClient.id; }) || bCurClient;
+    refreshAll();
+  }
+  function settleMonth() {
+    if (!bCurClient) return;
+    const month = document.getElementById('bf-month').value;
+    const amount = Number(document.getElementById('bf-amount').value) || 0;
+    if (!month) { App.showToast('请选择月份', 'warning'); return; }
+    if (amount <= 0) { App.showToast('月结金额需 > 0', 'warning'); return; }
+    const billing = Object.assign({}, bCurClient.billing || {});
+    billing.monthlyPayments = Array.isArray(billing.monthlyPayments) ? billing.monthlyPayments.slice() : [];
+    const exist = billing.monthlyPayments.findIndex(function (m) { return m.month === month; });
+    if (exist >= 0) billing.monthlyPayments[exist].amount = amount;
+    else billing.monthlyPayments.push({ month: month, amount: amount });
+    Store.updateClient(bCurClient.id, { billing: billing });
+    App.showToast('月结已保存', 'success');
+    closeBForms();
+    bCurClient = Store.getClients().find(function (c) { return c.id === bCurClient.id; }) || bCurClient;
+    refreshAll();
+  }
+  window.toggleAddForm = toggleAddForm;
+  window.toggleSettleForm = toggleSettleForm;
+  window.closeBForms = closeBForms;
+  window.addRecord = addRecord;
+  window.settleMonth = settleMonth;
+
+  // ====== 刷新所有 ======
+  function refreshAll() {
+    renderBillingStats();
+    renderBRail();
+    if (bCurCtab === 'detail') renderBDetail();
+    else if (bCurCtab === 'trend') renderBTrend();
+    else if (bCurCtab === 'invoice') renderBInvoice();
+  }
+  window.refreshBillingAll = refreshAll;
+
+  // ====== 焦点到 AI 坞 ======
+  function focusAi() {
+    document.getElementById('billing-ai-input').focus();
+    document.getElementById('billing-aidock').scrollIntoView();
+  }
+  window.focusAi = focusAi;
+
+  // ====== 拖拽分隔条（控制 --dock-w） ======
   function initBillingResizer() {
     var resizer = document.getElementById('billing-resizer');
     if (!resizer) return;
     var ws = document.getElementById('billing-ws');
     var dragging = false;
-    resizer.addEventListener('mousedown', function(e) {
+    resizer.addEventListener('mousedown', function (e) {
       dragging = true;
       document.body.style.cursor = 'col-resize';
       e.preventDefault();
     });
-    document.addEventListener('mousemove', function(e) {
+    document.addEventListener('mousemove', function (e) {
       if (!dragging) return;
       var w = window.innerWidth - e.clientX;
-      w = Math.max(280, Math.min(560, w));
-      ws.style.gridTemplateColumns = '1fr 6px ' + w + 'px';
+      w = Math.max(300, Math.min(620, w));
+      ws.style.gridTemplateColumns = '280px 1fr 6px ' + w + 'px';
     });
-    document.addEventListener('mouseup', function() {
+    document.addEventListener('mouseup', function () {
       if (dragging) {
         dragging = false;
         document.body.style.cursor = '';
         try {
           var w = ws.style.gridTemplateColumns.split(' ').pop();
           localStorage.setItem('xj_billing_dock_w', w);
-        } catch(e) {}
+        } catch (e) {}
       }
     });
-    // 恢复
+    var savedW = '380px';
+    try { savedW = localStorage.getItem('xj_billing_dock_w') || '380px'; } catch (e) {}
+    ws.style.gridTemplateColumns = '280px 1fr 6px ' + savedW;
+  }
+
+  // ====== 启动 ======
+  (async function () {
     try {
-      var saved = localStorage.getItem('xj_billing_dock_w');
-      if (saved) ws.style.gridTemplateColumns = '1fr 6px ' + saved;
-    } catch(e) {}
-  }
-
-  // ── AI 记账坞 ──
-  function toggleAiDock() {
-    var dock = document.getElementById('billing-aidock');
-    if (dock.style.display === 'none' || !dock.style.display) {
-      dock.style.display = 'flex';
-    } else {
-      dock.style.display = 'none';
+      await window.__XJ_API__ && typeof window.__XJ_API__.getState === 'function' ? window.__XJ_API__.getState() : null;
+    } catch (e) {}
+    if (window.Store && typeof Store.hydrate === 'function') {
+      try { await Store.hydrate(); } catch (e) {}
     }
-  }
-  window.toggleAiDock = toggleAiDock;
-
-  function showAiResult(text, isUser) {
-    var box = document.getElementById('billing-ai-result');
-    box.style.display = 'block';
-    var div = document.createElement('div');
-    div.className = isUser ? 'u' : 'a';
-    div.innerHTML = App.escapeHtml(text) + (isUser ? '' : '');
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-  }
-
-  function billingAiSend() {
-    var text = (document.getElementById('billing-ai-input').value || '').trim();
-    if (!text) { App.showToast('请输入记账内容', 'warning'); return; }
-    showAiResult(text, true);
-    document.getElementById('billing-ai-input').value = '';
-    // 通过 Agent 执行（走 AgentCore 的 function-calling 流程）
-    if (typeof window.AgentSend === 'function') {
-      window.AgentSend(text);
-      App.showToast('已发送给心镜 Agent 执行', 'success');
-    } else if (typeof window.AgentOpen === 'function') {
-      window.AgentOpen();
-      setTimeout(function() { window.AgentSend(text); }, 200);
-    } else {
-      App.showToast('Agent 未就绪，请先激活', 'error');
+    renderBillingStats();
+    renderBRail();
+    renderBDetail();
+    initBillingResizer();
+    if (typeof App.bindModalClose === 'function') {
+      App.bindModalClose('confirm-modal');
+      App.bindModalClose('import-modal');
     }
-  }
-  window.billingAiSend = billingAiSend;
-
-  function billingAiMonthly() {
-    var now = new Date();
-    var ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-    var text = '月结 ' + ym;
-    showAiResult(text, true);
-    if (typeof window.AgentSend === 'function') {
-      window.AgentSend(text);
-    } else {
-      App.showToast('Agent 未就绪', 'error');
+    var searchInput = document.getElementById('b-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', function () { bQuery = searchInput.value; renderBRail(); });
     }
-  }
-  window.billingAiMonthly = billingAiMonthly;
-
-  function billingAiQuery() {
-    var text = '这个月应收已收统计';
-    showAiResult(text, true);
-    if (typeof window.AgentSend === 'function') {
-      window.AgentSend(text);
-    } else {
-      App.showToast('Agent 未就绪', 'error');
-    }
-  }
-  window.billingAiQuery = billingAiQuery;
+    var pills = document.querySelectorAll('#b-modePills .pill');
+    pills.forEach(function (p) {
+      p.addEventListener('click', function () {
+        pills.forEach(function (x) { x.classList.remove('active'); });
+        p.classList.add('active');
+        bCurMode = p.dataset.m;
+        renderBRail();
+      });
+    });
+  })();
 
   // ── 打开导入 modal ──
   function openImport() {
@@ -766,7 +1170,7 @@
       monthlyPayments: parsed.monthlyPayments || []
     });
     document.getElementById('import-result').textContent = '已写入心镜本地数据库。';
-    document.getElementById('billing-frame').src = 'billing.html?ts=' + Date.now();
+    refreshAll();
     return true;
   }
 
@@ -779,9 +1183,8 @@
       else if (this.currentTab === 'meetings') ok = MeetingsImport.importSelected();
       else if (this.currentTab === 'manual') ok = doImport();
       if (ok) {
-        // 刷新 iframe 让记账页立刻看到新数据
-        const f = document.getElementById('billing-frame');
-        f.src = 'billing.html?ts=' + Date.now();
+        // 刷新原生三栏视图，无 iframe
+        refreshAll();
         App.showToast('导入完成 · 已写入心镜本地数据库', 'success');
         // 不自动关 modal，让用户看结果
       }

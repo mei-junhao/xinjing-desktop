@@ -10,21 +10,20 @@ App.initPage({
     'use strict';
 
     if (!clientId) {
-      location.href = 'clients.html';
+      location.href = 'consultations.html';
       return;
     }
 
     const client = Store.getClient(clientId);
     if (!client) {
-      location.href = 'clients.html';
+      location.href = 'consultations.html';
       return;
     }
 
     App.injectLayout(
       client.name,
       `首访 ${client.firstVisitDate ? App.formatDate(client.firstVisitDate, true) : '未记录'} · ${App.statusLabel(client.status)}`,
-      `<button class="btn btn-ghost btn-sm" onclick="location.href='index.html'">← 工作台</button>
-<button class="btn btn-primary" onclick="newSession()">新增会话<span class="trail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>`
+      `<button class="btn btn-primary" onclick="newSession()">新增会话<span class="trail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>`
     );
     App.bindModalClose('confirm-modal');
     App.bindModalClose('edit-modal');
@@ -173,7 +172,7 @@ App.initPage({
       Store.deleteClient(clientId);
       App.closeModal('edit-modal');
       App.showToast('已删除', 'success');
-      setTimeout(() => { location.href = 'clients.html'; }, 500);
+      setTimeout(() => { location.href = 'consultations.html'; }, 500);
     }, true);
   };
 

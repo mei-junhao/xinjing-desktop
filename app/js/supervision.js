@@ -62,7 +62,8 @@ App.initPage({
     document.querySelectorAll('.chip').forEach(function (c) {
       c.addEventListener('click', function () {
         if (c.classList.contains('locked')) {
-          App.showToast('自定义模板为会员功能', 'error');
+          App.showToast('自定义模板为会员功能，正在打开激活入口…', 'info');
+          openActivation();
           return;
         }
         document.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('active'); });
@@ -72,6 +73,11 @@ App.initPage({
       });
     });
     refreshHint();
+
+    function openActivation() {
+      if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation();
+    }
+    window.openActivation = openActivation;
 
     // ===================== 选区浮动工具栏 =====================
     editor.addEventListener('mouseup', function () {
@@ -123,7 +129,7 @@ App.initPage({
     function getEditorText() { return (editor.innerText || '').trim(); }
 
     function ensureUnlocked() {
-      if (!App.aiUnlocked()) { App.showToast('AI 督导为付费功能，请先激活', 'error'); return false; }
+      if (!App.aiUnlocked()) { App.showToast('AI 督导为付费功能，正在打开激活入口…', 'info'); openActivation(); return false; }
       return true;
     }
     function setBtnLoading(btn, loading, label) {

@@ -23,6 +23,9 @@ function initConsultations() {
   let railStatus = 'all';
   let railQuery = '';
   let orientation = 'winnicott';
+  let dockMode = 'free';      // 'free' | 'session'
+  let curSessionId = null;    // 当前右栏选节快编的 session.id（P0-3）
+  let curSessionObj = null;   // 当前右栏的 session 对象副本
 
   const ORIENT_LABELS = {
     winnicott: '温尼科特取向（足够好的母亲、过渡性客体、真/假自体）',
@@ -198,11 +201,11 @@ function initConsultations() {
     });
   }
 
-  // 时间线卡片点击 → session.html（center 委托，避免矩阵单元格冲突）
+  // 时间线卡片点击 → 在右栏「选节快编」打开内嵌编辑器（替代跳转 session.html，P0-3）
   center.addEventListener('click', function (e) {
     const tc = e.target.closest('.tcard');
     if (tc && tc.getAttribute('data-sid')) {
-      location.href = 'session.html?id=' + tc.getAttribute('data-sid');
+      openSessionInDock(tc.getAttribute('data-sid'));
     }
   });
 
@@ -353,6 +356,144 @@ function initConsultations() {
   window.addEventListener('mouseup', function () {
     if (drag) { drag = false; document.body.style.cursor = ''; }
   });
+
+  // ---------- P0-3：右栏「选节快编」内嵌编辑器 ----------
+  // 切换模式
+  const dockModeSwitch = document.getElementById('dockModeSwitch');
+  if (dockModeSwitch) {
+    dockModeSwitch.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        setDockMode(b.getAttribute('data-m'));
+      });
+    });
+  }
+  function setDockMode(m) {
+    dockMode = m;
+    dockModeSwitch.querySelectorAll('button').forEach(function (x) {
+      x.classList.toggle('active', x.getAttribute('data-m') === m);
+    });
+    document.getElementById('dockPane-free').classList.toggle('active', m === 'free');
+    document.getElementById('dockPane-session').classList.toggle('active', m === 'session');
+  }
+
+  // 时间线点击 / 矩阵点击 → 在右栏打开内嵌编辑器
+  function openSessionInDock(sid) {
+    // 用同步的 getSession 即可（已 hit cache）——无需 full 路径，
+    // 因 Store.hydrate 后 cache.sessions 已含 transcript/soap/dap/reflection 全字段
+    let s = null;
+    try { s = Store.getSession(sid) || null; } catch (e) { s = null; }
+    applySession(s);
+  }
+  function applySession(s) {
+    if (!s) { App.showToast('未找到该会话', 'error'); return; }
+    curSessionId = s.id;
+    curSessionObj = s;
+    // 切到 session 模式
+    setDockMode('session');
+    document.getElementById('sess-editor-empty').style.display = 'none';
+    document.getElementById('sess-editor-body').style.display = '';
+    document.getElementById('sess-head-title').textContent = '第 ' + (s.sessionNumber || '?') + ' 节';
+    document.getElementById('sess-date').value = s.date || App.todayStr();
+    document.getElementById('sess-num').value = s.sessionNumber || 1;
+    document.getElementById('sess-transcript').value = s.transcript || '';
+    const soap = s.soap || {};
+    document.getElementById('sess-soap-s').value = soap.subjective || '';
+    document.getElementById('sess-soap-o').value = soap.objective || '';
+    document.getElementById('sess-soap-a').value = soap.assessment || '';
+    document.getElementById('sess-soap-p').value = soap.plan || '';
+    const dap = s.dap || {};
+    document.getElementById('sess-dap-d').value = dap.data || '';
+    document.getElementById('sess-dap-a').value = dap.assessment || '';
+    document.getElementById('sess-dap-p').value = dap.plan || '';
+    document.getElementById('sess-reflection').value = s.reflection || '';
+    document.getElementById('sess-confirmed').checked = !!s.isConfirmed;
+    // 重置到第一个 tab
+    switchSessTab('transcript');
+  }
+
+  function switchSessTab(t) {
+    const tabs = document.getElementById('sessTabs').querySelectorAll('button');
+    tabs.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-t') === t); });
+    ['transcript', 'soap', 'dap', 'reflection'].forEach(function (k) {
+      document.getElementById('sp-' + k).classList.toggle('active', k === t);
+    });
+  }
+  document.getElementById('sessTabs').addEventListener('click', function (e) {
+    const b = e.target.closest('button');
+    if (b) switchSessTab(b.getAttribute('data-t'));
+  });
+
+  // 保存
+  document.getElementById('btnSessSave').addEventListener('click', function () {
+    if (!curSessionObj) return;
+    const updated = Object.assign({}, curSessionObj, {
+      date: document.getElementById('sess-date').value,
+      sessionNumber: parseInt(document.getElementById('sess-num').value, 10) || curSessionObj.sessionNumber,
+      transcript: document.getElementById('sess-transcript').value,
+      soap: {
+        subjective: document.getElementById('sess-soap-s').value,
+        objective: document.getElementById('sess-soap-o').value,
+        assessment: document.getElementById('sess-soap-a').value,
+        plan: document.getElementById('sess-soap-p').value,
+      },
+      dap: {
+        data: document.getElementById('sess-dap-d').value,
+        assessment: document.getElementById('sess-dap-a').value,
+        plan: document.getElementById('sess-dap-p').value,
+      },
+      reflection: document.getElementById('sess-reflection').value,
+      isConfirmed: document.getElementById('sess-confirmed').checked,
+    });
+    Store.updateSessionFull(updated).then(function (saved) {
+      curSessionObj = saved;
+      App.showToast('已保存', 'success');
+      // 刷新中栏时间线 flag 状态
+      renderCenter();
+    }).catch(function (e) {
+      App.showToast('保存失败：' + (e && e.message), 'error');
+    });
+  });
+
+  // 跳转完整 session.html（保留为高级入口：AI 督导、删除、督导关联等）
+  document.getElementById('btnSessFullEdit').addEventListener('click', function () {
+    if (!curSessionId) return;
+    location.href = 'session.html?id=' + curSessionId;
+  });
+
+  // ---------- P2-1：新建来访者模态（合并来访者导航后的责任容器） ----------
+  if (document.getElementById('client-modal')) {
+    App.bindModalClose('client-modal');
+    const fvtEl = document.getElementById('c-firstvisit');
+    if (fvtEl && !fvtEl.value) fvtEl.value = App.todayStr();
+  }
+  window.saveNewClient = function () {
+    const nameEl = document.getElementById('c-name');
+    if (!nameEl) return;
+    const name = nameEl.value.trim();
+    if (!name) { App.showToast('请填写姓名或化名', 'error'); return; }
+    const tagsInput = document.getElementById('c-tags').value.trim();
+    const tags = tagsInput ? tagsInput.split(/[,，]/).map(function (t) { return t.trim(); }).filter(Boolean) : [];
+    let client;
+    try {
+      client = Store.createClient({
+        name: name,
+        gender: document.getElementById('c-gender').value,
+        birthDate: document.getElementById('c-birth').value,
+        phone: document.getElementById('c-phone').value.trim(),
+        firstVisitDate: document.getElementById('c-firstvisit').value,
+        tags: tags,
+        notes: document.getElementById('c-notes').value.trim(),
+      });
+    } catch (e) { App.showToast(e.message, 'error'); return; }
+    App.closeModal('client-modal');
+    App.showToast('已创建来访者：' + name, 'success');
+    ['c-name', 'c-birth', 'c-phone', 'c-tags', 'c-notes'].forEach(function (id) {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    currentClientId = client.id;
+    renderRail();
+    selectClient(client.id);
+  };
 
   // ---------- 初始渲染 ----------
   renderRail();

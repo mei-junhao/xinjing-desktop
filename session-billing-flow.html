@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 会话内计费闭环（客户经理视角示意）</title>
+<link rel="stylesheet" href="app/css/tokens.css">
+<link rel="stylesheet" href="app/css/style.css">
+<style>
+  :root{
+    --bg:#F6F8FC; --bg-elevated:#FFFFFF; --bg-sunken:#EDF0F7;
+    --border:#E2E7F0; --border-strong:#D2D9E6;
+    --text:#2B3140; --text-secondary:#646B7D; --text-muted:#99A1B3;
+    --accent:#8B93C7; --accent-hover:#777FBC; --accent-soft:#ECEEF9;
+    --success:#6FAE8F; --warning:#D6A85C; --danger:#D98C8C;
+    --radius:14px; --radius-sm:10px; --radius-lg:22px;
+    --shadow-sm:0 1px 3px rgba(43,49,64,.05); --shadow-md:0 4px 16px rgba(43,49,64,.07);
+    --font-serif:"Noto Serif SC","Songti SC",Georgia,serif;
+    --font-sans:"Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font-sans);background:var(--bg);color:var(--text);padding:28px 32px}
+  .brand{font-family:var(--font-serif);font-size:22px;font-weight:600;margin-bottom:4px}
+  .brand small{font-family:var(--font-sans);color:var(--text-muted);font-weight:400;font-size:12px;margin-left:10px}
+  .sub{color:var(--text-muted);font-size:12.5px;margin-bottom:22px}
+  .layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  .panel{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 20px}
+  .panel h3{font-family:var(--font-serif);font-size:16px;margin:0 0 14px}
+
+  /* 计时器 */
+  .timer{text-align:center;padding:24px 0}
+  .timer .disp{font-size:46px;font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:2px;color:var(--accent)}
+  .timer .client{color:var(--text-muted);font-size:14px;margin-bottom:10px}
+  .timer button{border:1px solid var(--border);background:var(--bg-elevated);border-radius:10px;padding:9px 22px;font-size:14px;cursor:pointer;margin:4px}
+  .timer button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .dots{display:flex;gap:5px;justify-content:center;margin:12px 0}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--border)}
+  .dot.on{background:var(--accent)}
+
+  /* 编辑器 */
+  .ed-label{font-weight:600;font-size:13.5px;margin:14px 0 6px;color:var(--accent)}
+  .ed{width:100%;min-height:90px;border:1px solid var(--border);border-radius:10px;padding:10px;font-family:var(--font-sans);font-size:13.5px;background:var(--bg-elevated);resize:vertical}
+  .ed:focus{outline:none;border-color:var(--accent)}
+
+  /* 计费卡（写完后弹出） */
+  .bill-card{background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-md)}
+  .bill-card .ttl{font-weight:700;font-family:var(--font-serif);font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .fg label{font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px}
+  .fg input,.fg select{border:1px solid var(--border);border-radius:8px;padding:8px 10px;width:100%;font-family:var(--font-sans);font-size:13px;background:var(--bg-elevated)}
+  .seg{display:flex;gap:4px;background:var(--bg-elevated);border-radius:8px;padding:3px;margin-top:6px}
+  .seg button{flex:1;border:none;background:transparent;padding:7px;border-radius:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff}
+  .bill-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+  .btn{border:1px solid var(--border);background:var(--bg-elevated);border-radius:9px;padding:8px 16px;font-size:13px;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .hint{font-size:12px;color:var(--text-muted);line-height:1.7;margin-top:10px}
+  .flow{display:flex;align-items:center;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .flow .step{background:var(--bg-sunken);border:1px solid var(--border);border-radius:999px;padding:5px 13px;font-size:12px;color:var(--text-secondary)}
+  .flow .arrow{color:var(--accent);font-weight:700}
+  .flow .step.done{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style>
+</head>
+<body>
+  <div class="brand">心镜 <small>会话内计费闭环（示意 · 解决"记账流程割裂"）</small></div>
+  <div class="sub">客户经理视角改造：写完 SOAP 自动弹轻量计费卡，把"做完 session → 记完费"从 4 步砍到 1 步（呼应竞品分析 P0-1 + 记账修改意见）。</div>
+
+  <div class="flow">
+    <span class="step done">① 计时/记录会谈</span><span class="arrow">→</span>
+    <span class="step done">② 写 SOAP</span><span class="arrow">→</span>
+    <span class="step done">③ 自动弹出计费卡</span><span class="arrow">→</span>
+    <span class="step">④ 一键结清 / 月结</span>
+  </div>
+
+  <div class="layout">
+    <!-- 左：会话/编辑 -->
+    <div class="panel">
+      <h3>咨询记录 · 林小满 第 5 节</h3>
+      <div class="timer">
+        <div class="client">林小满 · ¥300/次</div>
+        <div class="disp" id="disp">52:18</div>
+        <div class="dots"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot"></span></div>
+        <button class="primary" onclick="finish()">结束本次咨询</button>
+        <button>继续计时</button>
+      </div>
+      <div class="ed-label">S 主观</div><textarea class="ed">来访者自述本周反复确认丈夫是否还爱自己……</textarea>
+      <div class="ed-label">O 客观</div><textarea class="ed">会谈中身体前倾、语速加快，提及童年被威胁时握拳。</textarea>
+      <div class="ed-label">A 评估</div><textarea class="ed">呈现不安全感与早期依恋创伤的再现。</textarea>
+      <div class="ed-label">P 计划</div><textarea class="ed">布置安全感资源练习；下次聚焦移情议题。</textarea>
+    </div>
+
+    <!-- 右：计费卡（结束后弹出） -->
+    <div class="panel">
+      <h3>计费（写完后自动弹出）</h3>
+      <div class="bill-card" id="bill">
+        <div class="ttl">💳 为「林小满 · 第 5 节」结算</div>
+        <div class="fgrid">
+          <div class="fg"><label>日期</label><input value="2026-07-13"></div>
+          <div class="fg"><label>次数</label><input value="1" min="1"></div>
+          <div class="fg"><label>单价（元）</label><input value="300"></div>
+          <div class="fg"><label>备注</label><input placeholder="微信 / 现金 / 银行"></div>
+        </div>
+        <div class="fg" style="margin-top:12px"><label>缴费状态</label>
+          <div class="seg"><button class="on" onclick="setPaid(true,this)">已缴费</button><button onclick="setPaid(false,this)">未缴费</button></div>
+        </div>
+        <div class="bill-actions">
+          <button class="btn">稍后处理</button>
+          <button class="btn btn-primary" onclick="alert('已记入账单并生成跟进提醒（预览）')">确认结算</button>
+        </div>
+        <div class="hint">默认带日期 + 来访者 + 单价；折扣/加时可改单价。结算后自动写入记账工作区，并触发「本月待收/待记」更新与跟进提醒。</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  function finish(){ document.getElementById('bill').scrollIntoView({behavior:'smooth'}); }
+  function setPaid(v,el){
+    var seg=el.parentNode;
+    seg.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+    el.classList.add('on');
+  }
+</script>
+</body>
+</html>

@@ -67,6 +67,19 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; letter-spacing: .01em;
 .subtitle { font-size: 13px; color: var(--ink-2); margin-top: 5px; }
 .header-actions { display: flex; gap: 10px; align-items: center; }
 
+/* 全局返回键（P0-1）：首页不显示，其余页面通过 App.injectLayout 注入 */
+.back-row { margin-bottom: 10px; }
+.btn-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--ink-2); font-size: 13px; padding: 4px 6px;
+  border-radius: 6px; transition: all .15s ease;
+}
+.btn-back:hover { color: var(--accent); background: var(--accent-soft); }
+.btn-back:active { transform: scale(.96); }
+.btn-back svg { flex-shrink: 0; }
+.btn-back-label { font-weight: 500; }
+
 .content { padding: 6px 40px 48px; max-width: var(--content-max); width: 100%; }
 
 /* ---------- 侧边栏品牌与导航 ---------- */

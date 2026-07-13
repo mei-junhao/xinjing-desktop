@@ -628,12 +628,12 @@
   // 工具 6：navigate_to（提示跳转，不真跳转，kind='read' 不弹确认卡）
   // ============================================================
   const NAV_TARGETS = {
-    dashboard:  { label: '工作台',   href: 'index.html' },
-    clients:    { label: '来访者',   href: 'clients.html' },
-    supervision:{ label: '督导',     href: 'supervision.html' },
-    billing:    { label: '记账',     href: 'billing-shell.html' },
-    masters:    { label: '大师对话', href: 'masters.html' },
-    reports:    { label: '报告中心', href: 'reports.html' }
+    dashboard:    { label: '工作台',   href: 'index.html' },
+    consultations:{ label: '咨询记录', href: 'consultations.html' },
+    clients:      { label: '来访者',   href: 'consultations.html' },
+    supervision:  { label: '督导',     href: 'supervision.html' },
+    billing:      { label: '记账',     href: 'billing-shell.html' },
+    masters:      { label: '大师对话', href: 'masters.html' }
   };
   const SCHEMA_NAVIGATE_TO = {
     type: 'function',

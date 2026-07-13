@@ -6,11 +6,12 @@ const params = new URLSearchParams(location.search);
 const sessionId = params.get('id');
 
 App.initPage({
+  title: '会谈记录',
   onReady: async function () {
     'use strict';
 
     if (!sessionId) {
-      location.href = 'clients.html';
+      location.href = 'consultations.html';
       return;
     }
 
@@ -20,7 +21,7 @@ App.initPage({
     async function init() {
     session = await Store.getSessionFull(sessionId);
     if (!session) {
-      location.href = 'clients.html';
+      location.href = 'consultations.html';
       return;
     }
     clientId = session.clientId;
@@ -281,7 +282,7 @@ App.initPage({
     if (clientId) {
       location.href = 'client-detail.html?id=' + encodeURIComponent(clientId);
     } else {
-      location.href = 'clients.html';
+      location.href = 'consultations.html';
     }
   };
 
