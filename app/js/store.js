@@ -1026,6 +1026,37 @@ const Store = (() => {
       req.onerror = () => reject(req.error);
     });
   }
+  // 会谈来源优先级：同一 clientId+date+sessionNumber 时，留 import 删 manual（次结）
+  function dedupSessionSource(sessions) {
+    if (!Array.isArray(sessions)) return sessions;
+    const groups = new Map();
+    for (const s of sessions) {
+      const key = [s.clientId || '', s.date || '', s.sessionNumber != null ? s.sessionNumber : ''].join('|');
+      if (!key) continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(s);
+    }
+    let removed = 0;
+    const keep = [];
+    for (const s of sessions) {
+      const key = [s.clientId || '', s.date || '', s.sessionNumber != null ? s.sessionNumber : ''].join('|');
+      const group = groups.get(key);
+      if (!group || group.length < 2) { keep.push(s); continue; }
+      // 有重复：检查该条是否该被删
+      const hasImport = group.some(x => (x.billing && x.billing.source === 'import'));
+      if (hasImport && s.billing && s.billing.source === 'manual') { removed++; continue; }
+      // 如果此条已被标记为保留，跳过后续重复
+      if (group._resolved) continue;
+      // 保留第一条非 manual 的，或第一条
+      const best = group.find(x => x.billing && x.billing.source !== 'manual') || group[0];
+      group._resolved = true;
+      if (s === best) keep.push(s);
+      else if (s.billing && s.billing.source === 'manual') { removed++; continue; }
+      else { keep.push(s); }
+    }
+    return { sessions: keep, removed };
+  }
+
   // 对当前库已有重复做一次去重（应对旧端口已归档、迁移不再触发的现状）
   async function maybeDedupe() {
     const flag = await idbGet('__xj_dedup_v2');
@@ -1040,6 +1071,16 @@ const Store = (() => {
       const before = v.length;
       const after = dedupeArray(v, keyFor(k));
       if (after.length < before) { removed += before - after; backup[k] = v; all[k] = after; }
+    }
+    // 第二轮：会谈来源优先级去重（import > manual 次结）
+    if (Array.isArray(all.sessions)) {
+      const before = all.sessions.length;
+      const result = dedupSessionSource(all.sessions);
+      if (result.removed > 0) {
+        removed += result.removed;
+        if (!backup.sessions) backup.sessions = all.sessions;
+        all.sessions = result.sessions;
+      }
     }
     // clients 内嵌 monthlyPayments 去重
     if (Array.isArray(all.clients)) {

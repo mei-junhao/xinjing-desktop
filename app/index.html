@@ -1,136 +1,126 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>心镜 · 首页</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/components.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 首页</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/components.css">
+<style>
+:root{--xj-panel-w:380px}
+.page{max-width:1100px;margin:0 auto;padding:40px 44px 48px;display:flex;flex-direction:column;gap:28px;transition:margin-right .3s cubic-bezier(.4,0,.2,1);min-height:100vh}
+.page.panel-open{margin-right:var(--xj-panel-w)}
+.topbar{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.topbar h1{font-family:var(--serif);font-size:30px;font-weight:600;letter-spacing:-.01em;margin:0}
+.topbar .date{font-size:13.5px;color:var(--ink-3,var(--text-muted));margin-bottom:4px}
+.topbar .spacer{flex:1}
+.topbar .xj-toggle{display:flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid var(--border);border-radius:999px;background:var(--paper-2,var(--bg-elevated,#fff));cursor:pointer;font-size:13px;font-family:var(--sans);color:var(--ink-2,var(--text-secondary));transition:all .2s}
+.topbar .xj-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.topbar .xj-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.kv-card{background:var(--paper-2,var(--bg-elevated,#fff));border:1px solid var(--border);border-radius:var(--r-card,14px);padding:22px 24px;text-align:center}
+.kv-card .kv-num{font-family:var(--serif);font-size:34px;font-weight:700;color:var(--text)}
+.kv-card .kv-label{font-size:11.5px;color:var(--ink-3,var(--text-muted));letter-spacing:.04em;margin-top:6px}
+.kv-card .kv-sub{font-size:11px;color:var(--ink-3,var(--text-muted));margin-top:4px}
+.kv-card.accent .kv-num{color:var(--accent)}
+.kv-card.warn .kv-num{color:var(--danger)}
+.modules{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.mod{background:var(--paper-2,var(--bg-elevated,#fff));border:1px solid var(--border);border-radius:var(--r-card,14px);padding:26px 24px 20px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit}
+.mod:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 18px rgba(139,147,199,.12)}
+.mod .m-icon{font-size:28px;line-height:1}
+.mod .m-title{font-weight:600;font-size:15px;color:var(--text)}
+.mod .m-desc{font-size:12.5px;color:var(--ink-3,var(--text-muted));line-height:1.5}
+.mod .m-tag{font-size:10px;padding:2px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent);width:fit-content;font-family:var(--sans)}
+.bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.recent{background:var(--paper-2,var(--bg-elevated,#fff));border:1px solid var(--border);border-radius:var(--r-card,14px);padding:20px 22px}
+.recent h3{font-family:var(--serif);font-size:15px;margin:0 0 14px}
+.ritem{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-family:var(--sans)}
+.ritem:last-child{border:none}
+.rav{width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.ritem .info{flex:1}.ritem .nm{font-weight:600;font-size:13.5px}.ritem .mt{font-size:11.5px;color:var(--ink-3,var(--text-muted))}
+.ritem .tag{font-size:10.5px;padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+
+.xj-panel{position:fixed;right:0;top:0;width:var(--xj-panel-w);height:100vh;background:var(--paper-2,var(--bg-elevated,#fff));border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:100;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);will-change:transform}
+.xj-panel.open{transform:none}
+.xj-head{padding:20px 22px;border-bottom:1px solid var(--border)}
+.xj-name{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--accent)}
+.xj-greet{font-size:13px;color:var(--ink-2,var(--text-secondary));margin-top:6px;line-height:1.7;font-family:var(--sans)}
+.xj-body{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:12px;font-family:var(--sans)}
+.xj-msg{font-size:13px;line-height:1.7;padding:10px 14px;border-radius:12px;max-width:92%}
+.xj-msg.ai{background:var(--accent-soft);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+.xj-input-row{display:flex;gap:8px;padding:14px 22px;border-top:1px solid var(--border)}
+.xj-input-row input{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font:13px var(--sans);outline:none;background:var(--bg)}
+.xj-input-row button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 20px;font:600 13px var(--sans);cursor:pointer}
+@media(max-width:768px){.modules{grid-template-columns:repeat(2,1fr)}.hero-grid{grid-template-columns:1fr}.bottom-row{grid-template-columns:1fr}.page{padding:20px 16px}}
+</style>
 </head>
 <body>
-  <div class="layout">
-    <div id="sidebar-mount"></div>
-    <main class="main">
-      <header class="main-header">
-        <div id="page-header"></div>
-      </header>
-      <div class="content">
-        <!-- 统计卡片 -->
-        <div class="cards" id="stat-grid">
-          <div class="card">
-            <b id="stat-receivable">¥0</b>
-            <span>本月应收</span>
-          </div>
-          <div class="card">
-            <b id="stat-received">¥0</b>
-            <span>本月已收</span>
-          </div>
-          <div class="card owe">
-            <b id="stat-pending-clients">0</b>
-            <span>待收来访者</span>
-          </div>
-          <div class="card">
-            <b id="stat-active-clients">0</b>
-            <span>活跃来访者</span>
-          </div>
-        </div>
-
-        <!-- 快捷操作 -->
-        <div class="card" style="margin-bottom:var(--gap-lg)">
-          <div class="section-title">快捷操作</div>
-          <div class="actions">
-            <button class="btn btn-primary" id="qa-supervise">AI 督导</button>
-            <button class="btn btn-primary" id="qa-masters">大师对话</button>
-            <button class="btn btn-primary" id="qa-update">检查更新</button>
-          </div>
-        </div>
-
-        <!-- 两栏：最近会谈 / 最近报告 -->
-        <div class="two-column">
-          <div>
-            <div class="section-title">最近会谈 <span class="count" id="recent-sessions-count"></span></div>
-            <div id="recent-sessions"></div>
-          </div>
-          <div>
-            <div class="section-title">最近报告 <span class="count" id="recent-reports-count"></span></div>
-            <div id="recent-reports"></div>
-          </div>
-        </div>
-      </div>
-    </main>
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="page" id="main-page">
+  <div class="topbar">
+    <div><h1>心镜</h1><div class="date" id="wel-date"></div></div>
+    <div class="spacer"></div>
+    <button class="xj-toggle" id="xj-toggle-btn" onclick="toggleXiaojing()"><span class="xj-dot"></span> 小镜</button>
   </div>
-
-  <!-- 新建来访者模态框 -->
-  <div class="modal-overlay" id="client-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>新建来访者</h2>
-        <button class="close" onclick="App.closeModal('client-modal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-row">
-          <label class="form-label">姓名 / 化名 <span style="color:var(--red)">*</span></label>
-          <input class="form-control" id="c-name" placeholder="如：小A / 阿拉伯">
-        </div>
-        <div class="form-row two">
-          <div>
-            <label class="form-label">性别</label>
-            <select class="form-control" id="c-gender">
-              <option value="unknown">未填</option>
-              <option value="female">女</option>
-              <option value="male">男</option>
-              <option value="other">其他</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label">出生日期</label>
-            <input class="form-control" id="c-birth" type="date">
-          </div>
-        </div>
-        <div class="form-row two">
-          <div>
-            <label class="form-label">联系电话</label>
-            <input class="form-control" id="c-phone" placeholder="选填">
-          </div>
-          <div>
-            <label class="form-label">首访日期</label>
-            <input class="form-control" id="c-firstvisit" type="date">
-          </div>
-        </div>
-        <div class="form-row">
-          <label class="form-label">标签（逗号分隔）</label>
-          <input class="form-control" id="c-tags" placeholder="如：成人个体, 焦虑">
-        </div>
-        <div class="form-row">
-          <label class="form-label">备注</label>
-          <textarea class="form-control" id="c-notes" placeholder="背景信息摘要、转介来源等"></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="App.closeModal('client-modal')">取消</button>
-        <button class="btn btn-primary" onclick="saveNewClient()">保存</button>
-      </div>
-    </div>
+  <div class="hero-grid" id="hero-stats">
+    <div class="kv-card accent"><div class="kv-num" id="stat-today">0</div><div class="kv-label">今日咨询</div><div class="kv-sub" id="stat-today-sub"></div></div>
+    <div class="kv-card"><div class="kv-num" id="stat-income">¥0</div><div class="kv-label">本月收入</div><div class="kv-sub" id="stat-income-sub"></div></div>
+    <div class="kv-card warn"><div class="kv-num" id="stat-pending-reports">0</div><div class="kv-label">待撰报告</div><div class="kv-sub"></div></div>
   </div>
-
-  <!-- 确认对话框 -->
-  <div class="modal-overlay" id="confirm-modal">
-    <div class="modal" style="max-width:380px">
-      <div class="modal-header">
-        <h2>确认</h2>
-      </div>
-      <div class="modal-body">
-        <p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
-        <button class="btn btn-primary" id="confirm-ok">确定</button>
-      </div>
-    </div>
+  <div class="modules">
+    <a class="mod" href="consult-notes.html">
+      <div class="m-icon">&#x1F4CB;</div><div class="m-title">咨询记录</div>
+      <div class="m-desc">快速记录整理，APA 结构化提示，AI 辅助逐字稿</div><div class="m-tag">常用</div>
+    </a>
+    <a class="mod" href="transcript.html">
+      <div class="m-icon">&#x1F4DD;</div><div class="m-title">逐字稿整理</div>
+      <div class="m-desc">AI 辅助校对，双栏对比修正，错误记忆库自动学习</div>
+    </a>
+    <a class="mod" href="report-writing.html">
+      <div class="m-icon">&#x1F4C4;</div><div class="m-title">撰写报告</div>
+      <div class="m-desc">呈报督导师的完整案例报告，跨节整合，导出 Word</div><div class="m-tag" style="background:var(--success);color:#fff">会员 · AI 生成</div>
+    </a>
+    <a class="mod" href="supervision.html">
+      <div class="m-icon">&#x1F9E0;</div><div class="m-title">AI 督导</div>
+      <div class="m-desc">三栏研究台，整体印象/深化分析/临床材料，会话历史</div>
+    </a>
+    <a class="mod" href="real-supervision.html">
+      <div class="m-icon">&#x1F468&#x200D&#x2695&#xFE0F;</div><div class="m-title">真人督导</div>
+      <div class="m-desc">记录督导过程，上传逐字稿，案例报告，AI 分析</div>
+    </a>
+    <a class="mod" href="doc-center.html">
+      <div class="m-icon">&#x1F4DA;</div><div class="m-title">文档中心</div>
+      <div class="m-desc">来访者材料归档，按类型查阅，成长轨迹追踪</div>
+    </a>
+    <a class="mod" href="billing-shell.html">
+      <div class="m-icon">&#x1F4B0;</div><div class="m-title">账单</div>
+      <div class="m-desc">收入统计，月结，预付费，对账导出，月历视图</div>
+    </a>
+    <a class="mod" href="masters.html">
+      <div class="m-icon">&#x1F5E3;</div><div class="m-title">大师对话</div>
+      <div class="m-desc">与 11 位思想者对话，多大师圆桌研讨</div>
+    </a>
+    <a class="mod" href="settings.html">
+      <div class="m-icon">&#x2699;</div><div class="m-title">设置</div>
+      <div class="m-desc">API 配置，备份恢复，激活管理</div>
+    </a>
   </div>
+  <div class="bottom-row">
+    <div class="recent"><h3>最近咨询记录</h3><div id="recent-sessions"></div></div>
+    <div class="recent"><h3>待办</h3><div id="todo-list"></div></div>
+  </div>
+</div>
+</main></div>
 
-  <script src="js/store.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/dashboard.js"></script>
+<div class="xj-panel" id="xj-panel">
+  <div class="xj-head"><div class="xj-name">小镜</div><div class="xj-greet" id="xj-greet"></div></div>
+  <div class="xj-body" id="xj-body"></div>
+  <div class="xj-input-row"><input id="xj-input" placeholder="对小镜说…" onkeydown="if(event.key==='Enter')sendXjMsg()"><button onclick="sendXjMsg()">发送</button></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/dashboard.js"></script>
 </body>
 </html>

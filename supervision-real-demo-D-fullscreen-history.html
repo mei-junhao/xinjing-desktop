@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>真人督导 · 方案D 全屏编辑+侧拉历史</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar select,.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+.body{flex:1;display:flex;overflow:hidden;position:relative}
+/* 主编辑区 */
+.editor{flex:1;overflow-y:auto;padding:24px 40px;max-width:860px;margin:0 auto;width:100%}
+.editor .ed-head{margin-bottom:20px}
+.editor .ed-head input{border:none;border-bottom:1px solid var(--border);font:600 20px var(--serif);color:var(--ink);background:none;width:100%;padding:4px 0}
+.editor .ed-head input:focus{outline:none;border-bottom-color:var(--accent)}
+.editor .ed-head .meta{font-size:12px;color:var(--ink3);margin-top:6px}
+.editor .section{margin-bottom:24px}
+.editor .section label{display:block;font-family:var(--serif);font-size:14px;font-weight:600;margin-bottom:8px;color:var(--ink2)}
+.editor .section textarea{width:100%;min-height:100px;border:1px solid var(--border);border-radius:8px;padding:12px 14px;font:14px var(--sans);line-height:1.8;resize:vertical;background:var(--paper);color:var(--ink)}
+.editor .section textarea:focus{outline:none;border-color:var(--accent)}
+.editor .section .hint{font-size:11px;color:var(--ink3);margin-top:4px}
+/* 上传区 */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:30px 20px;text-align:center;color:var(--ink3);cursor:pointer;transition:.2s;margin-bottom:12px}
+.upload-zone:hover{border-color:var(--accent);color:var(--accent)}
+.upload-zone .icon{font-size:28px;margin-bottom:6px}
+.upload-zone .filename{font-size:12px;color:var(--green);margin-top:4px}
+/* 历史侧拉 */
+.history-panel{position:absolute;right:0;top:0;bottom:0;width:280px;background:var(--paper);border-left:1px solid var(--border);overflow-y:auto;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:5}
+.history-panel.open{transform:translateX(0)}
+.history-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.history-head .title{font-family:var(--serif);font-size:14px;font-weight:600;flex:1}
+.history-head .close{border:none;background:none;font-size:16px;cursor:pointer;color:var(--ink3)}
+.history-list{padding:8px}
+.hist-item{padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:6px;transition:.15s;border:1px solid transparent}
+.hist-item:hover{background:var(--a-soft)}
+.hist-item.active{background:var(--a-soft);border-color:var(--accent)}
+.hist-item .date{font-size:11px;color:var(--ink3)}
+.hist-item .title{font-size:13px;font-weight:600;margin-top:2px}
+.hist-item .preview{font-size:11px;color:var(--ink3);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 浮动按钮 */
+.fab{position:fixed;right:20px;bottom:20px;width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(139,147,199,.3);z-index:10;display:flex;align-items:center;justify-content:center}
+/* 底部保存 */
+.save-bar{padding:10px 40px;border-top:1px solid var(--border);display:flex;gap:8px;max-width:860px;margin:0 auto;width:100%}
+.save-bar button{flex:1;border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:8px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.save-bar .btn-p{background:var(--accent);color:#fff;border:none;flex:2}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>真人督导</h2>
+  <span class="sp"></span>
+  <select><option>林小满</option><option>陈默</option></select>
+  <button onclick="document.querySelector('.history-panel').classList.toggle('open')">历史记录</button>
+  <button class="btn-p">保存</button>
+</div>
+<div class="body">
+  <div class="editor">
+    <div class="ed-head">
+      <input value="第5节咨询后督导 · 移情与反移情">
+      <div class="meta">林小满 · 2026-07-10 · 督导日期</div>
+    </div>
+    <div class="section">
+      <label>督导主题</label>
+      <textarea>第5节咨询后的移情与反移情。来访者反复提到母亲的否定性评价，探索其在咨询关系中的重演。</textarea>
+    </div>
+    <div class="section">
+      <label>参考逐字稿</label>
+      <div class="upload-zone"><div class="icon">📄</div><div>上传逐字稿（.txt / .md）</div><div class="filename">✓ transcript-lin-5.txt 已上传</div></div>
+    </div>
+    <div class="section">
+      <label>督导师反馈</label>
+      <textarea>来访者反复提到母亲「什么都不行」的评价，注意移情线索——来访者可能在咨询关系中重演被否定的体验。建议在下一次咨询中关注咨询师自身的反移情。
+
+注意不要过早诠释，先抱持足够时间。</textarea>
+      <div class="hint">记录督导师的主要观点和建议</div>
+    </div>
+    <div class="section">
+      <label>我的收获</label>
+      <textarea>意识到自己在面对理想化移情时有些不适，可能是自身被「不够好」的经验触发。需要在抱持中容受这种不适。</textarea>
+      <div class="hint">个人反思与收获</div>
+    </div>
+    <div class="section">
+      <label>下一步计划</label>
+      <textarea>关注过渡客体的呈现。容受沉默。不急于诠释。</textarea>
+    </div>
+    <div class="save-bar">
+      <button>导出为案例报告</button>
+      <button class="btn-p">保存督导记录</button>
+    </div>
+  </div>
+  <div class="history-panel">
+    <div class="history-head"><span class="title">林小满 · 督导历史</span><button class="close" onclick="document.querySelector('.history-panel').classList.remove('open')">×</button></div>
+    <div class="history-list">
+      <div class="hist-item active"><div class="date">2026-07-10</div><div class="title">第5节咨询后督导</div><div class="preview">移情与反移情…</div></div>
+      <div class="hist-item"><div class="date">2026-06-26</div><div class="title">阶段案例报告 · 前4节</div><div class="preview">来访者主诉：长期感到…</div></div>
+      <div class="hist-item"><div class="date">2026-06-12</div><div class="title">第3节咨询后督导</div><div class="preview">防御性移情…</div></div>
+      <div class="hist-item"><div class="date">2026-06-01</div><div class="title">第2节咨询后督导</div><div class="preview">工作联盟建立…</div></div>
+    </div>
+  </div>
+</div>
+<button class="fab" onclick="document.querySelector('.history-panel').classList.toggle('open)">📜</button>
+</body>
+</html>

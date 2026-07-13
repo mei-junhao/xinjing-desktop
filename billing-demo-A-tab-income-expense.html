@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>账单方案A · 上下分栏（收入+支出）</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar .stats{display:flex;gap:10px}
+.topbar .stat{background:var(--soft);border-radius:8px;padding:5px 12px;font-size:12px}
+.topbar .stat b{font-family:var(--serif);font-size:15px}
+.topbar .stat.in b{color:var(--green)}.topbar .stat.out b{color:var(--red)}.topbar .stat.net b{color:var(--accent)}
+.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+/* Tab 切换收入/支出 */
+.tab-bar{display:flex;gap:0;padding:0 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{padding:10px 22px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink3);font-family:var(--sans);transition:.2s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tab .badge{font-size:10px;padding:1px 6px;border-radius:4px;margin-left:4px;background:var(--soft)}
+.tab.active .badge{background:var(--a-soft);color:var(--accent)}
+/* 内容区 */
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+.content-inner{max-width:1000px;margin:0 auto}
+/* 收入页：左客户列表 + 右明细 */
+.income-view{display:grid;grid-template-columns:300px 1fr;gap:16px}
+.income-left{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.il-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.il-head input{flex:1;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:13px var(--sans)}
+.il-head select{border:1px solid var(--border);border-radius:8px;padding:5px 8px;font:12px var(--sans);background:var(--paper)}
+.il-list{max-height:400px;overflow-y:auto;padding:6px}
+.icard{padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;transition:.15s;border:1px solid transparent}
+.icard:hover{background:var(--a-soft)}.icard.active{background:var(--a-soft);border-color:var(--accent)}
+.icard .r1{display:flex;justify-content:space-between;align-items:center}
+.icard .nm{font-weight:600;font-size:13.5px}.icard .mode{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--soft);color:var(--ink3)}
+.icard .meta{font-size:11px;color:var(--ink3);margin-top:3px;display:flex;gap:10px}
+.icard .owe{color:var(--red)}
+.income-right{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.ir-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.ir-head .nm{font-family:var(--serif);font-size:16px;font-weight:600}
+.ir-head .sp{flex:1}
+.ir-head button{border:1px solid var(--border);background:var(--paper);border-radius:7px;padding:5px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.ir-head .btn-p{background:var(--accent);color:#fff;border:none}
+.ir-body{padding:14px 16px;overflow-y:auto;flex:1}
+table.rec{width:100%;border-collapse:collapse;font:13px var(--sans)}
+table.rec th{background:var(--soft);padding:8px 10px;text-align:left;font-weight:600;color:var(--ink3);font-size:12px;border-bottom:1px solid var(--border)}
+table.rec td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.dup-row{background:rgba(217,140,140,.06)}
+.dup-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--red);color:#fff;margin-left:4px}
+.paid-y{color:var(--green);font-weight:600}.paid-n{color:var(--red);font-weight:600}
+/* 支出页 */
+.expense-view{display:flex;flex-direction:column;gap:16px}
+.exp-cats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.cat-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;cursor:pointer;transition:.2s;text-align:center}
+.cat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.cat-card .icon{font-size:28px;margin-bottom:8px}
+.cat-card .name{font-weight:600;font-size:13px}
+.cat-card .amt{font-family:var(--serif);font-size:20px;margin-top:4px;color:var(--ink3)}
+.exp-list{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.el-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.el-head .sp{flex:1}
+.el-head select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper)}
+.exp-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.exp-row:last-child{border:none}
+.exp-row .cat{font-size:11px;padding:2px 8px;border-radius:5px;flex-shrink:0;width:70px;text-align:center}
+.cat-personal{background:rgba(107,174,143,.15);color:var(--green)}
+.cat-individual{background:var(--a-soft);color:var(--accent)}
+.cat-group{background:rgba(214,168,92,.15);color:var(--orange)}
+.cat-course{background:rgba(155,133,199,.15);color:#9B85C7}
+.cat-other{background:var(--soft);color:var(--ink3)}
+.exp-row .info{flex:1}.exp-row .desc{font-size:13.5px}.exp-row .dt{font-size:11px;color:var(--ink3)}
+.exp-row .amt{font-family:var(--serif);font-size:15px;color:var(--red);font-weight:600}
+.add-exp-btn{border:1px dashed var(--border);border-radius:var(--r);padding:14px;text-align:center;color:var(--ink3);cursor:pointer;font-size:13px;background:transparent}
+.add-exp-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--a-soft)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>账单</h2>
+  <span class="sp"></span>
+  <div class="stats">
+    <div class="stat in"><b>¥18,400</b> 收入</div>
+    <div class="stat out"><b>¥3,200</b> 支出</div>
+    <div class="stat net"><b>¥15,200</b> 净收入</div>
+  </div>
+  <button>+ 记一笔</button>
+  <button>导入</button>
+  <button style="border-color:var(--red);color:var(--red)">清除数据</button>
+</div>
+<div class="tab-bar">
+  <div class="tab active">收入 <span class="badge">来访者</span></div>
+  <div class="tab">支出 <span class="badge">5类</span></div>
+</div>
+<div class="content"><div class="content-inner">
+  <!-- 收入视图 -->
+  <div class="income-view">
+    <div class="income-left">
+      <div class="il-head"><input placeholder="搜索…"><select><option>全部</option><option>次结</option><option>月结</option><option>预付费</option></select></div>
+      <div class="il-list">
+        <div class="icard active"><div class="r1"><span class="nm">林小满</span><span class="mode">次结</span></div><div class="meta"><span>5节</span><span>应收¥1,500</span><span class="owe">欠¥300</span></div></div>
+        <div class="icard"><div class="r1"><span class="nm">陈默</span><span class="mode">次结</span></div><div class="meta"><span>2节</span><span>应收¥560</span></div></div>
+        <div class="icard"><div class="r1"><span class="nm">芳芳</span><span class="mode">月结</span></div><div class="meta"><span>542节</span><span>应收¥162,600</span></div></div>
+      </div>
+    </div>
+    <div class="income-right">
+      <div class="ir-head"><span class="nm">林小满</span><span class="sp"></span><button>+ 记一笔</button><button>月结</button></div>
+      <div class="ir-body">
+        <table class="rec"><thead><tr><th>日期</th><th>节次</th><th>费用</th><th>已收</th><th>类型</th></tr></thead><tbody>
+          <tr><td>2026-07-10</td><td>第5节</td><td>¥300</td><td class="paid-n">未收</td><td>次结</td></tr>
+          <tr class="dup-row"><td>2026-07-10</td><td>第5节</td><td>¥300</td><td class="paid-n">未收</td><td>导入<span class="dup-badge">重复</span></td></tr>
+          <tr><td>2026-06-26</td><td>第4节</td><td>¥300</td><td class="paid-y">已收</td><td>次结</td></tr>
+          <tr><td>2026-06-12</td><td>第3节</td><td>¥300</td><td class="paid-n">未收</td><td>次结</td></tr>
+          <tr><td>2026-06-01</td><td>第2节</td><td>¥300</td><td class="paid-y">已收</td><td>次结</td></tr>
+          <tr><td>2026-03-20</td><td>第1节</td><td>¥300</td><td class="paid-y">已收</td><td>次结</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+  </div>
+</div></div>
+</body>
+</html>

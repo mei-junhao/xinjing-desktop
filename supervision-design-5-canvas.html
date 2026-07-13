@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>督导方案5 · 多大师画布</title>
+<style>
+:root{--bg:#F6F8FC;--bg-el:#FFFFFF;--border:#E2E7F0;--text:#2B3140;--t2:#646B7D;--t3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--success:#6FAE8F;--warn:#D6A85C;--purple:#9B85C7;--green:#6FAE8F;--orange:#D6A85C;--r:14px;--serif:"Noto Serif SC",Georgia,serif;--sans:"Noto Sans SC",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--bg-el);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar h2{font-family:var(--serif);font-size:18px;margin:0}
+.topbar .spacer{flex:1}
+.topbar select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:13px var(--sans);background:var(--bg-el)}
+.content-area{display:flex;flex:1;min-height:0}
+.material-panel{width:320px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-el)}
+.material-panel textarea{flex:1;border:none;padding:18px;font:14px/1.8 var(--sans);color:var(--text);resize:none;outline:none;background:transparent}
+.material-foot{padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap}
+.material-foot button{border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;background:var(--bg-el)}
+.material-foot button:hover{border-color:var(--accent);color:var(--accent)}
+.canvas{flex:1;overflow-y:auto;padding:20px;display:flex;flex-wrap:wrap;gap:16px;align-content:flex-start}
+.card{background:var(--bg-el);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 2px 8px rgba(0,0,0,.04);padding:16px 18px;min-width:280px;max-width:380px;flex:1 1 280px}
+.card .chead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.card .cav{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:700 13px var(--serif);color:#fff;flex-shrink:0}
+.card .cname{font-weight:600;font-size:14px}.card .crole{font-size:11px;color:var(--t3)}
+.card .cbody{font-size:13px;line-height:1.7;color:var(--t2);white-space:pre-line}
+.card .cbody blockquote{border-left:3px solid var(--accent);margin:6px 0;padding:4px 10px;font-size:12.5px}
+.card.ai-supervisor .cbody{color:var(--accent);border-left:3px solid var(--accent);padding-left:12px;border-radius:0}
+.card.real-supervisor .cbody{color:var(--warn);border-left:3px solid var(--warn);padding-left:12px}
+.add-card{border:2px dashed var(--border);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;min-height:120px}
+.add-card:hover{border-color:var(--accent);background:var(--a-soft)}
+.add-card span{color:var(--t3);font-size:13px}
+.mode-bar{display:flex;gap:4px;padding:8px 20px;background:var(--bg-soft);border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
+.chip{border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--t2);background:var(--bg-el)}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h2>AI 督导 · 多大师画布</h2>
+  <span class="spacer"></span>
+  <select style="max-width:140px"><option>关联：林小满</option><option>纯笔记</option></select>
+  <select style="max-width:120px"><option>女娲版</option><option>仓颉版</option></select>
+</div>
+<div class="mode-bar">
+  <span class="chip active">AI督导·温尼科特</span><span class="chip">弗洛伊德</span><span class="chip">克莱因</span><span class="chip">荣格</span><span class="chip">拉康</span><span class="chip">比昂</span><span class="chip">贝克</span><span class="chip">+ 真人督导</span><span class="chip">+ 自定义</span>
+</div>
+<div class="content-area">
+  <div class="material-panel">
+    <textarea placeholder="在此书写或粘贴临床材料。&#10;材料将在左侧同步展示，多位大师可基于同一份材料给出各自视角。&#10;&#10;来访者，女，29岁，因「反复确认丈夫是否还爱自己」就诊。第三次会谈中谈及童年被威胁经历……&#10;&#10;T: 那种感觉，身体在哪里？&#10;P: 胸口发紧。好像不确认下一秒他就不见了。"></textarea>
+    <div class="material-foot">
+      <button>载入林小满·第5节逐字稿</button><button>粘贴 .docx</button>
+    </div>
+  </div>
+  <div class="canvas">
+    <div class="card ai-supervisor">
+      <div class="chead"><div class="cav" style="background:var(--accent)">AI</div><div><div class="cname">AI 督导（温尼科特·女娲版）</div><div class="crole">生成 · 整体印象</div></div></div>
+      <div class="cbody">来访者对"被抛弃"的反复确认与童年被母亲威胁的模式构成核心议题。抱持性环境正在逐渐形成但尚未完全内化。治疗师在第三次会谈中保持的沉默为来访者提供了安全空间，才使童年记忆浮现。<br><blockquote>这里治疗师的回应恰到好处——没有急着安慰，而是继续探索身体感受，这本身就是一种"足够好"的抱持。</blockquote></div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--purple)">
+      <div class="chead"><div class="cav" style="background:var(--purple)">弗</div><div><div class="cname">弗洛伊德视角</div><div class="crole">精神分析 · 经典取向</div></div></div>
+      <div class="cbody">来访者的焦虑可被理解为潜意识冲突的显现——对被抛弃的恐惧是对客体丧失（object-loss）的防御。童年被母亲威胁的经验构成了创伤性记忆，在成年后的亲密关系中反复重演。治疗师的沉默促成了自由联想的发生。</div>
+    </div>
+    <div class="card" style="border-left:3px solid var(--green)">
+      <div class="chead"><div class="cav" style="background:var(--green)">克</div><div><div class="cname">克莱因视角</div><div class="crole">客体关系 · 偏执-分裂位</div></div></div>
+      <div class="cbody">来访者在偏执-分裂位与抑郁位之间摆动。"不确认丈夫还爱我"是对好客体的攻击幻想防御。母亲作为坏客体在当下被丈夫所代表，治疗师作为新客体正被反复测试其可信赖性。</div>
+    </div>
+    <div class="card real-supervisor">
+      <div class="chead"><div class="cav" style="background:var(--warn)">真</div><div><div class="cname">真人督导（容映心）</div><div class="crole">2026-07-13 · 个体督导</div></div></div>
+      <div class="cbody">我注意到你在这个案例中使用了自体心理学的自体客体概念，但来访者的状态更接近温尼科特的"独处能力尚未形成"阶段。建议在接下来的4-6次会谈中，重点关注治疗师作为"不入侵他者"的在场体验，而非过早进行诠释。</div>
+    </div>
+    <div class="card add-card"><span>+ 邀请大师发表观点</span></div>
+    <div class="card add-card"><span>+ 录入真人督导意见</span></div>
+  </div>
+</div>
+</body>
+</html>

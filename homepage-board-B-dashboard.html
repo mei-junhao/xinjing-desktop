@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 首页方案B · 宽敞仪表盘</title>
+<style>
+:root{--bg:#F6F8FC;--bg-elevated:#FFFFFF;--bg-sunken:#EDF0F7;--border:#E2E7F0;--border-strong:#D2D9E6;--text:#2B3140;--text-secondary:#646B7D;--text-muted:#99A1B3;--accent:#8B93C7;--accent-hover:#777FBC;--accent-soft:#ECEEF9;--success:#6FAE8F;--warning:#D6A85C;--danger:#D98C8C;--radius:14px;--radius-sm:10px;--radius-lg:22px;--shadow-sm:0 1px 3px rgba(43,49,64,.05);--font-serif:"Noto Serif SC","Songti SC",Georgia,serif;--font-sans:"Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text)}
+.welcome{padding:28px 36px 12px;display:flex;align-items:flex-end;gap:16px}
+.welcome h1{font-family:var(--font-serif);font-size:26px}
+.welcome .sub{color:var(--text-muted);font-size:13.5px;margin-bottom:2px}
+.welcome .spacer{flex:1}
+.welcome button{border:1px solid var(--border);background:var(--bg-elevated);border-radius:9px;padding:8px 18px;font-size:13px;cursor:pointer;color:var(--text)}
+.welcome button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.strip4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:0 36px 20px}
+.card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 20px}
+.card .lbl{font-size:11.5px;color:var(--text-muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.card .val{font-size:28px;font-weight:700;font-family:var(--font-serif);margin-top:8px}
+.card .delta{font-size:11px;margin-top:4px;color:var(--text-muted)}
+.card.warn .val{color:var(--danger)}.card.good .val{color:var(--success)}
+.main{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;padding:0 36px 28px}
+.panel{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:20px 22px}
+.panel h3{font-family:var(--font-serif);font-size:16px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel h3 .ln{flex:1;height:1px;background:var(--border)}
+.row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border:none}
+.ava{width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+.row .info{flex:1;min-width:0}
+.row .nm{font-weight:600;font-size:14px}
+.row .mt{font-size:11.5px;color:var(--text-muted)}
+.row .tags{display:flex;gap:4px}
+.tag{font-size:10.5px;padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent)}
+.btn-sm{border:1px solid var(--border);background:var(--bg-elevated);border-radius:8px;padding:6px 13px;font-size:12px;cursor:pointer;color:var(--text)}
+.btn-sm.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chart-area{height:160px;display:flex;align-items:flex-end;gap:6px;padding:12px 12px 28px;position:relative;background:var(--bg-sunken);border-radius:var(--radius-sm)}
+.bar{flex:1;background:linear-gradient(180deg,var(--accent),rgba(139,147,199,.25));border-radius:3px 3px 0 0;min-height:4px;position:relative;cursor:pointer;transition:.2s}
+.bar:hover{filter:brightness(1.12)}
+.b-lbl{position:absolute;top:-17px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--accent);font-weight:700;opacity:0;white-space:nowrap}
+.bar:hover .b-lbl{opacity:1}
+.quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.quick-grid button{display:flex;align-items:center;gap:8px;justify-content:center;border:1px solid var(--border);background:var(--bg-elevated);border-radius:10px;padding:10px;font-size:13px;cursor:pointer;color:var(--text)}
+.quick-grid button:hover{border-color:var(--accent);color:var(--accent)}
+.empty{color:var(--text-muted);text-align:center;padding:20px;font-size:13px}
+@media(max-width:900px){.main{grid-template-columns:1fr;padding:0 16px 20px}.strip4{padding:0 16px 16px;grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="welcome">
+  <div><h1>心镜</h1><span class="sub">2026-07-13 星期一 · 本周 3 次咨询待进行</span></div>
+  <span class="spacer"></span>
+  <button onclick="scrollToEl('.strip4')">记账</button>
+  <button class="primary">+ 新建来访者</button>
+</div>
+
+<div class="strip4">
+  <div class="card"><div class="lbl">本月应收</div><div class="val">¥3,200</div><div class="delta">较上月 ↑ 8%</div></div>
+  <div class="card good"><div class="lbl">本月已收</div><div class="val">¥2,600</div><div class="delta">回款率 81%</div></div>
+  <div class="card warn"><div class="lbl">待收</div><div class="val">¥600</div><div class="delta">2 位来访者</div></div>
+  <div class="card"><div class="lbl">活跃来访</div><div class="val">8</div><div class="delta">本月 +1</div></div>
+</div>
+
+<div class="main">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="panel">
+      <h3>最近会谈 <span class="ln"></span></h3>
+      <div class="row"><div class="ava">林</div><div class="info"><div class="nm">林小满 · 第 5 节</div><div class="mt">7月10日 · ¥300 · 未收</div></div><button class="btn-sm primary">记一笔</button></div>
+      <div class="row"><div class="ava">陈</div><div class="info"><div class="nm">陈默 · 第 2 节</div><div class="mt">5月20日 · ¥280 · 已收</div></div><div class="tags"><span class="tag">SOAP</span></div></div>
+      <div class="row"><div class="ava">王</div><div class="info"><div class="nm">王芳 · 第 8 节</div><div class="mt">3月15日 · ¥320 · 已收</div></div><div class="tags"><span class="tag">DAP</span></div></div>
+      <div class="row"><div class="ava">赵</div><div class="info"><div class="nm">赵雪 · 第 3 节</div><div class="mt">4月22日 · ¥1,000 · 未收</div></div><button class="btn-sm primary">记一笔</button></div>
+    </div>
+    <div class="panel">
+      <h3>今日待记 <span class="ln"></span></h3>
+      <div class="row"><div class="ava">林</div><div class="info"><div class="nm">林小满 · 第5节</div><div class="mt">次结 ¥300 · 未付</div></div><button class="btn-sm primary">记</button></div>
+      <div class="row"><div class="ava">王</div><div class="info"><div class="nm">王芳</div><div class="mt">月结 ¥320 · 待月结</div></div><button class="btn-sm">月结</button></div>
+    </div>
+    <div class="panel">
+      <h3>月度收入趋势 <span class="ln"></span></h3>
+      <div class="chart-area" id="chart"><script>
+        const d=[7800,8200,9500,8800,10200,9300,11000,9600,11500,10800,12000,12600];
+        const m=Math.max(...d);
+        document.getElementById('chart').innerHTML=d.map(v=>'<div class="bar" style="height:'+Math.max(4,v/m*130)+'px"><span class="b-lbl">¥'+(v/1000).toFixed(1)+'k</span></div>').join('');
+      </script></div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div class="panel">
+      <h3>最近报告 <span class="ln"></span></h3>
+      <div class="row"><div class="ava">林</div><div class="info"><div class="nm">林小满 · 第5节 SOAP</div><div class="mt">7月10日更新</div></div><span class="tag">SOAP</span></div>
+      <div class="row"><div class="ava">陈</div><div class="info"><div class="nm">陈默 · 第1节 反思</div><div class="mt">5月6日更新</div></div><span class="tag">反思</span></div>
+      <div class="row"><div class="ava">赵</div><div class="info"><div class="nm">赵雪 · 第3节 SOAP</div><div class="mt">4月22日更新</div></div><span class="tag">SOAP</span></div>
+    </div>
+    <div class="panel">
+      <h3>待收来访者 <span class="ln"></span></h3>
+      <div class="row"><div class="ava">赵</div><div class="info"><div class="nm">赵雪</div><div class="mt">2 节未付</div></div><span style="color:var(--danger);font-weight:700">¥1,000</span></div>
+      <div class="row"><div class="ava">林</div><div class="info"><div class="nm">林小满</div><div class="mt">次结未付</div></div><span style="color:var(--danger);font-weight:700">¥300</span></div>
+      <div style="margin-top:12px;font-size:11.5px;color:var(--text-muted);line-height:1.7">智能提醒：赵雪 2 节未付，建议发送对账账单。</div>
+    </div>
+    <div class="panel">
+      <h3>快捷入口</h3>
+      <div class="quick-grid">
+        <button>AI 督导</button><button>大师对话</button>
+        <button>记账工作区</button><button>咨询记录</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

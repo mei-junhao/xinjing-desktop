@@ -182,13 +182,10 @@
     <div id="sidebar-mount"></div>
     <main class="main">
       <!-- 工作区顶栏：统计卡 + 操作按钮 -->
-      <div class="back-row" style="padding:18px 40px 0">
-        <button class="btn-back" onclick="location.href='index.html'" title="返回上一层" aria-label="返回上一层">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M15 5l-7 7 7 7"/></svg>
-          <span class="btn-back-label">返回</span>
+      <div class="topbar" style="margin-top:0">
+        <button class="btn-back" onclick="location.href='index.html'" title="返回" style="margin-right:4px;flex-shrink:0;background:transparent;border:none;cursor:pointer;color:var(--ink-2);font:13px var(--sans);padding:4px 8px;border-radius:6px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="vertical-align:middle" width="18" height="18"><path d="M15 5l-7 7 7 7"/></svg>
         </button>
-      </div>
-      <div class="topbar">
         <div class="brand">记账 <small>与心镜共用同一份数据</small></div>
         <div class="cards" id="billing-stats">
           <div class="card"><b id="stat-m-receivable">¥0</b><span>本月应收</span></div>
@@ -202,7 +199,9 @@
           <button class="primary" onclick="toggleAddForm()">+ 记一笔</button>
           <button onclick="toggleSettleForm()">月结</button>
           <button onclick="openImport()">导入数据</button>
-          <button class="ai" onclick="focusAi()">🤖 AI 记账</button>
+          <button class="ai" onclick="toggleAiDock()">🤖 AI 记账</button>
+          <button onclick="location.href='billing-calendar.html'" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)">📅 月历</button>
+          <button class="danger-btn" onclick="confirmClearData()" style="background:transparent;border:1px solid var(--danger);color:var(--danger);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;margin-left:8px">清除数据</button>
         </div>
       </div>
       <!-- 三栏：左客户列表 + 拖拽条 + 右 AI 记账坞 -->
@@ -231,7 +230,7 @@
         </div>
 
         <div class="resizer" id="billing-resizer"></div>
-        <aside class="aidock" id="billing-aidock">
+        <aside class="aidock" id="billing-aidock" style="display:none">
           <div class="dock-head">🤖 AI 记账坞</div>
           <div class="dock-body">
             <p class="hint">用自然语言记账，自动映射到记账工具：<br>「帮林小满记 7 月 10 号会谈 300 块次结没付」<br>「给陈默做 6 月月结 560」</p>
@@ -352,7 +351,7 @@
   let bCurClient = null;
   let bCurCtab = 'detail';
   let bQuery = '';
-  const MODE_TEXT = { 'per-session': '次结', monthly: '月结' };
+  const MODE_TEXT = { 'per-session': '次结', monthly: '月结', prepaid: '预付费' };
 
   // ====== 聚合某 client 的应收/已收/欠费 ======
   function clientAgg(c) {
@@ -462,7 +461,7 @@
     const mode = (c.billing && c.billing.billingMode) || 'per-session';
     const fee = (c.billing && Number(c.billing.feePerSession)) || 0;
     const sessions = Store.getSessionsByClient(c.id).slice().sort(function (a, b) {
-      return (a.date || '').localeCompare(b.date || '');
+      return (b.date || '').localeCompare(a.date || '');
     });
     const agg = clientAgg(c);
     const ym = new Date().toISOString().slice(0, 7);
@@ -482,8 +481,10 @@
       + '</div></div>'
       + '<div class="quick"><button class="primary" onclick="toggleAddForm()">+ 记一笔</button><button onclick="toggleSettleForm()">月结</button></div>'
       + '<div class="inline-form" id="b-form-add">'
-      + '<div><label>日期</label><input type="date" id="bf-date" value="' + App.todayStr() + '"></div>'
+      + '<div><label>日期<span style="color:var(--muted);font-size:10px"> 可多选</span></label><input type="date" id="bf-date" value="' + App.todayStr() + '" multiple></div>'
+      + '<div><label>节次</label><input type="number" id="bf-snum" value="1" min="1"></div>'
       + '<div><label>费用(元)</label><input type="number" id="bf-fee" value="' + fee + '" min="0"></div>'
+      + '<div><label>方式</label><select id="bf-mode"><option value="per-session">次结</option><option value="monthly">月结</option><option value="prepaid">预付费</option></select></div>'
       + '<div><label>已收</label><select id="bf-paid"><option value="0">未收</option><option value="1">已收</option></select></div>'
       + '<div class="row-actions"><button class="btn btn-ghost" onclick="closeBForms()">取消</button><button class="btn btn-primary" onclick="addRecord()">保存</button></div>'
       + '</div>'
@@ -497,9 +498,13 @@
       + (sessions.length ? sessions.map(function (s) {
         const sf = (s.billing && Number(s.billing.fee)) || 0;
         const paid = !!(s.billing && s.billing.paid);
-        const stype = (s.billing && s.billing.source === 'tmeet') ? '会议' : (s.billing && s.billing.source === 'billing' ? '导入' : '次结');
-        return '<tr><td>' + App.escapeHtml(s.date || '') + '</td><td>第' + (s.sessionNumber || '?') + '节</td><td>¥' + sf.toLocaleString() + '</td>'
-          + '<td class="' + (paid ? 'paid-y' : 'paid-n') + '">' + (paid ? '已收' : '未收') + '</td>'
+        const stype = (s.billing && s.billing.source === 'tmeet') ? '会议' : (s.billing && s.billing.source === 'billing' ? '导入' :
+          ((s.billing && s.billing.billingMode === 'monthly') ? '月结' : ((s.billing && s.billing.billingMode === 'prepaid') ? '预付费' : '次结')));
+        return '<tr data-sid="' + s.id + '">'
+          + '<td>' + App.escapeHtml(s.date || '') + '</td>'
+          + '<td class="editable" data-field="sessionNumber" style="cursor:pointer;min-width:50px" title="点击编辑节次">第' + (s.sessionNumber || '?') + '节</td>'
+          + '<td class="editable" data-field="fee" style="cursor:pointer;min-width:60px" title="点击编辑费用">¥' + sf.toLocaleString() + '</td>'
+          + '<td class="editable-paid" data-paid="' + (paid ? '1' : '0') + '" style="cursor:pointer;font-weight:600;color:' + (paid ? 'var(--success,#6E7E62)' : 'var(--danger,#B85450)') + '" title="点击切换已收/未收">' + (paid ? '已收' : '未收') + '</td>'
           + '<td><span class="tag">' + stype + '</span></td></tr>';
       }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">暂无会谈记录</td></tr>')
       + '</tbody></table>'
@@ -665,19 +670,29 @@
   }
   function addRecord() {
     if (!bCurClient) return;
-    const date = document.getElementById('bf-date').value;
-    const fee = Number(document.getElementById('bf-fee').value) || 0;
-    const paid = document.getElementById('bf-paid').value === '1';
-    if (!date) { App.showToast('请选择日期', 'warning'); return; }
+    var datesStr = document.getElementById('bf-date').value;
+    var fee = Number(document.getElementById('bf-fee').value) || 0;
+    var paid = document.getElementById('bf-paid').value === '1';
+    var snum = parseInt(document.getElementById('bf-snum').value, 10) || 1;
+    var mode = document.getElementById('bf-mode') ? document.getElementById('bf-mode').value : 'per-session';
+    if (!datesStr) { App.showToast('请选择日期（可多选）', 'warning'); return; }
     if (fee <= 0) { App.showToast('费用需 > 0', 'warning'); return; }
-    Store.createSession({
-      clientId: bCurClient.id,
-      date: date,
-      durationMinutes: 0,
-      billing: { fee: fee, paid: paid, source: 'billing' },
-      notes: ['来源：手动记账', '单价 ¥' + fee, paid ? '已缴' : '未缴', '[billing:' + bCurClient.id + ':' + date + ':' + fee + ']'].join('｜')
+    var dates = datesStr.split(',').map(function (d) { return d.trim(); }).filter(Boolean);
+    if (!dates.length) dates = [datesStr];
+    dates.forEach(function (date) {
+      var nextNo = Store.nextSessionNumber(bCurClient.id);
+      for (var i = 0; i < snum; i++) {
+        Store.createSession({
+          clientId: bCurClient.id,
+          date: date,
+          sessionNumber: nextNo + i,
+          durationMinutes: 0,
+          billing: { fee: fee, paid: paid, source: 'manual', billingMode: mode },
+          notes: ['来源：手动记账', '单价 ¥' + fee, '方式：' + (MODE_TEXT[mode] || mode), paid ? '已缴' : '未缴'].join('｜')
+        });
+      }
     });
-    App.showToast('已记一笔', 'success');
+    App.showToast('已记 ' + (dates.length * snum) + ' 笔', 'success');
     closeBForms();
     bCurClient = Store.getClients().find(function (c) { return c.id === bCurClient.id; }) || bCurClient;
     refreshAll();
@@ -715,12 +730,120 @@
   }
   window.refreshBillingAll = refreshAll;
 
-  // ====== 焦点到 AI 坞 ======
-  function focusAi() {
-    document.getElementById('billing-ai-input').focus();
-    document.getElementById('billing-aidock').scrollIntoView();
+  // ====== 表格内联编辑（节次 / 费用 / 已收切换）======
+  document.addEventListener('click', function handleBillingEdit(e) {
+    // 已收/未收 切换
+    var paidCell = e.target.closest('.editable-paid');
+    if (paidCell && e.target.tagName !== 'INPUT') {
+      var sid = paidCell.parentElement.getAttribute('data-sid');
+      if (!sid) return;
+      var currPaid = paidCell.getAttribute('data-paid') === '1';
+      var session = Store.getSession(sid);
+      if (!session) return;
+      var newBilling = Object.assign({}, session.billing || {}, { paid: !currPaid });
+      Store.updateSessionFull(Object.assign({}, session, { billing: newBilling }));
+      paidCell.setAttribute('data-paid', !currPaid ? '1' : '0');
+      paidCell.textContent = !currPaid ? '已收' : '未收';
+      paidCell.style.color = !currPaid ? 'var(--success,#6E7E62)' : 'var(--danger,#B85450)';
+      refreshBillingStats();
+      renderBRail();
+      e.stopPropagation();
+      return;
+    }
+    // 节次 / 费用 编辑
+    var cell = e.target.closest('.editable');
+    if (!cell || e.target.tagName === 'INPUT') return;
+    var field = cell.getAttribute('data-field');
+    var sid = cell.parentElement.getAttribute('data-sid');
+    if (!sid || !field) return;
+    var session = Store.getSession(sid);
+    if (!session) return;
+
+    var oldVal, suffix = '';
+    if (field === 'sessionNumber') { oldVal = session.sessionNumber || 0; suffix = '节'; }
+    else { oldVal = (session.billing && session.billing.fee) || 0; suffix = '¥'; }
+    cell.textContent = suffix;
+    var input = document.createElement('input');
+    input.type = 'number'; input.min = field === 'sessionNumber' ? '1' : '0';
+    input.value = oldVal;
+    input.style.cssText = 'width:60px;border:1px solid var(--accent);border-radius:6px;padding:3px 6px;font:13px var(--sans);text-align:center;background:var(--paper,#fff);color:var(--text)';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+
+    function save() {
+      var newVal = field === 'sessionNumber' ? parseInt(input.value, 10) : Number(input.value);
+      if (isNaN(newVal) || newVal < 0) { cell.textContent = suffix + oldVal + (field === 'sessionNumber' ? '节' : ''); return; }
+      if (field === 'sessionNumber') { newVal = Math.max(1, newVal); }
+      if (newVal === oldVal) { cell.textContent = suffix + oldVal + (field === 'sessionNumber' ? '节' : ''); return; }
+
+      if (field === 'sessionNumber') {
+        var shift = newVal - oldVal;
+        var allSessions = Store.getSessionsByClient(session.clientId);
+        allSessions.forEach(function(s) {
+          if (s.sessionNumber >= oldVal && s.id !== session.id) {
+            Store.updateSessionFull(Object.assign({}, Store.getSession(s.id), { sessionNumber: Math.max(1, s.sessionNumber + shift) }));
+          }
+        });
+        Store.updateSessionFull(Object.assign({}, session, { sessionNumber: newVal }));
+      } else {
+        var newB = Object.assign({}, session.billing || {}, { fee: newVal });
+        Store.updateSessionFull(Object.assign({}, session, { billing: newB }));
+      }
+      renderBDetail();
+      refreshBillingStats();
+      renderBRail();
+    }
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', function(ev) { if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); } if (ev.key === 'Escape') { input.value = oldVal; input.blur(); } });
+    e.stopPropagation();
+  }, true);
+
+  // ====== AI 记账坞：默认收起，点击展开/收起 ======
+  function toggleAiDock() {
+    var dock = document.getElementById('billing-aidock');
+    var ws = document.getElementById('billing-ws');
+    if (dock.style.display === 'none') {
+      dock.style.display = '';
+      ws.style.gridTemplateColumns = '280px 1fr 6px var(--dock-w)';
+    } else {
+      dock.style.display = 'none';
+      ws.style.gridTemplateColumns = '280px 1fr 0 0';
+    }
   }
+  window.toggleAiDock = toggleAiDock;
+  function focusAi() { toggleAiDock(); if (document.getElementById('billing-aidock').style.display !== 'none') document.getElementById('billing-ai-input').focus(); }
   window.focusAi = focusAi;
+
+  // ====== 清除数据（仅账单，不删督导/对话/设置）======
+  window.confirmClearData = function () {
+    var html = '<div style="padding:20px;text-align:center">'
+      + '<p style="font-size:14px;color:var(--danger);margin-bottom:12px">此操作将清除 <b>所有来访者账单数据</b>（含节次费用、已收未收、月结记录等）。</p>'
+      + '<p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">督导记录、大师对话、设置<b>不受影响</b>。</p>'
+      + '<p style="font-size:12px;color:var(--text-muted)">请输入 <b>确认清除</b> 四个字后点击确认：</p>'
+      + '<input id="clear-confirm-input" style="margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:14px;width:200px;text-align:center" placeholder="确认清除">'
+      + '<div style="margin-top:14px;display:flex;gap:8px;justify-content:center">'
+      + '<button class="btn btn-ghost" onclick="App.closeModal(\'clear-modal\')">取消</button>'
+      + '<button id="clear-do-btn" class="btn btn-primary" onclick="doClearData()" disabled>确认清除</button></div></div>';
+    var el = document.getElementById('confirm-message');
+    if (el) { el.innerHTML = html; App.openModal('confirm-modal');
+      document.getElementById('clear-confirm-input').addEventListener('input', function () {
+        document.getElementById('clear-do-btn').disabled = this.value !== '确认清除';
+      });
+    }
+  };
+  window.doClearData = function () {
+    var clients = Store.getClients();
+    clients.forEach(function (c) {
+      var sessions = Store.getSessionsByClient(c.id);
+      sessions.forEach(function (s) { Store.deleteSession(s.id); });
+      Store.updateClient(c.id, { billing: { feePerSession: 0, billingMode: 'per-session', monthlyPayments: [] } });
+    });
+    App.closeModal('confirm-modal');
+    App.showToast('账单数据已清除', 'success');
+    refreshAll();
+  };
 
   // ====== 拖拽分隔条（控制 --dock-w） ======
   function initBillingResizer() {
@@ -877,6 +1000,7 @@
         sessions: Math.max(1, parseInt(r.sessions) || 1),
         feePerSession: Number(r.feePerSession) || 0,
         paid: !!r.paid,
+        billingMode: r.billingMode || 'per-session',
         key: 'rec_' + (r.id || (r.clientId + '_' + r.date + '_' + r.sessions))
       })).filter(r => r.clientName && r.date);
       return { format: 'json', clients, records, raw: data };
@@ -905,10 +1029,14 @@
         const sessions = Math.max(1, parseInt(row[idx.sessions] || '1') || 1);
         const fee = Number(row[idx.fee] || 0) || 0;
         const paid = idx.paid >= 0 ? /已缴/.test(String(row[idx.paid] || '')) : false;
-        const isMonthly = idx.mode >= 0 && /月结/.test(String(row[idx.mode] || ''));
-        records.push({ clientName: name, date, sessions, feePerSession: fee, paid, key: 'csv_' + name + '_' + date + '_' + sessions });
+        var isMonthly = false;
+        if (idx.mode >= 0 && /月结/.test(String(row[idx.mode] || ''))) isMonthly = true;
+        if (idx.mode >= 0 && /预付费|预付/.test(String(row[idx.mode] || ''))) isMonthly = false;
+        // If no mode column, check if client name suggests monthly
+        var clientMode = isMonthly ? 'monthly' : 'per-session';
+        records.push({ clientName: name, date, sessions, feePerSession: fee, paid, billingMode: clientMode, key: 'csv_' + name + '_' + date + '_' + sessions });
         if (!clientsMap[name]) {
-          clientsMap[name] = { name, feePerSession: fee, billingMode: isMonthly ? 'monthly' : 'per-session', status: 'active', manualSessions: 0 };
+          clientsMap[name] = { name, feePerSession: fee, billingMode: clientMode, status: 'active', manualSessions: 0 };
         }
       }
       const clients = Object.values(clientsMap);
@@ -922,14 +1050,25 @@
       p.clients.forEach(c => { const n = c.name.trim(); byClient[n] = byClient[n] || { newCount: 0, skipCount: 0, fee: c.feePerSession, billingMode: c.billingMode, status: c.status, manualSessions: c.manualSessions }; });
       p.records.forEach(r => {
         const n = (r.clientName || '').trim();
-        byClient[n] = byClient[n] || { newCount: 0, skipCount: 0 };
+        byClient[n] = byClient[n] || { newCount: 0, skipCount: 0, dupCount: 0 };
         const cid = nameToId[n];
         let already = 0;
+        let dupCount = 0;
         if (cid) {
-          already = Store.getSessionsByClient(cid).filter(s => (s.notes || '').includes('[billing:' + r.key + ']')).length;
+          // 检查是否已有相同日期+相同费用的记录（不依赖 key 标记，而是按日期+费用去重）
+          var existing = Store.getSessionsByClient(cid);
+          var sameDay = existing.filter(function(s) { return s.date === r.date && (s.billing && Number(s.billing.fee) === r.feePerSession); });
+          if (sameDay.length > 0) {
+            already = r.sessions; // 全部跳过
+            dupCount = r.sessions;
+          } else {
+            // 也检查 key 标记去重（兼容旧逻辑）
+            already = existing.filter(s => (s.notes || '').includes('[billing:' + r.key + ']')).length;
+          }
         }
         byClient[n].newCount += Math.max(0, r.sessions - already);
         byClient[n].skipCount += already;
+        byClient[n].dupCount = (byClient[n].dupCount || 0) + dupCount;
       });
       let newClientCount = 0, newSessionCount = 0, skipCount = 0;
       Object.keys(byClient).forEach(n => {
@@ -1003,22 +1142,40 @@
           }
         }
       });
-      // 2) 记录
-      let added = 0;
-      parsed.records.forEach(r => {
-        const cid = nameToId[r.clientName.trim()];
+      // 2) 按来访者分组，组内按日期排序后再分配节次号
+      var byClient = {};
+      parsed.records.forEach(function(r) {
+        var n = (r.clientName || '').trim();
+        if (!byClient[n]) byClient[n] = [];
+        byClient[n].push(r);
+      });
+      var added = 0;
+      Object.keys(byClient).forEach(function(name) {
+        var cid = nameToId[name.trim()];
         if (!cid) return;
-        const already = Store.getSessionsByClient(cid).filter(s => (s.notes || '').includes('[billing:' + r.key + ']')).length;
-        const need = Math.max(0, r.sessions - already);
-        let nextNo = Store.nextSessionNumber(cid);
-        for (let i = 0; i < need; i++) {
-          Store.createSession({
-            clientId: cid, sessionNumber: nextNo++, date: r.date, durationMinutes: 0, type: 'individual',
-            billing: { fee: r.feePerSession || 0, paid: !!r.paid, source: 'billing' },
-            notes: ['来源：旧版记账导入', r.feePerSession ? '单价 ¥' + r.feePerSession : '', r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '', '[billing:' + r.key + ']'].filter(Boolean).join('｜')
-          });
-          added++;
-        }
+        // 按日期升序排列
+        var recs = byClient[name].sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
+        // 获取该来访者已有的最大节次数
+        var existingSessions = Store.getSessionsByClient(cid);
+        var maxExistingNo = 0;
+        existingSessions.forEach(function(s) { if (s.sessionNumber > maxExistingNo) maxExistingNo = s.sessionNumber; });
+        var sessionNo = maxExistingNo + 1;
+        recs.forEach(function(r) {
+          // 继承 client 的 billingMode
+          var clientObj = Store.getClient(cid);
+          var recordMode = r.billingMode || (clientObj && clientObj.billing && clientObj.billing.billingMode) || 'per-session';
+          var already = existingSessions.filter(function(s) { return (s.notes || '').indexOf('[billing:' + r.key + ']') >= 0; }).length;
+          var need = Math.max(0, r.sessions - already);
+          for (var i = 0; i < need; i++) {
+            Store.createSession({
+              clientId: cid, sessionNumber: sessionNo, date: r.date, durationMinutes: 0, type: 'individual',
+              billing: { fee: r.feePerSession || 0, paid: !!r.paid, source: 'billing', billingMode: recordMode },
+              notes: ['来源：旧版记账导入', r.feePerSession ? '单价 ¥' + r.feePerSession : '', '方式：' + ((recordMode === 'monthly') ? '月结' : (recordMode === 'prepaid' ? '预付费' : '次结')), r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '', '[billing:' + r.key + ']'].filter(Boolean).join('｜')
+            });
+            sessionNo++;
+            added++;
+          }
+        });
       });
       setResult(`导入完成：新增节次 ${added}，跳过 ${plan.skipCount}（已存在）`, 'var(--green, #6E7E62)');
       return true;

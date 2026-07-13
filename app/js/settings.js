@@ -6,22 +6,104 @@ App.initPage({
   title: '设置',
   subtitle: 'AI 接口与数据管理',
   actions: '',
+  noSidebar: true,
   onReady: function () {
     'use strict';
+
+    // 版本号 — 统一走构建期注入的 version.generated.js（preload 桥接）
+    function setVersion() {
+      var ver = '3.0.0';
+      try {
+        if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
+          ver = window.__XJ_API__.getVersion() || ver;
+        }
+      } catch (e) {}
+      var verEl = document.getElementById('ver-text');
+      if (verEl) verEl.textContent = 'v' + ver;
+      var aboutVer = document.getElementById('about-version');
+      if (aboutVer) aboutVer.textContent = 'v' + ver;
+      var updateInfo = document.getElementById('update-info');
+      if (updateInfo) updateInfo.textContent = '当前版本 v' + ver;
+    }
+    setVersion();
+
+    // 主题 toggle 初始状态
+    var themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.classList.toggle('on', document.documentElement.classList.contains('dark'));
+    }
+    window.toggleTheme = function () {
+      var isDark = document.documentElement.classList.toggle('dark');
+      try { localStorage.setItem('xj_theme', isDark ? 'dark' : 'light'); } catch (e) {}
+      if (themeToggle) themeToggle.classList.toggle('on', isDark);
+    };
+
+    // 激活状态 — 订阅式监听（主进程广播后实时刷新，不依赖启动快照）
+    var licEl = document.getElementById('license-status');
+    function refreshLicense() {
+      if (!licEl) return;
+      try {
+        var state = (typeof App !== 'undefined' && App.getLicenseState) ? App.getLicenseState() : null;
+        if (state) {
+          if (state.verified || state.activated) {
+            licEl.innerHTML = '<span class="badge ok">已激活 · 会员版</span>';
+          } else if (state.mode === 'trial') {
+            licEl.innerHTML = '<span class="badge warn">试用中 · 剩余' + (state.trialDaysLeft || '?') + '天</span>';
+          } else {
+            licEl.innerHTML = '<span class="badge warn">未激活 · 免费版</span>';
+          }
+          return;
+        }
+        var snap = window.__XJ_API__ && window.__XJ_API__.getState ? window.__XJ_API__.getState() : {};
+        if (snap.verified || snap.activated) {
+          licEl.innerHTML = '<span class="badge ok">已激活 · 会员版</span>';
+        } else {
+          licEl.innerHTML = '<span class="badge warn">未激活 · 免费版</span>';
+        }
+      } catch (e) {
+        licEl.innerHTML = '<span class="badge warn">查询中…</span>';
+      }
+    }
+    refreshLicense();
+    try {
+      if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+        window.__XJ_API__.onLicenseState(refreshLicense);
+      }
+    } catch (e) {}
+
+    // 自定义模型行切换
+    var modelSelect = document.getElementById('api-model');
+    var customRow = document.getElementById('custom-model-row');
+    if (modelSelect && customRow) {
+      modelSelect.addEventListener('change', function () {
+        customRow.style.display = this.value === '__custom__' ? '' : 'none';
+      });
+    }
 
     function loadConfig() {
     const settings = Store.getSettings();
     const api = settings.apiConfig || {};
     document.getElementById('api-baseurl').value = api.baseUrl || '';
     document.getElementById('api-key').value = api.apiKey || '';
-    // 旧版四个档位（deepseek-pro/flash/minimax-m3/agnes）已取消，一次性迁移回内置模型
-    const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes', 'deepseek-chat', 'deepseek-reasoner'];
+    const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes', 'deepseek-reasoner'];
     let modelPref = api.modelPreference || '';
     if (OLD.indexOf(modelPref) !== -1) {
       modelPref = '';
       Store.saveSettings({ apiConfig: Object.assign({}, api, { modelPreference: '', verified: false }) });
     }
-    document.getElementById('api-model').value = modelPref || '__builtin__';
+    // 如果模型在预设列表中，直接选中；否则选"自定义"并填入
+    var sel = document.getElementById('api-model');
+    var found = false;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === modelPref) { sel.value = modelPref; found = true; break; }
+    }
+    if (!found && modelPref) {
+      sel.value = '__custom__';
+      var cm = document.getElementById('api-custom-model');
+      if (cm) { cm.value = modelPref; document.getElementById('custom-model-row').style.display = ''; }
+    } else {
+      sel.value = modelPref || '__builtin__';
+    }
   }
 
   // 显示当前生效档位（内置 / 用户），供用户感知低性能 vs 高性能
@@ -75,9 +157,13 @@ App.initPage({
   }
 
   window.saveApiConfig = function () {
-    const model = document.getElementById('api-model').value;
+    var sel = document.getElementById('api-model');
+    var model = sel.value;
+    if (model === '__custom__') {
+      model = document.getElementById('api-custom-model').value.trim();
+    }
     // 选「内置免费模型」= 清除自有配置，回退到内置模型
-    if (model === '__builtin__') {
+    if (model === '__builtin__' || !model) {
       Store.saveSettings({ apiConfig: {} });
       App.showToast('已切换回内置免费模型', 'success');
     } else {

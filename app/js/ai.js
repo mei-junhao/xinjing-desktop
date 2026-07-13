@@ -295,8 +295,8 @@ const AI = (() => {
     const body = {
       model,
       messages: safeMessages,
-      temperature: 0.3,
-      max_tokens: config.maxTokens || 4000,
+      temperature: (options && options.temperature != null) ? options.temperature : 0.3,
+      max_tokens: (options && options.maxTokens != null) ? options.maxTokens : (config.maxTokens || 4000),
     };
     // Qwen3 系列为「思考模型」，禁用思考可降低延迟、避免 reasoning 占用 token、
     // 并确保 function-calling 稳定输出 tool_calls。该参数为 SiliconFlow 专属，

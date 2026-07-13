@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>账单方案B · 卡片仪表盘</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:auto}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+.page{max-width:1000px;margin:0 auto;padding:24px 20px;display:flex;flex-direction:column;gap:20px}
+/* 概览卡 */
+.overview{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.ov-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;text-align:center}
+.ov-card .lbl{font-size:11px;color:var(--ink3);font-weight:600;letter-spacing:.04em}
+.ov-card .val{font-family:var(--serif);font-size:26px;font-weight:700;margin-top:6px}
+.ov-card.in .val{color:var(--green)}.ov-card.out .val{color:var(--red)}.ov-card.net .val{color:var(--accent)}.ov-card.due .val{color:var(--orange)}
+/* 收入/支出切换 */
+.seg{display:flex;gap:4px;background:var(--soft);border-radius:999px;padding:3px;width:fit-content}
+.seg-btn{padding:7px 20px;border-radius:999px;font:13px var(--sans);cursor:pointer;color:var(--ink3);transition:.15s}
+.seg-btn.active{background:var(--paper);color:var(--accent);font-weight:600;box-shadow:inset 0 0 0 1px var(--border)}
+/* 收入：来访者卡片网格 */
+.section-title{font-family:var(--serif);font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.section-title .ln{flex:1;height:1px;background:var(--border)}
+.client-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.cl-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;cursor:pointer;transition:.2s}
+.cl-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.cl-card .r1{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.cl-card .nm{font-weight:600;font-size:15px}.cl-card .mode{font-size:10px;padding:2px 8px;border-radius:5px;background:var(--soft);color:var(--ink3)}
+.cl-card .stats{display:flex;gap:14px;font-size:12px;color:var(--ink3)}
+.cl-card .stats b{font-family:var(--serif);font-size:15px;color:var(--ink);display:block}
+.cl-card .owe b{color:var(--red)}
+/* 支出：分类+列表 */
+.exp-cats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.cat-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer;transition:.2s}
+.cat-card:hover{border-color:var(--accent)}
+.cat-card .icon{font-size:24px;margin-bottom:6px}
+.cat-card .name{font-size:12px;font-weight:600;color:var(--ink2)}
+.cat-card .amt{font-family:var(--serif);font-size:18px;margin-top:4px;color:var(--ink3)}
+.exp-table{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.et-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.et-head .sp{flex:1}
+.et-head select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper)}
+.exp-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border)}
+.exp-row:last-child{border:none}
+.cat-tag{font-size:10px;padding:2px 8px;border-radius:5px;flex-shrink:0;width:70px;text-align:center}
+.cat-personal{background:rgba(107,174,143,.15);color:var(--green)}
+.cat-individual{background:var(--a-soft);color:var(--accent)}
+.cat-group{background:rgba(214,168,92,.15);color:var(--orange)}
+.cat-course{background:rgba(155,133,199,.15);color:#9B85C7}
+.cat-other{background:var(--soft);color:var(--ink3)}
+.exp-row .info{flex:1}.exp-row .desc{font-size:13.5px}.exp-row .dt{font-size:11px;color:var(--ink3)}
+.exp-row .amt{font-family:var(--serif);font-size:15px;color:var(--red);font-weight:600}
+.dup-row{background:rgba(217,140,140,.06)}
+.dup-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--red);color:#fff;margin-left:6px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>账单</h2>
+  <span class="sp"></span>
+  <button>+ 记一笔</button>
+  <button>导入</button>
+  <button style="border-color:var(--red);color:var(--red)">清除数据</button>
+</div>
+<div class="page">
+  <div class="overview">
+    <div class="ov-card in"><div class="lbl">本月收入</div><div class="val">¥3,200</div></div>
+    <div class="ov-card out"><div class="lbl">本月支出</div><div class="val">¥800</div></div>
+    <div class="ov-card net"><div class="lbl">净收入</div><div class="val">¥2,400</div></div>
+    <div class="ov-card due"><div class="lbl">待收</div><div class="val">¥600</div></div>
+  </div>
+  <div class="seg">
+    <div class="seg-btn active">收入</div>
+    <div class="seg-btn">支出</div>
+  </div>
+  <!-- 收入：来访者卡片 -->
+  <div>
+    <div class="section-title">来访者收入 <span class="ln"></span></div>
+    <div class="client-grid">
+      <div class="cl-card"><div class="r1"><span class="nm">林小满</span><span class="mode">次结</span></div><div class="stats"><div><b>¥1,500</b>应收</div><div><b>¥1,200</b>已收</div><div class="owe"><b>¥300</b>欠费</div></div></div>
+      <div class="cl-card"><div class="r1"><span class="nm">陈默</span><span class="mode">次结</span></div><div class="stats"><div><b>¥560</b>应收</div><div><b>¥560</b>已收</div></div></div>
+      <div class="cl-card"><div class="r1"><span class="nm">芳芳</span><span class="mode">月结</span></div><div class="stats"><div><b>¥162,600</b>应收</div><div class="owe"><b>¥600</b>欠费</div></div></div>
+    </div>
+  </div>
+  <!-- 支出区（默认隐藏，切换后显示） -->
+  <div style="display:none">
+    <div class="section-title">支出分类 <span class="ln"></span></div>
+    <div class="exp-cats">
+      <div class="cat-card"><div class="icon">🧘</div><div class="name">个人体验</div><div class="amt">¥1,200</div></div>
+      <div class="cat-card"><div class="icon">👤</div><div class="name">个体督导</div><div class="amt">¥800</div></div>
+      <div class="cat-card"><div class="icon">👥</div><div class="name">团体督导</div><div class="amt">¥400</div></div>
+      <div class="cat-card"><div class="icon">📚</div><div class="name">课程</div><div class="amt">¥600</div></div>
+      <div class="cat-card"><div class="icon">📋</div><div class="name">其他</div><div class="amt">¥200</div></div>
+    </div>
+    <div class="exp-table">
+      <div class="et-head"><span>支出明细</span><span class="sp"></span><select><option>全部类别</option><option>个人体验</option><option>个体督导</option><option>团体督导</option><option>课程</option><option>其他</option></select><button>+ 记支出</button></div>
+      <div class="exp-row"><span class="cat-tag cat-personal">个人体验</span><div class="info"><div class="desc">温尼科特式个人体验（李医生）</div><div class="dt">2026-07-08</div></div><span class="amt">¥400</span></div>
+      <div class="exp-row"><span class="cat-tag cat-individual">个体督导</span><div class="info"><div class="desc">个体督导费（容映心）</div><div class="dt">2026-07-05</div></div><span class="amt">¥400</span></div>
+      <div class="exp-row"><span class="cat-tag cat-group">团体督导</span><div class="info"><div class="desc">团体督导月费</div><div class="dt">2026-07-01</div></div><span class="amt">¥400</span></div>
+      <div class="exp-row"><span class="cat-tag cat-course">课程</span><div class="info"><div class="desc">温尼科特研讨班第三期</div><div class="dt">2026-06-20</div></div><span class="amt">¥600</span></div>
+      <div class="exp-row"><span class="cat-tag cat-other">其他</span><div class="info"><div class="desc">专业书籍《游戏与现实》</div><div class="dt">2026-06-15</div></div><span class="amt">¥200</span></div>
+    </div>
+  </div>
+  <!-- 收入明细表（含重复标记） -->
+  <div>
+    <div class="section-title">林小满 · 会谈记录 <span class="ln"></span></div>
+    <div class="exp-table">
+      <table style="width:100%;border-collapse:collapse;font:13px var(--sans)"><thead><tr><th style="padding:8px 10px;text-align:left;background:var(--soft);border-bottom:1px solid var(--border)">日期</th><th style="padding:8px 10px;text-align:left;background:var(--soft)">节次</th><th style="padding:8px 10px;text-align:left;background:var(--soft)">费用</th><th style="padding:8px 10px;text-align:left;background:var(--soft)">已收</th><th style="padding:8px 10px;text-align:left;background:var(--soft)">类型</th></tr></thead><tbody>
+        <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)">2026-07-10</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">第5节</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">¥300</td><td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--red)">未收</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">次结</td></tr>
+        <tr class="dup-row"><td style="padding:8px 10px;border-bottom:1px solid var(--border)">2026-07-10</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">第5节</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">¥300</td><td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--red)">未收</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">导入<span class="dup-badge">重复</span></td></tr>
+        <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border)">2026-06-26</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">第4节</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">¥300</td><td style="padding:8px 10px;border-bottom:1px solid var(--border);color:var(--green)">已收</td><td style="padding:8px 10px;border-bottom:1px solid var(--border)">次结</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</div>
+</body>
+</html>

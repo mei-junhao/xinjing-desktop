@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>督导方案2 · 双栏对照</title>
+<style>
+:root{--bg:#F6F8FC;--bg-el:#FFFFFF;--bg-soft:#EDF0F7;--border:#E2E7F0;--text:#2B3140;--t2:#646B7D;--t3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--success:#6FAE8F;--warn:#D6A85C;--danger:#D98C8C;--r:14px;--serif:"Noto Serif SC",Georgia,serif;--sans:"Noto Sans SC",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--bg-el);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar h2{font-family:var(--serif);font-size:18px;margin:0}
+.topbar .spacer{flex:1}
+.topbar select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:13px var(--sans);background:var(--bg-el)}
+.split{display:flex;flex:1;min-height:0}
+.left{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border)}
+.left-tabs{display:flex;gap:0;padding:0 16px;background:var(--bg-soft);border-bottom:1px solid var(--border);flex-shrink:0}
+.ltab{padding:10px 16px;font-size:13px;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+.ltab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.left-body{flex:1;overflow-y:auto;padding:20px}
+.left-body textarea{width:100%;min-height:100%;border:none;background:transparent;font:14px/1.85 var(--sans);color:var(--text);resize:none;outline:none;padding:0}
+.right{width:400px;flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto}
+.rhead{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.rhead .rbadge{padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;color:#fff}
+.rbadge.ai{background:var(--accent)}.rbadge.master{background:var(--success)}.rbadge.real{background:var(--warn)}
+.chat-area{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:88%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7;animation:fadeIn .25s}
+.msg.from-ai{background:var(--a-soft);align-self:flex-start;border-bottom-left-radius:4px}
+.msg.from-me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.chat-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.chat-input-row input{flex:1;border:1px solid var(--border);border-radius:9px;padding:9px 12px;font:13px var(--sans);outline:none}
+.chat-input-row input:focus{border-color:var(--accent)}
+.chat-input-row button{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 18px;font:13px var(--sans);cursor:pointer}
+.prompt-btns{display:flex;gap:6px;padding:8px 16px;flex-wrap:wrap;border-top:1px solid var(--border)}
+.prompt-btns button{border:1px solid var(--border);background:var(--bg-el);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--t2)}
+.prompt-btns button:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h2>AI 督导 · 双栏对照</h2>
+  <span class="spacer"></span>
+  <select style="max-width:160px"><option>温尼科特取向</option><option>精神分析</option><option>CBT</option></select>
+  <select style="max-width:160px"><option>林小满</option><option>陈默</option><option>纯个人笔记</option></select>
+  <select style="max-width:140px"><option>女娲版（教督导）</option><option>仓颉版（做督导）</option></select>
+</div>
+<div class="split">
+  <div class="left">
+    <div class="left-tabs">
+      <span class="ltab active">逐字稿</span><span class="ltab">SOAP</span><span class="ltab">DAP</span><span class="ltab">反思笔记</span>
+      <button style="margin-left:auto;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;background:var(--bg-el)">从会话载入 →</button>
+    </div>
+    <div class="left-body">
+      <textarea placeholder="在此粘贴逐字稿，或从已有会话记录一键载入。&#10;选中文字后可在右侧AI面板中深化讨论。&#10;&#10;咨：今天想从哪里开始？&#10;来：这周我又开始反复确认他是不是还爱我……&#10;咨：那种「不确认就消失」的感觉，身体在哪里？&#10;来：胸口发紧。好像不确认下一秒他就不见了。"></textarea>
+    </div>
+  </div>
+  <div class="right">
+    <div class="rhead">
+      <span class="rbadge ai">AI 督导</span>
+      <span style="font-size:13px;color:var(--t3)">温尼科特 · 女娲版</span>
+    </div>
+    <div class="chat-area">
+      <div class="msg from-ai">我已阅读了左栏的临床材料。基于温尼科特框架，来访者对关系丧失的焦虑与童年被威胁的模式高度关联，呈现出早期抱持环境不足的痕迹。你可以在左栏选中文字后点下方按钮进行深化。</div>
+    </div>
+    <div class="prompt-btns">
+      <button>整体印象</button><button>深化选区</button><button>总结选区</button>
+      <button>还原对话</button><button>技术建议</button><button>开启大师圆桌</button>
+    </div>
+    <div class="chat-input-row">
+      <input placeholder="就左栏所选文字提问…"><button>发送</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

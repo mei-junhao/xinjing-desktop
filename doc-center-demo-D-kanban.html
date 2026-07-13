@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文档中心 · 方案D 看板分列</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar select,.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+.filter-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--soft);flex-wrap:wrap}
+.filter-bar select{border:1px solid var(--border);background:var(--paper);border-radius:7px;padding:4px 10px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.filter-bar .sp{flex:1}
+.board{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:20px;align-items:start}
+.column{background:var(--soft);border-radius:var(--r);padding:12px;min-height:200px}
+.column-head{display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:0 4px}
+.column-head .icon{font-size:18px}
+.column-head .title{font-family:var(--serif);font-size:14px;font-weight:600;flex:1}
+.column-head .count{font-size:11px;color:var(--ink3);background:var(--paper);padding:2px 8px;border-radius:5px}
+.col-body{display:flex;flex-direction:column;gap:8px}
+/* 看板卡片 */
+.k-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;cursor:pointer;transition:.15s}
+.k-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(139,147,199,.1)}
+.k-card .client{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.k-card .client .ava{width:20px;height:20px;border-radius:50%;background:var(--a-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px}
+.k-card .client .nm{font-size:12px;font-weight:600}
+.k-card .client .member{font-size:9px;color:var(--orange)}
+.k-card .title{font-size:13px;font-weight:600;margin-bottom:4px}
+.k-card .desc{font-size:11px;color:var(--ink3);line-height:1.5}
+.k-card .foot{display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--ink3)}
+.k-card .member-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(214,168,92,.15);color:var(--orange)}
+.add-card{border:2px dashed var(--border);border-radius:var(--r-sm);padding:16px;text-align:center;color:var(--ink3);cursor:pointer;font-size:12px;transition:.15s}
+.add-card:hover{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>文档中心</h2>
+  <span class="sp"></span>
+  <button>导入材料</button>
+  <button class="btn-p">+ 新建</button>
+</div>
+<div class="filter-bar">
+  <select><option>全部来访者</option><option>林小满</option><option>陈默</option><option>芳芳</option></select>
+  <select><option>全部时间</option><option>本月</option><option>近3月</option></select>
+  <span class="sp"></span>
+  <select><option>按来访者分组</option><option>按类型分列</option><option>按日期排列</option></select>
+</div>
+<div class="board">
+  <!-- 列1：咨询记录 -->
+  <div class="column">
+    <div class="column-head"><span class="icon">📝</span><span class="title">咨询记录</span><span class="count">5</span></div>
+    <div class="col-body">
+      <div class="k-card"><div class="client"><div class="ava">林</div><span class="nm">林小满</span><span class="member">★</span></div><div class="title">第5节 · APA</div><div class="desc">5维度完整录入</div><div class="foot"><span>07-10</span><span>第5节</span></div></div>
+      <div class="k-card"><div class="client"><div class="ava">陈</div><span class="nm">陈默</span></div><div class="title">第2节 · SOAP</div><div class="desc">沉默持续较长时间</div><div class="foot"><span>07-05</span><span>第2节</span></div></div>
+      <div class="k-card"><div class="client"><div class="ava">林</div><span class="nm">林小满</span><span class="member">★</span></div><div class="title">第4节 · APA</div><div class="desc">信任开始建立</div><div class="foot"><span>06-26</span><span>第4节</span></div></div>
+      <div class="k-card"><div class="client"><div class="ava">陈</div><span class="nm">陈默</span></div><div class="title">第1节 · APA</div><div class="desc">初始评估，社交困难</div><div class="foot"><span>06-20</span><span>第1节</span></div></div>
+      <div class="add-card">+ 添加咨询记录</div>
+    </div>
+  </div>
+  <!-- 列2：逐字稿 -->
+  <div class="column">
+    <div class="column-head"><span class="icon">🎙</span><span class="title">逐字稿</span><span class="count">1</span></div>
+    <div class="col-body">
+      <div class="k-card"><div class="client"><div class="ava">林</div><span class="nm">林小满</span><span class="member">★</span></div><div class="title">第5节逐字稿</div><div class="desc">8轮对话 · 已修正</div><div class="foot"><span>07-10</span><span>第5节</span></div></div>
+      <div class="add-card">+ 上传逐字稿</div>
+    </div>
+  </div>
+  <!-- 列3：督导记录 -->
+  <div class="column">
+    <div class="column-head"><span class="icon">🧠</span><span class="title">督导记录</span><span class="count">3</span></div>
+    <div class="col-body">
+      <div class="k-card"><div class="client"><div class="ava">林</div><span class="nm">林小满</span><span class="member">★</span></div><div class="title">第5节督导</div><div class="desc">移情与反移情</div><div class="foot"><span>07-10</span><span>第5节</span></div></div>
+      <div class="k-card"><div class="client"><div class="ava">陈</div><span class="nm">陈默</span></div><div class="title">第2节督导</div><div class="desc">沉默特质</div><div class="foot"><span>07-05</span><span>第2节</span></div></div>
+      <div class="k-card"><div class="client"><div class="ava">林</div><span class="nm">林小满</span><span class="member">★</span></div><div class="title">第3节督导</div><div class="desc">防御性移情</div><div class="foot"><span>06-12</span><span>第3节</span></div></div>
+      <div class="add-card">+ 添加督导记录</div>
+    </div>
+  </div>
+  <!-- 列4：案例报告 -->
+  <div class="column">
+    <div class="column-head"><span class="icon">📄</span><span class="title">案例报告</span><span class="count">1</span></div>
+    <div class="col-body">
+      <div class="k-card"><div class="client"><div class="ava">林</div><span class="nm">林小满</span><span class="member">★</span></div><div class="title">阶段案例报告 · 前4节</div><div class="desc">8页 · 涵盖初始评估至第4节</div><div class="foot"><span>06-26</span><span>报告</span></div></div>
+      <div class="add-card">+ 新建案例报告</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

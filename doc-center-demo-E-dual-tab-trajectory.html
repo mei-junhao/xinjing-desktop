@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文档中心 · 方案E 双栏+成长轨迹</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+.body{display:grid;grid-template-columns:200px 1fr;flex:1;min-height:0}
+/* 左：来访者 */
+.sidebar{border-right:1px solid var(--border);overflow-y:auto;padding:12px}
+.sidebar h3{font-size:12px;color:var(--ink3);margin-bottom:8px;padding:0 8px}
+.client-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;transition:.15s}
+.client-item:hover{background:var(--a-soft)}
+.client-item.active{background:var(--a-soft);border:1px solid var(--accent)}
+.client-item .ava{width:26px;height:26px;border-radius:50%;background:var(--a-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+.client-item .nm{font-size:13px;font-weight:600;flex:1}
+.client-item .cnt{font-size:10px;color:var(--ink3)}
+.client-item .member{color:var(--orange);font-size:10px}
+/* 右：内容区 */
+.main{display:flex;flex-direction:column;overflow:hidden}
+.main-head{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--paper)}
+.main-head .ava{width:32px;height:32px;border-radius:50%;background:var(--a-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.main-head .name{font-family:var(--serif);font-size:16px;font-weight:600}
+.main-head .member-tag{font-size:11px;padding:2px 8px;border-radius:5px;background:rgba(214,168,92,.15);color:var(--orange)}
+.main-head .sp{flex:1}
+/* Tab 分类 */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab{padding:10px 18px;font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);border-bottom:2px solid transparent;transition:.15s}
+.tab:hover{color:var(--accent)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tab .count{font-size:10px;color:var(--ink3);margin-left:4px}
+.main-body{flex:1;overflow-y:auto;padding:20px 24px}
+/* 材料列表 */
+.file-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--paper);cursor:pointer;transition:.15s}
+.file-row:hover{border-color:var(--accent)}
+.file-row .icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.file-row .info{flex:1}
+.file-row .name{font-size:13px;font-weight:600}
+.file-row .desc{font-size:11px;color:var(--ink3);margin-top:2px}
+.file-row .date{font-size:11px;color:var(--ink3)}
+.file-row .tag{font-size:10px;padding:2px 7px;border-radius:5px}
+.tag-report{background:rgba(107,174,143,.15);color:var(--green)}
+.tag-notes{background:var(--a-soft);color:var(--accent)}
+.tag-transcript{background:rgba(214,168,92,.15);color:var(--orange)}
+.tag-supervision{background:rgba(155,133,199,.15);color:#9B85C7}
+/* 底部成长轨迹区 */
+.trajectory-section{border-top:1px solid var(--border);background:linear-gradient(180deg,var(--paper),var(--a-soft));padding:20px 24px;flex-shrink:0;max-height:240px;overflow-y:auto}
+.ts-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.ts-head .icon{font-size:24px}
+.ts-head .title{font-family:var(--serif);font-size:15px;font-weight:600}
+.ts-head .sp{flex:1}
+.ts-head button{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:5px 12px;font:12px var(--sans);cursor:pointer}
+.ts-body{font-size:12px;line-height:1.7;color:var(--ink2)}
+/* 迷你时间轴 */
+.mini-timeline{display:flex;gap:0;margin-top:10px;align-items:flex-start}
+.mt-dot{flex:1;text-align:center;position:relative}
+.mt-dot::before{content:'';position:absolute;left:50%;top:6px;right:-50%;height:2px;background:var(--accent);opacity:.3}
+.mt-dot:last-child::before{display:none}
+.mt-dot .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);margin:0 auto;position:relative;z-index:1}
+.mt-dot .label{font-size:9px;color:var(--ink3);margin-top:4px}
+.mt-dot .insight{font-size:9px;color:var(--accent);margin-top:2px;max-width:80px;margin:2px auto 0}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>文档中心</h2>
+  <span class="sp"></span>
+  <button>导入材料</button>
+  <button class="btn-p">+ 新建</button>
+</div>
+<div class="body">
+  <div class="sidebar">
+    <h3>来访者</h3>
+    <div class="client-item active"><div class="ava">林</div><span class="nm">林小满</span><span class="member">★</span><span class="cnt">8</span></div>
+    <div class="client-item"><div class="ava">陈</div><span class="nm">陈默</span><span class="cnt">3</span></div>
+    <div class="client-item"><div class="ava">芳</div><span class="nm">芳芳</span><span class="member">★</span><span class="cnt">12</span></div>
+    <div class="client-item"><div class="ava">王</div><span class="nm">王明</span><span class="cnt">2</span></div>
+  </div>
+  <div class="main">
+    <div class="main-head"><div class="ava">林</div><span class="name">林小满</span><span class="member-tag">★ 会员</span><span class="sp"></span><button style="border:1px solid var(--border);background:var(--paper);color:var(--ink2);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer">导出全部</button></div>
+    <div class="tabs">
+      <button class="tab active">全部 <span class="count">8</span></button>
+      <button class="tab">案例报告 <span class="count">1</span></button>
+      <button class="tab">咨询记录 <span class="count">3</span></button>
+      <button class="tab">逐字稿 <span class="count">1</span></button>
+      <button class="tab">督导记录 <span class="count">2</span></button>
+      <button class="tab">成长轨迹 <span class="count">1</span></button>
+    </div>
+    <div class="main-body">
+      <div class="file-row"><div class="icon" style="background:rgba(214,168,92,.15)">🎙</div><div class="info"><div class="name">第5节逐字稿</div><div class="desc">8轮对话 · 已整理修正 · 涉及移情与反移情主题</div></div><span class="tag tag-transcript">逐字稿</span><span class="date">07-10</span></div>
+      <div class="file-row"><div class="icon" style="background:var(--a-soft)">📝</div><div class="info"><div class="name">第5节 · APA 记录</div><div class="desc">5维度完整录入 · 来访者情感状态：焦虑→缓和</div></div><span class="tag tag-notes">记录</span><span class="date">07-10</span></div>
+      <div class="file-row"><div class="icon" style="background:rgba(155,133,199,.15)">🧠</div><div class="info"><div class="name">第5节督导 · 移情与反移情</div><div class="desc">督导师建议关注反移情，不急于诠释</div></div><span class="tag tag-supervision">督导</span><span class="date">07-10</span></div>
+      <div class="file-row"><div class="icon" style="background:rgba(107,174,143,.15)">📄</div><div class="info"><div class="name">阶段案例报告 · 前4节</div><div class="desc">8页 · 治疗方向：探索「足够好」的内化</div></div><span class="tag tag-report">报告</span><span class="date">06-26</span></div>
+      <div class="file-row"><div class="icon" style="background:var(--a-soft)">📝</div><div class="info"><div class="name">第4节 · APA 记录</div><div class="desc">信任开始建立</div></div><span class="tag tag-notes">记录</span><span class="date">06-26</span></div>
+    </div>
+    <div class="trajectory-section">
+      <div class="ts-head"><span class="icon">🌟</span><span class="title">AI 成长轨迹</span><span class="sp"></span><button>重新生成</button></div>
+      <div class="ts-body">从第1节到第5节，来访者从「无法被满足」逐渐走向「被看到」的体验。被否定体验是核心主题，贯穿所有咨询。理想化移情可能是一种防御，下一阶段关注过渡客体的呈现。</div>
+      <div class="mini-timeline">
+        <div class="mt-dot"><div class="dot"></div><div class="label">第1节</div><div class="insight">初始评估</div></div>
+        <div class="mt-dot"><div class="dot"></div><div class="label">第2节</div><div class="insight">工作联盟</div></div>
+        <div class="mt-dot"><div class="dot"></div><div class="label">第3节</div><div class="insight">防御性移情</div></div>
+        <div class="mt-dot"><div class="dot"></div><div class="label">第4节</div><div class="insight">信任建立</div></div>
+        <div class="mt-dot"><div class="dot"></div><div class="label">第5节</div><div class="insight">移情浮现</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

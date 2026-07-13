@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>督导方案A · 左材料右对话</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--warn:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper)}
+.split{display:grid;grid-template-columns:1fr 420px;flex:1;min-height:0}
+.left{overflow-y:auto;padding:20px 24px;min-width:0}
+.left .lhead{font-family:var(--serif);font-size:15px;margin-bottom:12px;color:var(--ink)}
+.left textarea{width:100%;min-height:320px;border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;font:14px/1.85 var(--sans);resize:vertical;outline:none;background:var(--paper)}
+.left textarea:focus{border-color:var(--accent)}
+.left .ltools{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.left .ltools button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.left .ltools button:hover{border-color:var(--accent);color:var(--accent)}
+.right{background:var(--paper);border-left:1px solid var(--border);display:flex;flex-direction:column;min-width:0}
+.rhead{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.rhead .rname{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--accent)}
+.rhead .rbadge{font-size:10px;padding:2px 8px;border-radius:5px;background:var(--a-soft);color:var(--accent)}
+.rhead .rsp{flex:1}
+.rhead button{border:1px solid var(--border);background:var(--paper);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink2)}
+.rchat{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:92%;font-size:13.5px;line-height:1.8}
+.msg.ai{background:var(--a-soft);color:var(--ink);align-self:flex-start;padding:12px 16px;border-radius:14px 14px 14px 4px}
+.msg.me{background:var(--accent);color:#fff;align-self:flex-end;padding:12px 16px;border-radius:14px 14px 4px 14px}
+.msg.ai b{color:var(--accent)}
+.msg .src{font-size:10px;color:var(--ink3);margin-bottom:4px;font-weight:600}
+.quick-row{display:flex;gap:6px;padding:8px 18px;flex-wrap:wrap;border-top:1px solid var(--border)}
+.quick-row button{border:1px solid var(--border);background:var(--paper);border-radius:999px;padding:5px 12px;font:11.5px var(--sans);cursor:pointer;color:var(--ink2)}
+.quick-row button:hover{border-color:var(--accent);color:var(--accent);background:var(--a-soft)}
+.input-row{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border)}
+.input-row input{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font:13.5px var(--sans);outline:none;background:var(--bg)}
+.input-row input:focus{border-color:var(--accent)}
+.input-row button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;font:600 13px var(--sans);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>AI 督导</h2>
+  <span class="sp"></span>
+  <select><option>温尼科特取向</option><option>精神分析</option><option>CBT</option></select>
+  <select><option>女娲版（教督导）</option><option>仓颉版（做督导）</option></select>
+  <select><option>关联：林小满·第5节</option><option>不关联</option></select>
+</div>
+<div class="split">
+  <div class="left">
+    <div class="lhead">临床材料</div>
+    <textarea placeholder="在此粘贴逐字稿或书写案例材料。支持从会话记录载入。">来访者，女，29岁，因「反复确认丈夫是否还爱自己」就诊。
+
+第三次会谈中，她谈到童年常被母亲以「再闹就不要你了」威胁。
+
+T: 当你说「再确认一次」的时候，身体有什么感觉？
+P: 胸口发紧，好像不确认下一秒他就不见了。
+
+T: 当你小时候，有没有人说过类似的话？
+P:（沉默）我妈常说「再闹就不要你了」，我不敢哭……</textarea>
+    <div class="ltools">
+      <button>从会话载入逐字稿</button>
+      <button>粘贴 .docx</button>
+      <button>清空</button>
+    </div>
+  </div>
+  <div class="right">
+    <div class="rhead">
+      <span class="rname">小镜</span>
+      <span class="rbadge">温尼科特·女娲版</span>
+      <span class="rsp"></span>
+      <button>历史</button>
+      <button>导出</button>
+    </div>
+    <div class="rchat">
+      <div class="msg ai"><div class="src">小镜 · 整体印象</div><b>基于温尼科特框架：</b><br><br>来访者对"被抛弃"的反复确认与童年被母亲威胁的模式构成核心议题。过渡性空间尚未建立，治疗师提供的抱持性环境正在逐渐被内化。<br><br>第三次会谈中治疗师保持的沉默为来访者提供了安全空间，使童年记忆得以浮现。这是"足够好的"在场的体现——没有急着安慰或诠释，而是允许不确定性的存在。<br><br>值得注意：来访者「不敢哭」的表述指向真自体被压抑的过程。母亲「再闹就不要你了」的威胁破坏了来访者的独处能力（capacity to be alone）的形成。</div>
+      <div class="msg me">你觉得她「胸口发紧」的身体反应意味着什么？</div>
+      <div class="msg ai"><div class="src">小镜 · 深化讨论</div>「胸口发紧」是一个重要的身体信号。在温尼科特框架下，这可以被理解为：<br><br>1. <b>躯体记忆的浮现</b>——童年被威胁时的身体反应在当下亲密关系中被重新激活。这不是"回忆"，而是身体"记住"了那种即将被抛弃的恐惧。<br><br>2. <b>真自体的呼喊</b>——胸口发紧是真自体试图表达被压抑的需求：「我需要你确认我在这里」。这种身体感受比言语更真实。<br><br>3. <b>过渡性客体的缺失</b>——来访者没有内化一个稳定的"内部客体"，所以需要不断从外部（丈夫）获取确认。胸口的紧缩正是这种"内部空虚"的躯体化表达。</div>
+    </div>
+    <div class="quick-row">
+      <button>生成整体印象</button>
+      <button>深化选区</button>
+      <button>润色选区</button>
+      <button>技术建议</button>
+      <button>就移情提问</button>
+      <button>开启大师圆桌</button>
+    </div>
+    <div class="input-row">
+      <input placeholder="就左栏材料或选区向小镜提问…">
+      <button>发送</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

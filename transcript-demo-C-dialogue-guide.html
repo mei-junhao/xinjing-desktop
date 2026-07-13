@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>逐字稿整理 · 方案C 对话引导</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar select,.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+.body{display:grid;grid-template-columns:1fr 360px;flex:1;min-height:0}
+/* 左：逐字稿流 */
+.transcript{overflow-y:auto;padding:20px 24px;border-right:1px solid var(--border)}
+.transcript h3{font-family:var(--serif);font-size:15px;margin-bottom:16px;color:var(--ink2)}
+.turn{margin-bottom:18px;padding:14px 16px;border-radius:var(--r);background:var(--paper);border:1px solid var(--border)}
+.turn.consultant{border-left:3px solid var(--green)}
+.turn.client{border-left:3px solid var(--accent)}
+.turn .role{font-size:11px;font-weight:600;margin-bottom:6px}
+.turn.client .role{color:var(--accent)}
+.turn.consultant .role{color:var(--green)}
+.turn .text{font-size:13.5px;line-height:1.9}
+.hi-err{background:rgba(217,140,140,.18);border-bottom:2px solid var(--red);border-radius:2px;padding:1px 3px;cursor:pointer}
+.hi-err:hover{background:rgba(217,140,140,.3)}
+.hi-err.fixed{background:rgba(107,174,143,.12);border-bottom:2px solid var(--green)}
+/* 右：AI对话引导 */
+.chat-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--paper)}
+.chat-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.chat-head .ava{width:28px;height:28px;border-radius:50%;background:var(--a-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.chat-head .name{font-family:var(--serif);font-size:14px;font-weight:600}
+.chat-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:90%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.7}
+.msg.ai{background:var(--a-soft);color:var(--ink);border-bottom-left-radius:4px;align-self:flex-start}
+.msg.user{background:var(--accent);color:#fff;border-bottom-right-radius:4px;align-self:flex-end}
+.msg .suggestion{display:inline-block;margin-top:6px;padding:4px 10px;background:var(--paper);border:1px solid var(--green);color:var(--green);border-radius:7px;cursor:pointer;font-size:12px}
+.msg .suggestion:hover{background:var(--green);color:#fff}
+.msg .suggestion.skip{border-color:var(--ink3);color:var(--ink3)}
+.chat-input{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px}
+.chat-input input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);background:var(--bg)}
+.chat-input button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font:12px var(--sans);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>逐字稿整理</h2>
+  <span class="sp"></span>
+  <select><option>选择来访者…</option><option>林小满</option></select>
+  <button>上传逐字稿</button>
+  <button class="btn-p">完成整理</button>
+</div>
+<div class="body">
+  <div class="transcript">
+    <h3>逐字稿 · 林小满 · 第5节</h3>
+    <div class="turn client"><div class="role">来访者</div><div class="text">今天我确实不太好了，因为昨天和妈妈吵了一架。</div></div>
+    <div class="turn consultant"><div class="role">咨询师</div><div class="text">能具体说说吗，发生了什么<span class="hi-err">事情</span>？</div></div>
+    <div class="turn client"><div class="role">来访者</div><div class="text">就是我妈妈她又<span class="hi-err">在次</span>说我什么都不行，然后我就很生气。</div></div>
+    <div class="turn consultant"><div class="role">咨询师</div><div class="text">她说你什么都不行，这个感觉一定很<span class="hi-err fixed">难受</span>。</div></div>
+    <div class="turn client"><div class="role">来访者</div><div class="text">是的，我觉得自己好像永远都做不到她满意的样子。就像小时候<span class="hi-err">也是</span>，不管怎么努力……</div></div>
+    <div class="turn consultant"><div class="role">咨询师</div><div class="text">听起来这个<span class="hi-err">被看透</span>的感觉从很久以前就有了。</div></div>
+  </div>
+  <div class="chat-panel">
+    <div class="chat-head"><div class="ava">镜</div><span class="name">小镜 · 整理助手</span></div>
+    <div class="chat-body">
+      <div class="msg ai">你好梅，我通读了一遍逐字稿，发现了 <b>7</b> 处可能是机器识别错误的地方。我们一个一个来看？</div>
+      <div class="msg ai">第1处：第2轮咨询师说「发生了什么<span style="color:var(--red)">事情</span>？」——根据上下文语气，这里的「事情」可能是多余的，原文可能就是「发生了什么？」。<br><br><span class="suggestion">采用，删除「事情」</span><span class="suggestion skip">跳过</span></div>
+      <div class="msg user">采用</div>
+      <div class="msg ai">好的，已修正。文中还有 <b>2</b> 处同样的「事情」多余，要一起改吗？<br><br><span class="suggestion">全部替换 (3处)</span><span class="suggestion skip">只改这处</span></div>
+      <div class="msg user">全部替换</div>
+      <div class="msg ai">已完成 3 处替换。下一处：第3轮来访者说「她又<span style="color:var(--red)">在次</span>说我什么都不行」——「在次」应该是「一直在」。<br><br><span class="suggestion">改为「一直在」</span><span class="suggestion skip">跳过</span></div>
+      <div class="msg ai">顺便说一下，「在次→一直在」这个错误我已经记到记忆文档了，下次遇到同样的错误会自动修正。</div>
+    </div>
+    <div class="chat-input"><input placeholder="对小镜说…"><button>发送</button></div>
+  </div>
+</div>
+</body>
+</html>

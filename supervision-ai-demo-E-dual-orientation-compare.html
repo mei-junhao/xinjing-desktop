@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI督导方案E · 双取向对照台</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--purple:#7B5EA7;--blue:#5B8DB8;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px;font-weight:600}
+.topbar .sp{flex:1}
+.topbar select{border:1px solid var(--border);border-radius:6px;padding:4px 8px;font:12px var(--sans);background:var(--paper);color:var(--ink)}
+.topbar .badge{background:var(--a-soft);color:var(--accent);padding:2px 10px;border-radius:999px;font-size:10px;font-weight:600}
+/* 上半：双取向对照 */
+.compare-row{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border);flex:1;min-height:0;overflow:hidden}
+.compare-col{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.compare-col:last-child{border-right:none}
+.compare-col .c-head{padding:10px 16px;background:var(--paper);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.compare-col .c-head .c-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+.compare-col .c-head .c-icon.winnicott{background:var(--accent)}
+.compare-col .c-head .c-icon.cbt{background:var(--blue)}
+.compare-col .c-head .c-name{font-family:var(--serif);font-size:14px;font-weight:600}
+.compare-col .c-head .c-tag{font-size:10px;color:var(--ink3);margin-left:auto}
+.compare-col .c-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+/* 分析块 */
+.ablock{background:var(--paper);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px}
+.ablock .ab-label{font-size:10px;color:var(--ink3);font-weight:600;margin-bottom:4px;letter-spacing:.04em}
+.ablock .ab-text{font-size:12.5px;line-height:1.7;color:var(--ink)}
+.ablock .ab-text .cite{color:var(--accent);font-weight:600}
+/* 共同点/差异 */
+.intersect{background:var(--a-soft);border:1px dashed var(--accent);border-radius:var(--r-sm);padding:10px 14px;margin:8px 0;font-size:12px;line-height:1.6}
+.intersect .in-label{font-size:10px;color:var(--accent);font-weight:600;margin-bottom:4px}
+.intersect .in-text{color:var(--ink)}
+/* 下半：对话区 */
+.chat-row{height:180px;display:flex;flex-direction:column;flex-shrink:0;border-top:1px solid var(--border);background:var(--paper)}
+.chat-row .cr-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-row .cr-tab{flex:1;padding:8px;text-align:center;font-size:11px;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink2);transition:all .2s}
+.chat-row .cr-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.chat-row .cr-body{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.chat-row .cr-input-row{padding:6px 14px 10px;display:flex;gap:6px}
+.chat-row .cr-input-row input{flex:1;border:1px solid var(--border);border-radius:7px;padding:6px 12px;font:12px var(--sans);background:var(--bg)}
+.chat-row .cr-input-row button{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:6px 14px;font:12px var(--sans);cursor:pointer}
+.msg{font-size:12px;line-height:1.5;padding:6px 10px;border-radius:8px;max-width:90%}
+.msg.ai{background:var(--a-soft);align-self:flex-start;color:var(--ink)}
+.msg.user{background:var(--accent);color:#fff;align-self:flex-end}
+/* 维度标签 */
+.dim-strip{display:flex;gap:8px;padding:8px 16px;flex-wrap:wrap;flex-shrink:0;background:var(--bg);border-bottom:1px solid var(--border)}
+.dim-strip .dim-chip{padding:4px 12px;background:var(--paper);border:1px solid var(--border);border-radius:999px;font-size:11px;cursor:pointer;color:var(--ink2);transition:all .15s}
+.dim-strip .dim-chip:hover,.dim-strip .dim-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back" onclick="history.back()">← 返回</button>
+  <h2>AI 督导</h2>
+  <div class="sp"></div>
+  <select><option>林小满 · 第8节</option></select>
+  <span class="badge">双取向对照台</span>
+</div>
+<div class="dim-strip">
+  <span class="dim-chip active">整体印象</span>
+  <span class="dim-chip">移情动力</span>
+  <span class="dim-chip">防御机制</span>
+  <span class="dim-chip">客体关系</span>
+  <span class="dim-chip">治疗建议</span>
+  <span class="dim-chip">+ 添加取向</span>
+</div>
+<div class="compare-row">
+  <div class="compare-col">
+    <div class="c-head">
+      <div class="c-icon winnicott">温</div>
+      <span class="c-name">温尼科特取向</span>
+      <span class="c-tag">默认</span>
+    </div>
+    <div class="c-body">
+      <div class="ablock">
+        <div class="ab-label">整体印象</div>
+        <div class="ab-text">来访者呈现"<span class="cite">门外的孩子</span>"意象——渴望进入母亲的情感世界但被恐惧和无力感阻隔。3分钟沉默是一次<span class="cite">过渡性空间</span>的测试——来访者在检验咨询师是否能承受"没什么可说"的状态，即<span class="cite">抱持环境</span>的可靠性。随后表达"我对每个人都很好但最后都离开我"，揭示了<span class="cite">假自体</span>的运作模式：用讨好维系关系，但真实自体从未被看见。</div>
+      </div>
+      <div class="ablock">
+        <div class="ab-label">移情-反移情</div>
+        <div class="ab-text">来访者将咨询师置于"需要被照顾但注定会离开"的<span class="cite">母亲位置</span>。咨询师的"我们可以就这样待一会儿"创造了<span class="cite">促进性环境</span>。反移情：需警惕"想更积极证明自己不会离开"的冲动——这可能反哺来访者的假自体策略。</div>
+      </div>
+      <div class="ablock">
+        <div class="ab-label">治疗建议</div>
+        <div class="ab-text">下节可探索：当来访者不需要"对咨询师好"的时候，他真正想说的是什么？保持<span class="cite">不入侵</span>的姿态，允许更多沉默，等待<span class="cite">真自体</span>的自然浮现。</div>
+      </div>
+    </div>
+  </div>
+  <div class="compare-col">
+    <div class="c-head">
+      <div class="c-icon cbt">C</div>
+      <span class="c-name">CBT 取向</span>
+      <span class="c-tag">对照</span>
+    </div>
+    <div class="c-body">
+      <div class="ablock">
+        <div class="ab-label">整体印象</div>
+        <div class="ab-text">来访者核心信念："<span class="cite">我不值得被留下</span>"。中间信念："如果我对人足够好，他们就不会离开"。自动思维："他/她离开我了，一定是我做得不够好"。行为模式：<span class="cite">过度讨好</span> → 关系表面化 → 他人离开 → 验证核心信念。形成完整的<span class="cite">负性认知三角</span>（自我/他人/未来均为负面）。</div>
+      </div>
+      <div class="ablock">
+        <div class="ab-label">行为分析</div>
+        <div class="ab-text">沉默3分钟可理解为<span class="cite">回避行为</span>——回避表达真实情感可能带来的"被拒绝"风险。治疗关系中的"讨好"行为是来访者人际模式的<span class="cite">活现</span>。可引导来访者识别这一模式并进行行为实验。</div>
+      </div>
+      <div class="ablock">
+        <div class="ab-label">治疗建议</div>
+        <div class="ab-text">1. 引导来访者识别"讨好→离开"的<span class="cite">认知模式</span>；2. 设计行为实验：在安全环境中尝试表达真实感受；3. 使用<span class="cite">苏格拉底式提问</span>挑战"对每个人都好"的必要性信念。</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="intersect" style="margin:0;border-radius:0;border-left:none;border-right:none">
+  <div class="in-label">🔗 两取向共同发现</div>
+  <div class="in-text">核心都是"真实自我被压抑"——温尼科特从假自体/真自体动力出发，CBT从核心信念/行为模式出发，但指向同一临床现象：来访者用一套讨好策略应对关系，导致真实连接无法建立。两取向在治疗建议上也一致：创造安全空间，让来访者体验"不讨好也可以被接纳"。</div>
+</div>
+<div class="chat-row">
+  <div class="cr-tabs">
+    <div class="cr-tab active">💬 自由对话</div>
+    <div class="cr-tab">📝 添加笔记</div>
+    <div class="cr-tab">📚 历史（3条）</div>
+  </div>
+  <div class="cr-body">
+    <div class="msg ai">两取向对照已生成。温尼科特强调假自体/抱持，CBT强调核心信念/行为模式。你觉得哪个视角对理解这个个案更有帮助？</div>
+  </div>
+  <div class="cr-input-row"><input placeholder="继续讨论…"><button>发送</button></div>
+</div>
+</body>
+</html>

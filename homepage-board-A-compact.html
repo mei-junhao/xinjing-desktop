@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 首页方案A · 紧凑临床台</title>
+<style>
+:root{--bg:#F6F8FC;--bg-elevated:#FFFFFF;--bg-sunken:#EDF0F7;--border:#E2E7F0;--border-strong:#D2D9E6;--text:#2B3140;--text-secondary:#646B7D;--text-muted:#99A1B3;--accent:#8B93C7;--accent-hover:#777FBC;--accent-soft:#ECEEF9;--success:#6FAE8F;--warning:#D6A85C;--danger:#D98C8C;--radius:14px;--radius-sm:10px;--radius-lg:22px;--shadow-sm:0 1px 3px rgba(43,49,64,.05);--font-serif:"Noto Serif SC","Songti SC",Georgia,serif;--font-sans:"Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);padding:0}
+.topbar{display:flex;align-items:center;gap:16px;padding:16px 28px;background:var(--bg-elevated);border-bottom:1px solid var(--border)}
+.brand{font-family:var(--font-serif);font-size:20px;font-weight:600}
+.topbar .date{color:var(--text-muted);font-size:13px;margin-left:4px}
+.topbar .spacer{flex:1}
+.topbar button{border:1px solid var(--border);background:var(--bg-elevated);border-radius:9px;padding:7px 16px;font-size:13px;cursor:pointer;color:var(--text);}
+.topbar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.topbar button.primary:hover{background:var(--accent-hover)}
+.grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;gap:16px;padding:20px 28px;max-width:1200px;margin:0 auto}
+.grid .full{grid-column:1/-1}
+.panel{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:18px 20px}
+.panel h3{font-family:var(--font-serif);font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.panel h3 .count{font-size:11px;color:var(--text-muted);font-weight:400;margin-left:auto}
+.strip4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.card{background:var(--bg-sunken);border:1px solid var(--border);border-radius:12px;padding:13px 16px}
+.card .lbl{font-size:11px;color:var(--text-muted);font-weight:600;letter-spacing:.3px}
+.card .val{font-size:23px;font-weight:700;font-family:var(--font-serif);margin-top:4px}
+.card.warn .val{color:var(--danger)}.card.good .val{color:var(--success)}
+.list-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.list-item:last-child{border:none}
+.ava{width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+.list-item .info{flex:1;min-width:0}
+.list-item .name{font-weight:600;font-size:13.5px}
+.list-item .meta{font-size:11.5px;color:var(--text-muted)}
+.tag{padding:2px 8px;border-radius:6px;font-size:11px;background:var(--accent-soft);color:var(--accent)}
+.btn-sm{border:1px solid var(--border);background:var(--bg-elevated);border-radius:7px;padding:5px 11px;font-size:11.5px;cursor:pointer;color:var(--text)}
+.btn-sm.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.empty{color:var(--text-muted);text-align:center;padding:24px;font-size:13px}
+@media(max-width:900px){.grid{grid-template-columns:1fr;padding:12px 16px}.strip4{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">心镜</span><span class="date">2026-07-13 星期一</span>
+  <span class="spacer"></span>
+  <button onclick="document.querySelector('.strip4').scrollIntoView()">记账</button>
+  <button onclick="document.querySelector('.panel:nth-child(5)').scrollIntoView()">督导</button>
+  <button onclick="document.querySelector('.panel:nth-child(6)').scrollIntoView()">大师</button>
+  <button onclick="document.querySelector('.grid').scrollIntoView()">大师</button>
+  <button class="primary">+ 新建来访者</button>
+</div>
+
+<div class="grid">
+  <div class="full strip4">
+    <div class="card"><div class="lbl">本月应收</div><div class="val">¥3,200</div></div>
+    <div class="card good"><div class="lbl">本月已收</div><div class="val">¥2,600</div></div>
+    <div class="card warn"><div class="lbl">待收金额</div><div class="val">¥600</div></div>
+    <div class="card"><div class="lbl">待收来访者·活跃</div><div class="val">2 · 8</div></div>
+  </div>
+
+  <div class="panel">
+    <h3>最近会谈 <span class="count">6 条</span></h3>
+    <div class="list-item"><div class="ava">林</div><div class="info"><div class="name">林小满 · 第5节</div><div class="meta">2026-07-10 · ¥300 · 未收</div></div><button class="btn-sm primary">记一笔</button></div>
+    <div class="list-item"><div class="ava">陈</div><div class="info"><div class="name">陈默 · 第2节</div><div class="meta">2026-05-20 · ¥280 · 已收</div></div><span class="tag">SOAP</span></div>
+    <div class="list-item"><div class="ava">王</div><div class="info"><div class="name">王芳 · 第8节</div><div class="meta">2026-03-15 · ¥320 · 已收</div></div><span class="tag">DAP</span></div>
+  </div>
+
+  <div class="panel">
+    <h3>最近报告 <span class="count">4 条</span></h3>
+    <div class="list-item"><div class="ava">林</div><div class="info"><div class="name">林小满 · 第5节</div><div class="meta">2026-07-10 更新</div></div><span class="tag">SOAP</span></div>
+    <div class="list-item"><div class="ava">陈</div><div class="info"><div class="name">陈默 · 第1节</div><div class="meta">2026-05-06 更新</div></div><span class="tag">反思</span></div>
+    <div class="list-item"><div class="ava">赵</div><div class="info"><div class="name">赵雪 · 第3节</div><div class="meta">2026-04-22 更新</div></div><span class="tag">SOAP</span></div>
+  </div>
+
+  <div class="panel">
+    <h3>今日待记</h3>
+    <div class="list-item"><div class="ava">林</div><div class="info"><div class="name">林小满 · 第5节</div><div class="meta">次结 · ¥300 · 未付</div></div><button class="btn-sm primary">记</button></div>
+    <div class="list-item"><div class="ava">王</div><div class="info"><div class="name">王芳 · 月结</div><div class="meta">¥320 · 待月结</div></div><button class="btn-sm">月结</button></div>
+    <div class="empty" style="padding:12px">+ 快速咨询（计时完自动弹计费）</div>
+  </div>
+
+  <div class="panel">
+    <h3>快捷操作</h3>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn-sm" style="width:100%;text-align:left">AI 督导 →</button>
+      <button class="btn-sm" style="width:100%;text-align:left">大师对话 →</button>
+      <button class="btn-sm" style="width:100%;text-align:left">记账工作区 →</button>
+      <button class="btn-sm" style="width:100%;text-align:left">咨询记录 →</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

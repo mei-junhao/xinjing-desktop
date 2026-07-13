@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI督导方案A · 四步工作台</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px;font-weight:600}
+.topbar .sp{flex:1}
+.topbar .meta{font-size:12px;color:var(--ink3);display:flex;gap:12px;align-items:center}
+.topbar .meta select{border:1px solid var(--border);border-radius:6px;padding:4px 8px;font:12px var(--sans);background:var(--paper);color:var(--ink)}
+.topbar .meta .badge{background:var(--accent);color:#fff;padding:2px 10px;border-radius:999px;font-size:10px;font-weight:600}
+/* 四步指示器 */
+.stepper{display:flex;gap:0;background:var(--paper);border-bottom:1px solid var(--border);padding:0 20px;flex-shrink:0}
+.stepper .step{flex:1;padding:12px 16px;text-align:center;font-size:13px;color:var(--ink3);border-bottom:3px solid transparent;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.stepper .step .num{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transition:all .2s}
+.stepper .step.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.stepper .step.active .num{background:var(--accent);border-color:var(--accent);color:#fff}
+.stepper .step.done{color:var(--green)}
+.stepper .step.done .num{background:var(--green);border-color:var(--green);color:#fff}
+/* 主内容：双栏 */
+.main{display:grid;grid-template-columns:1fr 380px;flex:1;min-height:0;overflow:hidden}
+.col-left{display:flex;flex-direction:column;overflow:hidden;padding:24px;gap:16px}
+.col-left .step-title{font-family:var(--serif);font-size:20px;font-weight:600;margin-bottom:4px}
+.col-left .step-desc{font-size:13px;color:var(--ink2);line-height:1.6}
+.col-left .step-area{flex:1;overflow-y:auto;padding-right:8px}
+.col-right{background:var(--paper);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.col-right .r-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
+.col-right .r-chat{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.col-right .r-input-row{border-top:1px solid var(--border);padding:10px;display:flex;gap:6px}
+.col-right .r-input-row input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);background:var(--bg)}
+.col-right .r-input-row button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer}
+/* 步骤1：材料区 */
+.material-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;min-height:200px}
+.material-box textarea{width:100%;min-height:180px;border:none;background:transparent;font:13px/1.8 var(--sans);resize:vertical;color:var(--ink);outline:none}
+.material-box .quick-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.material-box .quick-actions button{font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--paper);cursor:pointer;color:var(--ink2)}
+/* 步骤2：印象区 */
+.impression-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.impression-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px}
+.impression-card .i-label{font-size:11px;color:var(--ink3);font-weight:600;margin-bottom:6px;text-transform:uppercase}
+.impression-card .i-content{font-size:13px;line-height:1.7;color:var(--ink);min-height:60px}
+.impression-card .i-content:empty::before{content:'点击右侧"生成"按钮…';color:var(--ink3);font-style:italic}
+/* 步骤3：深化 */
+.deep-dims{display:flex;flex-direction:column;gap:10px}
+.deep-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.deep-item:hover{border-color:var(--accent)}
+.deep-item .d-icon{font-size:20px;width:36px;text-align:center}
+.deep-item .d-label{font-size:13px;font-weight:600}
+.deep-item .d-status{font-size:11px;color:var(--ink3);margin-left:auto}
+.deep-item.done{border-color:var(--green);background:rgba(111,174,143,.05)}
+/* 步骤4：总结 */
+.summary-preview{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);padding:20px;font-size:13px;line-height:1.8}
+.summary-preview .s-section{margin-bottom:16px}
+.summary-preview .s-section h4{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:4px}
+.chat-msg{font-size:12.5px;line-height:1.6;padding:8px 12px;border-radius:10px;max-width:90%}
+.chat-msg.ai{background:var(--a-soft);align-self:flex-start;color:var(--ink)}
+.chat-msg.user{background:var(--accent);color:#fff;align-self:flex-end}
+.chat-msg .quick-btns{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+.chat-msg .quick-btns button{font-size:10px;padding:3px 8px;border:1px solid var(--border);border-radius:5px;background:var(--paper);cursor:pointer;color:var(--ink2)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back" onclick="history.back()">← 返回</button>
+  <h2>AI 督导</h2>
+  <div class="sp"></div>
+  <div class="meta">
+    <select><option>林小满 · 第8节</option><option>张明远 · 第3节</option></select>
+    <select><option>温尼科特取向</option><option>精神分析</option><option>CBT</option></select>
+    <span class="badge">四步工作台</span>
+  </div>
+</div>
+
+<div class="stepper">
+  <div class="step active" onclick="goStep(0)"><span class="num">1</span> 呈现材料</div>
+  <div class="step" onclick="goStep(1)"><span class="num">2</span> 整体印象</div>
+  <div class="step" onclick="goStep(2)"><span class="num">3</span> 逐维深化</div>
+  <div class="step" onclick="goStep(3)"><span class="num">4</span> 督导总结</div>
+</div>
+
+<div class="main">
+  <div class="col-left">
+    <div id="step-content">
+      <div class="step-title">📋 呈现材料</div>
+      <div class="step-desc">粘贴或上传本次咨询的逐字稿 / 案例材料。右侧小镜会帮你梳理关键信息。</div>
+      <div class="step-area">
+        <div class="material-box">
+          <textarea placeholder="在此粘贴逐字稿或案例材料…&#10;&#10;示例：&#10;来访者：我最近总是梦到掉进一个很深的洞里，每次醒来都一身冷汗。&#10;咨询师：这个洞让你想到什么？&#10;来访者：像小时候我爸爸出差，妈妈一个人在家…"></textarea>
+          <div class="quick-actions">
+            <button>📎 从咨询记录导入</button>
+            <button>📤 上传逐字稿文件</button>
+            <button>📋 从剪贴板粘贴</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-right">
+    <div class="r-head">🦐 小镜 · 督导助手</div>
+    <div class="r-chat">
+      <div class="chat-msg ai">你好，梅。我是你的督导助手。请先在左侧粘贴或导入本次咨询材料，我会帮你逐步分析。</div>
+    </div>
+    <div class="r-input-row">
+      <input placeholder="对小镜说…">
+      <button>发送</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let step = 0;
+const steps = [
+  {title:'📋 呈现材料', desc:'粘贴或上传本次咨询的逐字稿 / 案例材料。右侧小镜会帮你梳理关键信息。'},
+  {title:'🔍 整体印象', desc:'AI 根据材料生成初步印象：移情-反移情动力、核心冲突、治疗关系评估。'},
+  {title:'🎯 逐维深化', desc:'选择维度深入分析：防御机制、客体关系、自体状态、治疗僵局等。'},
+  {title:'📝 督导总结', desc:'汇总分析结果，生成结构化督导笔记，可保存导出。'}
+];
+function goStep(n){
+  step=n;
+  document.querySelectorAll('.stepper .step').forEach((s,i)=>{
+    s.className='step'+(i===step?' active':'')+(i<step?' done':'');
+  });
+  document.getElementById('step-content').innerHTML=`
+    <div class="step-title">${steps[n].title}</div>
+    <div class="step-desc">${steps[n].desc}</div>
+    <div class="step-area" style="color:var(--ink3);font-style:italic;padding-top:40px;text-align:center">
+      ${n===0?'<div class="material-box"><textarea placeholder="在此粘贴逐字稿或案例材料…"></textarea><div class="quick-actions"><button>📎 从咨询记录导入</button><button>📤 上传逐字稿文件</button></div></div>'
+        :n===1?'<div class="impression-grid"><div class="impression-card"><div class="i-label">移情动力</div><div class="i-content"></div></div><div class="impression-card"><div class="i-label">反移情觉察</div><div class="i-content"></div></div><div class="impression-card"><div class="i-label">核心冲突</div><div class="i-content"></div></div><div class="impression-card"><div class="i-label">治疗关系</div><div class="i-content"></div></div></div>'
+        :n===2?'<div class="deep-dims"><div class="deep-item"><span class="d-icon">🛡</span><span class="d-label">防御机制分析</span><span class="d-status">待分析</span></div><div class="deep-item"><span class="d-icon">🧸</span><span class="d-label">客体关系模式</span><span class="d-status">待分析</span></div><div class="deep-item"><span class="d-icon">🪞</span><span class="d-label">自体状态评估</span><span class="d-status">待分析</span></div><div class="deep-item"><span class="d-icon">🔄</span><span class="d-label">移情-反移情动力</span><span class="d-status">待分析</span></div><div class="deep-item"><span class="d-icon">⛔</span><span class="d-label">治疗僵局识别</span><span class="d-status">待分析</span></div></div>'
+        :'<div class="summary-preview"><div class="s-section"><h4>个案概念化</h4><p style="color:var(--ink3);font-style:italic">完成前几步后，AI 将在此生成完整督导总结…</p></div></div>'
+      }
+    </div>`;
+}
+</script>
+</body>
+</html>

@@ -175,16 +175,20 @@ const App = (() => {
         <span class="label-text">${item.label}</span>
       </a>`;
     }).join('');
+    // 读取折叠状态（默认展开）
+    var collapsed = '';
+    try { if (localStorage.getItem('xj_sidebar_collapsed') === '1') collapsed = ' collapsed'; } catch(e) {}
 
     return `
-      <aside class="sidebar">
+      <aside class="sidebar${collapsed}">
         <div class="brand">
           <div class="mark">心</div>
-          <div>
+          <div class="brand-text">
             <div class="name">心镜</div>
             <div class="en">Xinjing</div>
           </div>
         </div>
+        <button class="sidebar-toggle" id="sidebar-toggle" title="收起/展开侧栏">◀</button>
         <nav class="nav">${items}</nav>
         <div class="nav-spacer"></div>
         <div class="nav-footer">
@@ -192,7 +196,7 @@ const App = (() => {
             <span class="tt-icon">${document.documentElement.classList.contains('dark') ? '🌙' : '☀'}</span>
             <span class="tt-label">${document.documentElement.classList.contains('dark') ? '深色模式' : '浅色模式'}</span>
           </button>
-          <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">本地存储 · 数据不出本机</div>
+          <div class="nav-footer-text" style="margin-top:8px;font-size:11px;color:var(--text-muted)">本地存储 · 数据不出本机</div>
         </div>
       </aside>`;
   }
@@ -221,8 +225,23 @@ const App = (() => {
     </button>`;
   }
 
-  function injectLayout(title, subtitle, headerActions = '') {
-    document.getElementById('sidebar-mount').outerHTML = renderSidebar();
+  function injectLayout(title, subtitle, headerActions = '', opts) {
+    opts = opts || {};
+    if (!opts.noSidebar) {
+      var sm = document.getElementById('sidebar-mount');
+      if (sm) sm.outerHTML = renderSidebar();
+      var st = document.getElementById('sidebar-toggle');
+      if (st) st.addEventListener('click', function () {
+        var sb = document.querySelector('.sidebar');
+        if (!sb) return;
+        sb.classList.toggle('collapsed');
+        try { localStorage.setItem('xj_sidebar_collapsed', sb.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
+      });
+    } else {
+      var sm2 = document.getElementById('sidebar-mount');
+      if (sm2) sm2.outerHTML = '';
+      document.body.classList.add('xj-no-sidebar');
+    }
     const header = document.getElementById('page-header');
     if (header) {
       const backBtn = buildBackButton();
@@ -255,7 +274,7 @@ const App = (() => {
   async function initPage(opts) {
     opts = opts || {};
     if (opts.title) {
-      injectLayout(opts.title, opts.subtitle || '', opts.actions || '');
+      injectLayout(opts.title, opts.subtitle || '', opts.actions || '', opts);
       applyTierMark(); // 侧边栏注入后按当前档位给「心」字 logo 上色（初始快照）
     }
     bindModalClose('confirm-modal');

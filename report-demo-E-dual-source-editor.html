@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>报告方案E · 双栏对照（材料+编辑）</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper)}
+.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+/* 上下分栏 */
+.workspace{display:flex;flex:1;min-height:0;flex-direction:column}
+/* 上方：节次选择条 */
+.sess-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--soft);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.sess-bar .lbl{font-size:11px;color:var(--ink3);font-weight:600}
+.sess-chip{display:flex;align-items:center;gap:5px;padding:4px 10px 4px 4px;border:1px solid var(--border);border-radius:999px;font-size:12px;cursor:pointer;background:var(--paper)}
+.sess-chip input{margin:0}
+.sess-chip.checked{border-color:var(--accent);background:var(--a-soft)}
+.sess-bar .sp{flex:1}
+.sess-bar .ai-all{border:1px solid var(--accent);background:var(--a-soft);color:var(--accent);border-radius:999px;padding:5px 14px;font:12px var(--sans);cursor:pointer}
+/* 下方：左右双栏 */
+.dual{display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0}
+/* 左：材料源（逐字稿/SOAP/反思 可切换查看） */
+.src-panel{background:var(--paper);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.src-tabs{display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.src-tab{padding:8px 14px;font-size:12px;color:var(--ink3);cursor:pointer;border-bottom:2px solid transparent;transition:.15s}
+.src-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.src-body{flex:1;overflow-y:auto;padding:16px 20px}
+.src-body .src-section{margin-bottom:18px}
+.src-body .src-section .ss-head{font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px}
+.src-body .src-section .ss-content{font-size:13px;line-height:1.8;color:var(--ink2);padding:10px 14px;background:var(--soft);border-radius:8px;border-left:3px solid var(--accent)}
+.src-body .src-section .ss-meta{font-size:10px;color:var(--ink3);margin-top:3px}
+/* 右：编辑区 */
+.edit-panel{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.edit-body{flex:1;overflow-y:auto;padding:20px 24px}
+.edit-inner{max-width:600px;margin:0 auto}
+.edit-sec{margin-bottom:22px}
+.edit-sec .es-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.edit-sec .es-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font:700 11px var(--serif);flex-shrink:0}
+.edit-sec .es-title{font-family:var(--serif);font-size:15px;color:var(--ink)}
+.edit-sec .es-sp{flex:1}
+.edit-sec .es-ai{font-size:10px;border:1px solid var(--accent);background:var(--a-soft);color:var(--accent);border-radius:5px;padding:2px 8px;cursor:pointer;white-space:nowrap}
+.edit-sec textarea{width:100%;min-height:100px;border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;font:14px/1.9 var(--sans);color:var(--ink);resize:vertical;outline:none;background:var(--paper)}
+.edit-sec textarea:focus{border-color:var(--accent)}
+.edit-sec .ai-suggest{display:none;margin-top:8px;padding:10px 12px;background:var(--a-soft);border-radius:8px;font:13px/1.7 var(--sans);border-left:3px solid var(--accent);color:var(--ink2)}
+.edit-sec .ai-suggest.show{display:block}
+.edit-sec .ai-suggest .accept{margin-top:4px;display:inline-block;padding:3px 10px;border-radius:5px;background:var(--accent);color:#fff;font-size:11px;cursor:pointer;border:none}
+.edit-foot{padding:10px 24px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:8px}
+.edit-foot .sp{flex:1}
+.edit-foot .info{font-size:11px;color:var(--ink3)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>撰写报告</h2>
+  <span class="sp"></span>
+  <select><option>林小满</option></select>
+  <button>上传模板</button>
+  <button class="btn-p">导出 Word</button>
+</div>
+<div class="workspace">
+  <div class="sess-bar">
+    <span class="lbl">基于节次：</span>
+    <label class="sess-chip checked"><input type="checkbox" checked> 第1节</label>
+    <label class="sess-chip checked"><input type="checkbox" checked> 第2节</label>
+    <label class="sess-chip checked"><input type="checkbox" checked> 第3节</label>
+    <label class="sess-chip checked"><input type="checkbox" checked> 第4节</label>
+    <label class="sess-chip checked"><input type="checkbox" checked> 第5节</label>
+    <span class="sp"></span>
+    <button class="ai-all">AI 填写全部 ✨</button>
+  </div>
+  <div class="dual">
+    <!-- 左：材料源 -->
+    <div class="src-panel">
+      <div class="src-tabs">
+        <span class="src-tab active">逐字稿</span>
+        <span class="src-tab">SOAP</span>
+        <span class="src-tab">反思</span>
+      </div>
+      <div class="src-body">
+        <div class="src-section"><div class="ss-head">第3节 · 2026-06-12</div><div class="ss-content">咨：今天想从哪里开始？<br>来：这周我又开始反复确认他是不是还爱我……<br>咨：那种「不确认就消失」的感觉，身体在哪里？<br>来：胸口发紧。好像不确认下一秒他就不见了。<br>咨：当你小时候，有没有人说过类似的话？<br>来：（沉默）我妈常说「再闹就不要你了」，我不敢哭……</div><div class="ss-meta">逐字稿 · 842字</div></div>
+        <div class="src-section"><div class="ss-head">第5节 · 2026-07-10</div><div class="ss-content">咨：上次我们谈到「不敢哭」。这周有什么变化吗？<br>来：我试着在你说的"让感觉待在那里"的时候不急着确认了。但只坚持了一天。<br>咨：一天也是开始。<br>来：（眼眶泛红）我以前从来不允许自己这样。</div><div class="ss-meta">逐字稿 · 676字</div></div>
+        <div class="src-section"><div class="ss-head">第4节 · 2026-06-26</div><div class="ss-content">咨：这周过得怎么样？<br>来：好一些了。我发现自己确认的次数少了一点。<br>咨：你觉得是什么让次数减少了？<br>来：也许是因为上次你说的"胸口发紧是在保护我"。我开始不那么害怕那种感觉了。</div><div class="ss-meta">逐字稿 · 520字</div></div>
+      </div>
+    </div>
+    <!-- 右：编辑区 -->
+    <div class="edit-panel">
+      <div class="edit-body"><div class="edit-inner">
+        <div class="edit-sec"><div class="es-head"><span class="es-num">1</span><span class="es-title">基本信息</span><span class="es-sp"></span><button class="es-ai">AI 填</button></div><textarea placeholder="…">林小满（化名），女，29岁，已婚，公司行政人员。</textarea></div>
+        <div class="edit-sec"><div class="es-head"><span class="es-num">2</span><span class="es-title">主诉与求助原因</span><span class="es-sp"></span><button class="es-ai">AI 填</button></div><textarea placeholder="…"></textarea><div class="ai-suggest show">AI 建议：基于左侧逐字稿，核心困扰为反复确认丈夫是否还爱自己，持续约6个月。伴有睡眠质量下降。<span class="accept">采用</span></div></div>
+        <div class="edit-sec"><div class="es-head"><span class="es-num">3</span><span class="es-title">发展史</span><span class="es-sp"></span><button class="es-ai">AI 填</button></div><textarea placeholder="…"></textarea></div>
+        <div class="edit-sec"><div class="es-head"><span class="es-num">4</span><span class="es-title">动力学理解</span><span class="es-sp"></span><button class="es-ai">AI 填</button></div><textarea placeholder="…"></textarea></div>
+        <div class="edit-sec"><div class="es-head"><span class="es-num">5</span><span class="es-title">治疗过程</span><span class="es-sp"></span><button class="es-ai">AI 填</button></div><textarea placeholder="…"></textarea></div>
+        <div class="edit-sec"><div class="es-head"><span class="es-num">6</span><span class="es-title">展望</span><span class="es-sp"></span><button class="es-ai">AI 填</button></div><textarea placeholder="…"></textarea></div>
+      </div></div>
+      <div class="edit-foot"><span class="info">左侧材料源可切换逐字稿/SOAP/反思，供你参考撰写</span><span class="sp"></span><span class="info">总字数：37</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

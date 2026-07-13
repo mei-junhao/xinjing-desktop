@@ -1,266 +1,87 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>心镜 · 设置</title>
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/components.css">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>心镜 · 设置</title>
+<link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/components.css">
+<style>
+.set-page{max-width:800px;margin:0 auto;padding:24px 20px 48px;display:flex;flex-direction:column;gap:20px}
+.set-top{display:flex;align-items:center;gap:10px;padding:10px 0}
+.set-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
+.set-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.about{text-align:center;padding:16px 0 4px}
+.about .logo{font-family:var(--serif);font-size:28px;font-weight:700;color:var(--accent)}
+.about .ver{font-size:12px;color:var(--ink-3);margin-top:4px}
+.group{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);overflow:hidden}
+.group-head{padding:14px 18px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.group-head .icon{font-size:18px}
+.group-body{padding:8px 0}
+.row{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--border)}
+.row:last-child{border:none}
+.row .lbl{flex:1}.row .lbl .t{font-size:14px;font-weight:500}.row .lbl .d{font-size:12px;color:var(--ink-3);margin-top:2px}
+.row input[type=text],.row input[type=password]{border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);width:200px;outline:none;background:var(--bg)}
+.row input:focus{border-color:var(--accent)}
+.row select{border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);background:var(--paper,#fff)}
+.row .btn{border:1px solid var(--border);background:var(--paper,#fff);border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer;color:var(--ink-2)}
+.row .btn.pri{background:var(--accent);color:#fff;border:none}
+.row .btn.danger{border-color:var(--danger);color:var(--danger)}
+.toggle{width:40px;height:22px;border-radius:999px;background:var(--bg-sunken);cursor:pointer;position:relative;transition:.2s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on::after{left:20px}
+.badge{font-size:11px;padding:2px 8px;border-radius:5px}
+.badge.ok{background:rgba(107,174,143,.15);color:var(--success,#6FAE8F)}
+.badge.warn{background:rgba(214,168,92,.15);color:#D6A85C}
+.badge.danger{background:rgba(217,140,140,.15);color:var(--danger)}
+#trial-quota-box{padding:12px 18px;border-top:1px solid var(--border)}
+.set-foot{padding:10px 18px;border-top:1px solid var(--border);font-size:11px;color:var(--ink-3)}
+</style>
 </head>
 <body>
-  <div class="layout">
-    <div id="sidebar-mount"></div>
-    <main class="main">
-      <header class="main-header">
-        <div id="page-header"></div>
-      </header>
-      <div class="content">
-        <!-- 外观 -->
-        <div class="section-title">外观</div>
-        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
-          <div class="form-row" style="display:flex;align-items:center;justify-content:space-between;gap:var(--gap)">
-            <div>
-              <div style="font-family:var(--sans);font-weight:600;color:var(--text)">深色模式</div>
-              <div style="font-size:12px;color:var(--muted);font-family:var(--sans);margin-top:2px">切换为暖棕夜间配色</div>
-            </div>
-            <button id="theme-toggle" class="theme-switch" role="switch" aria-checked="false" onclick="toggleTheme()" aria-label="切换深色模式"></button>
-          </div>
-        </div>
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="set-page">
+  <div class="set-top"><button class="back" onclick="location.href='index.html'">← 返回</button><h2>设置</h2></div>
 
-        <!-- API 配置 -->
-        <div class="section-title">AI 接口配置</div>
-        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
-          <div id="api-tier-status" style="font-size:12px;font-family:var(--sans);line-height:1.6;margin-bottom:14px;padding:8px 10px;border-radius:var(--radius-sm);background:var(--accent-soft, rgba(139,147,199,.12))"></div>
-          <div id="trial-quota-box" style="margin-bottom:14px;display:none"></div>
-          <div style="text-align:center;padding:4px 0 6px">
-            <button class="btn btn-primary btn-lg" id="btn-connect-ai" style="width:100%">🚀 接入高性能 AI</button>
-            <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-top:10px">跟着对话一步步接入你自己的模型，不懂也能配。接入失败会自动用回免费内置模型。</p>
-          </div>
-          <div style="text-align:center;margin-top:6px">
-            <a href="javascript:void(0)" id="link-use-builtin" style="font-size:12px;color:var(--muted);text-decoration:underline">↩ 用回内置免费模型</a>
-          </div>
-          <details style="margin-top:14px">
-            <summary style="font-size:12px;color:var(--muted);cursor:pointer;font-family:var(--sans)">高级手动配置（不推荐）</summary>
-            <div style="margin-top:12px">
-              <div class="form-row">
-                <label class="form-label">API 端点 (Base URL)</label>
-                <input class="form-control" id="api-baseurl" placeholder="https://api.siliconflow.cn/v1">
-              </div>
-              <div class="form-row">
-                <label class="form-label">API 密钥</label>
-                <input class="form-control" id="api-key" type="password" placeholder="sk-...">
-              </div>
-              <div class="form-row">
-                <label class="form-label">默认模型</label>
-                <select class="form-control" id="api-model">
-                  <option value="__builtin__">内置免费模型 (Qwen3.5-4B，永久免费)</option>
-                  <optgroup label="DeepSeek">
-                    <option value="deepseek-v4-flash">DeepSeek V4 Flash</option>
-                    <option value="deepseek-v4-pro">DeepSeek V4 Pro</option>
-                  </optgroup>
-                  <optgroup label="硅基流动 SiliconFlow">
-                    <option value="Qwen/Qwen3.5-4B">Qwen3.5-4B</option>
-                    <option value="Qwen/Qwen3-235B-A22B">Qwen3-235B-A22B（大参数）</option>
-                    <option value="deepseek-ai/DeepSeek-V3">DeepSeek-V3</option>
-                  </optgroup>
-                  <optgroup label="OpenAI">
-                    <option value="gpt-4o">GPT-4o</option>
-                    <option value="gpt-4o-mini">GPT-4o-mini</option>
-                  </optgroup>
-                  <optgroup label="月之暗面 Kimi">
-                    <option value="moonshot-v1-8k">Kimi 8k</option>
-                    <option value="moonshot-v1-32k">Kimi 32k</option>
-                    <option value="moonshot-v1-128k">Kimi 128k</option>
-                  </optgroup>
-                  <optgroup label="智谱 AI GLM">
-                    <option value="glm-4-flash">GLM-4-Flash（有免费额度）</option>
-                    <option value="glm-4">GLM-4</option>
-                  </optgroup>
-                  <optgroup label="阿里通义千问">
-                    <option value="qwen-turbo">Qwen Turbo</option>
-                    <option value="qwen-plus">Qwen Plus</option>
-                    <option value="qwen-max">Qwen Max</option>
-                  </optgroup>
-                  <optgroup label="字节豆包">
-                    <option value="doubao-pro-32k">豆包 Pro 32k</option>
-                    <option value="doubao-1.5-pro-256k">豆包 1.5 Pro 256k</option>
-                  </optgroup>
-                </select>
-              </div>
-              <div class="form-row" style="display:flex;gap:var(--gap);flex-wrap:wrap">
-                <button class="btn btn-primary" onclick="saveApiConfig()">保存配置</button>
-                <button class="btn btn-ghost" onclick="testApi()">测试连接</button>
-              </div>
-              <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-top:6px">手动填的密钥<b>不会自动验证</b>。建议用上方「接入高性能 AI」走验证流程，否则档位可能误报。</p>
-            </div>
-          </details>
-        </div>
+  <div class="about"><div class="logo">心镜</div><div class="ver" id="ver-text">v3.0.0</div></div>
 
-        <!-- DeepSeek 购买指南模态（4-A） -->
-        <div class="xj-modal-overlay" id="ds-guide-modal">
-          <div class="xj-modal xj-ds-guide">
-            <div class="xj-modal-head">
-              <span>📘 如何购买 DeepSeek API</span>
-              <button class="xj-modal-close" id="ds-guide-close">×</button>
-            </div>
-            <div class="xj-modal-body">
-              <ol class="xj-guide-steps">
-                <li>访问 <b>platform.deepseek.com</b> 并注册账号。</li>
-                <li>完成<b>实名认证</b>（需手机号，几分钟搞定）。</li>
-                <li>在「充值」页充值一点余额（如 ¥10，够用很久）。</li>
-                <li>进入「API keys」→「创建密钥」，复制生成的 <b>sk-...</b> 密钥（只显示一次，务必保存）。</li>
-                <li>回到心镜，点「接入高性能 AI」→ 选「已经有了」→ 选 <b>DeepSeek</b> → 把密钥贴给助手即可。</li>
-              </ol>
-              <p class="xj-guide-note">DeepSeek 性价比极高（deepseek-v4-flash / v4-pro 约 ¥1/百万 tokens）。其他服务商（硅基流动 / 月之暗面 / 智谱 / 通义 / 豆包 / OpenAI）流程类似。</p>
-            </div>
-            <div class="xj-modal-foot">
-              <button class="btn btn-primary" id="ds-guide-done">我已经买好了，去接入 →</button>
-            </div>
-          </div>
-        </div>
+  <div class="group"><div class="group-head"><span class="icon">🔑</span> AI 接口配置</div><div class="group-body">
+    <div class="row" style="background:var(--accent-soft);border-radius:8px;margin:8px 12px;padding:10px 14px"><div style="font-size:12.5px;color:var(--ink-2);line-height:1.7">💡 推荐：对小镜说 <b>"接入 DeepSeek，密钥 sk-xxx"</b> 即可自动配置。也可以手动填写下方字段。</div></div>
+    <div class="row"><div class="lbl"><div class="t">API 地址</div><div class="d">OpenAI 兼容接口地址</div></div><input type="text" id="api-baseurl" placeholder="https://api.deepseek.com/v1" style="width:280px"></div>
+    <div class="row"><div class="lbl"><div class="t">API Key</div><div class="d">密钥仅存储在本地，不会上传</div></div><input type="password" id="api-key" placeholder="sk-..." style="width:280px"></div>
+    <div class="row"><div class="lbl"><div class="t">模型</div><div class="d">选择或输入模型名</div></div>
+      <select id="api-model"><option value="__builtin__">内置免费模型</option><option value="deepseek-chat">deepseek-chat</option><option value="deepseek-coder">deepseek-coder</option><option value="__custom__">自定义...</option></select></div>
+    <div class="row" id="custom-model-row" style="display:none"><div class="lbl"><div class="t">自定义模型名</div><div class="d">输入你要用的模型名称</div></div><input type="text" id="api-custom-model" placeholder="如 gpt-4o" style="width:200px"></div>
+    <div class="row"><div class="lbl"><div class="t">当前档位</div><div class="d" id="api-tier-status">加载中…</div></div></div>
+    <div class="row"><div class="lbl"><div class="t">连接测试</div><div class="d">验证 API 是否可用</div></div><button class="btn pri" onclick="testApi()">测试连接</button><button class="btn" onclick="saveApiConfig()">保存</button></div>
+    <div id="trial-quota-box"></div>
+  </div></div>
 
-        <!-- 接入高性能 AI 抽屉（1-B） -->
-        <div class="xj-drawer-overlay" id="connect-drawer">
-          <div class="xj-drawer">
-            <div class="xj-drawer-head">
-              <span>🚀 接入高性能 AI</span>
-              <button class="xj-drawer-close" id="cd-close">×</button>
-            </div>
-            <div class="xj-drawer-body">
-              <div class="xj-cd-msgs" id="cd-msgs"></div>
-            </div>
-            <div class="xj-drawer-chips" id="cd-chips"></div>
-            <div class="xj-drawer-input" id="cd-input-row" style="display:none">
-              <input id="cd-input" class="form-control" placeholder="在此输入…" />
-              <button class="btn btn-primary btn-sm" id="cd-send">发送</button>
-            </div>
-          </div>
-        </div>
+  <div class="group"><div class="group-head"><span class="icon">💾</span> 数据管理</div><div class="group-body">
+    <div class="row"><div class="lbl"><div class="t">备份数据</div><div class="d">导出全部数据为 JSON 文件</div></div><button class="btn" onclick="backupData()">导出备份</button></div>
+    <div class="row"><div class="lbl"><div class="t">恢复数据</div><div class="d">从 JSON 备份文件导入</div></div><button class="btn" onclick="document.getElementById('restore-file').click()">导入备份</button><input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)"></div>
+    <div class="row"><div class="lbl"><div class="t">存储概况</div><div class="d" id="storage-text">加载中…</div></div></div>
+    <div class="row"><div class="lbl"><div class="t">清除账单数据</div><div class="d">仅清除账单，保留督导和对话记录</div></div><button class="btn danger" onclick="location.href='billing-shell.html'">前往账单清除</button></div>
+    <div class="row"><div class="lbl"><div class="t">清除全部数据</div><div class="d">删除所有本地数据，不可恢复</div></div><button class="btn danger" onclick="clearAllData()">清除全部</button></div>
+  </div></div>
 
-        <!-- 数据管理 -->
-        <div class="section-title">数据管理</div>
-        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
-          <div class="form-row">
-            <label class="form-label">存储用量估算</label>
-            <div style="background:var(--accent-soft);border-radius:var(--radius-sm);height:8px;overflow:hidden">
-              <div id="storage-bar" style="height:100%;background:var(--accent);width:0%;transition:var(--transition)"></div>
-            </div>
-            <div id="storage-text" style="font-size:12px;color:var(--muted);font-family:var(--sans);margin-top:4px">计算中...</div>
-          </div>
-          <div class="form-row" style="display:flex;gap:var(--gap);flex-wrap:wrap">
-            <button class="btn btn-ghost" onclick="backupData()">备份数据</button>
-            <button class="btn btn-ghost" onclick="document.getElementById('restore-file').click()">恢复数据</button>
-            <input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)">
-            <button class="btn btn-danger" onclick="clearAllData()">清除所有数据</button>
-          </div>
-          <p id="backup-time" style="font-size:12px;color:var(--muted);font-family:var(--sans)"></p>
-        </div>
+  <div class="group"><div class="group-head"><span class="icon">🎨</span> 外观</div><div class="group-body">
+    <div class="row"><div class="lbl"><div class="t">深色模式</div><div class="d">切换浅色/深色主题</div></div><div class="toggle" id="theme-toggle" onclick="toggleTheme()"></div></div>
+    <div class="row"><div class="lbl"><div class="t">设计语言</div><div class="d">静谧留白 calm</div></div><span class="badge ok">calm</span></div>
+  </div></div>
 
-        <!-- 备份设置（多位置容灾 + 邮件提醒） -->
-        <div class="section-title">备份设置</div>
-        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
-          <div style="font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:6px">自定义备份位置（多份容灾）</div>
-          <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:10px">
-            每次退出/常驻时，数据除默认备份到「文档\心镜备份」外，还会额外复制到你添加的每个位置（如移动硬盘、网盘同步目录），实现多份容灾。
-          </p>
-          <div id="backup-locations" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
-          <button class="btn btn-ghost" onclick="addBackupLocation()" style="margin-bottom:14px">+ 添加备份位置</button>
+  <div class="group"><div class="group-head"><span class="icon">🔄</span> 更新</div><div class="group-body">
+    <div class="row"><div class="lbl"><div class="t">检查更新</div><div class="d" id="update-info">当前版本</div></div><button class="btn" onclick="checkUpdate()">检查更新</button></div>
+  </div></div>
 
-          <div class="form-row">
-            <label class="form-label">备份后邮件提醒至</label>
-            <input class="form-control" id="backup-email" placeholder="your@email.com" style="margin-bottom:8px">
-          </div>
-          <div class="form-row" style="display:flex;align-items:center;gap:8px">
-            <input type="checkbox" id="backup-email-on">
-            <label for="backup-email-on" style="font-size:13px;color:var(--text);font-family:var(--sans)">启用邮件提醒（完全退出/常驻后自动唤起邮件客户端，含备份路径）</label>
-          </div>
-          <p style="font-size:11.5px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin:8px 0 12px">
-            说明：真正「自动发送附件」需要邮箱 SMTP 服务（nodemailer + 发件凭据），当前以唤起你的邮件客户端并预填备份路径为准。如需真正的自动发送，提供邮箱 SMTP 信息后可再加。
-          </p>
-          <button class="btn btn-primary" onclick="saveBackupSettings()">保存备份设置</button>
-          <p id="backup-settings-msg" style="font-size:12px;color:var(--muted);font-family:var(--sans);margin-top:6px"></p>
-        </div>
-
-        <!-- 督导师（AI 督导） -->
-        <div class="section-title">督导师（AI 督导）</div>
-        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)">
-          <p style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:10px">
-            AI 督导会读取本次会谈的逐字稿 / SOAP / 反思作为素材，用督导师身份的方法论给出督导意见。内置「温尼科特取向督导师」，你也可以添加自己的督导师身份（上传 .txt/.md 或输入提示词）。此为付费功能。
-          </p>
-          <div id="supervisor-lock-note" class="hidden" style="font-size:13px;color:var(--clay);font-family:var(--sans);background:var(--accent-soft);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px">
-            当前为免费版，督导师功能需激活后使用。激活后可在会谈页「AI 助手 → AI 督导」中使用，并在此管理身份。
-          </div>
-          <div id="supervisor-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
-          <button class="btn btn-ghost" id="add-supervisor-btn" onclick="showSupervisorForm()">+ 添加督导师</button>
-
-          <!-- 添加/编辑表单 -->
-          <div id="supervisor-form" class="hidden" style="margin-top:12px;border-top:1px dashed var(--border);padding-top:12px">
-            <div class="form-row">
-              <label class="form-label">督导师名称</label>
-              <input class="form-control" id="sup-name" placeholder="如：克莱因取向督导师">
-            </div>
-            <div class="form-row">
-              <label class="form-label">方法论提示词</label>
-              <div style="display:flex;gap:8px;margin-bottom:6px">
-                <input type="file" id="sup-prompt-file" accept=".txt,.md,.text" style="font-size:12px;flex:1">
-                <button class="btn btn-ghost btn-sm" onclick="loadSupPromptFile()">读取文件</button>
-              </div>
-              <textarea class="form-control" id="sup-prompt" style="min-height:140px" placeholder="描述该督导师的理论取向、分析框架、输出结构要求..."></textarea>
-            </div>
-            <div class="form-row" style="display:flex;gap:var(--gap)">
-              <button class="btn btn-primary" onclick="saveSupervisor()">保存</button>
-              <button class="btn btn-ghost" onclick="hideSupervisorForm()">取消</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 授权信息 -->
-        <div class="section-title">授权信息</div>
-        <div class="list-card" id="license-info-card" style="padding:var(--gap-lg);cursor:default;margin-bottom:var(--gap-lg)"></div>
-
-        <!-- 关于 -->
-        <div class="section-title">关于</div>
-        <div class="list-card" style="padding:var(--gap-lg);cursor:default">
-          <p style="font-size:14px;font-family:var(--sans);line-height:1.8">
-            心镜 XinJing <span id="app-version">v?.?.?</span><br>
-            心理咨询个案管理系统（本地版）<br>
-            纯前端 · 数据存于本机浏览器 · 不上云
-          </p>
-        </div>
-      </div>
-    </main>
+  <div class="group"><div class="group-head"><span class="icon">ℹ️</span> 关于</div><div class="group-body">
+    <div class="row"><div class="lbl"><div class="t">版本</div><div class="d">心镜 XinJing Desktop</div></div><span class="badge ok" id="about-version">v3.0.0</span></div>
+    <div class="row"><div class="lbl"><div class="t">激活状态</div><div class="d" id="license-status">查询中…</div></div></div>
+    <div class="row"><div class="lbl"><div class="t">意见反馈</div><div class="d">提交建议或报告问题</div></div><button class="btn" onclick="location.href='feedback.html'">前往反馈</button></div>
   </div>
-
-  <div class="modal-overlay" id="confirm-modal">
-    <div class="modal" style="max-width:380px">
-      <div class="modal-header"><h2>确认</h2></div>
-      <div class="modal-body"><p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p></div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
-        <button class="btn btn-primary" id="confirm-ok">确定</button>
-      </div>
-    </div>
+    <div class="set-foot">本地存储 · 数据不出本机 · 心镜 XinJing</div>
   </div>
-
-  <script src="js/store.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/prompts.builtin.js"></script>
-  <script src="js/supervisors.js"></script>
-  <script src="js/settings.js"></script>
-  <script>
-    // 填充真实版本号（来自 version.generated.js，经 preload 桥接）
-    // 注意：getVersion() 现在直接返回字符串（非 Promise），用 Promise.resolve 归一化，
-    // 修复此前对字符串调用 .then() 抛错导致版本号一直显示 v?.?.? 的 bug。
-    (function () {
-      try {
-        var el = document.getElementById('app-version');
-        if (el && window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
-          Promise.resolve(window.__XJ_API__.getVersion())
-            .then(function (v) { if (v) el.textContent = 'v' + v; })
-            .catch(function () { /* 保留兜底版本号 */ });
-        }
-      } catch (e) { /* ignore */ }
-    })();
-  </script>
+</div>
+</main></div>
+<script src="js/store.js"></script><script src="js/app.js"></script><script src="js/settings.js"></script>
 </body>
 </html>

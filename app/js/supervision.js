@@ -1,343 +1,305 @@
-/* ============================================================
-   心镜 XinJing — AI 督导（Word 式编辑区 + 常驻 AI 坞）
-   - 取向 / 模板切换 → 仅改变 curO / curT 与 #dockHint（不触碰 Supervisors）
-   - 选区浮动格式工具栏（粗体/斜体/H3/列表/引用）
-   - AI 坞动作将结果以 <mark class="ai"> 插入编辑器光标处（非独立卡）
-   - 草稿本地自动保存 / 载入；会员自定义模板走 App.aiUnlocked() 门控
-   - 手工记录模态（含日期字段）逻辑原样保留
-   不得修改 supervision-core.js / supervisors.js / store.js / app.js
-   ============================================================ */
-
+/* 心镜 v3.1.0 — AI 督导（方案C：三栏研究台 + 历史 + 会员分层） */
 App.initPage({
   title: 'AI 督导',
+  noSidebar: true,
   onReady: function () {
     'use strict';
+    var chat = document.getElementById('sup-chat');
+    var input = document.getElementById('sup-input');
+    var materialTA = document.getElementById('sup-material');
+    var curOrient = 'winnicott';
+    var curVersion = 'nvwa';
+    var messages = [];
+    var busy = false;
+    var currentClientId = null;
+    var draftKey = 'xj_sup_v31_draft';
+    var chatKey = 'xj_sup_v31_chat';
 
-    App.bindModalClose('sup-modal');
+    // 来访者列表
+    var selClient = document.getElementById('sup-client');
+    Store.getClients().forEach(function (c) {
+      if (c.status !== 'ended') {
+        var opt = document.createElement('option');
+        opt.value = c.id; opt.textContent = c.name;
+        selClient.appendChild(opt);
+      }
+    });
 
-    const orientNames = {
-      winnicott: '温尼科特', psychoanalysis: '精神分析', cbt: 'CBT',
-      rogers: '人本-罗杰斯', yalom: '存在-亚隆', generic: '通用整合',
+    // 恢复草稿
+    try { var d = localStorage.getItem(draftKey); if (d) materialTA.value = d; } catch(e){}
+    materialTA.addEventListener('input', function () { try { localStorage.setItem(draftKey, this.value); } catch(e){} });
+
+    // 取向/版本切换
+    document.getElementById('sup-orient').addEventListener('change', function () {
+      curOrient = this.value; updateBadge();
+    });
+    document.getElementById('sup-version').addEventListener('change', function () {
+      curVersion = this.value; updateBadge();
+    });
+    function updateBadge() {
+      var names = { winnicott: '温尼科特', psychoanalysis: '精神分析', cbt: 'CBT', generic: '通用' };
+      var vers = { nvwa: '女娲版', cangjie: '仓颉版' };
+      document.getElementById('sup-badge').textContent = (names[curOrient] || curOrient) + ' · ' + (vers[curVersion] || curVersion);
+    }
+
+    // Tab 切换
+    window.switchTab = function (tab) {
+      document.querySelectorAll('.m-tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === tab); });
+      document.getElementById('impression-body').parentElement.style.display = tab === 'impression' ? '' : 'none';
+      document.getElementById('deepen-block').style.display = tab === 'deepen' ? '' : 'none';
+      document.getElementById('material-block').style.display = tab === 'material' ? '' : 'none';
     };
-    let curO = 'winnicott';
-    let curT = 'default';
-    const DRAFT_KEY = 'xj_sup_editor_draft';
 
-    const editor = document.getElementById('editor');
-    const floatTb = document.getElementById('floatTb');
-    const wrap = document.getElementById('editorWrap');
-    const dockHint = document.getElementById('dockHint');
-
-    // ===================== 草稿本地自动保存 / 载入 =====================
-    try {
-      const draft = localStorage.getItem(DRAFT_KEY);
-      if (draft) editor.innerHTML = draft;
-    } catch (e) { /* localStorage 不可用则忽略 */ }
-
-    let saveTimer = null;
-    function persistDraft() {
-      try { localStorage.setItem(DRAFT_KEY, editor.innerHTML); } catch (e) {}
-    }
-    editor.addEventListener('input', function () {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(persistDraft, 500);
-    });
-
-    // ===================== 取向 / 模板切换 =====================
-    function refreshHint() {
-      const activeChip = document.querySelector('.chip.active');
-      const tpl = activeChip ? activeChip.dataset.tpl : 'default';
-      dockHint.innerHTML = '当前取向：<b>' + (orientNames[curO] || curO) + '</b> · 模板：<b>' + tpl + '</b>。所有结果直接插入左侧文档，无需跳转。拖动左缘可调宽。';
-    }
-
-    document.querySelectorAll('#orient button').forEach(function (b) {
-      b.addEventListener('click', function () {
-        document.querySelectorAll('#orient button').forEach(function (x) { x.classList.remove('active'); });
-        b.classList.add('active');
-        curO = b.dataset.o;
-        refreshHint();
-      });
-    });
-
-    document.querySelectorAll('.chip').forEach(function (c) {
-      c.addEventListener('click', function () {
-        if (c.classList.contains('locked')) {
-          App.showToast('自定义模板为会员功能，正在打开激活入口…', 'info');
-          openActivation();
-          return;
-        }
-        document.querySelectorAll('.chip').forEach(function (x) { x.classList.remove('active'); });
-        c.classList.add('active');
-        curT = c.dataset.tpl;
-        refreshHint();
-      });
-    });
-    refreshHint();
-
-    function openActivation() {
-      if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation();
-    }
-    window.openActivation = openActivation;
-
-    // ===================== 选区浮动工具栏 =====================
-    editor.addEventListener('mouseup', function () {
-      setTimeout(function () {
-        const sel = window.getSelection();
-        if (!sel || sel.isCollapsed || !editor.contains(sel.anchorNode)) { floatTb.style.display = 'none'; return; }
-        const r = sel.getRangeAt(0).getBoundingClientRect();
-        const wr = wrap.getBoundingClientRect();
-        floatTb.style.display = 'flex';
-        floatTb.style.left = (r.left - wr.left + wrap.scrollLeft + 10) + 'px';
-        floatTb.style.top = (r.top - wr.top + wrap.scrollTop - floatTb.offsetHeight - 8) + 'px';
-      }, 10);
-    });
-    editor.addEventListener('blur', function () { setTimeout(function () { floatTb.style.display = 'none'; }, 150); });
-    floatTb.querySelectorAll('button').forEach(function (b) {
-      b.addEventListener('click', function () {
-        document.execCommand(b.dataset.cmd, b.dataset.cmd === 'formatBlock', b.dataset.val || null);
-        editor.focus();
-        persistDraft();
-      });
-    });
-
-    // ===================== 插入 <mark class="ai"> 到光标 / 选区 =====================
-    function insertAiBlock(text) {
-      const mark = document.createElement('mark');
-      mark.className = 'ai';
-      mark.textContent = text;
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) {
-        const r = sel.getRangeAt(0);
-        r.collapse(false);
-        r.insertNode(mark);
-        r.setStartAfter(mark);
-        r.setEndAfter(mark);
-        sel.removeAllRanges();
-        sel.addRange(r);
+    // 来访者选择 → 加载会话历史
+    window.onClientChange = function () {
+      var cid = selClient.value;
+      if (!cid) { currentClientId = null; renderSessionHistory([]); return; }
+      currentClientId = cid;
+      var sessions = Store.getSessionsByClient(cid).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      renderSessionHistory(sessions);
+      // 自动载入最近一次会话的逐字稿
+      if (sessions.length && sessions[0].transcript) {
+        materialTA.value = sessions[0].transcript;
+        addMsg('ai', '已自动载入 ' + Store.getClient(cid).name + ' 第' + sessions[0].sessionNumber + '节的逐字稿。点「生成整体印象」开始督导。');
       } else {
-        editor.appendChild(mark);
+        addMsg('ai', '已选择 ' + Store.getClient(cid).name + '。该来访者暂无逐字稿，请在材料区手动书写。');
       }
-      editor.focus();
-      persistDraft();
-    }
-
-    function getSelectionText() {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount && editor.contains(sel.anchorNode)) return sel.toString().trim();
-      return '';
-    }
-    function getEditorText() { return (editor.innerText || '').trim(); }
-
-    function ensureUnlocked() {
-      if (!App.aiUnlocked()) { App.showToast('AI 督导为付费功能，正在打开激活入口…', 'info'); openActivation(); return false; }
-      return true;
-    }
-    function setBtnLoading(btn, loading, label) {
-      if (!btn) return;
-      if (loading) { btn.dataset._t = btn.textContent; btn.disabled = true; btn.textContent = label || '生成中…'; }
-      else { btn.disabled = false; btn.textContent = btn.dataset._t || label; }
-    }
-
-    // ===================== AI 坞动作（结果插入编辑器） =====================
-    document.getElementById('btnImpression').addEventListener('click', async function () {
-      if (!ensureUnlocked()) return;
-      const material = getEditorText();
-      if (!material) { App.showToast('请先在左侧文档写入临床材料', 'error'); return; }
-      const btn = this;
-      setBtnLoading(btn, true, '生成中…');
-      try {
-        const result = await SupervisionCore.runImpression(curO, material);
-        if (result && result.error) { App.showToast(result.error, 'error'); return; }
-        insertAiBlock('【整体印象 · ' + (orientNames[curO] || curO) + '】\n' + (result.impression || ''));
-      } catch (e) { App.showToast((e && e.message) || '生成失败', 'error'); }
-      finally { setBtnLoading(btn, false); }
-    });
-
-    // 深化 / 总结 / 润色：supervision-core 无专用方法，统一经 runRound（system+user）实现
-    async function runSelectionAction(btn, kind) {
-      if (!ensureUnlocked()) return;
-      const selText = getSelectionText();
-      if (!selText) { App.showToast('请先在左侧文档选中文字', 'error'); return; }
-      setBtnLoading(btn, true, '生成中…');
-      try {
-        const sys = (window.Supervisors && Supervisors.buildSystemPrompt) ? Supervisors.buildSystemPrompt(curO) : '';
-        let title = '', instruction = '';
-        if (kind === 'deepen') { title = '深化讨论'; instruction = '请就以下临床材料深化讨论，提出进一步的思考角度与开放式提问：\n'; }
-        else if (kind === 'summarize') { title = '选区总结'; instruction = '请总结以下选区的要点：\n'; }
-        else { title = '润色后'; instruction = '请在不改变原意的前提下润色以下文字，使其更通顺、专业：\n'; }
-        const userText = instruction + selText;
-        const chatMessages = [{ role: 'system', content: sys }, { role: 'user', content: userText }];
-        const result = await SupervisionCore.runRound(chatMessages, userText);
-        if (result && result.error) { App.showToast(result.error, 'error'); return; }
-        insertAiBlock('【' + title + '】\n' + (result.reply || ''));
-      } catch (e) { App.showToast((e && e.message) || '生成失败', 'error'); }
-      finally { setBtnLoading(btn, false); }
-    }
-    document.getElementById('btnDeepen').addEventListener('click', function () { runSelectionAction(this, 'deepen'); });
-    document.getElementById('btnSummarize').addEventListener('click', function () { runSelectionAction(this, 'summarize'); });
-    document.getElementById('btnPolish').addEventListener('click', function () { runSelectionAction(this, 'polish'); });
-
-    document.getElementById('btnMaster').addEventListener('click', function () {
-      const ctx = getSelectionText() || getEditorText();
-      if (window.__XJ_API__ && typeof window.__XJ_API__.openMaster === 'function') {
-        try { window.__XJ_API__.openMaster(ctx); return; } catch (e) { /* 回退跳转 */ }
-      }
-      location.href = 'masters.html';
-    });
-
-    document.getElementById('btnRealSup').addEventListener('click', function () {
-      document.getElementById('realsup').classList.toggle('open');
-    });
-    document.getElementById('rsRun').addEventListener('click', async function () {
-      if (!ensureUnlocked()) return;
-      const ta = document.getElementById('rsText');
-      const t = (ta.value || '').trim();
-      if (t.length < 30) { App.showToast('文字稿过短（需 ≥30 字）', 'error'); return; }
-      const btn = this;
-      setBtnLoading(btn, true, '结构化中…');
-      try {
-        const parsed = await SupervisionCore.runRealSupParse(t);
-        const lines = ['【真人督导整理】'];
-        lines.push('来访者：' + (parsed.clientName || '未识别'));
-        lines.push('日期：' + (parsed.sessionDate || '—'));
-        lines.push('要点：' + (parsed.summary || ''));
-        if (parsed.keyFrags && parsed.keyFrags.length) lines.push('关键片段：\n' + parsed.keyFrags.map(function (s) { return '· ' + s; }).join('\n'));
-        if (parsed.techniques && parsed.techniques.length) lines.push('技术建议：\n' + parsed.techniques.map(function (s) { return '· ' + s; }).join('\n'));
-        insertAiBlock(lines.join('\n'));
-        document.getElementById('realsup').classList.remove('open');
-        ta.value = '';
-      } catch (e) { App.showToast((e && e.message) || '结构化失败', 'error'); }
-      finally { setBtnLoading(btn, false); }
-    });
-
-    // ===================== 坞可拖拽调宽 =====================
-    const resizer = document.getElementById('resizer');
-    const ws = document.getElementById('ws');
-    const root = document.documentElement;
-    let drag = false;
-    resizer.addEventListener('mousedown', function (e) { drag = true; document.body.style.cursor = 'col-resize'; e.preventDefault(); });
-    window.addEventListener('mousemove', function (e) {
-      if (!drag) return;
-      const rect = ws.getBoundingClientRect();
-      let w = rect.right - e.clientX;
-      w = Math.max(260, Math.min(560, w));
-      root.style.setProperty('--dock-w', w + 'px');
-    });
-    window.addEventListener('mouseup', function () { if (drag) { drag = false; document.body.style.cursor = ''; } });
-
-    const dock = document.getElementById('aidock');
-    const tog = document.getElementById('dockToggle');
-    tog.addEventListener('click', function () {
-      dock.classList.toggle('collapsed');
-      tog.textContent = dock.classList.contains('collapsed') ? '展开 AI 坞' : '收起 AI 坞';
-    });
-
-    // ===================== 手工记录（保留日期字段，逻辑原样迁移） =====================
-    let currentType = 'all';
-
-    window.setSupType = function (type) {
-      currentType = type;
-      document.querySelectorAll('#sup-type-filter .pill').forEach(function (p) {
-        p.classList.toggle('active', p.dataset.type === type);
-      });
-      renderList();
     };
 
-    function renderSessionOptions(selectedIds) {
-      const box = document.getElementById('sv-sessions');
-      if (!box) return;
-      const sessions = Store.getSessions();
-      if (!sessions.length) {
-        box.innerHTML = '<div style="font-size:13px;color:var(--muted);font-family:var(--sans)">暂无会话记录</div>';
+    function renderSessionHistory(sessions) {
+      var box = document.getElementById('session-history');
+      if (!sessions || !sessions.length) {
+        box.innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">' +
+          (currentClientId ? '暂无会话记录' : '请先选择来访者') + '</div>';
         return;
       }
       box.innerHTML = sessions.map(function (s) {
-        const client = Store.getClient(s.clientId);
-        const name = client ? client.name : '?';
-        const checked = selectedIds.indexOf(s.id) >= 0 ? 'checked' : '';
-        return '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-family:var(--sans);font-size:13px;cursor:pointer">' +
-          '<input type="checkbox" value="' + s.id + '" ' + checked + '> ' + App.escapeHtml(name) + ' · 第' + s.sessionNumber + '节 (' + App.formatDate(s.date, true) + ')' +
-          '</label>';
+        var hasTranscript = s.transcript && s.transcript.trim();
+        var hasSoap = s.soap && (s.soap.subjective || s.soap.objective || s.soap.assessment || s.soap.plan);
+        var tags = '';
+        if (hasTranscript) tags += '<span class="tag done">逐字稿</span>';
+        if (hasSoap) tags += '<span class="tag done">记录</span>';
+        if (!hasTranscript && !hasSoap) tags += '<span class="tag">无材料</span>';
+        var preview = (s.transcript || '').slice(0, 60);
+        return '<div class="lh-item" onclick="loadSessionTranscript(\'' + s.id + '\')" data-id="' + s.id + '">' +
+          '<div class="s-num">第' + (s.sessionNumber || '?') + '节</div>' +
+          '<div class="s-date">' + App.formatDate(s.date) + '</div>' +
+          (preview ? '<div class="s-preview">' + App.escapeHtml(preview) + '…</div>' : '') +
+          '<div class="s-tags">' + tags + '</div></div>';
       }).join('');
     }
 
-    window.openSupModal = function (id) {
-      const isEdit = !!id;
-      document.getElementById('sup-modal-title').textContent = isEdit ? '编辑督导记录' : '新增督导记录';
-      document.getElementById('sv-id').value = id || '';
-      document.getElementById('sv-type').value = 'individual';
-      document.getElementById('sv-supervisor').value = '';
-      document.getElementById('sv-date').value = App.todayStr();
-      document.getElementById('sv-content').value = '';
-      document.getElementById('sv-conclusion').value = '';
-      renderSessionOptions([]);
-      if (isEdit) {
-        const sv = Store.getSupervision(id);
-        if (sv) {
-          document.getElementById('sv-type').value = sv.type;
-          document.getElementById('sv-supervisor').value = sv.supervisorName || '';
-          document.getElementById('sv-date').value = sv.date || App.todayStr();
-          document.getElementById('sv-content').value = sv.content || '';
-          document.getElementById('sv-conclusion').value = sv.conclusion || '';
-          renderSessionOptions(sv.sessionIds || []);
+    window.loadSessionTranscript = function (sessionId) {
+      var s = Store.getSession(sessionId);
+      if (!s) return;
+      materialTA.value = s.transcript || '';
+      if (s.soap) materialTA.value += '\n\n--- SOAP ---\nS: ' + (s.soap.subjective||'') + '\nO: ' + (s.soap.objective||'') + '\nA: ' + (s.soap.assessment||'') + '\nP: ' + (s.soap.plan||'');
+      addMsg('ai', '已载入第' + (s.sessionNumber || '?') + '节逐字稿。');
+      // 高亮选中的会话
+      document.querySelectorAll('.lh-item').forEach(function (el) { el.classList.remove('active'); });
+      var active = document.querySelector('.lh-item[data-id="' + sessionId + '"]');
+      if (active) active.classList.add('active');
+    };
+
+    window.loadTranscript = function () {
+      var cid = selClient.value;
+      if (!cid) { App.showToast('请先选择来访者', 'warning'); return; }
+      var sessions = Store.getSessionsByClient(cid).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      if (!sessions.length) { App.showToast('该来访者无会话记录', 'warning'); return; }
+      var html = sessions.map(function (s, i) {
+        return '<label style="display:block;padding:8px;cursor:pointer"><input type="radio" name="sup-sess" value="' + s.id + '"' + (i === 0 ? ' checked' : '') + '> 第' + s.sessionNumber + '节 · ' + App.formatDate(s.date) + (s.transcript ? ' (有逐字稿)' : ' (无逐字稿)') + '</label>';
+      }).join('');
+      App.confirmDialog(html, function () {
+        var checked = document.querySelector('input[name="sup-sess"]:checked');
+        if (!checked) return;
+        loadSessionTranscript(checked.value);
+      });
+    };
+
+    function addMsg(role, text) {
+      var div = document.createElement('div');
+      div.className = 'msg ' + (role === 'me' ? 'me' : 'ai');
+      if (role === 'ai') {
+        div.innerHTML = '<div class="src">小镜</div>' + App.escapeHtml(text).replace(/\n/g, '<br>');
+      } else {
+        div.textContent = text;
+      }
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      messages.push({ role: role === 'me' ? 'user' : 'assistant', content: text });
+    }
+
+    function addTyping() {
+      var div = document.createElement('div');
+      div.className = 'msg ai'; div.id = 'sup-typing';
+      div.innerHTML = '<div class="src">小镜</div>思考中…';
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+    function removeTyping() { var t = document.getElementById('sup-typing'); if (t) t.remove(); }
+
+    function buildMessages(userText, isImpression) {
+      var orientNames = { winnicott: '温尼科特取向（足够好的母亲、抱持性环境、过渡性客体、真/假自体）', psychoanalysis: '精神分析取向（无意识、移情、防御）', cbt: '认知行为取向（自动思维、信念、行为实验）', generic: '通用整合取向' };
+      var versionDesc = curVersion === 'nvwa' ? '你是女娲版督导——教咨询师"怎么督导"，侧重引导提问而非直接给答案。' : '你是仓颉版督导——直接示范"我怎么督导"，给出完整的督导师视角分析。';
+      var sys = '你是一位心理咨询督导，' + (orientNames[curOrient] || orientNames.generic) + '。' + versionDesc + ' 请用中文回应，语气专业而温暖，避免套话。引用概念时标注英文原词。';
+      var styleC = (typeof PromptsBuiltin !== 'undefined') ? PromptsBuiltin.STYLE_CONSTRAINTS : '';
+      if (styleC) sys += '\n\n' + styleC;
+
+      var material = materialTA.value.trim();
+      var hist = messages.slice(-12).map(function (m) { return { role: m.role, content: m.content }; });
+
+      var userContent = '';
+      if (isImpression) {
+        userContent = '以下是临床材料，请基于' + (orientNames[curOrient] || '通用') + '给出整体印象（个案概念化、核心议题、治疗师功能、值得注意的线索）：\n\n' + material;
+      } else {
+        userContent = userText;
+        if (material) userContent += '\n\n--- 临床材料 ---\n' + material;
+      }
+      return [{ role: 'system', content: sys }].concat(hist).concat([{ role: 'user', content: userContent }]);
+    }
+
+    function callAI(msgs) {
+      return new Promise(function (resolve) {
+        if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
+        AI.send(msgs, function (res) {
+          if (res && res.content && !res.error) resolve({ content: res.content });
+          else resolve({ error: (res && res.error) || '无响应' });
+        });
+      });
+    }
+
+    function renderImpression(text) {
+      var body = document.getElementById('impression-body');
+      body.innerHTML = '';
+      var paras = text.split('\n').filter(Boolean);
+      paras.forEach(function (p) {
+        if (p.startsWith('【') && p.endsWith('】')) {
+          body.innerHTML += '<div style="font-weight:600;font-family:var(--serif);font-size:14px;margin:12px 0 6px;color:var(--accent)">' + App.escapeHtml(p) + '</div>';
+        } else if (p.startsWith('"') || p.startsWith('“')) {
+          body.innerHTML += '<div class="ab-quote">' + App.escapeHtml(p) + '</div>';
+        } else {
+          body.innerHTML += '<p style="margin:6px 0">' + App.escapeHtml(p) + '</p>';
         }
-      }
-      App.openModal('sup-modal');
-    };
-
-    window.saveSupervision = function () {
-      const id = document.getElementById('sv-id').value;
-      const sessionIds = Array.prototype.slice.call(document.querySelectorAll('#sv-sessions input:checked')).map(function (c) { return c.value; });
-      const data = {
-        type: document.getElementById('sv-type').value,
-        supervisorName: document.getElementById('sv-supervisor').value.trim(),
-        date: document.getElementById('sv-date').value,
-        sessionIds: sessionIds,
-        content: document.getElementById('sv-content').value.trim(),
-        conclusion: document.getElementById('sv-conclusion').value.trim(),
-      };
-      try {
-        if (id) { Store.updateSupervision(id, data); App.showToast('已保存', 'success'); }
-        else { Store.createSupervision(data); App.showToast('已新增督导记录', 'success'); }
-      } catch (e) { App.showToast(e.message, 'error'); return; }
-      App.closeModal('sup-modal');
-    };
-
-    function renderList() {
-      const container = document.getElementById('sup-list');
-      if (!container) return; // 本页工作区不渲染手工列表，但函数保留以备外部调用
-      let sups = Store.getSupervisions();
-      if (currentType !== 'all') sups = sups.filter(function (s) { return s.type === currentType; });
-      sups.sort(function (a, b) { return new Date(b.date || 0) - new Date(a.date || 0); });
-      if (!sups.length) {
-        container.innerHTML = '<div class="empty-state"><div class="icon">' + App.svgIcon('cap') + '</div><div class="text">暂无督导记录</div></div>';
-        return;
-      }
-      container.innerHTML = sups.map(function (sv) {
-        const typeLabel = sv.type === 'group' ? '团体督导' : (sv.type === 'ai' ? 'AI 督导' : '个体督导');
-        const names = (sv.sessionIds || []).map(function (sid) {
-          const s = Store.getSession(sid);
-          if (!s) return '';
-          const c = Store.getClient(s.clientId);
-          return c ? c.name + '·第' + s.sessionNumber + '节' : '';
-        }).filter(Boolean).join('、');
-        const preview = (sv.content || '').slice(0, 60);
-        return '<div class="list-card">' +
-          '<div class="row1"><span class="title">' + App.escapeHtml(sv.supervisorName || '未填督导师') + ' · ' + typeLabel + '</span>' +
-          '<span class="meta">' + App.formatDate(sv.date, true) +
-          ' <span style="margin-left:8px;cursor:pointer;color:var(--accent)" onclick="openSupModal(\'' + sv.id + '\')">编辑</span>' +
-          ' <span style="margin-left:8px;cursor:pointer;color:var(--red)" onclick="deleteSup(\'' + sv.id + '\')">删除</span></span></div>' +
-          (names ? '<div class="meta" style="margin-bottom:4px">关联：' + App.escapeHtml(names) + '</div>' : '') +
-          '<div class="desc">' + (App.escapeHtml(preview) || '（无内容）') + '</div></div>';
-      }).join('');
+      });
     }
 
-    window.deleteSup = function (id) {
-      App.confirmDialog('确定删除该督导记录？', function () {
-        try { Store.deleteSupervision(id); } catch (e) { App.showToast(e.message, 'error'); return; }
-        App.showToast('已删除', 'success');
-        renderList();
-      }, true);
+    window.generateImpression = function () {
+      if (busy) return;
+      if (!App.aiUnlocked()) { App.showToast('AI 督导需激活后使用', 'warning'); return; }
+      var mat = materialTA.value.trim();
+      if (!mat) { App.showToast('请先在材料区填写临床材料', 'warning'); return; }
+      sendToAI('生成整体印象', true);
+    };
+
+    window.quickAction = function (kind) {
+      if (busy) return;
+      if (!App.aiUnlocked()) { App.showToast('AI 督导需激活后使用', 'warning'); return; }
+      var prompts = {
+        deepen: '请就材料中的核心议题深化讨论，提出进一步的思考角度与开放式提问。',
+        polish: '请在不改变原意的前提下润色以下临床材料的语言，使其更通顺、专业。',
+        tech: '基于材料，请给出具体的技术建议——在接下来的咨询中我应该怎样回应？',
+        transference: '请就材料中的移情/反移情议题进行分析。如果信息不足，请提出需要关注的移情线索。',
+      };
+      sendToAI(prompts[kind] || prompts.deepen, false);
+    };
+
+    window.inviteMaster = function () {
+      if (busy) return;
+      if (!App.aiUnlocked()) { App.showToast('邀请大师需激活后使用', 'warning'); return; }
+      var masters = (window.MASTERS || []);
+      var html = masters.map(function (m) {
+        return '<label style="display:inline-block;padding:6px 12px;cursor:pointer"><input type="radio" name="sup-master" value="' + m.key + '"' + (m.key === 'winnicott' ? ' checked' : '') + '> ' + m.name + '</label>';
+      }).join('');
+      App.confirmDialog(html, function () {
+        var checked = document.querySelector('input[name="sup-master"]:checked');
+        if (!checked) return;
+        var m = (window.getMasterByKey ? getMasterByKey(checked.value) : null);
+        if (!m) return;
+        var mat = materialTA.value.trim();
+        if (!mat) { App.showToast('请先填写临床材料', 'warning'); return; }
+        addMsg('me', '邀请 ' + m.name + ' 发表视角');
+        addTyping();
+        busy = true;
+        var sys = m.systemPrompt + '\n\n以下是临床材料，请以你的理论视角给出对个案的分析和督导意见：\n\n' + mat;
+        callAI([{ role: 'system', content: sys }, { role: 'user', content: '请基于你的取向分析这个个案。' }]).then(function (r) {
+          removeTyping();
+          if (r && !r.error) {
+            addMsg('ai', '【' + m.name + '视角】\n' + r.content);
+            // 也渲染到中栏深化区
+            var deepenBody = document.getElementById('deepen-body');
+            deepenBody.innerHTML = '<div class="ab-head" style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;color:var(--accent)">' + m.name + '视角</span></div>' +
+              '<div style="font-size:13px;line-height:1.8">' + App.escapeHtml(r.content).replace(/\n/g, '<br>') + '</div>';
+            switchTab('deepen');
+          } else addMsg('ai', '生成失败：' + ((r && r.error) || '未知'));
+          busy = false;
+        });
+      });
+    };
+
+    window.sendSupMsg = function () {
+      var text = (input.value || '').trim();
+      if (!text || busy) return;
+      if (!App.aiUnlocked()) { App.showToast('AI 督导需激活后使用', 'warning'); return; }
+      input.value = '';
+      sendToAI(text, false);
+    };
+
+    async function sendToAI(text, isImpression) {
+      if (busy) return;
+      if (!isImpression) addMsg('me', text);
+      addTyping();
+      busy = true;
+      try {
+        var msgs = buildMessages(text, isImpression);
+        var r = await callAI(msgs);
+        removeTyping();
+        if (r && !r.error) {
+          addMsg('ai', r.content);
+          if (isImpression) {
+            renderImpression(r.content);
+            switchTab('impression');
+          } else {
+            // 把深化分析渲染到中栏
+            var deepenBody = document.getElementById('deepen-body');
+            deepenBody.innerHTML = '<div style="font-size:13px;line-height:1.8">' + App.escapeHtml(r.content).replace(/\n/g, '<br>') + '</div>';
+            switchTab('deepen');
+          }
+        } else {
+          addMsg('ai', '生成失败：' + ((r && r.error) || '未知错误'));
+        }
+      } catch (e) {
+        removeTyping();
+        addMsg('ai', '执行异常：' + (e && e.message));
+      }
+      busy = false;
+    }
+
+    window.saveSup = function () {
+      if (!messages.length) { App.showToast('无内容可保存', 'warning'); return; }
+      var full = messages.map(function (m) { return (m.role === 'user' ? '咨询师：' : '督导师：') + m.content; }).join('\n\n');
+      var orientNames = { winnicott: '温尼科特', psychoanalysis: '精神分析', cbt: 'CBT', generic: '通用' };
+      var modeName = (orientNames[curOrient] || curOrient) + ' · ' + (curVersion === 'cangjie' ? '仓颉版' : '女娲版');
+      if (typeof Store !== 'undefined' && typeof Store.saveAiSupervision === 'function') {
+        Store.saveAiSupervision({
+          supervisorName: modeName,
+          clientId: currentClientId || '',
+          sessionId: '',
+          context: materialTA.value.trim(),
+          content: full,
+        });
+      }
+      App.showToast('已保存督导记录', 'success');
+    };
+
+    window.exportSup = function () {
+      var html = '<html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:32px;max-width:700px;line-height:2}h2{color:#8B93C7}</style></head><body>';
+      html += '<h2>AI 督导记录</h2>';
+      messages.forEach(function (m) {
+        html += '<p><b>' + (m.role === 'user' ? '我' : '小镜') + '：</b>' + m.content.replace(/\n/g, '<br>') + '</p>';
+      });
+      html += '</body></html>';
+      App.downloadFile('督导记录_' + App.todayStr() + '.html', html, 'text/html');
+      App.showToast('已导出', 'success');
     };
   },
 });

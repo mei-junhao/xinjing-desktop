@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>设置C · 居中表单</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--sans);background:var(--bg);color:var(--ink);min-height:100vh}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.page{max-width:520px;margin:0 auto;padding:32px 20px 48px;display:flex;flex-direction:column;gap:24px}
+/* Logo 区 */
+.logo-area{text-align:center;padding:20px 0}
+.logo-area .logo{font-family:var(--serif);font-size:32px;font-weight:700;color:var(--accent)}
+.logo-area .ver{font-size:13px;color:var(--ink3);margin-top:6px}
+.logo-area .status{margin-top:8px}
+.badge{font-size:11px;padding:3px 10px;border-radius:6px}
+.badge.ok{background:rgba(107,174,143,.15);color:var(--green)}
+/* 表单段 */
+.form-section{display:flex;flex-direction:column;gap:14px}
+.form-section h3{font-family:var(--serif);font-size:15px;color:var(--ink2);border-bottom:1px solid var(--border);padding-bottom:8px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;font-weight:600;color:var(--ink2)}
+.field input,.field select{border:1px solid var(--border);border-radius:8px;padding:10px 14px;font:14px var(--sans);outline:none;background:var(--paper);width:100%}
+.field input:focus{border-color:var(--accent)}
+.field .hint{font-size:11px;color:var(--ink3)}
+.btn-row{display:flex;gap:10px;align-items:center}
+.btn{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:10px 20px;font:14px var(--sans);cursor:pointer;color:var(--ink2)}
+.btn.pri{background:var(--accent);color:#fff;border:none}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.full{width:100%;text-align:center}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0}
+.toggle-row .info .t{font-size:14px;font-weight:500}.toggle-row .info .d{font-size:12px;color:var(--ink3)}
+.toggle{width:40px;height:22px;border-radius:999px;background:var(--soft);cursor:pointer;position:relative;transition:.2s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on::after{left:20px}
+</style>
+</head>
+<body>
+<div class="topbar"><button class="back">← 返回</button><h2>设置</h2></div>
+<div class="page">
+  <div class="logo-area"><div class="logo">心镜</div><div class="ver">v3.0.1 · Electron Desktop</div><div class="status"><span class="badge ok">已激活 · 会员版</span></div></div>
+  <div class="form-section"><h3>AI 接口</h3>
+    <div class="field"><label>API 提供商</label><select><option>DeepSeek</option><option>SiliconFlow</option><option>OpenAI 兼容</option></select></div>
+    <div class="field"><label>API Key</label><input type="password" placeholder="sk-..."><div class="hint">仅存储在本地，不会上传</div></div>
+    <div class="field"><label>模型</label><select><option>deepseek-chat</option></select></div>
+    <div class="btn-row"><button class="btn pri">测试连接</button><span class="badge ok">已连接</span></div>
+  </div>
+  <div class="form-section"><h3>数据</h3>
+    <button class="btn full">导出备份</button>
+    <button class="btn full">导入备份</button>
+    <button class="btn danger full">清除账单数据</button>
+  </div>
+  <div class="form-section"><h3>外观</h3>
+    <div class="toggle-row"><div class="info"><div class="t">深色模式</div><div class="d">切换浅色/深色</div></div><div class="toggle on"></div></div>
+    <div class="toggle-row"><div class="info"><div class="t">自动更新</div><div class="d">启动时检查新版本</div></div><div class="toggle on"></div></div>
+  </div>
+  <div class="form-section"><h3>关于</h3>
+    <button class="btn full">检查更新</button>
+    <button class="btn full">意见反馈</button>
+  </div>
+</div>
+</body>
+</html>

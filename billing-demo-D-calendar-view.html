@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>账单方案D · 月历视图</title>
+<style>
+:root{--bg:#F6F8FC;--paper:#fff;--soft:#EDF0F7;--border:#E2E7F0;--ink:#2B3140;--ink2:#646B7D;--ink3:#99A1B3;--accent:#8B93C7;--a-soft:#ECEEF9;--green:#6FAE8F;--red:#D98C8C;--orange:#D6A85C;--serif:"Noto Serif SC",Georgia,serif;--sans:system-ui,-apple-system,sans-serif;--r:14px;--r-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);height:100vh;overflow:auto}
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.topbar .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink2);padding:4px 8px;border-radius:6px}
+.topbar h2{font-family:var(--serif);font-size:18px}
+.topbar .sp{flex:1}
+.topbar .month-nav{display:flex;align-items:center;gap:8px}
+.topbar .month-nav button{border:1px solid var(--border);background:var(--paper);border-radius:7px;padding:4px 10px;cursor:pointer;font:13px var(--sans);color:var(--ink2)}
+.topbar .month-nav .current{font-family:var(--serif);font-size:16px;font-weight:600;min-width:100px;text-align:center}
+.topbar button{border:1px solid var(--border);background:var(--paper);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink2)}
+.topbar .btn-p{background:var(--accent);color:#fff;border:none}
+.page{max-width:1000px;margin:0 auto;padding:20px;display:flex;flex-direction:column;gap:20px}
+/* 月概览 */
+.month-overview{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mo-card{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;text-align:center}
+.mo-card .lbl{font-size:11px;color:var(--ink3);font-weight:600}
+.mo-card .val{font-family:var(--serif);font-size:22px;font-weight:700;margin-top:4px}
+.mo-card.in .val{color:var(--green)}.mo-card.out .val{color:var(--red)}.mo-card.net .val{color:var(--accent)}
+/* 日历 */
+.calendar{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.cal-head{display:flex;gap:0;border-bottom:1px solid var(--border)}
+.cal-dow{flex:1;text-align:center;padding:8px;font-size:11px;color:var(--ink3);font-weight:600}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:0}
+.cal-day{min-height:80px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;font-size:12px;position:relative}
+.cal-day:nth-child(7n){border-right:none}
+.cal-day .date{font-weight:600;font-size:13px;color:var(--ink)}
+.cal-day.other .date{color:var(--ink3);opacity:.4}
+.cal-day.today{background:var(--a-soft)}
+.cal-event{margin-top:4px;padding:3px 6px;border-radius:5px;font-size:10px;line-height:1.4;cursor:pointer}
+.cal-event.income{background:rgba(107,174,143,.12);color:var(--green);border-left:2px solid var(--green)}
+.cal-event.expense{background:rgba(217,140,140,.1);color:var(--red);border-left:2px solid var(--red)}
+.cal-event .amt{font-weight:600}
+/* 右侧详情面板 */
+.detail-panel{background:var(--paper);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
+.dp-title{font-family:var(--serif);font-size:15px;margin-bottom:12px}
+.dp-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.dp-row:last-child{border:none}
+.dp-row .cat-tag{font-size:10px;padding:2px 7px;border-radius:5px;flex-shrink:0;width:64px;text-align:center}
+.cat-income{background:rgba(107,174,143,.15);color:var(--green)}
+.cat-personal{background:rgba(107,174,143,.15);color:var(--green)}
+.cat-individual{background:var(--a-soft);color:var(--accent)}
+.cat-group{background:rgba(214,168,92,.15);color:var(--orange)}
+.cat-course{background:rgba(155,133,199,.15);color:#9B85C7}
+.cat-other{background:var(--soft);color:var(--ink3)}
+.dp-row .info{flex:1}.dp-row .desc{font-size:13px}.dp-row .mt{font-size:11px;color:var(--ink3)}
+.dp-row .amt{font-family:var(--serif);font-size:15px;font-weight:600}
+.dp-row .amt.in{color:var(--green)}.dp-row .amt.out{color:var(--red)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <button class="back">← 返回</button>
+  <h2>账单</h2>
+  <span class="sp"></span>
+  <div class="month-nav">
+    <button>←</button><span class="current">2026年7月</span><button>→</button>
+  </div>
+  <button>+ 记一笔</button>
+  <button>导入</button>
+  <button style="border-color:var(--red);color:var(--red)">清除数据</button>
+</div>
+<div class="page">
+  <div class="month-overview">
+    <div class="mo-card in"><div class="lbl">本月收入</div><div class="val">¥3,200</div></div>
+    <div class="mo-card out"><div class="lbl">本月支出</div><div class="val">¥800</div></div>
+    <div class="mo-card net"><div class="lbl">净收入</div><div class="val">¥2,400</div></div>
+    <div class="mo-card"><div class="lbl">待收</div><div class="val" style="color:var(--orange)">¥600</div></div>
+  </div>
+  <div class="calendar">
+    <div class="cal-head">
+      <div class="cal-dow">一</div><div class="cal-dow">二</div><div class="cal-dow">三</div><div class="cal-dow">四</div><div class="cal-dow">五</div><div class="cal-dow">六</div><div class="cal-dow">日</div>
+    </div>
+    <div class="cal-grid">
+      <div class="cal-day other"><div class="date">29</div></div>
+      <div class="cal-day other"><div class="date">30</div></div>
+      <div class="cal-day"><div class="date">1</div></div>
+      <div class="cal-day"><div class="date">2</div></div>
+      <div class="cal-day"><div class="date">3</div></div>
+      <div class="cal-day"><div class="date">4</div></div>
+      <div class="cal-day"><div class="date">5</div></div>
+      <div class="cal-day"><div class="date">6</div></div>
+      <div class="cal-day"><div class="date">7</div></div>
+      <div class="cal-day"><div class="date">8</div><div class="cal-event expense">个人体验 <span class="amt">¥400</span></div></div>
+      <div class="cal-day"><div class="date">9</div></div>
+      <div class="cal-day today"><div class="date">10</div><div class="cal-event income">林小满·第5节 <span class="amt">¥300</span></div></div>
+      <div class="cal-day"><div class="date">11</div></div>
+      <div class="cal-day"><div class="date">12</div><div class="cal-event income">林小满·第3节 <span class="amt">¥300</span></div></div>
+      <div class="cal-day"><div class="date">13</div></div>
+      <div class="cal-day"><div class="date">14</div></div>
+      <div class="cal-day"><div class="date">15</div></div>
+      <div class="cal-day"><div class="date">16</div></div>
+      <div class="cal-day"><div class="date">17</div></div>
+      <div class="cal-day"><div class="date">18</div></div>
+      <div class="cal-day"><div class="date">19</div></div>
+      <div class="cal-day"><div class="date">20</div><div class="cal-event expense">研讨班 <span class="amt">¥600</span></div></div>
+      <div class="cal-day"><div class="date">21</div></div>
+      <div class="cal-day"><div class="date">22</div></div>
+      <div class="cal-day"><div class="date">23</div></div>
+      <div class="cal-day"><div class="date">24</div></div>
+      <div class="cal-day"><div class="date">25</div></div>
+      <div class="cal-day"><div class="date">26</div><div class="cal-event income">林小满·第4节 <span class="amt">¥300</span></div></div>
+      <div class="cal-day"><div class="date">27</div></div>
+      <div class="cal-day"><div class="date">28</div></div>
+      <div class="cal-day"><div class="date">29</div></div>
+      <div class="cal-day"><div class="date">30</div></div>
+      <div class="cal-day"><div class="date">31</div></div>
+    </div>
+  </div>
+  <div class="detail-panel">
+    <div class="dp-title">7月10日 · 今日明细</div>
+    <div class="dp-row"><span class="cat-tag cat-income">收入</span><div class="info"><div class="desc">林小满 · 第5节 · 次结</div><div class="mt">未收</div></div><span class="amt in">¥300</span></div>
+    <div class="dp-row"><span class="cat-tag cat-income">收入</span><div class="info"><div class="desc">林小满 · 第5节 · 导入</div><div class="mt">重复</div></div><span class="amt in">¥300</span></div>
+  </div>
+</div>
+</body>
+</html>

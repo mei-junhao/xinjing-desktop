@@ -460,12 +460,28 @@ function initConsultations() {
     location.href = 'session.html?id=' + curSessionId;
   });
 
+  // ---------- 坞/栏 收放 ----------
+  var dockCollapsed = false, railCollapsed = false;
+  var btnTD = document.getElementById('btnToggleDock');
+  var btnTR = document.getElementById('btnToggleRail');
+  if (btnTD) btnTD.addEventListener('click', function () {
+    dockCollapsed = !dockCollapsed;
+    aidock.style.display = dockCollapsed ? 'none' : '';
+    document.getElementById('resizer').style.display = dockCollapsed ? 'none' : '';
+    btnTD.textContent = dockCollapsed ? '▶ 展开' : '◀ 收起';
+    try { localStorage.setItem('xj_consultations_dock', dockCollapsed ? '1' : '0'); } catch(e){}
+  });
+  if (btnTR) btnTR.addEventListener('click', function () {
+    railCollapsed = !railCollapsed;
+    document.querySelector('.rail').style.display = railCollapsed ? 'none' : '';
+    document.getElementById('search').parentElement.style.display = railCollapsed ? 'none' : 'block';
+    btnTR.textContent = railCollapsed ? '▶ 展开' : '◀ 收起';
+  });
+  try {
+    if (localStorage.getItem('xj_consultations_dock') === '1' && btnTD) btnTD.click();
+  } catch(e) {}
+
   // ---------- P2-1：新建来访者模态（合并来访者导航后的责任容器） ----------
-  if (document.getElementById('client-modal')) {
-    App.bindModalClose('client-modal');
-    const fvtEl = document.getElementById('c-firstvisit');
-    if (fvtEl && !fvtEl.value) fvtEl.value = App.todayStr();
-  }
   window.saveNewClient = function () {
     const nameEl = document.getElementById('c-name');
     if (!nameEl) return;
