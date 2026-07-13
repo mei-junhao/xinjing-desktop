@@ -52,7 +52,7 @@
     box.innerHTML = list.map(function (m) {
       var sel = mode === '1v1' ? (currentConv && currentConv.mode === '1v1' && currentConv.masterKeys[0] === m.key) : roundKeys.indexOf(m.key) >= 0;
       return '<div class="master-card' + (sel ? ' active' : '') + '" data-key="' + m.key + '" onclick="onMasterClick(\'' + m.key + '\')">'
-        + '<div class="m-avatar" style="background:' + accentOf(m) + '">' + m.initial + '</div>'
+        + '<div class="m-avatar" style="background:' + accentOf(m) + '">' + (m.emoji || m.initial) + '</div>'
         + '<div class="m-meta"><div class="m-name">' + m.name + '</div><div class="m-school">' + m.school + '</div></div>'
         + '<div class="m-check">&#10003;</div></div>';
     }).join('');
@@ -145,8 +145,12 @@
 
     if (currentConv.mode === '1v1') {
       var m = getMasterByKey(currentConv.masterKeys[0]);
-      titleEl.textContent = m ? m.name : currentConv.masterKeys[0];
-      subEl.textContent = (m ? m.school : '') + ' · 一对一';
+      titleEl.innerHTML = '<span style="font-size:20px">' + (m && m.emoji ? m.emoji + ' ' : '') + '</span>' + (m ? m.name : currentConv.masterKeys[0]);
+      if (m && currentConv.messages.length === 0 && (m.introTitle || m.intro)) {
+        subEl.innerHTML = '<div style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:2px">' + App.escapeHtml(m.introTitle || '') + '</div><div style="font-size:13px;color:var(--ink-3);line-height:1.8">' + App.escapeHtml(m.intro || '') + '</div>';
+      } else {
+        subEl.textContent = (m ? m.school : '') + ' · 一对一';
+      }
     } else {
       var names = currentConv.masterKeys.map(masterName).join('、');
       titleEl.textContent = '圆桌 · ' + (names || '');

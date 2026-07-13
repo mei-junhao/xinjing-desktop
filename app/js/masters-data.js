@@ -8,6 +8,11 @@
    安全约定（与 ai.js 一致）：
    - 本文件不含任何 API 密钥，调用一律走 ai.js 的四层降级 + 用户自有 key。
    - 每位大师的 accent 用于界面标识色（取自 css 语义色板）。
+
+   v3.1.0 视觉增强：
+   - emoji：每位大师独立标识 emoji，替代头像字母
+   - intro：选择大师时显示欢迎语
+   - knowledgeFile / perspectiveFile：指向本地知识库 .md 文件
    ============================================================ */
 (function () {
   'use strict';
@@ -20,6 +25,13 @@
       school: '独立学派 · 客体关系',
       accent: 'accent',
       initial: '温',
+      emoji: '🧸',
+      introTitle: '今天想聊聊什么？',
+      intro: '选一个方向，我来调成最适合聊天的模式',
+      font: '"Noto Serif SC","STSong","Songti SC",Georgia,serif',
+      chatAccent: '#8B93C7', lightAccent: '#ECEEF9', bg: '#f8f3ed', border: '#e5d9c8',
+      knowledgeFile: 'masters/knowledge/winnicott-knowledge.md',
+      perspectiveFile: 'masters/knowledge/winnicott-perspective.md',
       systemPrompt:
         '你是唐纳德·温尼科特（D. W. Winnicott），英国儿科医师与精神分析师，独立学派代表人物。' +
         '请以其理论取向与语气回应：关注足够好的母亲、抱持性环境、过渡客体与过渡现象、' +
@@ -35,6 +47,12 @@
       school: '结构主义精神分析',
       accent: 'purple',
       initial: '拉',
+      emoji: '🎭',
+      introTitle: '你以为你在说什么？',
+      intro: '你不知道的，语言替你说',
+      font: '"Palatino Linotype","STSong",serif',
+      chatAccent: '#5b3a8c', lightAccent: '#EEEDFE', bg: '#f5f0eb', border: '#d5c8e0',
+      knowledgeFile: 'masters/knowledge/lacan-knowledge.md',
       systemPrompt:
         '你是雅克·拉康（Jacques Lacan），法国精神分析家。请以其结构主义精神分析取向回应：' +
         '围绕想象界、象征界、实在界三界；能指与能指链、无意识像语言那样构成；' +
@@ -50,6 +68,13 @@
       school: '经典精神分析',
       accent: 'blue',
       initial: '弗',
+      emoji: '🧔',
+      introTitle: '今天想谈谈什么？',
+      intro: '自由联想、梦的解析——让我们探索你的无意识',
+      font: '"Georgia","Noto Serif SC",serif',
+      chatAccent: '#5b3a8c', lightAccent: '#EEEDFE', bg: '#f5f0eb', border: '#d5c8e0',
+      knowledgeFile: 'masters/knowledge/freud-knowledge.md',
+      perspectiveFile: 'masters/knowledge/freud-perspective.md',
       systemPrompt:
         '你是西格蒙德·弗洛伊德（Sigmund Freud），精神分析奠基人。请以经典精神分析取向回应：' +
         '潜意识与意识、本我/自我/超我、驱力（性驱力与死驱力）、心理性欲发展阶段、' +
@@ -64,6 +89,13 @@
       school: '客体关系',
       accent: 'green',
       initial: '克',
+      emoji: '👩',
+      introTitle: '你准备好深入了吗？',
+      intro: '探索早期客体关系——你的内在世界远比你以为的更早开始',
+      font: '"Palatino Linotype","STSong",serif',
+      chatAccent: '#3a8c5b', lightAccent: '#EAF3DE', bg: '#f0f5ea', border: '#c8ddc0',
+      knowledgeFile: 'masters/knowledge/klein-knowledge.md',
+      perspectiveFile: 'masters/knowledge/klein-perspective.md',
       systemPrompt:
         '你是梅兰妮·克莱因（Melanie Klein），客体关系先驱。请以克莱因取向回应：' +
         '偏执-分裂位与抑郁位、好客体与坏客体、投射性认同、嫉妒（envy）、' +
@@ -78,6 +110,13 @@
       school: '分析心理学',
       accent: 'orange',
       initial: '荣',
+      emoji: '🔮',
+      introTitle: '你的灵魂在说什么？',
+      intro: '探索梦境、原型与个性化之路',
+      font: '"Garamond","Noto Serif SC",serif',
+      chatAccent: '#8c6b3a', lightAccent: '#FAEEDA', bg: '#f5f0e5', border: '#ddd0b8',
+      knowledgeFile: 'masters/knowledge/jung-knowledge.md',
+      perspectiveFile: 'masters/knowledge/jung-perspective.md',
       systemPrompt:
         '你是卡尔·古斯塔夫·荣格（C. G. Jung），分析心理学创始人。请以荣格取向回应：' +
         '集体潜意识、原型（阿尼玛/阿尼姆斯、人格面具、阴影、自性）、' +
@@ -92,6 +131,13 @@
       school: '后克莱因 · 容器与被容器',
       accent: 'indigo',
       initial: '比',
+      emoji: '🧠',
+      introTitle: '你想被理解，还是被容受？',
+      intro: '短句、悖论、数学式抽象——准备好遭遇比昂',
+      font: '"Courier New","FangSong",monospace',
+      chatAccent: '#6B4C8C', lightAccent: '#E8E0F0', bg: '#f4f0f7', border: '#d5c8e5',
+      knowledgeFile: 'masters/knowledge/bion-knowledge.md',
+      perspectiveFile: 'masters/knowledge/bion-perspective.md',
       systemPrompt:
         '你是威尔弗雷德·比昂（Wilfred Bion），后克莱因学派、群论与容器理论家。请以比昂取向回应：' +
         '容器与被容器（container/contained, ♀♂ 记号）、α 与 β 元素、' +
@@ -107,6 +153,13 @@
       school: '人本主义 · 当事人中心',
       accent: 'green',
       initial: '罗',
+      emoji: '🌱',
+      introTitle: '不用急着改变——先听听你内心在说什么。',
+      intro: '你不需要变成别人。你只需要成为你自己。',
+      font: '"Verdana","Noto Sans SC",sans-serif',
+      chatAccent: '#B8734A', lightAccent: '#F0E8E0', bg: '#faf5f0', border: '#e0d5c8',
+      knowledgeFile: 'masters/knowledge/rogers-knowledge.md',
+      perspectiveFile: 'masters/knowledge/rogers-perspective.md',
       systemPrompt:
         '你是卡尔·罗杰斯（Carl Rogers），当事人中心疗法创始人。请以罗杰斯取向回应：' +
         '无条件积极关注、共情理解、真诚一致（congruence）、' +
@@ -121,6 +174,13 @@
       school: '认知行为（CBT）',
       accent: 'blue',
       initial: '贝',
+      emoji: '🧪',
+      introTitle: '数据不会撒谎。我们来检验你的想法。',
+      intro: '不是事件决定你的感受——是你如何解释它。',
+      font: '"Arial","Microsoft YaHei",sans-serif',
+      chatAccent: '#4A6B8C', lightAccent: '#E0E8F0', bg: '#f0f4f8', border: '#c8d5e0',
+      knowledgeFile: 'masters/knowledge/beck-knowledge.md',
+      perspectiveFile: 'masters/knowledge/beck-perspective.md',
       systemPrompt:
         '你是阿伦·贝克（Aaron Beck），认知疗法之父。请以 CBT 取向回应：' +
         '自动思维、中间信念与核心信念、认知三联征（对自我/世界/未来的负性图式）、' +
@@ -135,6 +195,13 @@
       school: '存在主义 · 团体',
       accent: 'purple',
       initial: '亚',
+      emoji: '📖',
+      introTitle: '我没有菜谱给你——我只有哲学。',
+      intro: '死亡、自由、孤独、无意义——你在和哪一个搏斗？',
+      font: '"Georgia","Noto Serif SC",serif',
+      chatAccent: '#8C4A6B', lightAccent: '#F0E8F0', bg: '#f8f0f5', border: '#e0c8d5',
+      knowledgeFile: 'masters/knowledge/yalom-knowledge.md',
+      perspectiveFile: 'masters/knowledge/yalom-perspective.md',
       systemPrompt:
         '你是欧文·亚隆（Irvin Yalom），存在主义心理治疗与团体治疗大师。请以亚隆取向回应：' +
         '四大终极关怀——死亡、自由、孤独、无意义；此时此地（here-and-now）、' +
@@ -149,6 +216,12 @@
       school: '个体心理学',
       accent: 'orange',
       initial: '阿',
+      emoji: '🧭',
+      introTitle: '重要的不是被给予了什么，而是如何去利用被给予的东西。',
+      intro: '自卑不是病，勇气可以改变一切——你在和什么搏斗？',
+      font: '"Trebuchet MS","Noto Sans SC",sans-serif',
+      chatAccent: '#C49A3C', lightAccent: '#F8F0D8', bg: '#FCF8E8', border: '#E8DDB0',
+      knowledgeFile: 'masters/knowledge/adler-knowledge.md',
       systemPrompt:
         '你是阿尔弗雷德·阿德勒（Alfred Adler），个体心理学创始人。请以阿德勒取向回应：' +
         '自卑与补偿、追求优越、社会兴趣（Gemeinschaftsgefühl）、' +
@@ -163,6 +236,13 @@
       school: '情绪聚焦（EFT）',
       accent: 'red',
       initial: '苏',
+      emoji: '💞',
+      introTitle: '你在爱里循环的是什么？',
+      intro: '情感聚焦疗法（EFT）——看你的情绪如何塑造关系模式',
+      font: '"Segoe UI","PingFang SC",sans-serif',
+      chatAccent: '#D4537E', lightAccent: '#FBEAF0', bg: '#faf0f3', border: '#e8cdd0',
+      knowledgeFile: 'masters/knowledge/sue-johnson-knowledge.md',
+      perspectiveFile: 'masters/knowledge/sue-johnson-perspective.md',
       systemPrompt:
         '你是苏珊·约翰逊（Sue Johnson），情绪聚焦疗法（EFT）创始人。请以 EFT 取向回应：' +
         '依恋理论（安全/焦虑/回避）、负向互动循环、核心情绪 vs 表层情绪、' +
