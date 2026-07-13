@@ -324,6 +324,14 @@ const AI = (() => {
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
+      // 试用限流：代理返回 429 + JSON {message}，优先展示友好文案（不进工具重试）
+      if (resp.status === 429 && config.isTrial) {
+        let msg = '免费试用次数已用完，请填写自有 API 密钥解锁无限额度。';
+        try { const j = JSON.parse(errText); if (j && j.message) msg = j.message; } catch (e) {}
+        const rlErr = new Error(msg);
+        rlErr.code = 'TRIAL_RATE_LIMIT';
+        throw rlErr;
+      }
       // 工具不支持类错误（部分模型对 tools 报 400）→ 去掉 tools 重试一次，避免硬失败
       if (canTools && /tool|function_call|function-calling|tools/i.test(errText)) {
         delete body.tools;
@@ -382,6 +390,7 @@ const AI = (() => {
           return { error: '模型调用失败（含内置兜底仍失败）：' + (e2.message || e.message || '未知错误') };
         }
       }
+      if (e && e.code === 'TRIAL_RATE_LIMIT') return { error: e.message };
       return { error: '模型调用失败：' + (e.message || '未知错误') };
     }
   }
