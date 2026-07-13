@@ -175,6 +175,21 @@
     .dock-actions button.primary:hover { filter: brightness(1.07); color: #fff; }
     .chat-mini .u { color: var(--accent, #9E5A3C); font-weight: 600; margin-bottom: 6px; }
     .chat-mini .a { color: var(--text-secondary, var(--ink-2)); }
+
+    /* 字母索引导航 */
+    .letter-nav{display:flex;flex-wrap:wrap;gap:3px;padding:6px 12px;border-bottom:1px solid var(--border);overflow-x:auto}
+    .letter-nav .ln{padding:2px 7px;border-radius:5px;font-size:11px;cursor:pointer;color:var(--ink-3);font-weight:600;min-width:20px;text-align:center;transition:.15s}
+    .letter-nav .ln:hover{background:var(--accent-soft);color:var(--accent)}
+    .letter-nav .ln.empty{opacity:.3;cursor:default}
+    .letter-nav .ln.empty:hover{background:transparent;color:var(--ink-3)}
+    .letter-group-header{display:flex;align-items:center;gap:6px;padding:6px 12px;cursor:pointer;font-size:11px;font-weight:700;color:var(--accent);background:var(--bg-sunken);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+    .letter-group-header .count{font-size:10px;color:var(--ink-3);font-weight:400}
+    .letter-group-header .arrow{font-size:9px;transition:.2s;margin-left:auto}
+    .letter-group.collapsed .letter-group-header .arrow{transform:rotate(-90deg)}
+    .letter-group.collapsed .ccard{display:none}
+    .inout-tabs{display:flex;gap:4px;background:var(--bg-sunken);border-radius:999px;padding:3px;margin-bottom:12px;width:fit-content}
+    .inout-tabs button{flex:1;border:none;background:transparent;padding:6px 16px;border-radius:999px;font:600 12px var(--sans);cursor:pointer;color:var(--ink-2);transition:.15s}
+    .inout-tabs button.active{background:var(--paper,#fff);color:var(--accent);box-shadow:inset 0 0 0 1px var(--border)}
   </style>
 </head>
 <body>
@@ -215,6 +230,7 @@
             <span class="pill" data-m="monthly">月结</span>
           </div>
           <div class="clist" id="b-clist"></div>
+          <div class="letter-nav" id="b-letter-nav" style="display:none"></div>
         </div>
 
         <!-- 中栏：客户明细 + 三分段（明细/趋势/账单） -->
@@ -350,6 +366,7 @@
   let bCurMode = 'all';
   let bCurClient = null;
   let bCurCtab = 'detail';
+  let inoutFilter = 'all';
   let bQuery = '';
   const MODE_TEXT = { 'per-session': '次结', monthly: '月结', prepaid: '预付费' };
 
@@ -413,31 +430,57 @@
 
   // ====== 左栏客户列表 ======
   function renderBRail() {
-    const q = (bQuery || '').toLowerCase();
-    const list = Store.getClients().filter(function (c) {
-      const mode = (c.billing && c.billing.billingMode) || 'per-session';
+    var q = (bQuery || '').toLowerCase();
+    var list = Store.getClients().filter(function (c) {
+      var mode = (c.billing && c.billing.billingMode) || 'per-session';
       if (bCurMode !== 'all' && mode !== bCurMode) return false;
       if (q && (c.name || '').toLowerCase().indexOf(q) < 0) return false;
       return c.status !== 'ended';
     });
-    const html = list.length ? list.map(function (c) {
-      const mode = (c.billing && c.billing.billingMode) || 'per-session';
-      const agg = clientAgg(c);
-      const ym = new Date().toISOString().slice(0, 7);
-      const monthSessions = Store.getSessionsByClient(c.id).filter(function (s) {
-        return s.date && s.date.slice(0, 7) === ym;
+    var total = list.length;
+    var useGroups = total > 15;
+    var letterNav = document.getElementById('b-letter-nav');
+    if (useGroups && !q) {
+      var letters = [];
+      var groups = {};
+      list.forEach(function (c) {
+        var first = (c.name || '?')[0].toUpperCase();
+        if (!groups[first]) { groups[first] = []; letters.push(first); }
+        groups[first].push(c);
       });
-      const monthPaid = monthSessions.reduce(function (acc, s) {
-        return acc + ((s.billing && s.billing.paid) ? Number(s.billing.fee) || 0 : 0);
-      }, 0);
-      return '<div class="ccard' + (bCurClient && bCurClient.id === c.id ? ' active' : '') + '" onclick="selectBClient(\'' + c.id + '\')">'
-        + '<div class="r1"><span class="nm">' + App.escapeHtml(c.name) + '</span><span class="mode">' + (MODE_TEXT[mode] || '次结') + '</span></div>'
-        + '<div class="meta"><span>应收 ¥' + agg.total.toLocaleString() + '</span><span>已收 ¥' + agg.received.toLocaleString() + '</span>'
-        + (agg.owe > 0 ? '<span class="owe">欠 ¥' + agg.owe.toLocaleString() + '</span>' : '')
-        + '<span>本月 ¥' + monthPaid.toLocaleString() + '</span></div></div>';
-    }).join('') : '<div class="ccard-empty">无匹配来访者<br>请先在「来访者」页创建</div>';
-    document.getElementById('b-clist').innerHTML = html;
+      letters.sort();
+      letterNav.style.display = 'flex';
+      letterNav.innerHTML = letters.map(function (l) {
+        return '<span class="ln" onclick="scrollToLetter(\'' + l + '\')">' + l + '</span>';
+      }).join('');
+      var html = '';
+      letters.forEach(function (l) {
+        var group = groups[l];
+        html += '<div class="letter-group" id="lg-' + l + '"><div class="letter-group-header" onclick="toggleLetterGroup(\'' + l + '\')">' + l + '<span class="count">' + group.length + '人</span><span class="arrow">▼</span></div>';
+        group.forEach(function (c) { html += buildClientCard(c); });
+        html += '</div>';
+      });
+      document.getElementById('b-clist').innerHTML = html;
+    } else {
+      letterNav.style.display = 'none';
+      var html = list.length ? list.map(function (c) { return buildClientCard(c); }).join('') : '<div class="ccard-empty">无匹配来访者<br>请先在「来访者」页创建</div>';
+      document.getElementById('b-clist').innerHTML = html;
+    }
   }
+  function buildClientCard(c) {
+    var mode = (c.billing && c.billing.billingMode) || 'per-session';
+    var agg = clientAgg(c);
+    var ym = new Date().toISOString().slice(0, 7);
+    var monthSessions = Store.getSessionsByClient(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
+    var monthPaid = monthSessions.reduce(function (acc, s) { return acc + ((s.billing && s.billing.paid) ? Number(s.billing.fee) || 0 : 0); }, 0);
+    return '<div class="ccard' + (bCurClient && bCurClient.id === c.id ? ' active' : '') + '" onclick="selectBClient(\'' + c.id + '\')">'
+      + '<div class="r1"><span class="nm">' + App.escapeHtml(c.name) + '</span><span class="mode">' + (MODE_TEXT[mode] || '次结') + '</span></div>'
+      + '<div class="meta"><span>应收 ¥' + agg.total.toLocaleString() + '</span><span>已收 ¥' + agg.received.toLocaleString() + '</span>'
+      + (agg.owe > 0 ? '<span class="owe">欠 ¥' + agg.owe.toLocaleString() + '</span>' : '')
+      + '<span>本月 ¥' + monthPaid.toLocaleString() + '</span></div></div>';
+  }
+  window.scrollToLetter = function (l) { var el = document.getElementById('lg-' + l); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  window.toggleLetterGroup = function (l) { var el = document.getElementById('lg-' + l); if (el) el.classList.toggle('collapsed'); };
   function selectBClient(id) {
     bCurClient = Store.getClients().find(function (c) { return c.id === id; }) || null;
     renderBRail();
@@ -480,6 +523,7 @@
       + '<div class="stat"><b>¥' + monthPaid.toLocaleString() + '</b><span>本月</span></div>'
       + '</div></div>'
       + '<div class="quick"><button class="primary" onclick="toggleAddForm()">+ 记一笔</button><button onclick="toggleSettleForm()">月结</button></div>'
+      + '<div class="inout-tabs"><button class="active" onclick="inoutFilter=\'all\';renderBDetail()">全部</button><button class="in" onclick="inoutFilter=\'in\';renderBDetail()">💰 收入</button><button class="out" onclick="inoutFilter=\'out\';renderBDetail()">📤 支出</button></div>'
       + '<div class="inline-form" id="b-form-add">'
       + '<div><label>日期<span style="color:var(--muted);font-size:10px"> 可多选</span></label><input type="date" id="bf-date" value="' + App.todayStr() + '" multiple></div>'
       + '<div><label>节次</label><input type="number" id="bf-snum" value="1" min="1"></div>'
@@ -495,7 +539,7 @@
       + '</div>'
       + '<div class="sectitle">会谈记录 <span class="ln"></span></div>'
       + '<table class="rec"><thead><tr><th>日期</th><th>节次</th><th>费用</th><th>已收</th><th>类型</th></tr></thead><tbody>'
-      + (sessions.length ? sessions.map(function (s) {
+      + (sessions.length ? sessions.filter(function(s){if(inoutFilter==='in') return !!(s.billing&&s.billing.paid);if(inoutFilter==='out') return !(s.billing&&s.billing.paid)&&(s.billing&&Number(s.billing.fee)>0);return true;}).map(function (s) {
         const sf = (s.billing && Number(s.billing.fee)) || 0;
         const paid = !!(s.billing && s.billing.paid);
         const stype = (s.billing && s.billing.source === 'tmeet') ? '会议' : (s.billing && s.billing.source === 'billing' ? '导入' :
