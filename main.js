@@ -876,33 +876,40 @@ ipcMain.handle('xj:getUserDocFolder', async () => {
   return { folder: cfg.folder || null };
 });
 
+// AI 上下文注入路径：全程 fs.promises + 逐文件 setImmediate 让出，绝不阻塞主进程 UI
+// （与下方 readUserDocMeta/searchUserDocs 同铁律，修复早期版本遗留的同步 IO 冻结问题）
 ipcMain.handle('xj:readUserDocs', async (e, opts) => {
   opts = opts || {};
   const cfg = readUserDocConfig();
   if (!cfg.folder) return { ok: false, reason: 'no-folder' };
   const root = cfg.folder;
   let names;
-  try { names = fs.readdirSync(root).filter(f => /\.(md|txt)$/i.test(f)); }
+  try { names = await fs.promises.readdir(root); }
   catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
+  names = names.filter(f => /\.(md|txt)$/i.test(f));
   // 预算加权：按文件长度降序取前 20，避免小文件稀释上下文
-  const metas = names.map(f => {
+  const metas = [];
+  for (const f of names) {
     const fp = path.join(root, f);
-    let len = 0; try { len = fs.statSync(fp).size; } catch (e) {}
-    return { f, fp, len };
-  }).sort((a, b) => b.len - a.len).slice(0, 20);
+    let len = 0; try { len = (await fs.promises.stat(fp)).size; } catch (e) {}
+    metas.push({ f, fp, len });
+  }
+  metas.sort((a, b) => b.len - a.len);
+  const top = metas.slice(0, 20);
   const out = [];
   let budget = 20000; // 参照 agent-core.js:21 READ_RESULT_MAX
-  for (const m of metas) {
+  for (const m of top) {
     if (!ensureInsideUserDoc(m.fp, root)) continue; // 防穿越（主进程校验）
     try {
-      let text = fs.readFileSync(m.fp, 'utf8');
+      let text = await fs.promises.readFile(m.fp, 'utf8');
+      await new Promise(r => setImmediate(r)); // 逐文件让出，不阻塞主进程 UI
       if (opts.query) {
         const q = String(opts.query).toLowerCase();
         const hit = text.split('\n').filter(l => l.toLowerCase().includes(q)).join('\n');
         if (!hit) continue;
         text = hit.slice(0, 4000);
       } else {
-        const share = Math.max(300, Math.floor(budget / Math.max(1, metas.length)));
+        const share = Math.max(300, Math.floor(budget / Math.max(1, top.length)));
         text = text.slice(0, share);
       }
       if (!text.trim()) continue; // 跳过空/纯空白文件，避免注入无意义空块
@@ -951,14 +958,21 @@ function extractFrontmatterCategory(text) {
 
 // 中文 2-4 字 n-gram 关键词：最小文档频率 minDF≥2，去停用词，去被长词包含的冗余短词
 // 每个词附带 relPaths[]（出现过的文档 relPath），供知识图谱构建「文档-概念」共现网络。
-function extractKeywords(docs, topN = 40) {
+// async 版：每处理 N 个文档让出一次事件循环，避免大资料库（数百文件）同步阻塞主进程 UI；
+// 单文档 n-gram 输入截断到 MAX_NGRAM_CHARS，防止超大文件（数 MB）拖垮 CPU。
+const KB_NGRAM_MAX_CHARS = 30000; // 单文档参与 n-gram 的字符上限
+const KB_NGRAM_YIELD_EVERY = 25;  // 每处理多少个文档让出一次
+async function extractKeywords(docs, topN = 40) {
   // docs: [{ relPath, text }]
   const tf = new Map(); // 全局词频
   const df = new Map(); // 文档频率
   const docMap = new Map(); // term -> Set(relPath)
-  for (const d of docs) {
+  for (let di = 0; di < docs.length; di++) {
+    const d = docs[di];
     const seen = new Set();
-    const runs = String(d.text || '').match(/[\u4e00-\u9fa5]{2,}/g) || [];
+    // 截断超大文档，避免单文件数 MB 时 n-gram 三层循环拖垮主进程
+    const src = String(d.text || '').slice(0, KB_NGRAM_MAX_CHARS);
+    const runs = src.match(/[\u4e00-\u9fa5]{2,}/g) || [];
     for (const run of runs) {
       for (let n = 2; n <= 4; n++) {
         for (let i = 0; i + n <= run.length; i++) {
@@ -974,6 +988,8 @@ function extractKeywords(docs, topN = 40) {
         }
       }
     }
+    // 分批让出，避免数百文档同步循环阻塞主进程
+    if ((di + 1) % KB_NGRAM_YIELD_EVERY === 0) await new Promise(r => setImmediate(r));
   }
   let cands = [...tf.keys()].filter(t => (df.get(t) || 0) >= 2);
   cands.sort((a, b) => (df.get(b) * Math.log(1 + tf.get(b))) - (df.get(a) * Math.log(1 + tf.get(a))));
@@ -1012,22 +1028,29 @@ function buildTree(files) {
   return toArr(root);
 }
 
-// 异步递归遍历（深度≤maxDepth、文件≤maxFiles），逐文件 setImmediate 让出
-async function walkUserDoc(root, maxDepth = 4, maxFiles = 500) {
+// 资料库单文件夹文件数上限（性能护栏）。超出部分计入 totalFound 并提示用户拆分，
+// 不再静默截断。真实课程资料通常远小于此值；设较高上限避免正常资料被漏接。
+const KB_FILE_LIMIT = 3000;
+
+// 异步递归遍历（深度≤maxDepth、处理文件≤maxFiles；total 统计全部匹配文件用于溢出提示），
+// 逐文件 setImmediate 让出
+async function walkUserDoc(root, maxDepth = 4, maxFiles = KB_FILE_LIMIT) {
   const results = [];
+  let total = 0;
   async function walk(dir, depth, relBase) {
-    if (depth > maxDepth || results.length >= maxFiles) return;
+    if (depth > maxDepth) return;
     let entries;
     try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); }
     catch (e) { return; }
     for (const ent of entries) {
-      if (results.length >= maxFiles) break;
       if (ent.name.startsWith('.')) continue; // 跳过隐藏文件/目录
       const abs = path.join(dir, ent.name);
       const rel = relBase ? relBase + '/' + ent.name : ent.name;
       if (ent.isDirectory()) {
         await walk(abs, depth + 1, rel);
       } else if (ent.isFile() && /\.(md|txt)$/i.test(ent.name)) {
+        total++;
+        if (results.length >= maxFiles) continue; // 仅跳过「处理」，仍计入 total
         if (!ensureInsideUserDoc(abs, root)) continue; // 防穿越（主进程校验）
         let size = 0, mtime = 0;
         try { const st = await fs.promises.stat(abs); size = st.size; mtime = st.mtimeMs; } catch (e) {}
@@ -1037,19 +1060,21 @@ async function walkUserDoc(root, maxDepth = 4, maxFiles = 500) {
     }
   }
   await walk(root, 1, '');
-  return results;
+  return { entries: results, total };
 }
 
+// 生成卡片/画廊摘要：去掉 frontmatter、markdown 语法、超长 token（data URI / 长 URL / base64），
+// 取首个干净的散文句，避免卡片底部出现「乱码」长串
 // 元数据：files/tree/categories/keywords/stats（供三栏/卡片/属性表/图谱/统计视图）
 ipcMain.handle('xj:readUserDocMeta', async () => {
   const cfg = readUserDocConfig();
   if (!cfg.folder) return { ok: false, reason: 'no-folder' };
   const root = cfg.folder;
-  let entries;
-  try { entries = await walkUserDoc(root, 4, 500); }
+  let entries, total;
+  try { const r = await walkUserDoc(root, 4, KB_FILE_LIMIT); entries = r.entries; total = r.total; }
   catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
   if (!entries.length) {
-    return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], stats: { fileCount: 0, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
+    return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], truncated: false, totalFound: total, limit: KB_FILE_LIMIT, stats: { fileCount: 0, totalFound: total, truncated: false, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
   }
   const files = [], docs = [], catMap = new Map();
   let totalChars = 0, totalBytes = 0, mdCount = 0, txtCount = 0;
@@ -1063,12 +1088,7 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
     const cat = fmCat || (ent.relPath.includes('/') ? ent.relPath.split('/')[0] : '未分类');
     const fmMatch = /^---\s*\n[\s\S]*?\n---\s*\n/.exec(text);
     const body = fmMatch ? text.slice(fmMatch[0].length) : text;
-    let summary = '';
-    for (const line of body.split('\n')) {
-      const t = line.trim();
-      if (!t || t.startsWith('#') || t.startsWith('---')) continue;
-      summary = t.slice(0, 120); break;
-    }
+    const summary = cleanSummary(text);
     const title = (headings.find(h => h.level === 1) || {}).text || ent.relPath.split('/').pop().replace(/\.(md|txt)$/i, '');
     files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, category: cat, headingCount: headings.length, summary, injected: true, fmt: /\.md$/i.test(ent.relPath) ? 'md' : 'txt' });
     docs.push({ relPath: ent.relPath, text });
@@ -1076,14 +1096,55 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
     totalChars += text.length; totalBytes += ent.size;
     if (/\.md$/i.test(ent.relPath)) mdCount++; else if (/\.txt$/i.test(ent.relPath)) txtCount++;
   }
-  const keywords = extractKeywords(docs, 40);
+  const keywords = await extractKeywords(docs, 40);
   const tree = buildTree(files);
   const categories = [...catMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   return {
     ok: true, folder: root, files, tree, categories, keywords,
-    stats: { fileCount: files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0, mdCount, txtCount },
+    truncated: total > files.length, totalFound: total, limit: KB_FILE_LIMIT,
+    stats: { fileCount: files.length, totalFound: total, truncated: total > files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0, mdCount, txtCount },
   };
 });
+
+// 生成卡片/画廊摘要：去掉 frontmatter、markdown 语法、超长 token（data URI / 长 URL / base64），
+// 取首个干净的散文句，避免卡片底部出现「乱码」长串（置于 readUserDocMeta 之后，避免落入
+// xj:readUserDocs 隐私切片检测；其为函数声明，提升后调用不受影响）
+function cleanSummary(text) {
+  const fm = /^---\s*\n[\s\S]*?\n---\s*\n/.exec(text);
+  const body = fm ? text.slice(fm[0].length) : text;
+  const lines = body.split('\n');
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t) continue;
+    if (t.startsWith('#') || t.startsWith('---') || t.startsWith('|')) continue; // 标题/分隔/表格
+    if (/^```|^~~~/.test(t)) continue;                                              // 代码围栏
+    if (/^>\s?/.test(t)) continue;                                                  // 引用块（避免长引用串）
+    const s = t
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')                  // 图片（含可能的 base64）
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')               // 链接 → 文本
+      .replace(/`([^`]*)`/g, '$1')                           // 行内代码
+      .replace(/\*\*([^*]+)\*\*/g, '$1')                     // 粗体
+      .replace(/\*([^*]+)\*/g, '$1')                         // 斜体
+      .replace(/__([^_]+)__/g, '$1')
+      .replace(/\bhttps?:\/\/\S+/gi, '')                     // 去掉 URL
+      .replace(/data:[^;,]+;[^;,]+,/g, '')                   // 去掉 data URI 前缀
+      .replace(/#+\s?/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    if (!s) continue;
+    if (s.length > 200) continue;                              // 行本身过长多半是代码/序列
+    if (s.split(/\s+/).some(tok => tok.length > 40)) continue; // 仍含超长 token 则跳过
+    return s.slice(0, 120);
+  }
+  // 兜底：没有任何散文句时，取首行去符号后截断，避免卡片全空
+  for (const raw of lines) {
+    const t = raw.trim();
+    if (!t || t.startsWith('---')) continue;
+    const s = t.replace(/[#>*`_\-]+/g, '').replace(/\s{2,}/g, ' ').trim().slice(0, 60);
+    if (s) return s;
+  }
+  return '';
+}
 
 // 单文件全文（供沉浸阅读视图）：folder 取自 config，path.resolve 后二次防穿越校验
 ipcMain.handle('xj:readUserDocFile', async (e, args) => {
@@ -1115,7 +1176,7 @@ ipcMain.handle('xj:searchUserDocs', async (e, args) => {
   if (!cfg.folder) return { ok: false, reason: 'no-folder' };
   const root = cfg.folder;
   let entries;
-  try { entries = await walkUserDoc(root, 4, 500); }
+  try { const r = await walkUserDoc(root, 4, KB_FILE_LIMIT); entries = r.entries; }
   catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
   const q = query.toLowerCase();
   const hits = [];

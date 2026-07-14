@@ -1946,7 +1946,7 @@ test('v3.5.0-8 app.js 全局脚本补 knowledge.builtins.js（收口双路径 Kn
 
 test('v3.5.0-9 隐私：readUserDocs 仅本地 fs，无出网', function () {
   const body = (MAIN_350.split('xj:readUserDocs')[1] || '').split('ipcMain.')[0] || '';
-  assert.ok(/fs\.readFileSync\(m\.fp/.test(body), 'readUserDocs 应经本地 fs 读取');
+  assert.ok(/fs\.(promises\.)?readFile\(m\.fp/.test(body), 'readUserDocs 应经本地 fs 读取（同步或异步）');
   // 仅 true 出网特征：http(s):// 或 fetch(；排除 // 行注释误报
   assert.ok(!/(https?:\/\/|fetch\()/.test(body), 'readUserDocs 不应含出网代码');
 });
@@ -2063,6 +2063,39 @@ test('v3.5.0-UI-18 knowledge.html 自绘标题栏 + 概览画廊结构', functio
   assert.ok(/kb-gallery-hero/.test(KNOWHTML_350UI), 'knowledge.html 缺概览画廊 hero');
   assert.ok(/kb-progress/.test(KNOWHTML_350UI), 'knowledge.html 缺阅读进度条元素');
 });
+
+// ============================================================
+// v3.5.1 — 资料库 UI 四项修复回归
+//   1) 文件数上限 500→3000 且溢出显式提示（不再静默截断）
+//   2) 卡片/画廊摘要清洗（去 base64/data URI/长 URL，避免底部乱码）
+//   3) 标题栏不再 sticky 遮挡内容（app-shell 布局）
+//   4) 三栏/阅读/TOC 给阅读栏最多空间（不再均分）
+// ============================================================
+test('v3.5.1-UI-1 main.js 文件数上限提高且溢出显式统计', function () {
+  assert.ok(/KB_FILE_LIMIT\s*=\s*3000/.test(MAIN_350), 'KB_FILE_LIMIT 未提高到 3000');
+  assert.ok(/walkUserDoc[\s\S]*?return\s*\{\s*entries:.*total/.test(MAIN_350), 'walkUserDoc 未返回 {entries,total}（溢出统计需要）');
+  assert.ok(/truncated:\s*total\s*>\s*files\.length/.test(MAIN_350), 'readUserDocMeta 未返回 truncated 标志');
+  assert.ok(/totalFound:\s*total/.test(MAIN_350), 'readUserDocMeta 未返回 totalFound');
+  assert.ok(/limit:\s*KB_FILE_LIMIT/.test(MAIN_350), 'readUserDocMeta 未透出 limit');
+});
+test('v3.5.1-UI-2 main.js 摘要清洗去 base64/data URI/长 URL', function () {
+  assert.ok(/function cleanSummary/.test(MAIN_350), 'main.js 缺 cleanSummary');
+  assert.ok(/data:\[[\s\S]*?\]\(\s*[^)]*\)/g.test(MAIN_350) || /!\[[^\]]*\]\([^)]*\)/g.test(MAIN_350) || /图片/.test(MAIN_350), 'cleanSummary 未处理图片/数据 URI');
+  assert.ok(/tok\.length\s*>\s*40/.test(MAIN_350), 'cleanSummary 未跳过超长 token（乱码来源）');
+});
+test('v3.5.1-UI-3 knowledge.html 标题栏不遮挡 + 面板占满', function () {
+  assert.ok(!/position:sticky/.test(KNOWHTML_350UI) || /kb-head/.test(KNOWHTML_350UI) && !/\.kb-head\s*\{[^}]*position:sticky/.test(KNOWHTML_350UI), '标题栏仍为 sticky，会遮挡内容');
+  assert.ok(/\.kb-view\s*\{[^}]*flex:1/.test(KNOWHTML_350UI), 'kb-view 未用 flex:1 占满剩余高度');
+  assert.ok(!/calc\(100vh\s*-\s*200px\)/.test(KNOWHTML_350UI), '仍有面板用 calc(100vh - 200px) 脆弱高度');
+  assert.ok(/\.kb-3col\s*\{[^}]*grid-template-columns:190px 250px 1fr/.test(KNOWHTML_350UI), '三栏未给阅读栏(1fr)最多空间');
+});
+test('v3.5.1-UI-4 knowledge.js 阅读栏主导 + 溢出提示元素', function () {
+  assert.ok(/id="kb-warn"/.test(KNOWJS_350UI) || /kb-warn/.test(KNOWHTML_350UI), '缺溢出提示元素 kb-warn');
+  assert.ok(/updateTruncWarn/.test(KNOWJS_350UI), 'knowledge.js 缺 updateTruncWarn（溢出提示逻辑）');
+  assert.ok(/grid-template-columns:210px 1fr/.test(KNOWJS_350UI), '阅读视图 TOC 仍占 240px（阅读栏空间不足）');
+  assert.ok(/\.kb-card\s*\{[^}]*overflow:hidden/.test(KNOWHTML_350UI), '卡片未加 overflow:hidden（长串可能溢出）');
+});
+
 
 // ============================================================
 // v3.4.1 — 账号编辑 + AI 接入引导

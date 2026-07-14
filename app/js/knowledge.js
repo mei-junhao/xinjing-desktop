@@ -47,6 +47,16 @@
     graphRAF: 0,
   };
 
+  // 列表视图分页上限：超过此数的列表只渲染前 N 项 + 提示，避免 innerHTML 拼接卡死渲染线程
+  var KB_LIST_MAX = 200;
+  function capList(arr) {
+    if (arr.length <= KB_LIST_MAX) return { items: arr, truncated: 0 };
+    return { items: arr.slice(0, KB_LIST_MAX), truncated: arr.length - KB_LIST_MAX };
+  }
+  function truncationHint(n) {
+    return '<div style="padding:10px 14px;margin-top:12px;border-radius:8px;background:var(--kb-bg-soft);color:var(--kb-ink-3);font:12.5px var(--kb-sans);text-align:center">仅显示前 ' + KB_LIST_MAX + ' 份，另有 ' + n + ' 份请用搜索查看</div>';
+  }
+
   var view, stateBox, modesBox, folderLbl;
 
   // ---------- 工具 ----------
@@ -134,6 +144,7 @@
 
   async function loadMeta(force) {
     showState('<div class="kb-spinner"></div><div>正在扫描资料文件夹…</div>');
+    var _wEl = document.getElementById('kb-warn'); if (_wEl) _wEl.style.display = 'none';
     // preload 异步注入 userdocs.js：重试等待，避免 no-module 卡死
     var tries = 0;
     while (!(window.UserDocs && UserDocs.getMeta) && tries < 14) { await wait(300); tries++; }
@@ -150,6 +161,7 @@
         '</div><button class="kb-btn primary" onclick="document.getElementById(\'kb-pick\').click()">选择资料文件夹</button>');
     }
     folderLbl.textContent = meta.folder || '';
+    updateTruncWarn(meta);
     if (!meta.files || !meta.files.length) {
       return showState('<div class="big">资料文件夹为空</div><div>在所选文件夹中放入 .md / .txt 课程资料后点「刷新」。</div>' +
         '<div style="margin-top:6px;font-size:12px">当前目录：' + esc(meta.folder || '') + '</div>');
@@ -160,6 +172,21 @@
     if (!state.refsOn) state.refsOn = new Set(meta.files.map(function (f) { return f.relPath; }));
     showView();
     renderView();
+  }
+
+  // 文件数超出性能上限时，在标题栏下方常驻提示（不会静默截断用户资料）
+  function updateTruncWarn(meta) {
+    var el = document.getElementById('kb-warn');
+    if (!el) return;
+    if (meta && meta.ok && meta.truncated) {
+      var limit = meta.limit || 3000;
+      var shown = (meta.stats && meta.stats.fileCount) || 0;
+      el.style.display = 'block';
+      el.innerHTML = '⚠️ 当前资料文件夹共 <b>' + (meta.totalFound || 0) + '</b> 份文件，受性能上限（' + limit +
+        ' 份）约束，已接入前 <b>' + shown + '</b> 份。超出部分暂未纳入检索与 AI 注入，建议将资料拆分到多个子文件夹分别接入。';
+    } else {
+      el.style.display = 'none';
+    }
   }
 
   function renderEmptyNoFolder() {
@@ -212,7 +239,8 @@
         '<div class="kb-gallery-stat"><span class="n">' + (s.fileCount || 0) + '</span><span class="l">份资料 · 已接入 AI</span></div>' +
         '<div class="kb-gsearch"><input id="kb-gs" placeholder="在资料库中搜索关键词…" autocomplete="off"><button class="kb-btn primary" id="kb-gs-go">搜索</button></div>' +
       '</div>';
-    var cards = files.map(function (f) {
+    var capped = capList(files);
+    var cards = capped.items.map(function (f) {
       return '<div class="kb-gcard" data-rel="' + esc(f.relPath) + '">' +
         '<div class="gtop"><span class="gt" style="' + pillStyle(f.category) + '">' + esc(f.category) + '</span>' +
         '<span class="badge"><span class="dot"></span>已接入</span></div>' +
@@ -220,7 +248,7 @@
         '<div class="sum">' + esc(f.summary || '（无摘要）') + '</div>' +
         '<div class="fmeta"><span class="ftype">' + esc(f.fmt || 'md') + '</span><span>' + esc(f.name) + '</span><span>·</span><span>' + f.chars + ' 字</span></div>' +
         '</div>';
-    }).join('');
+    }).join('') + (capped.truncated > 0 ? truncationHint(capped.truncated) : '');
     view.innerHTML = hero + '<div class="kb-masonry">' + cards + '</div>';
     Array.prototype.forEach.call(view.querySelectorAll('.kb-gcard'), function (c) {
       c.addEventListener('click', function () { state.activeFile = c.getAttribute('data-rel'); switchMode('reading'); });
@@ -248,7 +276,8 @@
     var chips = '<button class="kb-chip' + (state.activeCat == null ? ' active' : '') + '" data-cat="">全部</button>' +
       cats.map(function (c) { return '<button class="kb-chip' + (state.activeCat === c.name ? ' active' : '') + '" data-cat="' + esc(c.name) + '">' + esc(c.name) + '</button>'; }).join('');
     var list = filteredCards();
-    var cards = list.map(function (f) {
+    var capped = capList(list);
+    var cards = capped.items.map(function (f) {
       return '<div class="kb-card" data-rel="' + esc(f.relPath) + '">' +
         '<span class="cat" style="' + pillStyle(f.category) + '">' + esc(f.category) + '</span>' +
         '<div class="t">' + esc(f.title) + '</div>' +
@@ -257,6 +286,7 @@
         '<span class="injected"><span class="dot"></span>' + f.chars + ' 字 · 已注入</span></div>' +
         '</div>';
     }).join('') || '<div style="color:var(--kb-ink-3);font:13px var(--kb-sans);padding:20px">没有匹配的资料</div>';
+    if (capped.truncated > 0) cards += truncationHint(capped.truncated);
     view.innerHTML =
       '<div class="kb-filter">' + chips + '</div>' +
       '<div class="kb-toolrow"><input id="kb-csearch" placeholder="搜索标题 / 摘要 / 正文…" autocomplete="off">' +
@@ -318,12 +348,14 @@
     if (!box) return;
     var files = filesInCat();
     if (!files.some(function (f) { return f.relPath === state.activeFile; })) state.activeFile = files.length ? files[0].relPath : null;
-    box.innerHTML = files.map(function (f) {
+    var capped = capList(files);
+    box.innerHTML = capped.items.map(function (f) {
       return '<div class="kb-li' + (f.relPath === state.activeFile ? ' active' : '') + '" data-rel="' + esc(f.relPath) + '">' +
         '<div class="t"><span class="bar" style="background:' + catColor(f.category) + '"></span>' + esc(f.title) + '</div>' +
         '<div class="m">' + esc(f.category) + ' · ' + f.chars + ' 字 · ' + f.headingCount + ' 节</div>' +
         '</div>';
     }).join('') || '<div style="color:var(--kb-ink-3);font-size:13px;padding:8px">该分类下无文件</div>';
+    if (capped.truncated > 0) box.innerHTML += truncationHint(capped.truncated);
     Array.prototype.forEach.call(box.querySelectorAll('.kb-li'), function (li) {
       li.addEventListener('click', function () { state.activeFile = li.getAttribute('data-rel'); renderColList(); renderColDetail(); });
     });
@@ -360,7 +392,8 @@
       if (typeof x === 'string') return x.localeCompare(y, 'zh') * sd;
       return ((x || 0) - (y || 0)) * sd;
     });
-    var rows = files.map(function (f) {
+    var capped = capList(files);
+    var rows = capped.items.map(function (f) {
       return '<tr data-rel="' + esc(f.relPath) + '">' +
         '<td class="tt">' + esc(f.title) + '</td>' +
         '<td><span class="kb-pill" style="' + pillStyle(f.category) + '">' + esc(f.category) + '</span></td>' +
@@ -371,6 +404,9 @@
         '<td><span class="kb-fmt" style="background:' + hexA(f.fmt === 'md' ? '#2F8F83' : '#E08D5B', 0.14) + ';color:' + (f.fmt === 'md' ? '#2F8F83' : '#E08D5B') + '">' + esc(f.fmt || 'md') + '</span></td>' +
         '</tr>';
     }).join('');
+    if (capped.truncated > 0) {
+      rows += '<tr><td colspan="' + cols.length + '" style="padding:10px 14px;background:var(--kb-bg-soft);color:var(--kb-ink-3);font:12.5px var(--kb-sans);text-align:center">仅显示前 ' + KB_LIST_MAX + ' 份，另有 ' + capped.truncated + ' 份请用搜索查看</td></tr>';
+    }
     var s = state.meta.stats || {};
     view.innerHTML =
       '<div class="kb-notionbar"><input id="kb-tsearch" placeholder="筛选资料…" autocomplete="off"><span style="font:12.5px var(--kb-sans);color:var(--kb-ink-3)">属性表</span></div>' +
@@ -406,12 +442,13 @@
   async function renderReading() {
     var f = fileByRel(state.activeFile) || state.meta.files[0];
     state.activeFile = f.relPath;
+    var cappedOpts = capList(state.meta.files);
     view.innerHTML =
       '<div class="kb-read"><div class="picker"><select id="kb-read-sel">' +
-      state.meta.files.map(function (x) {
+      cappedOpts.items.map(function (x) {
         return '<option value="' + esc(x.relPath) + '"' + (x.relPath === f.relPath ? ' selected' : '') + '>' + esc(x.title) + '　·　' + esc(x.category) + '</option>';
-      }).join('') + '</select></div>' +
-      '<div class="kb-read-inner" style="display:grid;grid-template-columns:240px 1fr;gap:24px;height:calc(100vh - 240px);min-height:420px">' +
+      }).join('') + '</select>' + (cappedOpts.truncated > 0 ? '<span style="font:11px var(--kb-sans);color:var(--kb-ink-3);margin-left:8px">仅前 ' + KB_LIST_MAX + ' 份可在此切换</span>' : '') + '</div>' +
+      '<div class="kb-read-inner" style="display:grid;grid-template-columns:210px 1fr;gap:24px;flex:1;min-height:0">' +
       '<div class="toc" id="kb-toc"></div><div class="reader" id="kb-reader"><div class="kb-spinner"></div></div></div></div>';
     document.getElementById('kb-read-sel').addEventListener('change', function (e) {
       state.activeFile = e.target.value; renderReading();
@@ -638,11 +675,13 @@
       return;
     }
     if (!state.refsOn) state.refsOn = new Set(state.meta.files.map(function (f) { return f.relPath; }));
-    var refs = state.meta.files.map(function (f) {
+    var cappedRefs = capList(state.meta.files);
+    var refs = cappedRefs.items.map(function (f) {
       var on = state.refsOn.has(f.relPath);
       return '<div class="kb-ref' + (on ? ' on' : '') + '" data-rel="' + esc(f.relPath) + '">' +
         '<span class="ck">' + (on ? '✓' : '') + '</span><span class="rn">' + esc(f.title) + '</span></div>';
     }).join('');
+    if (cappedRefs.truncated > 0) refs += truncationHint(cappedRefs.truncated);
     view.innerHTML =
       '<div class="kb-chat-wrap">' +
         '<div class="kb-refs"><h4>参考资料</h4>' +
@@ -802,9 +841,14 @@
 
   /* ============================================================
      轻量 Markdown 渲染（先转义再解析，安全）
+     超大文件（>200KB）截断并提示，避免渲染线程主循环被长时间占满
      ============================================================ */
+  var KB_RENDER_MAX_CHARS = 200000; // 单文件渲染字符上限（约 200KB）
   function renderMarkdown(src) {
-    var lines = String(src || '').split('\n');
+    var raw = String(src || '');
+    var truncated = false;
+    if (raw.length > KB_RENDER_MAX_CHARS) { raw = raw.slice(0, KB_RENDER_MAX_CHARS); truncated = true; }
+    var lines = raw.split('\n');
     var out = [], i = 0, listType = null;
     function closeList() { if (listType) { out.push('</' + listType + '>'); listType = null; } }
     while (i < lines.length) {
@@ -835,6 +879,9 @@
       out.push('<p>' + inline(para.join(' ')) + '</p>');
     }
     closeList();
+    if (truncated) {
+      out.push('<div style="padding:12px 16px;margin:16px 0;border-radius:8px;background:var(--kb-bg-soft);color:var(--kb-ink-3);font:12.5px var(--kb-sans);text-align:center">⚠ 文件过大，已截断前 ' + Math.round(KB_RENDER_MAX_CHARS / 1000) + 'KB 渲染。完整内容请用外部编辑器查看。</div>');
+    }
     return out.join('\n');
 
     function inline(t) {
