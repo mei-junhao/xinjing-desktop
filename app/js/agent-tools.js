@@ -83,22 +83,24 @@
   }
 
   // ============================================================
-  // 共享聚合核心（v1.6.0：层1读取 / 层2洞察 / 层3主动提示 复用；未来成长轨迹 #2 也复用）
-  // 全部只读 Store getter，无 DOM、无副作用；null 安全。
+  // 共享聚合核心：临床会谈与账务会谈严格双口径，避免临床记录被误读为 ¥0 未收账单。
   // ============================================================
+  function billableOnly(Store, sessions) {
+    return (sessions || []).filter(function (s) { return Store.isBillableSession(s); });
+  }
   function aggregateClient(client) {
     const Store = getStore();
-    const sessions = (Store.getSessionsByClient(client.id) || []);
-    return aggregateClientFromSessions(client, sessions);
+    const clinicalSessions = Store.getSessionsByClient(client.id) || [];
+    return aggregateClientFromSessions(client, clinicalSessions, billableOnly(Store, clinicalSessions));
   }
-  // L4 修复：抽取共享聚合逻辑，供 aggregateClient / aggregateAll / computeInsight / computeFollowups 复用
-  function aggregateClientFromSessions(client, sessions) {
-    sessions = sessions || [];
+  function aggregateClientFromSessions(client, clinicalSessions, billableSessions) {
+    clinicalSessions = clinicalSessions || [];
+    billableSessions = billableSessions || [];
     let totalFee = 0, received = 0;
-    for (const s of sessions) {
-      const fee = (s.billing && s.billing.fee) || 0;
+    for (const s of billableSessions) {
+      const fee = Number(s.billing.fee) || 0;
       totalFee += fee;
-      if (s.billing && s.billing.paid) received += fee;
+      if (s.billing.paid) received += fee;
     }
     let monthly = 0;
     if (client.billing && Array.isArray(client.billing.monthlyPayments)) {
@@ -106,10 +108,10 @@
     }
     const receivedTotal = received + monthly;
     const balance = totalFee - receivedTotal;
-    const dates = sessions.map(function (s) { return s.date; }).filter(Boolean).sort();
+    const dates = clinicalSessions.map(function (s) { return s.date; }).filter(Boolean).sort();
     const firstSessionDate = dates.length ? dates[0] : null;
     const lastSessionDate = dates.length ? dates[dates.length - 1] : null;
-    const sessionCount = sessions.length;
+    const sessionCount = clinicalSessions.length;
     const tenureDays = firstSessionDate
       ? Math.round((Date.now() - new Date(firstSessionDate).getTime()) / 86400000)
       : null;
@@ -148,7 +150,7 @@
     for (const c of clients) {
       // L3：用预建索引替代 Store.getSessionsByClient 逐个查询
       var cSessions = sessionsByClient[c.id] || [];
-      var cAgg = aggregateClientFromSessions(c, cSessions);
+      var cAgg = aggregateClientFromSessions(c, cSessions, billableOnly(Store, cSessions));
       totalSessions += cAgg.sessionCount;
       totalReceivable += cAgg.totalFee;
       totalReceived += cAgg.received;
@@ -178,6 +180,7 @@
     if (!client) return { ok: false, error: '来访者不存在' };
     const a = aggregateClient(client);
     const sessions = (Store.getSessionsByClient(clientId) || []);
+    const billableSessions = billableOnly(Store, sessions);
     const now = new Date();
     const months = [];
     for (let i = 2; i >= 0; i--) {
@@ -193,7 +196,7 @@
     const riskFlags = [];
     if (daysSinceLast != null && daysSinceLast > 21) riskFlags.push('long_gap(>21天未复诊)');
     if (a.balance > 0) riskFlags.push('outstanding_balance(欠费¥' + a.balance + ')');
-    const fees = sessions.map(function (s) { return (s.billing && s.billing.fee) || 0; });
+    const fees = billableSessions.map(function (s) { return Number(s.billing.fee) || 0; });
     // 任一会谈免费即提示（含纯免费客户）——可能是漏费录入（v1.6.0 P2 修复：原仅 mixed 才报）
     if (fees.length && fees.some(function (f) { return f === 0; })) {
       riskFlags.push('fee_anomaly(存在免费会谈，可能漏费)');
@@ -258,7 +261,13 @@
     const results = [];
     var createdCount = 0; // M2 修复：限制单次调用最多新建 3 个客户，防 AI 幻觉批量建幽灵客户
     for (const r of args.records) {
-      // 1. 解析 clientId（M2：超出新建上限后不再自动创建）
+      // 1. 先校验金额，避免 schema 绕过时把缺 fee 的伪账单写成 undefined/¥0，
+      // 更不能因无效记录顺带创建来访者。
+      if (!r || typeof r.fee !== 'number' || !Number.isFinite(r.fee) || r.fee < 0) {
+        results.push({ skipped: true, reason: 'fee 必须为非负有限数字' });
+        continue;
+      }
+      // 2. 解析 clientId（M2：超出新建上限后不再自动创建）
       var allowCreate = createdCount < 3;
       const resolved = resolveClientId(r.clientId, r.clientName, allowCreate);
       if (!resolved.ok) { results.push({ skipped: true, reason: resolved.error }); continue; }
@@ -407,7 +416,7 @@
     let receivable = 0, received = 0;
     const perClient = [];
     for (const c of clients) {
-      const sessions = Store.getSessionsByClient(c.id);
+      const sessions = billableOnly(Store, Store.getSessionsByClient(c.id));
       let cReceivable = 0, cReceived = 0;
       for (const s of sessions) {
         // period 过滤：只统计指定月份的会话
@@ -470,22 +479,24 @@
     // L5 修复：仅统计活跃客户的 session，排除已结束客户的历史会话
     var activeClientIds = {};
     clients.forEach(function (c) { activeClientIds[c.id] = true; });
-    const sessions = Store.getSessions().filter(function (s) { return activeClientIds[s.clientId]; });
+    const clinicalSessions = Store.getSessions().filter(function (s) { return activeClientIds[s.clientId]; });
+    const billableSessions = billableOnly(Store, clinicalSessions);
 
     const reminders = [];
     const stale = [];
 
     for (const c of clients) {
-      const cs = sessions.filter(function (s) { return s.clientId === c.id; });
+      const cs = clinicalSessions.filter(function (s) { return s.clientId === c.id; });
+      const billableCs = billableSessions.filter(function (s) { return s.clientId === c.id; });
       cs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
       const lastSession = cs[0] || null;
       const lastDate = lastSession && lastSession.date ? new Date(lastSession.date).getTime() : 0;
 
       // 未收款检查
       if (unpaidOnly) {
-        cs.forEach(function (s) {
-          const fee = (s.billing && s.billing.fee) || 0;
-          const paid = !!(s.billing && s.billing.paid);
+        billableCs.forEach(function (s) {
+          const fee = Number(s.billing.fee) || 0;
+          const paid = !!s.billing.paid;
           if (fee > 0 && !paid) {
             reminders.push({
               clientId: c.id, clientName: c.name,
@@ -563,8 +574,8 @@
         const v = args.patch[k];
         // tags 须为数组
         if (k === 'tags' && !Array.isArray(v)) continue;
-        // 字符串字段去掉首尾空
-        if (typeof v === 'string') safePatch[k] = v.trim();
+        // 字符串字段在写库前去首尾空并剥离注入模式，不能只清洗返回值。
+        if (typeof v === 'string') safePatch[k] = stripInjection(v.trim()).trim();
         else safePatch[k] = v;
       }
     }
@@ -1152,7 +1163,7 @@
     type: 'function',
     function: {
       name: 'session.query',
-      description: '查询会谈记录。只读。clientId 查某来访者全部会谈（日期/节数/费用/已收/类型），省略 clientId 查全局最近会谈。支持 from/to 日期范围。返回最多 30 条。',
+      description: '查询会谈记录。只读。clientId 查某来访者全部会谈（日期/节数/临床或账务标记/类型），省略 clientId 查全局最近会谈。费用与缴费字段仅对账务会谈返回。支持 from/to 日期范围。返回最多 30 条。',
       parameters: {
         type: 'object',
         properties: {
@@ -1180,11 +1191,14 @@
     sessions = sessions.slice(0, limit);
     const rows = sessions.map(function (s) {
       const c = args.clientId ? null : (Store.getClient(s.clientId) || {});
+      const billable = Store.isBillableSession(s);
       return {
         date: s.date,
         sessionNumber: s.sessionNumber,
-        fee: (s.billing && s.billing.fee) || 0,
-        paid: !!(s.billing && s.billing.paid),
+        recordKind: s.recordKind || (billable ? 'billing' : 'clinical'),
+        billable: billable,
+        fee: billable ? ((s.billing && s.billing.fee) || 0) : undefined,
+        paid: billable ? !!(s.billing && s.billing.paid) : undefined,
         type: s.type,
         clientName: c ? c.name : undefined
       };

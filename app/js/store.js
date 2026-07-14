@@ -260,6 +260,12 @@ const Store = (() => {
   }
 
   // 计算会话是否含有各类报告（用于工作台/报告中心标记）
+  // 账本边界：存在明确 billing 对象才属于财务会谈。
+  // 注意：fee=0 仍可能是合法免费/减免咨询，不能用金额判断；临床记录为 billing:null 或缺失。
+  function isBillableSession(session) {
+    return !!(session && session.billing !== null && typeof session.billing === 'object' && !Array.isArray(session.billing));
+  }
+
   function computeSessionFlags(session) {
     return {
       hasTranscript: !!(session.transcript && session.transcript.trim()),
@@ -750,9 +756,10 @@ const Store = (() => {
     // 按来访者合并遍历：一次循环同时算应收/已收/待收，避免重复迭代
     const perClient = {}; // id -> { rec, paid }
     for (const s of sessions) {
+      if (!isBillableSession(s)) continue;
       if (!activeIds.has(s.clientId)) continue;
       if (!s.date || s.date.slice(0, 7) !== ym) continue;
-      const fee = (s.billing && Number(s.billing.fee)) || 0;
+      const fee = Number(s.billing.fee) || 0;
       monthlyReceivable += fee;
       if (s.billing && s.billing.paid) monthlyReceived += fee;
       if (!perClient[s.clientId]) perClient[s.clientId] = { rec: 0, paid: 0 };
@@ -1019,15 +1026,20 @@ const Store = (() => {
     if (c.id != null) return 'id:' + c.id;
     return '';
   }
-  // 会谈：clientId + 日期 + 费用/已付/来源 + 正文内容 + 唯一字段（sessionNumber 或 id）
-  // 含唯一字段可区分「同日多个空 session」（内容都空），避免互相误判为重复被删（S4 修复）
+  // 会谈：临床记录不参与跨库业务去重（不同端口可能存在同日临床会谈）；
+  // 账务记录仅在拥有稳定业务键时参与幂等去重，其他记录保守保留。
+  function billingBusinessKey(s) {
+    if (!isBillableSession(s)) return '';
+    const b = s.billing;
+    if (b.importKey) return 'import:' + b.importKey;
+    const note = String(s.notes || '');
+    const m = note.match(/\[billing:([^\]]+)\]/);
+    return m ? 'billing:' + m[1] : '';
+  }
   function sessionKey(s) {
     if (!s) return '';
-    const b = s.billing || {};
-    const soap = s.soap || {};
-    const content = [s.transcript || '', soap.subjective || '', soap.objective || '', soap.assessment || '', soap.plan || '', s.summary || '', s.reflection || ''].join('');
-    const unique = (s.sessionNumber != null ? 'n' + s.sessionNumber : '') + (s.id != null ? '#' + s.id : '');
-    return [s.clientId || '', s.date || '', b.fee != null ? b.fee : '', b.paid ? 1 : 0, b.source || '', unique, content].join('|');
+    const key = billingBusinessKey(s);
+    return key ? 'session:' + (s.clientId || '') + '|' + key : '';
   }
   // 督导：clientId + 日期 + 督导师 + 正文
   function supervisionKey(sv) {
@@ -1093,40 +1105,37 @@ const Store = (() => {
       req.onerror = () => reject(req.error);
     });
   }
-  // 会谈来源优先级：同一 clientId+date+sessionNumber 时，留 import 删 manual（次结）
+  // 仅对拥有同一稳定账务业务键的 billable 记录做幂等去重。
+  // 禁止按同日/同节次/零金额删记录：这些条件无法区分临床会谈、免费咨询和真实多次会谈。
   function dedupSessionSource(sessions) {
-    if (!Array.isArray(sessions)) return sessions;
-    const groups = new Map();
-    for (const s of sessions) {
-      const key = [s.clientId || '', s.date || '', s.sessionNumber != null ? s.sessionNumber : ''].join('|');
-      if (!key) continue;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(s);
-    }
-    let removed = 0;
+    if (!Array.isArray(sessions)) return { sessions: sessions || [], removed: 0 };
+    const seen = new Map();
     const keep = [];
+    let removed = 0;
     for (const s of sessions) {
-      const key = [s.clientId || '', s.date || '', s.sessionNumber != null ? s.sessionNumber : ''].join('|');
-      const group = groups.get(key);
-      if (!group || group.length < 2) { keep.push(s); continue; }
-      // 有重复：检查该条是否该被删
-      const hasImport = group.some(x => (x.billing && x.billing.source === 'import'));
-      if (hasImport && s.billing && s.billing.source === 'manual') { removed++; continue; }
-      // 如果此条已被标记为保留，跳过后续重复
-      if (group._resolved) continue;
-      // 保留第一条非 manual 的，或第一条
-      const best = group.find(x => x.billing && x.billing.source !== 'manual') || group[0];
-      group._resolved = true;
-      if (s === best) keep.push(s);
-      else if (s.billing && s.billing.source === 'manual') { removed++; continue; }
-      else { keep.push(s); }
+      const key = billingBusinessKey(s);
+      if (!key) { keep.push(s); continue; }
+      const scoped = (s.clientId || '') + '|' + key;
+      if (!seen.has(scoped)) {
+        seen.set(scoped, s);
+        keep.push(s);
+        continue;
+      }
+      const prev = seen.get(scoped);
+      // 同一稳定导入键才可视为重复；保留内容更丰富的一条。
+      if (richness(s) > richness(prev)) {
+        const idx = keep.indexOf(prev);
+        if (idx >= 0) keep[idx] = s;
+        seen.set(scoped, s);
+      }
+      removed++;
     }
     return { sessions: keep, removed };
   }
 
   // 对当前库已有重复做一次去重（应对旧端口已归档、迁移不再触发的现状）
   async function maybeDedupe() {
-    const flag = await idbGet('__xj_dedup_v3');
+    const flag = await idbGet('__xj_dedup_v4');
     if (flag && flag.done) return 0; // 已处理过，防重
     const all = await readAllKv();
     const ARRAY_KEYS = ['clients', 'sessions', 'supervisions', 'masterConversations', 'supervisorIdentities', 'expenses'];
@@ -1160,38 +1169,10 @@ const Store = (() => {
         }
       }
     }
-    // v3.4.2 第三轮：同 clientId+date 零费用空记录 vs 有费用记录 → 删零费用
-    if (Array.isArray(all.sessions)) {
-      const dateGroups = new Map();
-      for (const s of all.sessions) {
-        if (!s.date || !s.clientId) continue;
-        const key = s.clientId + '|' + s.date;
-        if (!dateGroups.has(key)) dateGroups.set(key, []);
-        dateGroups.get(key).push(s);
-      }
-      const keep3 = [];
-      for (const g of dateGroups.values()) {
-        if (g.length < 2) { keep3.push.apply(keep3, g); continue; }
-        const hasContent = g.some(function (s) { return (s.billing && Number(s.billing.fee) || 0) > 0; });
-        const hasZero = g.some(function (s) { return (s.billing && Number(s.billing.fee) || 0) === 0; });
-        if (hasContent && hasZero) {
-          var removedFromGroup = 0;
-          g.forEach(function (s) {
-            if ((s.billing && Number(s.billing.fee) || 0) === 0) { removedFromGroup++; }
-            else { keep3.push(s); }
-          });
-          removed += removedFromGroup;
-        } else {
-          keep3.push.apply(keep3, g);
-        }
-      }
-      if (keep3.length < all.sessions.length) {
-        if (!backup.sessions) backup.sessions = all.sessions;
-        all.sessions = keep3;
-      }
-    }
+    // 不再按“同日 + 零费用”物理删除。该启发式会把临床记录和合法免费咨询误判为重复。
+    // 会谈只允许由上面稳定业务键（billing.importKey 或 [billing:key]）驱动的幂等去重处理。
     if (removed === 0) {
-      await idbPut('__xj_dedup_v3', { done: true, at: Date.now(), removed: 0 });
+      await idbPut('__xj_dedup_v4', { done: true, at: Date.now(), removed: 0 });
       return 0;
     }
     // 备份原始重复数据，极端情况可经开发者工具恢复
@@ -1199,7 +1180,7 @@ const Store = (() => {
     for (const k of ARRAY_KEYS) {
       if (all[k] !== undefined) await idbPut(k, all[k]);
     }
-    await idbPut('__xj_dedup_v3', { done: true, at: Date.now(), removed });
+    await idbPut('__xj_dedup_v4', { done: true, at: Date.now(), removed });
     return removed;
   }
 
@@ -1212,7 +1193,7 @@ const Store = (() => {
     // 来访者
     getClients, getClient, createClient, updateClient, deleteClient,
     // 会话
-    getSessions, getSession, getSessionsByClient,
+    getSessions, getSession, getSessionsByClient, isBillableSession,
     getSessionFull, createSession, updateSessionFull, deleteSession,
     nextSessionNumber,
     // 督导

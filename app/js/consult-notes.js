@@ -81,6 +81,9 @@
       date: App.todayStr(),
       durationMinutes: 0,
       type: 'individual',
+      // 临床记录不是账单；显式标记，避免记账页把它误显示为 ¥0 次结。
+      recordKind: 'clinical',
+      billing: null,
       notes: notes,
       hasTranscript: hasTranscript,
       hasSoap: hasSoap,

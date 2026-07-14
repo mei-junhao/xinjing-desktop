@@ -49,6 +49,9 @@ function createStoreMock() {
     getSessions() {
       return sessions.slice();
     },
+    isBillableSession(session) {
+      return !!(session && session.billing !== null && typeof session.billing === 'object' && !Array.isArray(session.billing));
+    },
     getSupervisions() {
       return supervisions.slice();
     },
@@ -126,19 +129,46 @@ function loadSupervisionCore(opts) {
 let pass = 0;
 let fail = 0;
 const failures = [];
+let testChain = Promise.resolve();
 
+// 用串行队列执行测试：本脚本大量用例共享 Store / tools 模块变量，
+// 不能 Promise.all；同时必须 await 每个 async 用例，避免假阳性。
 function test(name, fn) {
-  try {
-    fn();
-    pass++;
-    console.log('  ✓ ' + name);
-  } catch (e) {
-    fail++;
-    failures.push({ name, err: e });
-    console.log('  ✗ ' + name);
-    console.log('    ' + (e && e.message ? e.message : e));
-    if (e && e.stack) console.log('    ' + e.stack.split('\n').slice(1, 3).join('\n    '));
-  }
+  // 注册期捕获完整宿主上下文。测试文件会反复重建 Store / AI / AgentTools；
+  // 若只在文件末尾统一执行，后注册的 mock 会污染先注册的异步用例。
+  const context = {
+    Store: Store,
+    tools: tools,
+    globalStore: global.Store,
+    agentTools: global.AgentTools,
+    AI: global.AI,
+    App: global.App,
+  };
+  testChain = testChain.then(async function () {
+    Store = context.Store;
+    tools = context.tools;
+    global.Store = context.globalStore || context.Store;
+    global.AgentTools = context.agentTools || context.tools;
+    global.AI = context.AI;
+    global.App = context.App;
+    if (global.window) {
+      global.window.Store = global.Store;
+      global.window.AgentTools = global.AgentTools;
+      global.window.AI = global.AI;
+      global.window.App = global.App;
+    }
+    try {
+      await fn();
+      pass++;
+      console.log('  ✓ ' + name);
+    } catch (e) {
+      fail++;
+      failures.push({ name: name, err: e });
+      console.log('  ✗ ' + name);
+      console.log('    ' + (e && e.message ? e.message : e));
+      if (e && e.stack) console.log('    ' + e.stack.split('\n').slice(1, 3).join('\n    '));
+    }
+  });
 }
 
 console.log('\n========== 心镜 v1.3.0 自测 ==========\n');
@@ -265,14 +295,17 @@ test('A7 monthlySettle 基本路径：合并不覆盖 feePerSession 等其他字
   assert.strictEqual(c2.billing.monthlyPayments[0].amount, 1200);
 });
 
-// A8. monthlySettle 重复同月 → 拒绝
+// A8. monthlySettle 同月补录 → 累加，支持定金+尾款
 resetStore();
-test('A8 monthlySettle 重复同月应拒绝', async function () {
+test('A8 monthlySettle 同月补录应累加', async function () {
   const c = Store.getClients().find(cl => cl.name === '张明');
   await tools.invoke('billing.monthly_settle', { clientName: '张明', month: '2026-04', amount: 1200 });
   const r = await tools.invoke('billing.monthly_settle', { clientName: '张明', month: '2026-04', amount: 900 });
-  assert.ok(!r.ok, '重复同月应 ok=false');
-  assert.ok(r.error && r.error.indexOf('已存在') !== -1, '错误信息应含"已存在"');
+  assert.ok(r.ok, '同月补录应成功');
+  assert.strictEqual(r.data.appended, true, '应标记为补录');
+  assert.strictEqual(r.data.previousAmount, 1200, '应返回原金额');
+  assert.strictEqual(r.data.amount, 2100, '同月金额应累加');
+  assert.strictEqual(c.id, r.data.clientId, '应写入同一来访者');
 });
 
 // A9. monthlySettle amount 为负 → ok=false
@@ -300,6 +333,18 @@ test('A10 billingSummary 应收/已收/余额统计', async function () {
   assert.strictEqual(r.data.received, 1100, '已收应为 300*2 + 500 = 1100');
   assert.strictEqual(r.data.balance, 300);
   assert.strictEqual(r.data.clientCount, 2);
+});
+
+// A11. billingSummary 按 clientName 过滤
+resetStore();
+test('A10b billingSummary 排除同日临床 ¥0 记录，保留导入账单', async function () {
+  const c = Store.getClients().find(cl => cl.name === '张明');
+  Store.createSession({ clientId: c.id, date: '2026-04-10', recordKind: 'clinical', billing: null, notes: '临床记录' });
+  Store.createSession({ clientId: c.id, date: '2026-04-10', sessionNumber: 25, billing: { fee: 400, paid: false, source: 'billing' }, notes: '导入账单' });
+  const r = await tools.invoke('billing.summary', { clientName: '张明' });
+  assert.ok(r.ok);
+  assert.strictEqual(r.data.receivable, 400, '临床记录不能作为 ¥0 未收账单参与统计');
+  assert.strictEqual(r.data.balance, 400, '应仅保留导入账单欠费');
 });
 
 // A11. billingSummary 按 clientName 过滤
@@ -714,9 +759,9 @@ test('G4 用户 key 但 baseUrl 空 → baseUrl 回退内置', function () {
   assert.strictEqual(AI.getActiveConfig().baseUrl, 'https://xinjingchat.online/v1');
 });
 
-// G5. 调用内置 Qwen 模型时 fetch body 应注入 chat_template_kwargs.enable_thinking=false
-test('G5 调用内置 Qwen 模型 → body 注入 enable_thinking:false', async function () {
-  const AI = loadAI({});
+// G5. 调用 Qwen 模型时 fetch body 应注入 chat_template_kwargs.enable_thinking=false
+test('G5 调用 Qwen 模型 → body 注入 enable_thinking:false', async function () {
+  const AI = loadAI({ baseUrl: 'https://my.api/v1', apiKey: 'sk-user', modelPreference: 'Qwen/Qwen3.5-4B', verified: true });
   let captured = null;
   const origFetch = global.fetch;
   global.fetch = async function (u, opts) {
@@ -872,7 +917,7 @@ test('P8 runRealSupParse 输入含 <script> 被 sanitize 剥离', async function
   const SC = loadSupervisionCore({
     send: (msgs, cb) => cb({ content: '<script>alert(1)</script>{"clientName":"张三","sessionDate":"2026-04-10","summary":"督导要点","keyFrags":["片段A"],"techniques":["技术B"]}' })
   });
-  const parsed = await SC.runRealSupParse('一段转写稿含 <script>alert(1)</script> 危险内容');
+  const parsed = await SC.runRealSupParse('这是一段长度足够的督导转写稿，含 <script>alert(1)</script> 危险内容；清洗后仍保留可供结构化解析的临床材料和讨论线索。');
   assert.strictEqual(parsed.clientName, '张三');
   assert.ok(JSON.stringify(parsed).indexOf('<script>') === -1, '结果不得含 <script>');
 });
@@ -1127,6 +1172,7 @@ test('R5 gen-supervisors.py 已废弃（防误跑污染 prompts.builtin.js）', 
 const S_CSS = fs.readFileSync(path.join(APP_DIR, 'css', 'style.css'), 'utf-8');
 const S_APP = fs.readFileSync(path.join(APP_DIR, 'js', 'app.js'), 'utf-8');
 const S_DASH = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf-8');
+const S_XJPANEL = fs.readFileSync(path.join(APP_DIR, 'js', 'xiaojing-panel.js'), 'utf-8');
 
 // v1.3.7 Agent 写工具深化 — T1–T12
 const T_TOOLS = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-tools.js'), 'utf-8');
@@ -1169,9 +1215,10 @@ test('S6 P2 常驻 Agent 入口（v3.4.0 FAB 废弃 → xiaojing-panel.js 替代
   assert.ok(/XiaojingPanel/.test(panel), 'xiaojing-panel.js 缺 XiaojingPanel');
   assert.ok(/build/.test(panel), 'xiaojing-panel.js 缺 build');
 });
-test('S7 小镜欢迎语与每日概览（dashboard.js）', function () {
-  assert.ok(/renderXjGreet|xj-greet|小镜/.test(S_DASH), 'dashboard.js 缺小镜欢迎语');
-  assert.ok(/todaySessions|今日咨询/.test(S_DASH), 'dashboard.js 缺今日咨询统计');
+test('S7 小镜欢迎语与每日概览（v3.5.0 迁 xiaojing-panel.js）', function () {
+  var t = S_XJPANEL || S_DASH;
+  assert.ok(/renderGreeting|小镜|greet/.test(t), 'xiaojing-panel.js 缺小镜欢迎语');
+  assert.ok(/todaySessions|今日咨询|todayS/.test(t), 'xiaojing-panel.js 缺今日咨询统计');
 });
 
 // ============================================================
@@ -1366,14 +1413,14 @@ test('T31 防回归：旧 id stat-clients/supervision/reports 不在 settings.js
 // ============================================================
 // v1.5.0 P0 首页/导航重构/咨询记录占位/检查更新桥接 — T32–T35
 // ============================================================
-test('T32 导航：v3.0 模块中枢，10 张卡片入口（v3.5.0 增知识库瓦片）', function () {
-  // v3.0 去侧边栏化，首页为卡片中枢；v3.5.0 新增「我的资料库」入口4瓦片
+test('T32 导航：v3.0 模块中枢，11 张卡片入口（v3.5.0 增知识库 + 咨询日历）', function () {
+  // v3.0 去侧边栏化，首页为卡片中枢；v3.5.0 新增「我的资料库」+ v3.5.x 新增咨询日历
   const indexHtml = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf-8');
   assert.ok(indexHtml.indexOf('class="modules"') !== -1, 'index.html 缺 .modules 容器');
   const cardCount = (indexHtml.match(/class="mod"/g) || []).length;
-  assert.ok(cardCount === 10, 'index.html 应有 10 张模块卡片，实际 ' + cardCount);
+  assert.ok(cardCount === 11, 'index.html 应有 11 张模块卡片，实际 ' + cardCount);
   // 每张卡片含 href 和标题
-  const requiredHrefs = ['consult-notes.html', 'report-writing.html', 'supervision.html', 'billing-shell.html', 'masters.html', 'knowledge.html'];
+  const requiredHrefs = ['consult-notes.html', 'report-writing.html', 'supervision.html', 'billing-shell.html', 'masters.html', 'knowledge.html', 'session-calendar.html'];
   requiredHrefs.forEach(function (href) {
     assert.ok(indexHtml.indexOf('href="' + href + '"') !== -1, 'index.html 缺卡片链接 ' + href);
   });
@@ -1406,8 +1453,8 @@ test('T34 首页模块卡片 + 检查更新桥接全链路', function () {
   // ① index.html 含 supervision/masters 卡片链接
   assert.ok(T_INDEX_HTML.indexOf('href="supervision.html"') !== -1, 'index.html 缺 supervision 卡片');
   assert.ok(T_INDEX_HTML.indexOf('href="masters.html"') !== -1, 'index.html 缺 masters 卡片');
-  // ② dashboard.js 含小镜面板或跳转逻辑
-  assert.ok(S_DASH.indexOf('supervision.html') !== -1 || S_DASH.indexOf('toggleXiaojing') !== -1, 'dashboard.js 缺跳转或小镜');
+  // ② 小镜面板在 xiaojing-panel.js（v3.5.0 从 dashboard.js 统一迁移）
+  assert.ok(S_XJPANEL.indexOf('toggleXiaojing') !== -1 || S_DASH.indexOf('toggleXiaojing') !== -1, 'xiaojing-panel.js 缺 toggleXiaojing');
   // ③ preload 暴露 checkForUpdates
   assert.ok(/checkForUpdates:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('xj:check-updates'\)/.test(T_PRELOAD_JS), 'preload 未暴露 checkForUpdates 桥接');
   // ④ main.js 注册 ipc + 处理函数
@@ -1549,8 +1596,8 @@ test('T41 stats.overview 算 longestClient 与 busiestClient 正确', async func
   assert.strictEqual(r.data.busiestClient.name, 'B多会谈', 'busiestClient 应为 B多会谈（3 次）');
   assert.strictEqual(r.data.totalClients, 2, '应 2 个客户');
   assert.strictEqual(r.data.totalSessions, 5, '应 5 次会谈');
-  assert.strictEqual(r.data.totalReceivable, 1100, '应收应为 1100');
-  assert.strictEqual(r.data.totalReceived, 1100, '已收应为 1100');
+  assert.strictEqual(r.data.totalReceivable, 800, '应收应为 800');
+  assert.strictEqual(r.data.totalReceived, 800, '已收应为 800');
   assert.strictEqual(r.data.balance, 0, '余额应为 0');
 });
 
@@ -1743,10 +1790,11 @@ test('v3.3.0-7 supervision-core.js 注入 PersonaPreamble（runImpression + runR
   assert.ok(matches.length >= 2, 'supervision-core.js 至少 2 处 PersonaPreamble 引用，实际 ' + matches.length);
 });
 
-test('v3.3.0-8 dashboard.js 注入 PersonaPreamble + 替换硬编码问候', function () {
-  assert.ok(/PersonaPreamble.*build/.test(DASHBOARD_330), 'dashboard.js 未注入 PersonaPreamble.build()');
-  assert.ok(/Memory.*getProfile/.test(DASHBOARD_330), 'dashboard.js 未用 Memory.getProfile()');
-  assert.ok(!/下午好，梅。/.test(DASHBOARD_330), 'dashboard.js 仍含硬编码"下午好，梅。"');
+test('v3.3.0-8 dashboard.js 注入 PersonaPreamble + 替换硬编码问候（v3.5.0 已迁 xiaojing-panel.js）', function () {
+  var target = DASHBOARD_330.indexOf('PersonaPreamble') >= 0 ? DASHBOARD_330 : (typeof S_XJPANEL !== 'undefined' ? S_XJPANEL : DASHBOARD_330);
+  assert.ok(/PersonaPreamble.*build/.test(target), 'xiaojing-panel.js 未注入 PersonaPreamble.build()');
+  assert.ok(/Memory.*getProfile/.test(target), 'xiaojing-panel.js 未用 Memory.getProfile()');
+  assert.ok(!/下午好，梅。/.test(target), 'xiaojing-panel.js 仍含硬编码"下午好，梅。"');
 });
 
 test('v3.3.0-9 app.js 全局注入列表含 memory.js + persona-preamble.js', function () {
@@ -2158,6 +2206,7 @@ const CLIENT_MODAL_342 = fs.readFileSync(path.join(APPDIR_342, 'js', 'client-mod
 const STORE_342 = fs.readFileSync(path.join(APPDIR_342, 'js', 'store.js'), 'utf-8');
 const INDEX_342 = fs.readFileSync(path.join(APPDIR_342, 'index.html'), 'utf-8');
 const BILLING_342 = fs.readFileSync(path.join(APPDIR_342, 'billing-shell.html'), 'utf-8');
+const AGENT_TOOLS = fs.readFileSync(path.join(APPDIR_342, 'js', 'agent-tools.js'), 'utf-8');
 
 test('v3.4.2-1 client-modal.js 含完整 13 字段', function () {
   ['name','alias','gender','birthDate','phone','email','firstVisitDate','status','tags','notes'].forEach(function (f) {
@@ -2170,14 +2219,90 @@ test('v3.4.2-2 client-modal.js 调用 Store.createClient 而非自造 id', funct
   assert.ok(!/id:\s*['"]c_['"]\s*\+\s*Date/.test(CLIENT_MODAL_342), '仍自造 id');
 });
 
-test('v3.4.2-3 store.js 第三轮去重：同 clientId+date 零费用空记录删除', function () {
-  assert.ok(/Number\(s\.billing\.fee\) \|\| 0\) === 0/.test(STORE_342), '缺零费用去重逻辑');
-  assert.ok(/__xj_dedup_v3/.test(STORE_342), '去重标记未升级到 v3');
+test('v3.5.2-BILL-1 账本边界：只让明确 billing 对象进入财务路径', function () {
+  assert.ok(/function isBillableSession\(session\)/.test(STORE_342), '缺 isBillableSession');
+  assert.ok(/session\.billing !== null/.test(STORE_342), '账本边界必须排除 billing:null 临床记录');
+  assert.ok(/!Array\.isArray\(session\.billing\)/.test(STORE_342), '账本边界必须排除异常数组值');
+});
+
+test('v3.5.2-BILL-2 临床记录显式 billing:null，不再伪装为 ¥0 账单', function () {
+  const notesText = fs.readFileSync(path.join(APP_DIR, 'js', 'consult-notes.js'), 'utf-8');
+  assert.ok(/recordKind:\s*['"]clinical['"]/.test(notesText), '临床保存缺 recordKind:clinical');
+  assert.ok(/billing:\s*null/.test(notesText), '临床保存缺 billing:null');
+});
+
+test('v3.5.2-BILL-3 账本新旧视图、统计和清账都按 billable 过滤', function () {
+  assert.ok(/function billableSessionsFor\(clientId\)/.test(BILLING_342), '缺账本会谈过滤入口');
+  assert.ok(/function renderIncomeList\(\)/.test(BILLING_342) && /billableSessionsFor\(c\.id\)\.some/.test(BILLING_342), '收入列表月份筛选未过滤临床记录');
+  assert.ok(/function renderIncomeDetail\(\)/.test(BILLING_342) && /var sessions = billableSessionsFor\(c\.id\)/.test(BILLING_342), '收入详情未过滤临床记录');
+  assert.ok(/billableSessionsFor\(c\.id\)\.forEach\(function \(s\) \{ Store\.deleteSession/.test(BILLING_342), '清账仍会删除临床记录');
+  assert.ok(/const allSessions = billableSessions\(Store\.getSessions\(\)\)/.test(BILLING_342), '账本统计未过滤临床记录');
+});
+
+test('v3.5.2-BILL-4 合法免费账单与会议记录不被误过滤', function () {
+  const Store = createStoreMock();
+  assert.strictEqual(Store.isBillableSession({ billing: { fee: 0, source: 'tmeet' } }), true, '明确 fee=0 的会议/免费账单应保留');
+  assert.strictEqual(Store.isBillableSession({ billing: null }), false, '临床 billing:null 不应进入账本');
+  assert.strictEqual(Store.isBillableSession({}), false, '旧临床缺 billing 不应进入账本');
+});
+
+test('v3.5.2-BILL-5 同日临床 + 导入账单：仅导入会谈进入账本', function () {
+  const Store = createStoreMock();
+  const c = Store.createClient({ name: '白' });
+  Store.createSession({ clientId: c.id, date: '2026-06-30', sessionNumber: 1, recordKind: 'clinical', billing: null });
+  Store.createSession({ clientId: c.id, date: '2026-06-30', sessionNumber: 25, billing: { fee: 400, paid: false, source: 'billing' } });
+  const rows = Store.getSessionsByClient(c.id).filter(Store.isBillableSession);
+  assert.strictEqual(rows.length, 1, '账本不应包含临床第1节');
+  assert.strictEqual(rows[0].sessionNumber, 25, '账本应保留第25节导入记录');
+  assert.strictEqual(rows[0].billing.fee, 400, '账本应保留 ¥400 导入记录');
+});
+
+test('v3.5.2-BILL-6 多节同步导入使用单节唯一 importKey，保留批次键与旧数据兼容', function () {
+  const syncText = fs.readFileSync(path.join(APP_DIR, 'js', 'sync.js'), 'utf-8');
+  assert.ok(/source:\s*['"]billing['"]/.test(syncText), 'sync 导入缺 source:billing');
+  assert.ok(/function importSessionKey\(batchKey, index\)/.test(syncText), 'sync 缺单节业务键生成器');
+  assert.ok(/importKey:\s*importKey/.test(syncText), 'sync 未写入单节唯一 importKey');
+  assert.ok(/importBatchKey:\s*r\.key/.test(syncText), 'sync 未保留 importBatchKey');
+  assert.ok(/function missingImportSessionKeys\(sessions, record\)/.test(syncText), 'sync 缺幂等补缺逻辑');
+  assert.ok(/\[billing:' \+ importKey \+ '\]/.test(syncText), 'sync notes 未写入单节业务键');
+  assert.ok(/importBatchKey/.test(BILLING_342) && /missingImportSessionKeys/.test(BILLING_342), '旧账单导入未同步使用单节键');
+  assert.ok(/source === 'billing' \|\| source === 'import'/.test(BILLING_342), '显示层未兼容旧 import 来源');
+});
+
+test('v3.5.2-BILL-7 去重不再按同日零费用物理删除临床记录', function () {
+  assert.ok(/__xj_dedup_v4/.test(STORE_342), '去重标记未升级到 v4');
+  assert.ok(/function billingBusinessKey\(s\)/.test(STORE_342), '缺稳定账务业务键');
+  assert.ok(!/dateGroups/.test(STORE_342), '仍存在按同日删除记录的危险逻辑');
+  assert.ok(/if \(!isBillableSession\(s\)\) return ''/.test(STORE_342), '临床记录应排除出物理去重');
+});
+
+test('v3.5.2-BILL-8 Agent 财务聚合与临床会谈双口径', function () {
+  assert.ok(/function billableOnly\(Store, sessions\)/.test(AGENT_TOOLS), 'Agent 缺 billable 过滤器');
+  assert.ok(/aggregateClientFromSessions\(client, clinicalSessions, billableSessions\)/.test(AGENT_TOOLS), 'Agent 聚合未拆临床/账务双集合');
+  assert.ok(/const billableSessions = billableOnly\(Store, clinicalSessions\)/.test(AGENT_TOOLS), '账务 Agent 未过滤临床记录');
+});
+
+test('v3.5.2-BILL-9 账务节次编辑不得连带重排临床会谈', function () {
+  assert.ok(/var allSessions = billableSessionsFor\(session\.clientId\)/.test(BILLING_342), '账务节次重排未限制为 billable sessions');
+  assert.ok(!/var allSessions = Store\.getSessionsByClient\(session\.clientId\)/.test(BILLING_342), '账务节次重排仍会修改临床记录');
+});
+
+test('v3.5.2-BILL-10 async 测试必须串行 await 后再汇总', function () {
+  const selfText = fs.readFileSync(__filename, 'utf-8');
+  assert.ok(/await fn\(\)/.test(selfText), '测试执行器未 await async 用例');
+  assert.ok(/testChain\.then\(function \(\)/.test(selfText), '汇总未等待测试队列');
+  assert.ok(/process\.exitCode\s*=/.test(selfText), '不应在 async 队列完成前直接 process.exit');
+});
+
+test('v3.5.2-BILL-11 session.query 明确区分临床记录与账务记录', function () {
+  assert.ok(/recordKind:\s*s\.recordKind \|\| \(billable \? 'billing' : 'clinical'\)/.test(AGENT_TOOLS), 'session.query 未返回 recordKind');
+  assert.ok(/billable:\s*billable/.test(AGENT_TOOLS), 'session.query 未返回 billable 标记');
+  assert.ok(/fee:\s*billable \?/.test(AGENT_TOOLS), '临床记录仍被伪装为 fee:0');
 });
 
 test('v3.4.2-4 billing-shell.html 双栏联动 + 记一笔模态', function () {
-  assert.ok(/income-focused/.test(BILLING_342), '缺 income-focused CSS class');
-  assert.ok(/expense-focused/.test(BILLING_342), '缺 expense-focused CSS class');
+  assert.ok(/state-income/.test(BILLING_342), '缺 state-income CSS class');
+  assert.ok(/state-expense/.test(BILLING_342), '缺 state-expense CSS class');
   assert.ok(/openAddModal/.test(BILLING_342), '缺 openAddModal 函数');
   assert.ok(/am-overlay|am-client/.test(BILLING_342), '缺记一笔模态 DOM');
 });
@@ -2222,16 +2347,21 @@ test('v3.4.2-10 masters.js 历史列表含删除按钮', function () {
 
 
 // ============================================================
-// 汇总
+// 汇总（等待串行测试队列完成，确保 async assertion 可靠计入结果）
 // ============================================================
-console.log('\n========== 汇总 ==========');
-console.log('  通过：' + pass);
-console.log('  失败：' + fail);
-if (fail > 0) {
-  console.log('\n失败详情：');
-  failures.forEach(function (f) {
-    console.log('  - ' + f.name + '：' + (f.err && f.err.message ? f.err.message : f.err));
-  });
-}
-console.log('');
-process.exit(fail > 0 ? 1 : 0);
+testChain.then(function () {
+  console.log('\n========== 汇总 ==========');
+  console.log('  通过：' + pass);
+  console.log('  失败：' + fail);
+  if (fail > 0) {
+    console.log('\n失败详情：');
+    failures.forEach(function (f) {
+      console.log('  - ' + f.name + '：' + (f.err && f.err.message ? f.err.message : f.err));
+    });
+  }
+  console.log('');
+  process.exitCode = fail > 0 ? 1 : 0;
+}).catch(function (e) {
+  console.error('测试执行器异常：' + (e && e.stack ? e.stack : e));
+  process.exitCode = 1;
+});

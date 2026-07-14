@@ -143,6 +143,45 @@ function parseCSVrows(text) {
   return rows;
 }
 
+// ---------- 导入业务键（每节唯一，批次可追溯） ----------
+function importSessionKey(batchKey, index) {
+  return String(batchKey || '') + '#' + (index + 1);
+}
+
+// 兼容旧版：旧数据的每一节共用 importKey / [billing:batchKey]，只能按数量占位；
+// 新数据优先以每节唯一 importKey 幂等，避免多节导入被跨库去重压缩。
+function importedSessionCount(sessions, batchKey) {
+  const key = String(batchKey || '');
+  if (!key) return 0;
+  return (sessions || []).filter((s) => {
+    const b = s && s.billing;
+    const importKey = b && b.importKey != null ? String(b.importKey) : '';
+    return (b && String(b.importBatchKey || '') === key) ||
+      importKey === key || importKey.indexOf(key + '#') === 0 ||
+      String(s && s.notes || '').includes('[billing:' + key + ']');
+  }).length;
+}
+
+function missingImportSessionKeys(sessions, record) {
+  const batchKey = String(record.key || '');
+  if (!batchKey) return [];
+  const all = sessions || [];
+  const exact = new Set(all.map((s) => String(s && s.billing && s.billing.importKey || '')).filter(Boolean));
+  let legacySlots = all.filter((s) => {
+    const b = s && s.billing;
+    const importKey = b && b.importKey != null ? String(b.importKey) : '';
+    return importKey === batchKey || String(s && s.notes || '').includes('[billing:' + batchKey + ']');
+  }).length;
+  const missing = [];
+  for (let i = 0; i < (record.sessions || 0); i++) {
+    const key = importSessionKey(batchKey, i);
+    if (exact.has(key)) continue;
+    if (legacySlots > 0) { legacySlots--; continue; }
+    missing.push(key);
+  }
+  return missing;
+}
+
 // ---------- 计算导入计划（预览与执行共用） ----------
 function computePlan(parsed) {
   const existingClients = Store.getClients();
@@ -164,7 +203,7 @@ function computePlan(parsed) {
     const cid = nameToId[name];
     let already = 0;
     if (cid) {
-      already = Store.getSessionsByClient(cid).filter((s) => (s.notes || '').includes('[billing:' + r.key + ']')).length;
+      already = Math.min(r.sessions, importedSessionCount(Store.getSessionsByClient(cid), r.key));
     }
     const need = Math.max(0, r.sessions - already);
     byClient[name].newCount += need;
@@ -278,10 +317,9 @@ async function doImport(parsed) {
     const cid = nameToId[name];
     if (!cid) return;
     const existing = Store.getSessionsByClient(cid);
-    const already = existing.filter((s) => (s.notes || '').includes('[billing:' + r.key + ']')).length;
-    const need = Math.max(0, r.sessions - already);
+    const missingKeys = missingImportSessionKeys(existing, r);
     let nextNo = Store.nextSessionNumber(cid);
-    for (let i = 0; i < need; i++) {
+    missingKeys.forEach((importKey) => {
       sessionTasks.push(
         Store.createSession({
           clientId: cid,
@@ -292,17 +330,21 @@ async function doImport(parsed) {
           billing: {
             fee: r.feePerSession || 0,
             paid: !!r.paid,
+            source: 'billing',
+            billingMode: r.billingMode || 'per-session',
+            importKey: importKey,
+            importBatchKey: r.key || null,
           },
           notes: [
             '来源：记账系统同步',
             r.feePerSession ? '单价 ¥' + r.feePerSession : '',
             r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '',
-            '[billing:' + r.key + ']',
+            '[billing:' + importKey + ']',
           ].filter(Boolean).join('｜'),
         }).then(function () { added++; })
           .catch(function (e) { errors.push(`节次导入失败：${e.message}`); })
       );
-    }
+    });
   });
   await Promise.all(sessionTasks);
 

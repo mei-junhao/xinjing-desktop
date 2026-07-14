@@ -491,9 +491,29 @@
   let bQuery = '';
   const MODE_TEXT = { 'per-session': '次结', monthly: '月结', prepaid: '预付费' };
 
+  // ====== 账本边界 ======
+  // 临床记录（billing:null 或缺失）只属于咨询记录，绝不显示或计入记账。
+  // 明确 billing:{fee:0} 的免费/减免咨询仍属于账本。
+  function billableSessionsFor(clientId) {
+    return Store.getSessionsByClient(clientId).filter(function (s) { return Store.isBillableSession(s); });
+  }
+  function billableSessions(allSessions) {
+    return (allSessions || []).filter(function (s) { return Store.isBillableSession(s); });
+  }
+  function billingTypeLabel(billing) {
+    var source = billing && billing.source;
+    if (source === 'billing' || source === 'import') return '导入';
+    if (source === 'manual') return '手动';
+    if (source === 'agent') return 'AI录入';
+    if (source === 'tmeet') return '会议';
+    if (billing && billing.billingMode === 'monthly') return '月结';
+    if (billing && billing.billingMode === 'prepaid') return '预付费';
+    return billing ? '未标注' : '';
+  }
+
   // ====== 聚合某 client 的应收/已收/欠费 ======
   function clientAgg(c) {
-    const sessions = Store.getSessionsByClient(c.id);
+    const sessions = billableSessionsFor(c.id);
     let total = 0, received = 0;
     sessions.forEach(function (s) {
       const fee = (s.billing && Number(s.billing.fee)) || 0;
@@ -515,7 +535,7 @@
   function renderBillingStats() {
     try {
       const clients = Store.getClients();
-      const allSessions = Store.getSessions();
+      const allSessions = billableSessions(Store.getSessions());
       const allExpenses = Store.getExpenses ? Store.getExpenses() : [];
       const ym = new Date().toISOString().slice(0, 7);
       let mRec = 0, mPaid = 0, tRec = 0, tPaid = 0;
@@ -601,7 +621,7 @@
     var mode = (c.billing && c.billing.billingMode) || 'per-session';
     var agg = clientAgg(c);
     var ym = new Date().toISOString().slice(0, 7);
-    var monthSessions = Store.getSessionsByClient(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
+    var monthSessions = billableSessionsFor(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
     var monthPaid = monthSessions.reduce(function (acc, s) { return acc + ((s.billing && s.billing.paid) ? Number(s.billing.fee) || 0 : 0); }, 0);
     return '<div class="ccard' + (bCurClient && bCurClient.id === c.id ? ' active' : '') + '" onclick="selectBClient(\'' + c.id + '\')">'
       + '<div class="r1"><span class="nm">' + App.escapeHtml(c.name) + '</span><span class="mode">' + (MODE_TEXT[mode] || '次结') + '</span></div>'
@@ -633,7 +653,7 @@
     }
     const mode = (c.billing && c.billing.billingMode) || 'per-session';
     const fee = (c.billing && Number(c.billing.feePerSession)) || 0;
-    const sessions = Store.getSessionsByClient(c.id).slice().sort(function (a, b) {
+    const sessions = billableSessionsFor(c.id).slice().sort(function (a, b) {
       return (b.date || '').localeCompare(a.date || '');
     });
     const agg = clientAgg(c);
@@ -672,8 +692,7 @@
       + (sessions.length ? sessions.filter(function(s){if(inoutFilter==='in') return !!(s.billing&&s.billing.paid);if(inoutFilter==='out') return !(s.billing&&s.billing.paid)&&(s.billing&&Number(s.billing.fee)>0);return true;}).map(function (s) {
         const sf = (s.billing && Number(s.billing.fee)) || 0;
         const paid = !!(s.billing && s.billing.paid);
-        const stype = (s.billing && s.billing.source === 'tmeet') ? '会议' : (s.billing && s.billing.source === 'billing' ? '导入' :
-          ((s.billing && s.billing.billingMode === 'monthly') ? '月结' : ((s.billing && s.billing.billingMode === 'prepaid') ? '预付费' : '次结')));
+        const stype = billingTypeLabel(s.billing);
         return '<tr data-sid="' + s.id + '">'
           + '<td>' + App.escapeHtml(s.date || '') + '</td>'
           + '<td class="editable" data-field="sessionNumber" style="cursor:pointer;min-width:50px" title="点击编辑节次">第' + (s.sessionNumber || '?') + '节</td>'
@@ -696,7 +715,7 @@
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
     }
-    const allSess = Store.getSessions();
+    const allSess = billableSessions(Store.getSessions());
     const allC = Store.getClients();
     const data = months.map(function (ym) {
       let total = 0;
@@ -769,7 +788,7 @@
     const month = monthEl ? monthEl.value : '';
     const mode = (c.billing && c.billing.billingMode) || 'per-session';
     const fee = (c.billing && Number(c.billing.feePerSession)) || 0;
-    const rs = Store.getSessionsByClient(c.id).filter(function (s) {
+    const rs = billableSessionsFor(c.id).filter(function (s) {
       return s.date && s.date.slice(0, 7) === month;
     }).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
     const totalDue = rs.reduce(function (acc, s) { return acc + ((s.billing && Number(s.billing.fee)) || 0); }, 0);
@@ -1046,7 +1065,8 @@
 
       if (field === 'sessionNumber') {
         var shift = newVal - oldVal;
-        var allSessions = Store.getSessionsByClient(session.clientId);
+        // 账本页只能调整账务记录；临床会谈的节次属于临床时间线，不得被财务编辑连带重排。
+        var allSessions = billableSessionsFor(session.clientId);
         allSessions.forEach(function(s) {
           if (s.sessionNumber >= oldVal && s.id !== session.id) {
             Store.updateSessionFull(Object.assign({}, Store.getSession(s.id), { sessionNumber: Math.max(1, s.sessionNumber + shift) }));
@@ -1103,9 +1123,10 @@
   window.doClearData = function () {
     var clients = Store.getClients();
     clients.forEach(function (c) {
-      var sessions = Store.getSessionsByClient(c.id);
-      sessions.forEach(function (s) { Store.deleteSession(s.id); });
-      Store.updateClient(c.id, { billing: { feePerSession: 0, billingMode: 'per-session', monthlyPayments: [] } });
+      // 清账只清财务会谈，绝不删除临床记录。
+      billableSessionsFor(c.id).forEach(function (s) { Store.deleteSession(s.id); });
+      var billing = Object.assign({}, c.billing || {}, { feePerSession: 0, billingMode: 'per-session', monthlyPayments: [] });
+      Store.updateClient(c.id, { billing: billing });
     });
     App.closeModal('confirm-modal');
     App.showToast('账单数据已清除', 'success');
@@ -1314,6 +1335,41 @@
       if (!clients.length) throw new Error('CSV 中未解析到任何来访者记录');
       return { format: 'csv', clients, records };
     }
+    function importSessionKey(batchKey, index) {
+      return String(batchKey || '') + '#' + (index + 1);
+    }
+    // 兼容旧版：此前同一批多节记录共享 key，只能按数量占位；
+    // 新版每一节使用独立 key，保证重试与跨库合并不会压缩多节账单。
+    function importedSessionCount(sessions, batchKey) {
+      var key = String(batchKey || '');
+      if (!key) return 0;
+      return (sessions || []).filter(function (s) {
+        var b = s && s.billing;
+        var importKey = b && b.importKey != null ? String(b.importKey) : '';
+        return (b && String(b.importBatchKey || '') === key) ||
+          importKey === key || importKey.indexOf(key + '#') === 0 ||
+          String(s && s.notes || '').indexOf('[billing:' + key + ']') >= 0;
+      }).length;
+    }
+    function missingImportSessionKeys(sessions, record) {
+      var batchKey = String(record.key || '');
+      if (!batchKey) return [];
+      var all = sessions || [];
+      var exact = new Set(all.map(function (s) { return String(s && s.billing && s.billing.importKey || ''); }).filter(Boolean));
+      var legacySlots = all.filter(function (s) {
+        var b = s && s.billing;
+        var importKey = b && b.importKey != null ? String(b.importKey) : '';
+        return importKey === batchKey || String(s && s.notes || '').indexOf('[billing:' + batchKey + ']') >= 0;
+      }).length;
+      var missing = [];
+      for (var i = 0; i < (record.sessions || 0); i++) {
+        var key = importSessionKey(batchKey, i);
+        if (exact.has(key)) continue;
+        if (legacySlots > 0) { legacySlots--; continue; }
+        missing.push(key);
+      }
+      return missing;
+    }
     function computePlan(p) {
       const nameToId = {};
       Store.getClients().forEach(c => { nameToId[c.name.trim()] = c.id; });
@@ -1324,22 +1380,13 @@
         byClient[n] = byClient[n] || { newCount: 0, skipCount: 0, dupCount: 0 };
         const cid = nameToId[n];
         let already = 0;
-        let dupCount = 0;
         if (cid) {
-          // 检查是否已有相同日期+相同费用的记录（不依赖 key 标记，而是按日期+费用去重）
+          // 不按同日/同金额猜测重复：同日可能有多次真实会谈；只使用稳定导入业务键。
           var existing = Store.getSessionsByClient(cid);
-          var sameDay = existing.filter(function(s) { return s.date === r.date && (s.billing && Number(s.billing.fee) === r.feePerSession); });
-          if (sameDay.length > 0) {
-            already = r.sessions; // 全部跳过
-            dupCount = r.sessions;
-          } else {
-            // 也检查 key 标记去重（兼容旧逻辑）
-            already = existing.filter(s => (s.notes || '').includes('[billing:' + r.key + ']')).length;
-          }
+          already = Math.min(r.sessions, importedSessionCount(existing, r.key));
         }
         byClient[n].newCount += Math.max(0, r.sessions - already);
         byClient[n].skipCount += already;
-        byClient[n].dupCount = (byClient[n].dupCount || 0) + dupCount;
       });
       let newClientCount = 0, newSessionCount = 0, skipCount = 0;
       Object.keys(byClient).forEach(n => {
@@ -1435,17 +1482,16 @@
           // 继承 client 的 billingMode
           var clientObj = Store.getClient(cid);
           var recordMode = r.billingMode || (clientObj && clientObj.billing && clientObj.billing.billingMode) || 'per-session';
-          var already = existingSessions.filter(function(s) { return (s.notes || '').indexOf('[billing:' + r.key + ']') >= 0; }).length;
-          var need = Math.max(0, r.sessions - already);
-          for (var i = 0; i < need; i++) {
+          var missingKeys = missingImportSessionKeys(existingSessions, r);
+          missingKeys.forEach(function(importKey) {
             Store.createSession({
               clientId: cid, sessionNumber: sessionNo, date: r.date, durationMinutes: 0, type: 'individual',
-              billing: { fee: r.feePerSession || 0, paid: !!r.paid, source: 'billing', billingMode: recordMode },
-              notes: ['来源：旧版记账导入', r.feePerSession ? '单价 ¥' + r.feePerSession : '', '方式：' + ((recordMode === 'monthly') ? '月结' : (recordMode === 'prepaid' ? '预付费' : '次结')), r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '', '[billing:' + r.key + ']'].filter(Boolean).join('｜')
+              billing: { fee: r.feePerSession || 0, paid: !!r.paid, source: 'billing', billingMode: recordMode, importKey: importKey, importBatchKey: r.key || null },
+              notes: ['来源：旧版记账导入', r.feePerSession ? '单价 ¥' + r.feePerSession : '', '方式：' + ((recordMode === 'monthly') ? '月结' : (recordMode === 'prepaid' ? '预付费' : '次结')), r.paid !== undefined ? (r.paid ? '已缴' : '未缴') : '', '[billing:' + importKey + ']'].filter(Boolean).join('｜')
             });
             sessionNo++;
             added++;
-          }
+          });
         });
       });
       setResult(`导入完成：新增节次 ${added}，跳过 ${plan.skipCount}（已存在）`, 'var(--green, #6E7E62)');
@@ -1650,7 +1696,7 @@
       if (c.status === 'ended') return false;
       if (q && (c.name || '').toLowerCase().indexOf(q) < 0) return false;
       if (binMonthFilter !== 'all') {
-        var hasSessions = Store.getSessionsByClient(c.id).some(function (s) {
+        var hasSessions = billableSessionsFor(c.id).some(function (s) {
           return s.date && s.date.slice(0, 7) === binMonthFilter;
         });
         var hasMP = (c.billing && c.billing.monthlyPayments || []).some(function (mp) {
@@ -1670,7 +1716,7 @@
       var agg = clientAgg(c);
       var mode = (c.billing && c.billing.billingMode) || 'per-session';
       var ym = new Date().toISOString().slice(0, 7);
-      var monthSessions = Store.getSessionsByClient(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
+      var monthSessions = billableSessionsFor(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
       var active = binCurClient && binCurClient.id === c.id;
       return '<div class="bin-item' + (active ? ' active' : '') + '" onclick="selectIncomeClient(\'' + c.id + '\', event)">' +
         '<div class="ava">' + (c.name ? c.name[0] : '?') + '</div>' +
@@ -1730,7 +1776,7 @@
   function renderIncomeDetail() {
     if (!binCurClient) { showDetailEmpty(); return; }
     var c = binCurClient;
-    var sessions = Store.getSessionsByClient(c.id).slice().sort(function (a, b) {
+    var sessions = billableSessionsFor(c.id).slice().sort(function (a, b) {
       return (b.date || '').localeCompare(a.date || '');
     });
     if (binMonthFilter !== 'all') {
@@ -1759,7 +1805,7 @@
       html += sessions.map(function (s) {
         var sf = (s.billing && Number(s.billing.fee)) || 0;
         var paid = !!(s.billing && s.billing.paid);
-        var stype = (s.billing && s.billing.source === 'tmeet') ? '会议' : (s.billing && s.billing.source === 'billing' ? '导入' : (s.billing && s.billing.source === 'agent' ? 'Agent' : ((s.billing && s.billing.billingMode === 'monthly') ? '月结' : ((s.billing && s.billing.billingMode === 'prepaid') ? '预付费' : '次结'))));
+        var stype = billingTypeLabel(s.billing);
         return '<tr>' +
           '<td>' + App.escapeHtml(s.date || '') + '</td>' +
           '<td>第' + (s.sessionNumber || '?') + '节</td>' +
