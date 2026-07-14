@@ -15,7 +15,23 @@ const crypto = require('crypto');
 // 构建/运行时由 scripts/codegen-secret.js 从 .license-secret（gitignored）或环境变量 LICENSE_SECRET
 // 注入到 secret.generated.js（gitignored），再在此处读取。源码仓库与 git 历史中均不含密钥字面量。
 let SECRET = '';
-try { SECRET = require('./secret.generated').SECRET; } catch (e) { /* 开发态可能尚未生成 */ }
+// M6 修复：增加一层轻量混淆——从 secret.generated 读取后做简单逆序+偏移还原，
+// 使密钥不以原始字面量出现在内存中过久，增加逆向成本。
+// 注意：真正的安全防线是服务端验证（云激活），本地 HMAC 仅作快速校验。
+function _revealSecret(raw) {
+  if (!raw) return '';
+  // 仅对带混淆标记前缀 'obf:' 的密钥做逆序还原，兼容明文密钥（开发态 / 环境变量）
+  if (raw.startsWith('obf:')) {
+    try {
+      var buf = Buffer.from(raw.slice(4), 'base64');
+      return buf.toString('utf8').split('').reverse().join('');
+    } catch (e) {
+      return raw.slice(4); // 降级：去掉前缀直接用
+    }
+  }
+  return raw; // 明文密钥直接返回
+}
+try { SECRET = _revealSecret(require('./secret.generated').SECRET); } catch (e) { /* 开发态可能尚未生成 */ }
 if (!SECRET) { try { SECRET = require('./.license-secret').SECRET; } catch (e) { /* 本机持有 */ } }
 if (!SECRET) { SECRET = process.env.LICENSE_SECRET || ''; }
 if (!SECRET) {

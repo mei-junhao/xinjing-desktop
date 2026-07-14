@@ -356,6 +356,25 @@ const App = (() => {
       .replace(/'/g, '&#39;');
   }
 
+  // L10 修复：统一错误日志——收集到内存环形缓冲，供调试和诊断包导出
+  var _errorLog = [];
+  var _ERROR_LOG_MAX = 100;
+  function logError(module, err, context) {
+    var entry = {
+      ts: new Date().toISOString(),
+      module: module || 'unknown',
+      msg: (err && err.message) ? err.message : String(err || ''),
+      stack: (err && err.stack) ? String(err.stack).slice(0, 500) : '',
+      ctx: context || ''
+    };
+    _errorLog.push(entry);
+    if (_errorLog.length > _ERROR_LOG_MAX) _errorLog.shift();
+    if (typeof console !== 'undefined' && console.error) {
+      console.error('[' + entry.module + ']', entry.msg, context || '');
+    }
+  }
+  function getErrorLog() { return _errorLog.slice(); }
+
   function formatDate(isoOrStr, withYear = false) {
     if (!isoOrStr) return '';
     const d = new Date(isoOrStr);
@@ -588,6 +607,8 @@ const App = (() => {
     injectLayout,
     initPage,
     escapeHtml,
+    logError,
+    getErrorLog,
     formatDate,
     todayStr,
     todayFullCN,
@@ -670,20 +691,7 @@ if (typeof window !== 'undefined') {
         }
       }
     }
-    // 首页"新建来访"按钮
-    var hero = document.getElementById('hero-stats');
-    if (hero && !hero.querySelector('.xj-new-client-btn')) {
-      var btn = document.createElement('button');
-      btn.className = 'xj-new-client-btn';
-      btn.textContent = '＋ 新建来访';
-      btn.style.cssText = 'border:1px dashed var(--border);border-radius:999px;padding:6px 16px;font:12px var(--sans);cursor:pointer;background:transparent;color:var(--accent);margin-top:2px';
-      btn.onclick = function () {
-        if (typeof ClientModal !== 'undefined') ClientModal.show(function (c) {
-          if (typeof App !== 'undefined' && App.showToast) App.showToast('已新增来访者「' + c.name + '」', 'success');
-        });
-      };
-      hero.parentElement.insertBefore(btn, hero.nextSibling);
-    }
+    // 首页"新建来访"按钮已由 index.html 顶栏提供（小镜旁边），此处不再重复注入
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { setTimeout(tryInject, 500); });

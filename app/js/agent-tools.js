@@ -24,9 +24,21 @@
   }
 
   // ---------- 工具：剥离提示注入模式 ----------
+  // H2 修复：扩展注入模式覆盖范围，含中英文常见变种与分隔符绕过
+  var INJECTION_RE = new RegExp([
+    '忽略(?:以上|上述|前述|之前)?(?:指令|规则|提示|设定|约束|system)',
+    ' disregard (?:all |any )?previous',
+    ' ignore (?:all |any )?previous',
+    ' forget (?:everything|all|previous|prior)',
+    '你现在是|从现在起你是|act as if you are|pretend you are',
+    '新指令|新规则|new instruction|new rule',
+    'system\\s*[:：]',
+    '\\boverride\\b.*\\b(instructions?|rules?|system)',
+    'disregard.*(?:above|prior|previous|instructions?)'
+  ].join('|'), 'gi');
   function stripInjection(s) {
     if (typeof s !== 'string') return s;
-    return s.replace(/忽略|ignore previous|system:|新指令|disregard/gi, '').slice(0, 4000);
+    return s.replace(INJECTION_RE, '').slice(0, 4000);
   }
   function sanitizeResult(obj) {
     if (!obj || typeof obj !== 'object') return obj;
@@ -77,6 +89,11 @@
   function aggregateClient(client) {
     const Store = getStore();
     const sessions = (Store.getSessionsByClient(client.id) || []);
+    return aggregateClientFromSessions(client, sessions);
+  }
+  // L4 修复：抽取共享聚合逻辑，供 aggregateClient / aggregateAll / computeInsight / computeFollowups 复用
+  function aggregateClientFromSessions(client, sessions) {
+    sessions = sessions || [];
     let totalFee = 0, received = 0;
     for (const s of sessions) {
       const fee = (s.billing && s.billing.fee) || 0;
@@ -119,19 +136,29 @@
     let activeThisMonth = 0;
     const now = new Date();
     const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    // L3 优化：预建 clientId → sessions 索引，避免 N+1 查询
+    var allSessions = Store.getSessions() || [];
+    var sessionsByClient = {};
+    for (var si = 0; si < allSessions.length; si++) {
+      var s = allSessions[si];
+      var key = s.clientId;
+      if (!sessionsByClient[key]) sessionsByClient[key] = [];
+      sessionsByClient[key].push(s);
+    }
     for (const c of clients) {
-      const a = aggregateClient(c); // 复用已算的 a，避免 N+1 重复聚合（v1.6.0 P2 修复）
-      totalSessions += a.sessionCount;
-      totalReceivable += a.totalFee;
-      totalReceived += a.received;
-      if (!busiest || a.sessionCount > busiest.sessionCount) busiest = { name: a.name, sessionCount: a.sessionCount };
-      if (a.tenureDays != null) {
-        if (!longest) longest = { name: a.name, firstSessionDate: a.firstSessionDate, tenureDays: a.tenureDays };
-        else if (a.tenureDays > longest.tenureDays) longest = { name: a.name, firstSessionDate: a.firstSessionDate, tenureDays: a.tenureDays };
+      // L3：用预建索引替代 Store.getSessionsByClient 逐个查询
+      var cSessions = sessionsByClient[c.id] || [];
+      var cAgg = aggregateClientFromSessions(c, cSessions);
+      totalSessions += cAgg.sessionCount;
+      totalReceivable += cAgg.totalFee;
+      totalReceived += cAgg.received;
+      if (!busiest || cAgg.sessionCount > busiest.sessionCount) busiest = { name: cAgg.name, sessionCount: cAgg.sessionCount };
+      if (cAgg.tenureDays != null) {
+        if (!longest) longest = { name: cAgg.name, firstSessionDate: cAgg.firstSessionDate, tenureDays: cAgg.tenureDays };
+        else if (cAgg.tenureDays > longest.tenureDays) longest = { name: cAgg.name, firstSessionDate: cAgg.firstSessionDate, tenureDays: cAgg.tenureDays };
       }
-      // 本月活跃：任一会谈在当月即算活跃（非仅最后一条），直接查 sessions 避免再调 aggregateClient
-      const cs = (Store.getSessionsByClient(c.id) || []);
-      if (cs.some(function (s) { return s.date && s.date.indexOf(monthStr) === 0; })) activeThisMonth++;
+      // L3：本月活跃直接用预建索引
+      if (cSessions.some(function (s) { return s.date && s.date.indexOf(monthStr) === 0; })) activeThisMonth++;
     }
     return {
       totalClients: totalClients,
@@ -229,9 +256,11 @@
       return { ok: false, error: 'records 为必填数组' };
     }
     const results = [];
+    var createdCount = 0; // M2 修复：限制单次调用最多新建 3 个客户，防 AI 幻觉批量建幽灵客户
     for (const r of args.records) {
-      // 1. 解析 clientId
-      const resolved = resolveClientId(r.clientId, r.clientName, true);
+      // 1. 解析 clientId（M2：超出新建上限后不再自动创建）
+      var allowCreate = createdCount < 3;
+      const resolved = resolveClientId(r.clientId, r.clientName, allowCreate);
       if (!resolved.ok) { results.push({ skipped: true, reason: resolved.error }); continue; }
       const clientId = resolved.clientId;
       // 2. 写前查重：复用 [billing:KEY] tag 惯例，细化为 [billing:clientId:date:fee]
@@ -241,6 +270,8 @@
         return s.notes && s.notes.indexOf(tag) !== -1;
       });
       if (existing) { results.push({ skipped: true, reason: '已存在相同记录', tag: tag }); continue; }
+      // M2：跟踪新建客户数
+      if (resolved.created) createdCount++;
       // 3. 构造 session 对象并落库
       //    字段路径对齐真代码：billing-sync.js L57-58 + billing-shell.html L443
       //    session 顶层无 fee/paid/sessionCount/settleType；金额走 session.billing.fee，缴费走 session.billing.paid
@@ -307,9 +338,24 @@
     // 3. Object.assign({}, c.billing || {}, { monthlyPayments: [...existing, newMp] }) 合并，绝不整体覆盖
     const existingMonthlyPayments = (client.billing && Array.isArray(client.billing.monthlyPayments)) ? client.billing.monthlyPayments : [];
     const newMp = { month: args.month, amount: args.amount, paidAt: new Date().toISOString() };
-    // 写前查重：同月已存在付款记录则跳过
+    // L6 修复：同月已有付款记录时追加而非拒绝（支持定金+尾款等补录场景），但提示已有金额
     const dup = existingMonthlyPayments.find(function (mp) { return mp.month === args.month; });
-    if (dup) return { ok: false, error: '来访者「' + (client.name || clientId) + '」的 ' + args.month + ' 已存在月结付款记录（¥' + (dup.amount || 0) + '），如需修改请联系开发者或在记账页手动改' };
+    if (dup) {
+      // 合并：同月多笔累加为一条，保留明细
+      var existingAmount = dup.amount || 0;
+      dup.amount = existingAmount + args.amount;
+      dup.updatedAt = new Date().toISOString();
+      dup.note = (dup.note || '') + ' +追加¥' + args.amount;
+      var billingMerged = Object.assign({}, client.billing || {}, {
+        monthlyPayments: existingMonthlyPayments // 已就地修改 dup
+      });
+      try {
+        Store.updateClient(clientId, { billing: billingMerged });
+        return sanitizeResult({ ok: true, data: { clientId: clientId, month: args.month, amount: dup.amount, previousAmount: existingAmount, appended: true, followups: computeFollowups(clientId) } });
+      } catch (e) {
+        return { ok: false, error: '月结追加落库失败：' + e.message };
+      }
+    }
     const billing = Object.assign({}, client.billing || {}, {
       monthlyPayments: existingMonthlyPayments.concat([newMp])
     });
@@ -421,7 +467,10 @@
     const cutoff = now - daysSince * 86400000;
 
     const clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
-    const sessions = Store.getSessions();
+    // L5 修复：仅统计活跃客户的 session，排除已结束客户的历史会话
+    var activeClientIds = {};
+    clients.forEach(function (c) { activeClientIds[c.id] = true; });
+    const sessions = Store.getSessions().filter(function (s) { return activeClientIds[s.clientId]; });
 
     const reminders = [];
     const stale = [];
@@ -650,9 +699,18 @@
       maxTokens: 4000,
     };
 
+    // H1 修复：apiKey 经 safeStorage 加密后再存入 IndexedDB（明文不落盘）
+    async function encryptAndSave(cfg) {
+      var toSave = Object.assign({}, cfg);
+      if (toSave.apiKey && typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.encryptSecret) {
+        try { toSave.apiKey = await window.__XJ_API__.encryptSecret(toSave.apiKey); } catch (e) { /* 降级明文 */ }
+      }
+      Store.saveSettings({ apiConfig: toSave });
+    }
+
     // 多轮：密钥还没收齐 → 先存 partial，不测试
     if (!apiKey) {
-      Store.saveSettings({ apiConfig: merged });
+      encryptAndSave(merged);
       return sanitizeResult({
         ok: true,
         data: {
@@ -664,7 +722,7 @@
     }
     // 端点或模型仍未定 → 提示，不测试
     if (!baseUrl || !model) {
-      Store.saveSettings({ apiConfig: merged });
+      encryptAndSave(merged);
       return sanitizeResult({
         ok: false,
         error: '还需 baseUrl 与 model 才能测试连接（或给一个已知服务商名）'
@@ -678,7 +736,7 @@
     var providerLabel = (provider && API_PROVIDERS[provider]) ? API_PROVIDERS[provider].label : '自定义';
     if (test.ok) {
       merged.verified = true;
-      Store.saveSettings({ apiConfig: merged });
+      await encryptAndSave(merged);
       return sanitizeResult({
         ok: true,
         data: {
@@ -692,7 +750,7 @@
     } else {
       // 测试失败：保留输入供重试，但 verified=false → 档位回 builtin（自动降级）
       merged.verified = false;
-      Store.saveSettings({ apiConfig: merged });
+      await encryptAndSave(merged);
       return sanitizeResult({
         ok: true,
         data: {
@@ -771,7 +829,40 @@
     }
   };
 
-  const supervisionSessions = {};
+  // M3 修复：用 LRU + TTL 替代无限制对象缓存，防内存泄漏
+  function createLRUCache(maxSize, ttlMs) {
+    var map = {};
+    var order = [];
+    function evict() {
+      var now = Date.now();
+      // 过期清理
+      for (var i = order.length - 1; i >= 0; i--) {
+        if (now - map[order[i]].ts > ttlMs) {
+          delete map[order[i]];
+          order.splice(i, 1);
+        }
+      }
+      // 容量清理
+      while (order.length > maxSize) {
+        var k = order.shift();
+        delete map[k];
+      }
+    }
+    return {
+      get: function (key) {
+        if (!map[key]) return undefined;
+        if (Date.now() - map[key].ts > ttlMs) { delete map[key]; order.splice(order.indexOf(key), 1); return undefined; }
+        return map[key].val;
+      },
+      set: function (key, val) {
+        if (map[key]) order.splice(order.indexOf(key), 1);
+        map[key] = { val: val, ts: Date.now() };
+        order.push(key);
+        evict();
+      }
+    };
+  }
+  const supervisionSessions = createLRUCache(20, 3600000); // 最多 20 条，TTL 1 小时
 
   async function startSupervision(args) {
     const Store = getStore();
@@ -814,7 +905,7 @@
       if (!sv) {
         return { ok: false, error: '\u4fdd\u5b58\u5931\u8d25\uff08\u53ef\u80fd\u53d7\u9650\u6a21\u5f0f\u5df2\u8fbe\u7763\u5bfc\u8bb0\u5f55\u4e0a\u9650\uff09' };
       }
-      supervisionSessions[sv.id] = chatMessages;
+      supervisionSessions.set(sv.id, chatMessages);
       return sanitizeResult({
         ok: true,
         data: { sessionId: sv.id, impression: chatMessages[1].content, clientId: clientId, followups: clientId ? computeFollowups(clientId) : [] }
@@ -850,14 +941,14 @@
     if (typeof SupervisionCore === 'undefined') {
       return { ok: false, error: 'SupervisionCore 未注入' };
     }
-    var chatMessages = supervisionSessions[args.sessionId];
+    var chatMessages = supervisionSessions.get(args.sessionId);
     // AG-7 修复：reload 后内存会话丢失，从 Store 回退重建（用已存整体印象作为上下文继续追问）
     if (!chatMessages) {
       try {
         var sv = Store.getSupervision(args.sessionId);
         if (sv && sv.content) {
           chatMessages = [{ role: 'assistant', content: sv.content }];
-          supervisionSessions[args.sessionId] = chatMessages;
+          supervisionSessions.set(args.sessionId, chatMessages);
         }
       } catch (e) {}
     }
@@ -868,7 +959,7 @@
       var result = await SupervisionCore.runRound(chatMessages, args.question);
       if (result.error) return { ok: false, error: result.error };
       var updatedCMs = result.chatMessages;
-      supervisionSessions[args.sessionId] = updatedCMs;
+      supervisionSessions.set(args.sessionId, updatedCMs);
       var fullUpdatedText = '\u3010\u6574\u4f53\u5370\u8c61\u3011\n' + updatedCMs[1].content + '\n\n' +
         updatedCMs.slice(2).map(function (m) {
           return (m.role === 'user' ? '\u54a8\u8be2\u5e08\uff1a' : '\u7763\u5bfc\u5e08\uff1a') + m.content;
@@ -910,7 +1001,7 @@
     }
   };
 
-  const masterConvs = {};
+  const masterConvs = createLRUCache(20, 3600000); // M3：最多 20 条，TTL 1 小时
 
   async function openMaster(args) {
     if (!args || !args.masterId) {
@@ -935,7 +1026,7 @@
         MastersCore.maybeSummarize(conv);
         Store.saveMasterConversation(conv);
       }
-      masterConvs[conv.id] = conv;
+      masterConvs.set(conv.id, conv);
       return sanitizeResult({
         ok: true,
         data: { sessionId: conv.id, masterName: conv.title, firstReply: firstReply }
@@ -973,7 +1064,7 @@
       return { ok: false, error: 'MastersCore 未注入' };
     }
     try {
-      var conv = masterConvs[args.sessionId];
+      var conv = masterConvs.get(args.sessionId);
       if (!conv && typeof Store !== 'undefined') {
         conv = Store.getMasterConversation(args.sessionId);
       }
@@ -988,7 +1079,7 @@
       conv.messages.push({ role: 'assistant', content: res.content, masterKey: masterKey });
       MastersCore.maybeSummarize(conv);
       Store.saveMasterConversation(conv);
-      masterConvs[args.sessionId] = conv;
+      masterConvs.set(args.sessionId, conv);
       return sanitizeResult({ ok: true, data: { sessionId: args.sessionId, reply: res.content } });
     } catch (e) {
       return { ok: false, error: '\u5927\u5e08\u6d88\u606f\u53d1\u9001\u5931\u8d25\uff1a' + (e && e.message || e) };

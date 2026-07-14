@@ -80,11 +80,16 @@ App.initPage({
       });
     }
 
-    function loadConfig() {
+    async function loadConfig() {
     const settings = Store.getSettings();
     const api = settings.apiConfig || {};
     document.getElementById('api-baseurl').value = api.baseUrl || '';
-    document.getElementById('api-key').value = api.apiKey || '';
+    // H1 修复：apiKey 可能已加密，显示前需解密
+    var displayKey = api.apiKey || '';
+    if (displayKey && displayKey.startsWith('xj-enc:') && window.__XJ_API__ && window.__XJ_API__.decryptSecret) {
+      try { displayKey = await window.__XJ_API__.decryptSecret(displayKey); } catch (e) { displayKey = ''; }
+    }
+    document.getElementById('api-key').value = displayKey;
     const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes', 'deepseek-reasoner', 'deepseek-chat'];
     let modelPref = api.modelPreference || '';
     if (OLD.indexOf(modelPref) !== -1) {
@@ -156,7 +161,7 @@ App.initPage({
       '<div style="font-size:11px;color:var(--muted);margin-top:4px">额度用尽或过期可<b>购买会员 / 增量包</b>恢复 v4-flash 高性能使用。</div>';
   }
 
-  window.saveApiConfig = function () {
+  window.saveApiConfig = async function () {
     var sel = document.getElementById('api-model');
     var model = sel.value;
     if (model === '__custom__') {
@@ -167,10 +172,16 @@ App.initPage({
       Store.saveSettings({ apiConfig: {} });
       App.showToast('已切换回内置免费模型', 'success');
     } else {
+      // H1 修复：apiKey 经 safeStorage 加密后再存入 IndexedDB
+      var rawKey = document.getElementById('api-key').value.trim();
+      var encKey = rawKey;
+      if (rawKey && window.__XJ_API__ && window.__XJ_API__.encryptSecret) {
+        try { encKey = await window.__XJ_API__.encryptSecret(rawKey); } catch (e) { /* 降级明文 */ }
+      }
       Store.saveSettings({
         apiConfig: {
           baseUrl: document.getElementById('api-baseurl').value.trim(),
-          apiKey: document.getElementById('api-key').value.trim(),
+          apiKey: encKey,
           modelPreference: model,
           maxTokens: 4000,
         },
@@ -201,11 +212,16 @@ App.initPage({
     }
     App.showToast('正在测试连接...');
     try {
+      // H1 修复：apiKey 可能已加密，使用前需解密
+      var testKey = cfg.apiKey || '';
+      if (testKey.startsWith('xj-enc:') && window.__XJ_API__ && window.__XJ_API__.decryptSecret) {
+        try { testKey = await window.__XJ_API__.decryptSecret(testKey); } catch (e) { testKey = ''; }
+      }
       const resp = await fetch(cfg.baseUrl.replace(/\/$/, '') + '/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + (cfg.apiKey || ''),
+          Authorization: 'Bearer ' + testKey,
         },
         body: JSON.stringify({
           model: cfg.model,
@@ -824,7 +840,12 @@ App.initPage({
       baseUrl: CD.baseUrl, apiKey: CD.apiKey, modelPreference: CD.model,
       provider: CD.provider, maxTokens: 4000, verified: test.ok,
     };
-    Store.saveSettings({ apiConfig: merged });
+    // H1 修复：apiKey 经 safeStorage 加密后再存入 IndexedDB
+    var toSave = Object.assign({}, merged);
+    if (toSave.apiKey && window.__XJ_API__ && window.__XJ_API__.encryptSecret) {
+      try { toSave.apiKey = await window.__XJ_API__.encryptSecret(toSave.apiKey); } catch (e) { /* 降级明文 */ }
+    }
+    Store.saveSettings({ apiConfig: toSave });
     updateTierStatus();
     if (test.ok) {
       cdMsg('ai', '✅ <b>接入成功，已验证可用</b>！你现在是完全体，可以做复杂分析。点下面的「试用 Agent 对话」马上开聊吧。');

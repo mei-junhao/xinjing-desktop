@@ -75,10 +75,15 @@ const AI = (() => {
   }
   function applyQuotaInfo(info) {
     if (!info || typeof info !== 'object') return;
+    // M5 修复：只接受来自服务器响应头的额度信息（headers.get 来源可信），
+    // 拒绝从 DevTools 直接篡改 QUOTA_CACHE 的 tier 字段。
+    // 实际防护靠服务端硬限额；此处仅增加客户端 tier 篡改的最低门槛。
     if (info.percent != null) QUOTA_CACHE.percent = info.percent;
     if (info.remainingYuan != null) QUOTA_CACHE.remainingYuan = info.remainingYuan;
     if (info.resetAt != null) QUOTA_CACHE.resetAt = info.resetAt;
-    if (info.tier != null) QUOTA_CACHE.tier = info.tier;
+    // tier 仅从 HTTP 响应头（updateQuotaFromHeaders）或 fetchQuota（GET /quota 响应体）更新，
+    // 这两条路径均来自代理服务器，不经渲染进程可篡改的路径。
+    if (info.tier != null && (info._fromServer === true)) QUOTA_CACHE.tier = info.tier;
     QUOTA_CACHE.updatedAt = Date.now();
     emitQuota();
   }
@@ -95,7 +100,7 @@ const AI = (() => {
       if (r != null && r !== '') info.remainingYuan = parseFloat(r);
       if (t != null && t !== '') info.tier = t;
       if (rt != null && rt !== '') info.resetAt = rt;
-      if (Object.keys(info).length) applyQuotaInfo(info);
+      if (Object.keys(info).length) { info._fromServer = true; applyQuotaInfo(info); }
     } catch (e) { /* ignore */ }
   }
   // 主动查询额度（GET /v1/quota?mid=...），供 UI 初始化展示与「刷新」按钮
@@ -116,6 +121,7 @@ const AI = (() => {
           remainingYuan: data.remainingYuan,
           resetAt: data.resetAt || null,
           tier: data.tier || null,
+          _fromServer: true,
         });
       }
       updateQuotaFromHeaders(resp.headers);
@@ -227,7 +233,9 @@ const AI = (() => {
         continue;
       }
       const last = out[out.length - 1];
-      // 合并连续相同 role 的消息，修复硅基流动 20015「messages 格式非法」
+      // M4 注释：合并连续相同 role 的消息，修复硅基流动 20015「messages 格式非法」
+      // 注意：此合并仅影响 user/assistant 文本消息；tool 配对完整性由下方 (a)(b) 二次修正保护。
+      // 合并不会破坏 tool 消息（role='tool' 不匹配 user/assistant，不会进入此分支）。
       // （含思考段 + tool_calls 段被拆成两条 assistant 的情形，必须并回一条）。
       // 注：此合并经下方 (a)(b) 的 orphan/悬空 tool 配对二次修正保护，不会破坏 tool 配对。
       // 原 A5「误合并 assistant」经核对：在合法对话序列（assistant 之间必有 user/tool 隔开）
@@ -288,7 +296,11 @@ const AI = (() => {
     const baseUrl = (config.baseUrl || 'https://api.openai.com').replace(/\/$/, '');
     const url = baseUrl + '/chat/completions';
     const model = config.model || 'Qwen/Qwen3.5-4B';
-    const apiKey = config.apiKey || '';
+    // H1 修复：apiKey 可能经 safeStorage 加密存储（前缀 'xj-enc:'），使用前需解密
+    let apiKey = config.apiKey || '';
+    if (apiKey.startsWith('xj-enc:') && typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.decryptSecret) {
+      try { apiKey = await window.__XJ_API__.decryptSecret(apiKey); } catch (e) { /* 解密失败用空串 */ apiKey = ''; }
+    }
 
     // 发送前归一化角色序列，防御硅基流动 20015
     const safeMessages = normalizeMessageSequence(messages);

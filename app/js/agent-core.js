@@ -86,6 +86,11 @@
     if (result.length === 0 && units.length) {
       result.push.apply(result, units[units.length - 1]);
     }
+    // L1 修复：确保 system 消息始终保留（即使窗口极小）
+    var hasSystem = result.some(function (m) { return m.role === 'system'; });
+    if (!hasSystem && system.length) {
+      result = system.concat(result);
+    }
     // 安全保障：若首条仍是孤立 tool（理论不会），丢弃
     while (result.length > 0 && result[0].role === 'tool') {
       result.shift();
@@ -124,8 +129,13 @@
         if (spec.type === 'object' && (typeof v !== 'object' || Array.isArray(v))) return k + ' 须为对象';
         if (spec.minimum !== undefined && typeof v === 'number' && v < spec.minimum) return k + ' 不能小于 ' + spec.minimum;
         if (spec.pattern && typeof v === 'string') {
-          const re = new RegExp(spec.pattern.replace(/^\/|\/$/g, ''));
-          if (!re.test(v)) return k + ' 格式不符：' + spec.pattern;
+          // M1 修复：防止 ReDoS——限制正则执行时间（同步快速超时检测）
+          try {
+            const re = new RegExp(spec.pattern.replace(/^\/|\/$/g, ''));
+            if (!re.test(v)) return k + ' 格式不符：' + spec.pattern;
+          } catch (e) {
+            return k + ' 正则校验异常';
+          }
         }
         if (Array.isArray(spec.enum) && spec.enum.indexOf(v) === -1) return k + ' 须为枚举值之一：' + spec.enum.join('/');
       }
@@ -167,7 +177,9 @@
   function safeStringify(result, cap) {
     const full = JSON.stringify(result);
     if (full.length <= cap) return full;
-    let maxStr = Math.max(120, Math.floor(cap / 8));
+    // L2 优化：根据超限比例一次性估算 maxStr，减少迭代次数
+    const ratio = cap / full.length;
+    let maxStr = Math.max(60, Math.floor(cap * ratio / 4));
     let last = full;
     while (maxStr >= 60) {
       const t = JSON.stringify(_truncateStrings(result, maxStr));

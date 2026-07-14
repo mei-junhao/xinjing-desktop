@@ -135,7 +135,7 @@ const Supervisors = (() => {
 
   return {
     CANGJIE_PROMPT, NVWA_PROMPT, STYLE_CONSTRAINTS, WINNICOTT_PERSONA_GUARD,
-    WINNICOTT_PROMPT, BUILDINS, buildSystemPrompt, ensureSeed, list, getById, getBuiltinList,
+    WINNICOTT_PROMPT, BUILTINS, buildSystemPrompt, ensureSeed, list, getById, getBuiltinList,
   };
 })();
 

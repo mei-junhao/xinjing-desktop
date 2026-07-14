@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, shell, safeStorage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const license = require('./license-core');
 const http = require('http');
@@ -8,6 +8,26 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+
+// ---- API 密钥安全存储（H1 修复）：用 safeStorage 加密敏感凭据 ----
+// safeStorage 基于 OS 密钥链（Windows DPAPI / macOS Keychain / Linux libsecret），
+// 加密后数据仅当前用户/机器可解密。加密前缀 'xj-enc:' 标识已加密。
+function encryptSecret(plain) {
+  try {
+    if (!plain || typeof plain !== 'string') return plain;
+    if (!safeStorage.isEncryptionAvailable()) return plain; // 降级：不加密（如 Linux 无 libsecret）
+    const buf = safeStorage.encryptString(plain);
+    return 'xj-enc:' + buf.toString('base64');
+  } catch (e) { return plain; }
+}
+function decryptSecret(stored) {
+  try {
+    if (!stored || typeof stored !== 'string' || !stored.startsWith('xj-enc:')) return stored;
+    if (!safeStorage.isEncryptionAvailable()) return '';
+    const buf = Buffer.from(stored.slice(7), 'base64');
+    return safeStorage.decryptString(buf);
+  } catch (e) { return ''; }
+}
 
 app.setName('XinJing'); // 用户数据目录固定为 .../XinJing/，稳定存放试用与激活信息
 
@@ -820,13 +840,31 @@ function openActivationWindow() {
   activationWindow.on('closed', () => { activationWindow = null; });
 }
 
+// ---- API 密钥加解密 IPC（H1 修复）----
+ipcMain.handle('xj:encryptSecret', (e, plain) => encryptSecret(plain));
+ipcMain.handle('xj:decryptSecret', (e, stored) => decryptSecret(stored));
+
 // ---- 授权相关 IPC ----
 ipcMain.handle('xj:getState', () => licenseState || computeState());
 ipcMain.handle('xj:getVersion', () => app.getVersion());
 // 保存备份配置（多位置 + 邮箱），供 exportBackup 在退出/常驻时读取
 ipcMain.handle('xj:saveBackupConfig', (e, cfg) => {
   try {
-    fs.writeFileSync(path.join(userDataDir(), 'backup-config.json'), JSON.stringify(cfg || {}));
+    // H4 修复：过滤 cfg 中的危险路径，仅允许合法目录名
+    const safe = Object.assign({}, cfg || {});
+    if (Array.isArray(safe.locations)) {
+      safe.locations = safe.locations.filter(function (loc) {
+        if (!loc || typeof loc !== 'string') return false;
+        // 禁止系统根目录 / Windows 系统目录
+        const lower = loc.toLowerCase();
+        if (lower === 'c:\\' || lower === 'c:/' || lower === '/' || lower.length < 3) return false;
+        if (lower.indexOf('\\windows\\') !== -1 || lower.indexOf('/windows/') !== -1) return false;
+        if (lower.indexOf('\\program files') !== -1 || lower.indexOf('/program files') !== -1) return false;
+        return true;
+      });
+    }
+    if (safe.email && typeof safe.email !== 'string') delete safe.email;
+    fs.writeFileSync(path.join(userDataDir(), 'backup-config.json'), JSON.stringify(safe));
     return true;
   } catch (err) { console.error('[backup-config] save failed', err.message); return false; }
 });

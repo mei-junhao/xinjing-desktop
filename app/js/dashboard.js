@@ -128,7 +128,7 @@
     // 先尝试本地数据查询
     var dataResult = queryData(text);
     if (dataResult) {
-      body.innerHTML += '<div class="xj-msg ai">' + dataResult.replace(/\n/g, '<br>') + '</div>';
+      body.innerHTML += '<div class="xj-msg ai">' + (App.escapeHtml ? App.escapeHtml(dataResult) : dataResult).replace(/\n/g, '<br>') + '</div>';
       body.scrollTop = body.scrollHeight;
       return;
     }

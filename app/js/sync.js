@@ -26,6 +26,15 @@ function normDate(s) {
   return '';
 }
 
+// L9 修复：CSV 注入防护——首字符为 =, +, -, @, Tab, CR 的字段加单引号前缀，防止 Excel 公式注入
+function csvSafe(val) {
+  var s = String(val == null ? '' : val);
+  if (s.length > 0 && '+=-@\t\r'.indexOf(s[0]) !== -1) {
+    return "'" + s;
+  }
+  return s;
+}
+
 // ---------- 入口：按扩展名/内容判断 JSON 或 CSV ----------
 function parseInput(filename, text) {
   const t = text.trim();
@@ -92,7 +101,7 @@ function parseCSV(text) {
   const records = [];
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    const name = String(row[idx.name] || '').trim();
+    const name = csvSafe(String(row[idx.name] || '').trim());
     if (!name) continue;
     const date = normDate(row[idx.date]);
     if (!date) continue;

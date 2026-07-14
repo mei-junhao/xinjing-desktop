@@ -37,8 +37,10 @@ const MastersCore = (() => {
       }
       return conv;
     } else {
-      // 圆桌：找已有的圆桌对话（第一个），没有则创建
-      let conv = (Store.getMasterConversations() || []).find((c) => c.mode === 'round');
+      // L7 修复：圆桌按 masterKeys 集合匹配，支持多个不同主题的圆桌
+      let conv = (Store.getMasterConversations() || []).find((c) =>
+        c.mode === 'round' && Array.isArray(c.masterKeys) && c.masterKeys.indexOf(masterKey) !== -1
+      );
       if (!conv) {
         conv = {
           id: genId(), mode: 'round', masterKeys: [masterKey],
