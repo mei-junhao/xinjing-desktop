@@ -905,6 +905,7 @@ ipcMain.handle('xj:readUserDocs', async (e, opts) => {
         const share = Math.max(300, Math.floor(budget / Math.max(1, metas.length)));
         text = text.slice(0, share);
       }
+      if (!text.trim()) continue; // 跳过空/纯空白文件，避免注入无意义空块
       out.push({ file: m.f, text });
       budget -= text.length;
       if (budget <= 0) break;

@@ -1156,12 +1156,18 @@ test('S2 P0 Bug5 style.css 文件头更新为静谧留白', function () {
 test('S4 P1 Bug9 billing-theme.css 已删除', function () {
   assert.ok(!fs.existsSync(path.join(APP_DIR, 'billing-theme.css')), 'billing-theme.css 仍存在');
 });
-test('S6 P2 常驻 Agent 入口（agent-shell.js FAB + app.js 命令面板）', function () {
+test('S6 P2 常驻 Agent 入口（v3.4.0 FAB 废弃 → xiaojing-panel.js 替代）', function () {
   const agentShell = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-shell.js'), 'utf8');
-  assert.ok(/xj-agent-fab/.test(agentShell), 'agent-shell.js 缺 Agent FAB');
-  assert.ok(/buildFab/.test(agentShell), 'agent-shell.js 缺 buildFab');
-  assert.ok(/AgentOpen/.test(agentShell), 'agent-shell.js 缺 AgentOpen');
-  assert.ok(/__xjOpenCmd/.test(S_APP), 'app.js 缺命令面板打开函数');
+  assert.ok(!/buildFab/.test(agentShell), 'agent-shell.js 仍含已废弃的 buildFab');
+  assert.ok(!/xj-agent-fab/.test(agentShell), 'agent-shell.js 仍含已废弃的 FAB');
+  // agent.css 也应清除 FAB 样式
+  var agentCss = fs.readFileSync(path.join(APP_DIR, 'css', 'agent.css'), 'utf8');
+  assert.ok(!/xj-agent-fab/.test(agentCss), 'agent.css 仍含已废弃的 FAB 样式');
+  // 新面板
+  assert.ok(fs.existsSync(path.join(APP_DIR, 'js', 'xiaojing-panel.js')), 'xiaojing-panel.js 不存在');
+  const panel = fs.readFileSync(path.join(APP_DIR, 'js', 'xiaojing-panel.js'), 'utf8');
+  assert.ok(/XiaojingPanel/.test(panel), 'xiaojing-panel.js 缺 XiaojingPanel');
+  assert.ok(/build/.test(panel), 'xiaojing-panel.js 缺 build');
 });
 test('S7 小镜欢迎语与每日概览（dashboard.js）', function () {
   assert.ok(/renderXjGreet|xj-greet|小镜/.test(S_DASH), 'dashboard.js 缺小镜欢迎语');
@@ -1773,6 +1779,103 @@ test('v3.3.0-12 consult-notes.js + supervision.js + real-supervision.js + master
 });
 
 // ============================================================
+// v3.3.1 — AI 督导流派扩展：12 位督导师 + 动态下拉
+// ============================================================
+console.log('[v3.3.1] AI 督导流派扩展');
+
+const SUPERVISORS_331 = fs.readFileSync(path.join(APP_DIR, 'js', 'supervisors.js'), 'utf-8');
+const SUPERVISION_331 = fs.readFileSync(path.join(APP_DIR, 'js', 'supervision.js'), 'utf-8');
+const SUP_HTML_331 = fs.readFileSync(path.join(APP_DIR, 'supervision.html'), 'utf-8');
+
+test('v3.3.1-1 supervisors.js 含 12 位 BUILTINS_META', function () {
+  assert.ok(/builtin-winnicott/.test(SUPERVISORS_331), '缺 builtin-winnicott');
+  assert.ok(/builtin-freud/.test(SUPERVISORS_331), '缺 builtin-freud');
+  assert.ok(/builtin-beck/.test(SUPERVISORS_331), '缺 builtin-beck');
+  assert.ok(/builtin-generic/.test(SUPERVISORS_331), '缺 builtin-generic');
+  assert.ok(/builtin-adler/.test(SUPERVISORS_331), '缺 builtin-adler');
+  assert.ok(/builtin-lacan/.test(SUPERVISORS_331), '缺 builtin-lacan');
+});
+
+test('v3.3.1-2 supervisors.js 含 PERSPECTIVE_PROMPTS 精简方法论', function () {
+  assert.ok(/PERSPECTIVE_PROMPTS/.test(SUPERVISORS_331), '缺 PERSPECTIVE_PROMPTS');
+  assert.ok(/winnicott.*足够好的母亲/.test(SUPERVISORS_331), '缺 winnicott 方法论');
+  assert.ok(/freud.*驱力理论/.test(SUPERVISORS_331), '缺 freud 方法论');
+  assert.ok(/generic.*通用心理督导师/.test(SUPERVISORS_331), '缺 generic 方法论');
+});
+
+test('v3.3.1-3 supervisors.js 导出 getBuiltinList', function () {
+  assert.ok(/getBuiltinList/.test(SUPERVISORS_331), '缺 getBuiltinList 导出');
+});
+
+test('v3.3.1-4 supervision.js 动态读取 Supervisors.getBuiltinList', function () {
+  assert.ok(/getBuiltinList/.test(SUPERVISION_331), 'supervision.js 未调用 getBuiltinList');
+  assert.ok(/__custom__/.test(SUPERVISION_331), 'supervision.js 缺自定义督导占位');
+});
+
+test('v3.3.1-5 supervision.html 已移除版本下拉', function () {
+  assert.ok(!/sup-version/.test(SUP_HTML_331), 'supervision.html 仍含 sup-version 下拉');
+  assert.ok(/sup-orient/.test(SUP_HTML_331), 'supervision.html 缺 sup-orient 下拉');
+});
+
+test('v3.3.1-6 adler + lacan perspective 文件已补全', function () {
+  assert.ok(fs.existsSync(path.join(APP_DIR, 'masters', 'knowledge', 'adler-perspective.md')), '缺 adler-perspective.md');
+  assert.ok(fs.existsSync(path.join(APP_DIR, 'masters', 'knowledge', 'lacan-perspective.md')), '缺 lacan-perspective.md');
+});
+
+test('v3.3.1-7 knowledge.builtins.js 含 adler/lacan perspective', function () {
+  const kb = fs.readFileSync(path.join(APP_DIR, 'js', 'knowledge.builtins.js'), 'utf-8');
+  assert.ok(/adler/.test(kb), 'knowledge.builtins.js 缺 adler');
+  assert.ok(/lacan/.test(kb), 'knowledge.builtins.js 缺 lacan');
+});
+
+// ============================================================
+// v3.4.0 — P0-4 顶栏剩余次数 + P0-5 新建来访 + P0-6 废弃悬浮球
+// ============================================================
+console.log('[v3.4.0] 顶栏 + 新建来访 + 废弃悬浮球');
+const APPDIR_340 = path.join(__dirname, '..', 'app');
+
+test('v3.4.0-1 client-modal.js 存在且含核心 API', function () {
+  const cm = fs.readFileSync(path.join(APPDIR_340, 'js', 'client-modal.js'), 'utf-8');
+  assert.ok(/ClientModal/.test(cm), 'client-modal.js 缺 ClientModal');
+  assert.ok(/show/.test(cm), 'client-modal.js 缺 show');
+  assert.ok(/injectIntoDropdown/.test(cm), 'client-modal.js 缺 injectIntoDropdown');
+});
+
+test('v3.4.0-2 app.js 全局注入新建来访 + 顶栏剩余次数', function () {
+  const app = fs.readFileSync(path.join(APPDIR_340, 'js', 'app.js'), 'utf-8');
+  assert.ok(/injectNewClientOption/.test(app), 'app.js 缺 injectNewClientOption');
+  assert.ok(/injectQuotaBar/.test(app), 'app.js 缺 injectQuotaBar');
+  assert.ok(/xj-quota-bar/.test(app), 'app.js 缺 quota bar');
+});
+
+test('v3.4.0-3 xiaojing-panel.js + page-hints.js 存在', function () {
+  assert.ok(fs.existsSync(path.join(APPDIR_340, 'js', 'xiaojing-panel.js')), 'xiaojing-panel.js 不存在');
+  assert.ok(fs.existsSync(path.join(APPDIR_340, 'js', 'page-hints.js')), 'page-hints.js 不存在');
+  const xp = fs.readFileSync(path.join(APPDIR_340, 'js', 'xiaojing-panel.js'), 'utf-8');
+  assert.ok(/XiaojingPanel/.test(xp), 'xiaojing-panel.js 缺 XiaojingPanel');
+  const ph = fs.readFileSync(path.join(APPDIR_340, 'js', 'page-hints.js'), 'utf-8');
+  assert.ok(/PageHints/.test(ph), 'page-hints.js 缺 PageHints');
+});
+
+test('v3.4.0-4 agent-shell.js 已删除 buildFab', function () {
+  const ash = fs.readFileSync(path.join(APPDIR_340, 'js', 'agent-shell.js'), 'utf-8');
+  assert.ok(!/buildFab/.test(ash), 'agent-shell.js 仍含 buildFab');
+  assert.ok(!/xj-agent-fab/.test(ash), 'agent-shell.js 仍含 FAB');
+});
+
+test('v3.4.0-5 agent.css 已删除 FAB 样式', function () {
+  const ac = fs.readFileSync(path.join(APPDIR_340, 'css', 'agent.css'), 'utf-8');
+  assert.ok(!/xj-agent-fab/.test(ac), 'agent.css 仍含 FAB 样式');
+  assert.ok(!/xj-fab-breathe/.test(ac), 'agent.css 仍含 FAB 呼吸动画');
+});
+
+test('v3.4.0-6 masters.html 锁层已弱化', function () {
+  const mh = fs.readFileSync(path.join(APPDIR_340, 'masters.html'), 'utf-8');
+  assert.ok(!/AI 对话为付费功能/.test(mh), 'masters.html 仍含旧锁层文案');
+  assert.ok(/AI 大师对话需要激活/.test(mh), 'masters.html 缺新弱化锁层文案');
+});
+
+// ============================================================
 // v3.5.0 用户自建知识库 —— 回归（grep 确认接线完整，纯 Node 可跑）
 // ============================================================
 console.log('[v3.5.0] 用户自建知识库 接线回归');
@@ -1846,6 +1949,11 @@ test('v3.5.0-9 隐私：readUserDocs 仅本地 fs，无出网', function () {
   assert.ok(/fs\.readFileSync\(m\.fp/.test(body), 'readUserDocs 应经本地 fs 读取');
   // 仅 true 出网特征：http(s):// 或 fetch(；排除 // 行注释误报
   assert.ok(!/(https?:\/\/|fetch\()/.test(body), 'readUserDocs 不应含出网代码');
+});
+
+test('v3.5.0-10 质量：readUserDocs 跳过空/纯空白文件避免注入无意义空块', function () {
+  const body = (MAIN_350.split('xj:readUserDocs')[1] || '').split('ipcMain.')[0] || '';
+  assert.ok(/if \(!text\.trim\(\)\) continue;/.test(body), 'readUserDocs 应跳过空文件');
 });
 
 // ============================================================
