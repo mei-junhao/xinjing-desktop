@@ -85,7 +85,7 @@ App.initPage({
     const api = settings.apiConfig || {};
     document.getElementById('api-baseurl').value = api.baseUrl || '';
     document.getElementById('api-key').value = api.apiKey || '';
-    const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes', 'deepseek-reasoner'];
+    const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes', 'deepseek-reasoner', 'deepseek-chat'];
     let modelPref = api.modelPreference || '';
     if (OLD.indexOf(modelPref) !== -1) {
       modelPref = '';
@@ -322,6 +322,24 @@ App.initPage({
     cfg.locations.splice(i, 1);
     Store.saveSettings({ backup: cfg });
     renderBackupLocations();
+  };
+  // v3.5.0 用户自建知识库：选择资料文件夹 + 回显已选路径
+  window.selectUserDocFolder = async function () {
+    if (!window.__XJ_API__ || typeof window.__XJ_API__.selectUserDocFolder !== 'function') {
+      App.showToast('资料文件夹选择不可用', 'error'); return;
+    }
+    const folder = await window.__XJ_API__.selectUserDocFolder();
+    const el = document.getElementById('userdoc-path');
+    if (el) el.textContent = folder || '未设置';
+    if (window.UserDocs) window.UserDocs.preload(); // 重新预取缓存
+    App.showToast(folder ? '已设置资料库' : '已清除资料库', folder ? 'success' : 'info');
+  };
+  window.loadUserDocUI = async function () {
+    try {
+      const r = await window.__XJ_API__.getUserDocFolder();
+      const el = document.getElementById('userdoc-path');
+      if (el) el.textContent = (r && r.folder) ? r.folder : '未设置';
+    } catch (e) { /* ignore */ }
   };
   window.saveBackupSettings = async function () {
     const cfg = getBackupConfig();
@@ -833,6 +851,7 @@ App.initPage({
     calcStorage();
     updateBackupTime();
     loadBackupConfigUI();
+    loadUserDocUI();
     loadSupervisorUI();
     initThemeToggle();
     renderLicenseInfo();

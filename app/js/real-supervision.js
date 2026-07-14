@@ -96,6 +96,7 @@
     } else {
       Store.createSupervision(data);
       App.showToast('记录已保存', 'success');
+      if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '保存了真人督导记录', relatedClientId: currentClientId });
     }
     loadRecords();
     loadClientRecords();
@@ -120,6 +121,7 @@
     loadRecords();
     loadClientRecords();
     App.showToast('逐字稿已保存', 'success');
+    if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '保存了真人督导逐字稿', relatedClientId: currentClientId });
   };
 
   window.uploadTranscriptFile = function (e) {
@@ -148,12 +150,15 @@
   };
 
   window.aiAnalyzeTranscript = function () {
-    if (!App.aiUnlocked()) { App.showToast('AI 分析需激活后使用', 'warning'); return; }
+    if (!App.featureGate('ai-analyze')) { App.showToast('AI 分析需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
     var text = document.getElementById('rs-transcript-text').value.trim();
     if (!text) { App.showToast('请先粘贴逐字稿', 'warning'); return; }
     App.showToast('AI 分析中…', 'info');
     var sys = '你是心理咨询督导分析专家。请分析以下逐字稿，输出 JSON 格式：\n' +
       '{"clientName":"来访者姓名","keyIssues":["核心议题1","核心议题2"],"supervisorTechniques":["督导师使用的技术1","技术2"],"knowledgeSource":"对应的理论/知识来源","suggestions":["给咨询师的建议"]}\n只输出 JSON，不要其他文字。';
+    // v3.5.0：被动注入用户自建资料库（仅本机读取，零出网）
+    var ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
+    if (ud) sys += '\n\n' + ud;
     AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
       if (res && res.content && !res.error) {
         try {
@@ -197,6 +202,7 @@
     loadRecords();
     loadClientRecords();
     App.showToast('案例报告已保存', 'success');
+    if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '保存了真人督导案例报告', relatedClientId: currentClientId });
   };
 
   window.exportReport = function () {

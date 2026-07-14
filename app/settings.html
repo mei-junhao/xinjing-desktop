@@ -59,6 +59,8 @@
   <div class="group"><div class="group-head"><span class="icon">💾</span> 数据管理</div><div class="group-body">
     <div class="row"><div class="lbl"><div class="t">备份数据</div><div class="d">导出全部数据为 JSON 文件</div></div><button class="btn" onclick="backupData()">导出备份</button></div>
     <div class="row"><div class="lbl"><div class="t">恢复数据</div><div class="d">从 JSON 备份文件导入</div></div><button class="btn" onclick="document.getElementById('restore-file').click()">导入备份</button><input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)"></div>
+    <div class="row"><div class="lbl"><div class="t">我的资料库</div><div class="d" id="userdoc-path">未设置</div></div><button class="btn" onclick="selectUserDocFolder()">选择文件夹</button></div>
+    <div class="row"><div class="lbl"><div class="d">支持 .md / .txt；资料仅本机读取，不上传任何服务器</div></div></div>
     <div class="row"><div class="lbl"><div class="t">存储概况</div><div class="d" id="storage-text">加载中…</div></div></div>
     <div class="row"><div class="lbl"><div class="t">清除账单数据</div><div class="d">仅清除账单，保留督导和对话记录</div></div><button class="btn danger" onclick="location.href='billing-shell.html'">前往账单清除</button></div>
     <div class="row"><div class="lbl"><div class="t">清除全部数据</div><div class="d">删除所有本地数据，不可恢复</div></div><button class="btn danger" onclick="clearAllData()">清除全部</button></div>

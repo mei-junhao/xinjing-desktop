@@ -19,10 +19,13 @@
     'js/supervisors.js',
     'js/supervision-core.js',
     'js/masters-data.js',
+    'js/knowledge.builtins.js',
     'js/masters-core.js',
     'js/agent-core.js',
     'js/agent-tools.js',
-    'js/agent-shell.js'
+    'js/agent-shell.js',
+    'js/memory.js',
+    'js/persona-preamble.js'
   ];
   list.forEach(function (src) {
     // 双重守卫：typeof 检测全局是否已声明（防重复加载 const SyntaxError）
@@ -34,10 +37,13 @@
       'js/supervisors.js': function () { return typeof Supervisors !== 'undefined'; },
       'js/supervision-core.js': function () { return typeof SupervisionCore !== 'undefined'; },
       'js/masters-data.js': function () { return typeof MASTERS !== 'undefined'; },
+      'js/knowledge.builtins.js': function () { return typeof Knowledge !== 'undefined'; },
       'js/masters-core.js': function () { return typeof MastersCore !== 'undefined'; },
       'js/agent-core.js': function () { return typeof AgentCore !== 'undefined'; },
       'js/agent-tools.js': function () { return typeof AgentTools !== 'undefined'; },
-      'js/agent-shell.js': function () { return typeof AgentShell !== 'undefined'; }
+      'js/agent-shell.js': function () { return typeof AgentShell !== 'undefined'; },
+      'js/memory.js': function () { return typeof Memory !== 'undefined'; },
+      'js/persona-preamble.js': function () { return typeof PersonaPreamble !== 'undefined'; }
     };
     if (guards[src] && guards[src]()) return;
     if (document.querySelector('script[src="' + src + '"]')) return;
@@ -99,6 +105,42 @@ const App = (() => {
     return !!(licenseStateCache && licenseStateCache.aiUnlocked);
   }
 
+  function isTrial() {
+    return !!(licenseStateCache && licenseStateCache.mode === 'trial');
+  }
+
+  function isPro() {
+    var tier = (licenseStateCache && licenseStateCache.tier) || 'free';
+    return tier === 'pro' || tier === 'full' || tier === 'custom';
+  }
+
+  function isCustom() {
+    var tier = (licenseStateCache && licenseStateCache.tier) || 'free';
+    return tier === 'custom';
+  }
+
+  function featureGate(kind) {
+    if (isPro()) return true;
+    if (isTrial() && aiUnlocked()) {
+      return true; // 试用期用户默认拥有全部权限（含旗舰功能）
+    }
+    return false;
+  }
+
+  function lockBadge(kind) {
+    if (featureGate(kind)) return '';
+    if (isTrial()) return '<span class="xj-lock-badge" title="激活会员后解锁">🔒 会员</span>';
+    return '<span class="xj-lock-badge" title="试用已过期，请激活">🔒 已过期</span>';
+  }
+
+  function membershipBadge() {
+    var tier = (licenseStateCache && licenseStateCache.tier) || 'free';
+    if (tier === 'custom') return '<span class="xj-tier-badge custom">旗舰版</span>';
+    if (tier === 'pro' || tier === 'full') return '<span class="xj-tier-badge pro">会员</span>';
+    if (isTrial()) return '<span class="xj-tier-badge custom">旗舰版试用</span>';
+    return '';
+  }
+
   function onLicenseStateChange(cb) {
     if (typeof cb === 'function') licenseStateCallbacks.push(cb);
   }
@@ -152,13 +194,8 @@ const App = (() => {
     const path = location.pathname.split('/').pop() || 'index.html';
     const map = {
       'index.html': 'dashboard',
-      'consultations.html': 'consultations',
-      'clients.html': 'consultations',
-      'client-detail.html': 'consultations',
-      'session.html': 'consultations',
       'supervision.html': 'supervision',
       'billing-shell.html': 'billing',
-      'billing.html': 'billing',
       'masters.html': 'masters',
       'settings.html': 'settings',
       'feedback.html': 'feedback',
@@ -561,6 +598,12 @@ const App = (() => {
     aiUnlocked,
     onLicenseStateChange,
     getLicenseState,
+    isTrial,
+    isPro,
+    isCustom,
+    featureGate,
+    lockBadge,
+    membershipBadge,
     Theme,
   };
 })();

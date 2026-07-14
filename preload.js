@@ -40,7 +40,11 @@ const api = {
   checkForUpdates: () => ipcRenderer.invoke('xj:check-updates'),
   // 代理共享密钥：构建期注入 secret.generated.js，供渲染进程（ai.js）经韩国代理访问试用模型。
   // 仅共享密钥（非 provider 密钥），被逆向也无妨——服务端按机器码硬限额兜底。
-  appProxyKey: () => { try { return require('./secret.generated').APP_PROXY_KEY || ''; } catch (e) { return ''; } }
+  appProxyKey: () => { try { return require('./secret.generated').APP_PROXY_KEY || ''; } catch (e) { return ''; } },
+  // v3.5.0 用户自建知识库：选择资料文件夹 / 读配置 / 读资料（仅本机 fs，零出网）
+  selectUserDocFolder: () => ipcRenderer.invoke('xj:selectUserDocFolder'),
+  getUserDocFolder: () => ipcRenderer.invoke('xj:getUserDocFolder'),
+  readUserDocs: (opts) => ipcRenderer.invoke('xj:readUserDocs', opts)
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];
@@ -110,7 +114,8 @@ try {
         document.head.appendChild(link);
       }
       // Agent 工具集 + 纯核 + 浮窗壳（顺序：tools → core → shell，依赖关系）
-      const scripts = ['js/agent-tools.js', 'js/agent-core.js', 'js/agent-shell.js'];
+      // v3.5.0：末尾追加 js/userdocs.js（用户资料缓存+检索共享模块，须在所有 build 函数调用前就绪）
+      const scripts = ['js/agent-tools.js', 'js/agent-core.js', 'js/agent-shell.js', 'js/userdocs.js'];
       scripts.forEach((src) => {
         if (document.querySelector('script[data-xj-agent="' + src + '"]')) return;
         const s = document.createElement('script');

@@ -334,7 +334,7 @@
         properties: {
           clientName: { type: 'string', description: '限定某来访者；省略返回全部' },
           clientId: { type: 'string', description: '可选，优先精确匹配' },
-          period: { type: 'string', description: "周期，如 '2026-04' 或 'all'（默认 all）。当前版本 handler 暂不按周期过滤，返回全量。" }
+          period: { type: 'string', description: "周期，如 '2026-04' 或 'all'（默认 all）。按会话日期 YYYY-MM 过滤。" }
         },
         required: []
       }
@@ -356,21 +356,26 @@
         if (!clients.length) return { ok: false, error: '来访者「' + args.clientName + '」不存在' };
       }
     }
-    // 注：period 参数当前版本不实际过滤，返回全量；后续可扩展按 month/date 过滤
+    // period 周期过滤（YYYY-MM 格式）
+    const period = args.period || 'all';
     let receivable = 0, received = 0;
     const perClient = [];
     for (const c of clients) {
       const sessions = Store.getSessionsByClient(c.id);
       let cReceivable = 0, cReceived = 0;
       for (const s of sessions) {
-        // 字段路径对齐 billing-sync.js L57-58：s.billing.fee / s.billing.paid；无 sessionCount
+        // period 过滤：只统计指定月份的会话
+        if (period !== 'all' && (!s.date || s.date.slice(0, 7) !== period)) continue;
         const fee = (s.billing && s.billing.fee) || 0;
         const paid = !!(s.billing && s.billing.paid);
         cReceivable += fee;
         if (paid) cReceived += fee;
       }
       if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
-        for (const mp of c.billing.monthlyPayments) cReceived += (mp.amount || 0);
+        for (const mp of c.billing.monthlyPayments) {
+          if (period !== 'all' && mp.month !== period) continue;
+          cReceived += (mp.amount || 0);
+        }
       }
       receivable += cReceivable;
       received += cReceived;
@@ -384,6 +389,83 @@
         balance: receivable - received,
         clientCount: clients.length,
         perClient: perClient
+      }
+    });
+  }
+
+  // ============================================================
+  // 工具 3.5：billing.reminder（主动引擎：提醒未收款/待跟进）
+  // ============================================================
+  const SCHEMA_REMINDER = {
+    type: 'function',
+    function: {
+      name: 'billing.reminder',
+      description: '查询待处理事项：未收款会谈、长期未联系来访者、待跟进提醒。主动引擎入口。',
+      parameters: {
+        type: 'object',
+        properties: {
+          daysSinceLastSession: { type: 'number', description: '超过 N 天未会谈的来访者视为"待跟进"，默认 30' },
+          unpaidOnly: { type: 'boolean', description: '仅返回未收款的会谈，默认 true' }
+        },
+        required: []
+      }
+    }
+  };
+
+  async function billingReminder(args) {
+    const Store = getStore();
+    args = args || {};
+    const daysSince = args.daysSinceLastSession || 30;
+    const unpaidOnly = args.unpaidOnly !== false;
+    const now = Date.now();
+    const cutoff = now - daysSince * 86400000;
+
+    const clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+    const sessions = Store.getSessions();
+
+    const reminders = [];
+    const stale = [];
+
+    for (const c of clients) {
+      const cs = sessions.filter(function (s) { return s.clientId === c.id; });
+      cs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      const lastSession = cs[0] || null;
+      const lastDate = lastSession && lastSession.date ? new Date(lastSession.date).getTime() : 0;
+
+      // 未收款检查
+      if (unpaidOnly) {
+        cs.forEach(function (s) {
+          const fee = (s.billing && s.billing.fee) || 0;
+          const paid = !!(s.billing && s.billing.paid);
+          if (fee > 0 && !paid) {
+            reminders.push({
+              clientId: c.id, clientName: c.name,
+              type: 'unpaid', sessionId: s.id, date: s.date,
+              amount: fee, message: c.name + ' ' + s.date + ' 会谈 ¥' + fee + ' 未收款'
+            });
+          }
+        });
+      }
+
+      // 长期未联系
+      if (lastDate > 0 && lastDate < cutoff) {
+        const daysAgo = Math.floor((now - lastDate) / 86400000);
+        stale.push({
+          clientId: c.id, clientName: c.name,
+          type: 'stale', lastSessionDate: (lastSession && lastSession.date) || '',
+          daysAgo: daysAgo, message: c.name + ' 已 ' + daysAgo + ' 天未会谈（末次 ' + (lastSession && lastSession.date || '') + '）'
+        });
+      }
+    }
+
+    return sanitizeResult({
+      ok: true,
+      data: {
+        unpaidCount: reminders.length,
+        staleCount: stale.length,
+        unpaid: reminders.slice(0, 20),
+        stale: stale.slice(0, 10),
+        summary: reminders.length + ' 笔未收款，' + stale.length + ' 位来访者待跟进'
       }
     });
   }
@@ -950,6 +1032,29 @@
   }
 
   // ============================================================
+  // 工具 12：userdocs.search（用户自建资料检索，只读，kind:'read'，不弹确认）
+  // ============================================================
+  const SCHEMA_USERDOCS_SEARCH = {
+    type: 'function',
+    function: {
+      name: 'userdocs.search',
+      description: '检索用户在应用外自己存放的课程资料/笔记（.md/.txt）。当用户引用"我的资料/我的笔记/我学的XX/我课上学到的"时使用。只读，不弹确认。',
+      parameters: {
+        type: 'object',
+        properties: { query: { type: 'string', description: '要检索的关键词' } },
+        required: ['query']
+      }
+    }
+  };
+  async function userdocsSearch(args) {
+    args = args || {};
+    if (!args.query) return sanitizeResult({ ok: false, reason: 'missing-query' });
+    if (typeof window === 'undefined' || !window.UserDocs) return sanitizeResult({ ok: false, reason: 'not-ready' });
+    const r = await window.UserDocs.search(args.query);
+    return sanitizeResult(r);
+  }
+
+  // ============================================================
   // 工具 12：session.query（会谈记录查询，只读，kind:'read'）
   // ============================================================
   const SCHEMA_SESSION_QUERY = {
@@ -1078,6 +1183,7 @@
     'billing.add_record':     { schema: SCHEMA_ADD_RECORD,     handler: addBillingRecord,  kind: 'write' },
     'billing.monthly_settle': { schema: SCHEMA_MONTHLY_SETTLE, handler: monthlySettle,     kind: 'write' },
     'billing.summary':        { schema: SCHEMA_SUMMARY,        handler: billingSummary,    kind: 'read' },
+    'billing.reminder':       { schema: SCHEMA_REMINDER,       handler: billingReminder,   kind: 'read' },
     'client.update':          { schema: SCHEMA_UPDATE_CLIENT,  handler: updateClientInfo,  kind: 'write' },
     'agent.configure_api':    { schema: SCHEMA_CONFIGURE_API,  handler: configureApi,      kind: 'config' },
     'navigate_to':            { schema: SCHEMA_NAVIGATE_TO,    handler: handleNavigateTo,  kind: 'read' },
@@ -1089,7 +1195,8 @@
     'session.query':          { schema: SCHEMA_SESSION_QUERY,   handler: sessionQuery,      kind: 'read' },
     'supervision.query':      { schema: SCHEMA_SUPERVISION_QUERY, handler: supervisionQuery, kind: 'read' },
     'stats.overview':         { schema: SCHEMA_STATS_OVERVIEW,  handler: statsOverview,     kind: 'read' },
-    'client.insight':         { schema: SCHEMA_CLIENT_INSIGHT,  handler: clientInsight,     kind: 'read' }
+    'client.insight':         { schema: SCHEMA_CLIENT_INSIGHT,  handler: clientInsight,     kind: 'read' },
+    'userdocs.search':        { schema: SCHEMA_USERDOCS_SEARCH,  handler: userdocsSearch,    kind: 'read' }
   };
   const TOOL_SCHEMAS = Object.keys(TOOL_REGISTRY).map(function (k) { return TOOL_REGISTRY[k].schema; });
 

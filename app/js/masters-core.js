@@ -57,9 +57,18 @@ const MastersCore = (() => {
     const summaryLine = conv.summary
       ? '\n\n以下是你与这位咨询师的【既往对话摘要（长时记忆）】，请在回应时保持脉络连贯，不必重复已讨论过的内容：\n' + conv.summary
       : '';
-    // U2 #1：注入表达风格约束（去 AI 文风/互联网黑话）。不加 PERSONA_GUARD——与大师各自人设冲突。
     const styleC = (typeof PromptsBuiltin !== 'undefined') ? PromptsBuiltin.STYLE_CONSTRAINTS : '';
-    const system = master.systemPrompt + summaryLine + (styleC ? '\n\n' + styleC : '');
+    // v3.3.0：注入 persona preamble（反讨好铁律 + 近期记忆）
+    const preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
+    // v3.5.0：经工具路径发起的大师对话也注入内置知识库 + 用户自建资料库（与 masters.js 对齐，消除双路径不一致）
+    let kb = '';
+    if (typeof Knowledge !== 'undefined' && typeof Knowledge.byTemp === 'function') {
+      kb = Knowledge.byTemp(master.key, 60);
+    }
+    const ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
+    const system = (preamble ? preamble + '\n\n' : '') + master.systemPrompt + summaryLine + (styleC ? '\n\n' + styleC : '')
+      + (kb ? '\n\n[知识库]\n' + kb : '')
+      + (ud ? '\n\n[我的资料库]\n' + ud : '');
 
     const hist = conv.messages
       .filter((x) => x.role === 'user' || x.role === 'assistant')

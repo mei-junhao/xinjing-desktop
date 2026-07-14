@@ -396,6 +396,7 @@
     } catch (e) { /* ignore */ }
 
     return [
+      (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '',
       '你是心镜 XinJing 的工作助手。你可以通过工具帮用户完成：记账录入 / 月结 / 统计查询 / 改来访者信息 / 查询来访者与会谈数据 / 业务洞察 / 启动 AI 督导（女娲版或仓颉版）/ 督导追问 / 开启大师对话 / 向大师发消息 / API 接口配置。',
       '规则：',
       '1. 你只能调用提供的工具，不要凭空编造数据。',
@@ -419,6 +420,16 @@
             return AI.getTier() === 'builtin'
               ? '\n\n[档位] 你运行在免费试用档（经官方韩国代理，每机器码 ¥5 / 30 天额度）。额度内使用高性能模型 DeepSeek-V4-Flash，可完成记账 / 月结 / 查统计 / 改来访者信息 / 配 API 等任务；额度用尽或过期会自动降级到内置基础模型（Qwen3.5-4B，低性能，仅普通任务）。若用户需要持续高性能或更长额度，引导其购买会员或增量包恢复使用。若用户接入自己的高性能模型 key（支持 DeepSeek / 硅基流动 / OpenAI / 月之暗面 Kimi / 智谱 / 通义千问 / 豆包，只需说服务商名 + API Key 即可自动配好），你将升级为完全体。注意：若用户接入的模型不支持 function-calling（如 o1/o2/o3/o4 或 reasoning 模型），Agent 会主动提示其换用支持的模型，而非静默失效。'
               : '\n\n[档位] 你已接入用户的高性能模型，是完全体，可以完成更复杂的任务。';
+          }
+        } catch (e) { /* ignore */ }
+        return '';
+      })(),
+      // v3.5.0 用户自建知识库：被动注入 [我的资料库] 块（仅本机读取，零出网）
+      (function () {
+        try {
+          if (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) {
+            var _ud = window.UserDocs.getContextBlock();
+            if (_ud) return _ud;
           }
         } catch (e) { /* ignore */ }
         return '';

@@ -92,9 +92,20 @@
     document.querySelectorAll('#mode-toggle button').forEach(function (b) { b.classList.toggle('active', b.dataset.mode === m); });
     currentConv = null; roundKeys = [];
     if (m === 'round') {
-      var last = convList.find(function (c) { return c.mode === 'round'; });
+      // 多圆桌会话：按更新时间倒序选最近一个
+      var rounds = convList.filter(function (c) { return c.mode === 'round'; });
+      rounds.sort(function (a, b) { return (b.updatedAt || '').localeCompare(a.updatedAt || ''); });
+      var last = rounds[0] || null;
       if (last) { currentConv = last; roundKeys = last.masterKeys.slice(); }
     }
+    renderMasterList(); renderChat(); renderHistList();
+  };
+
+  // 新建圆桌
+  window.newRound = function () {
+    mode = 'round';
+    document.querySelectorAll('#mode-toggle button').forEach(function (b) { b.classList.toggle('active', b.dataset.mode === 'round'); });
+    currentConv = null; roundKeys = [];
     renderMasterList(); renderChat(); renderHistList();
   };
   document.getElementById('mode-toggle').addEventListener('click', function (e) {
@@ -178,7 +189,7 @@
   // ---------- 发送消息 ----------
   window.sendMessage = function () {
     if (busy) return;
-    if (!App.aiUnlocked()) { applyAiLock(); App.showToast('AI 对话为付费功能，请先激活', 'error'); return; }
+    if (!App.featureGate('ai-masters')) { applyAiLock(); App.showToast('AI 对话为付费功能' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'error'); return; }
 
     var input = $('msg-input');
     var text = (input.value || '').trim();
@@ -197,6 +208,7 @@
       currentConv = { id: genId(), mode: 'round', masterKeys: roundKeys.slice(), title: '圆桌研讨', messages: [], summary: '', createdAt: nowISO(), updatedAt: nowISO() };
       Store.saveMasterConversation(currentConv); convList.unshift(currentConv); flashSaved();
     }
+    if (typeof Memory !== 'undefined' && Memory.record) Memory.record('master_chat', { summary: '与大师对话：' + text.slice(0, 30) });
     if (mode === 'round' && currentConv.mode !== 'round') {
       currentConv = { id: genId(), mode: 'round', masterKeys: roundKeys.slice(), title: '圆桌研讨', messages: [], summary: '', createdAt: nowISO(), updatedAt: nowISO() };
       Store.saveMasterConversation(currentConv); convList.unshift(currentConv); flashSaved();
@@ -215,6 +227,7 @@
   // ===== 圆桌 system prompt 规则（与 Chat roundtable.html 一致）=====
   function buildRoundSysPrompt(m, activeNames, isReactMode) {
     var styleC = (typeof PromptsBuiltin !== 'undefined') ? PromptsBuiltin.STYLE_CONSTRAINTS : '';
+    var ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
     if (isReactMode === 'summary') {
       return '[重要指令：①始终使用中文对话]\n[你是' + m.name + '，你是这场圆桌讨论的总结者。'
         + '\n在场的还有：' + activeNames + '。'
@@ -223,7 +236,7 @@
         + '\n\n规则：\n① 用「我」说话。\n② 可以提到其他大师的观点（例如"弗洛伊德刚才提到……我同意他的看法"）。'
         + '\n③ 控制在120字以内，做一个有温度的收尾，把注意力带回用户。'
         + '\n④ 可使用*斜体*或**加粗**做适度强调。禁止使用#、※、-等符号做列表或标题。]\n\n'
-        + m.systemPrompt + '\n\n' + (styleC || '');
+        + m.systemPrompt + '\n\n' + (styleC || '') + (ud ? '\n\n[我的资料库]\n' + ud : '');
     } else if (isReactMode) {
       return '[重要指令：①始终使用中文对话]\n[你是' + m.name + '。刚才用户提问后，各位大师已经分别回应了。'
         + '\n在场的还有：' + activeNames + '。'
@@ -235,7 +248,7 @@
         + '\n④ 可使用*斜体*或**加粗**做适度强调。禁止使用#、※、-等符号做列表或标题。'
         + '\n⑤ 没什么要说的就输出一个空格。'
         + '\n⑥ 温尼科特作为最后总结者时，记得把话题带回用户身上，问问用户的感受或想法。]\n\n'
-        + m.systemPrompt + '\n\n' + (styleC || '');
+        + m.systemPrompt + '\n\n' + (styleC || '') + (ud ? '\n\n[我的资料库]\n' + ud : '');
     } else {
       // Round 1：独立回应
       return '[重要指令：①始终使用中文对话]\n[你是' + m.name + '，你是参与圆桌讨论的其中一位。'
@@ -247,7 +260,7 @@
         + '\n⑤ 不要替用户做决定。'
         + '\n⑥ 保持你的人格和语气——你的经历决定了你如何看待问题。'
         + '\n⑦ 你可以根据你的风格决定是否在回应中关注用户。]\n\n'
-        + m.systemPrompt + '\n\n' + (styleC || '');
+        + m.systemPrompt + '\n\n' + (styleC || '') + (ud ? '\n\n[我的资料库]\n' + ud : '');
     }
   }
 
@@ -256,7 +269,12 @@
     var summaryLine = currentConv.summary ? '\n\n以下是你与这位咨询师的【既往对话摘要（长时记忆）】，请在回应时保持脉络连贯：\n' + currentConv.summary : '';
     var styleC = (typeof PromptsBuiltin !== 'undefined') ? PromptsBuiltin.STYLE_CONSTRAINTS : '';
     var tempInstr = talkTemp != null ? '\n\n[温度指令：当前对话权重 ' + talkTemp + '/100。' + (talkTemp <= 20 ? '只用情感化个人回应，不要分隔线，不要理论部分。用温尼科特自己的声音说话，像一个人在跟你聊天。每次回复控制在150字以内。' : talkTemp <= 40 ? '第一部分情感回应为主（约70%），第二部分理论锚点简略带过（约30%）。' : talkTemp <= 70 ? '情感回应与理论并重，临床逐字稿蒸馏为主。' : '优先使用完整知识库，支持RAG查询，理论深度为主。') + ']' : '';
-    return m.systemPrompt + summaryLine + (styleC ? '\n\n' + styleC : '') + tempInstr;
+    var kb = '';
+    if (typeof Knowledge !== 'undefined' && typeof Knowledge.byTemp === 'function') {
+      kb = Knowledge.byTemp(m.key, talkTemp || 60);
+    }
+    var ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
+    return m.systemPrompt + summaryLine + (styleC ? '\n\n' + styleC : '') + tempInstr + (kb ? '\n\n[知识库]\n' + kb : '') + (ud ? '\n\n[我的资料库]\n' + ud : '');
   }
 
   // 核心：调用大师 API（并行第一轮 + 串行 reacting）

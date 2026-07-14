@@ -271,6 +271,8 @@ function computeState() {
   const activated = activatedRaw && !expired;
   // 旧 license.json（升级前）无 tier 字段 → 视为完整版（祖父条款，权益等同 pro）
   const tier = (lic && lic.tier) ? lic.tier : (activated ? 'full' : 'free');
+  // 试用期用户默认旗舰权限（custom），确保试用期间可体验全部功能
+  const effectiveTier = (!activated && trial.daysLeft > 0) ? 'custom' : tier;
   // AI 免费试用窗口（安装后 30 天，跨重装稳定）
   const aiTrial = license.aiTrialStatus(resolveFirstInstall(), Date.now());
   const aiTrialActive = !activated && aiTrial.active; // 已激活用户不再走试用口径
@@ -279,7 +281,7 @@ function computeState() {
   licenseState = {
     mode: license.overallMode(activated, trial),
     identity: activated ? lic.identity : '',
-    tier,
+    tier: effectiveTier,
     aiUnlocked,
     aiTrialActive,
     aiTrialDaysLeft: aiTrial.daysLeft,
@@ -834,6 +836,81 @@ ipcMain.handle('xj:selectBackupFolder', async () => {
     const r = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'], title: '选择备份位置' });
     return r.canceled ? null : (r.filePaths && r.filePaths[0]) || null;
   } catch (err) { console.error('[backup] select folder failed', err.message); return null; }
+});
+
+// ---- 用户自建知识库（v3.5.0）：外部文件夹 .md/.txt 经主进程读取，仅本机、零出网 ----
+// 基线 = 用户所选资料目录（非 APP_DIR）。防 ../../ 穿越与符号链接跳出。
+// 对"用户主动选择的根目录"放宽：允许根是 junction/云同步入口；仅校验其下文件路径。
+function ensureInsideUserDoc(resolved, userDocFolder) {
+  const r = path.resolve(resolved);
+  if (r !== userDocFolder && !r.startsWith(userDocFolder + path.sep)) return false;
+  try {
+    const real = fs.realpathSync(r);
+    const realBase = fs.realpathSync(userDocFolder);
+    return real === realBase || real.startsWith(realBase + path.sep);
+  } catch (e) {
+    // 符号链接/云同步 reparse point 解析异常：降级拒绝，避免误放行
+    return false;
+  }
+}
+
+// 资料库配置读写（照 xj:saveBackupConfig 范式落 userData/userdocs-config.json）
+function userDocConfigPath() { return path.join(userDataDir(), 'userdocs-config.json'); }
+function readUserDocConfig() {
+  try { return JSON.parse(fs.readFileSync(userDocConfigPath(), 'utf8') || '{}'); } catch (e) { return {}; }
+}
+
+// 选择资料文件夹（用户主动选择，写入配置）
+ipcMain.handle('xj:selectUserDocFolder', async () => {
+  try {
+    const r = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'], title: '选择你的资料文件夹' });
+    if (r.canceled || !r.filePaths || !r.filePaths[0]) return null;
+    const folder = r.filePaths[0];
+    fs.writeFileSync(userDocConfigPath(), JSON.stringify({ folder }));
+    return folder;
+  } catch (err) { console.error('[userdocs] select failed', err.message); return null; }
+});
+
+ipcMain.handle('xj:getUserDocFolder', async () => {
+  const cfg = readUserDocConfig();
+  return { folder: cfg.folder || null };
+});
+
+ipcMain.handle('xj:readUserDocs', async (e, opts) => {
+  opts = opts || {};
+  const cfg = readUserDocConfig();
+  if (!cfg.folder) return { ok: false, reason: 'no-folder' };
+  const root = cfg.folder;
+  let names;
+  try { names = fs.readdirSync(root).filter(f => /\.(md|txt)$/i.test(f)); }
+  catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
+  // 预算加权：按文件长度降序取前 20，避免小文件稀释上下文
+  const metas = names.map(f => {
+    const fp = path.join(root, f);
+    let len = 0; try { len = fs.statSync(fp).size; } catch (e) {}
+    return { f, fp, len };
+  }).sort((a, b) => b.len - a.len).slice(0, 20);
+  const out = [];
+  let budget = 20000; // 参照 agent-core.js:21 READ_RESULT_MAX
+  for (const m of metas) {
+    if (!ensureInsideUserDoc(m.fp, root)) continue; // 防穿越（主进程校验）
+    try {
+      let text = fs.readFileSync(m.fp, 'utf8');
+      if (opts.query) {
+        const q = String(opts.query).toLowerCase();
+        const hit = text.split('\n').filter(l => l.toLowerCase().includes(q)).join('\n');
+        if (!hit) continue;
+        text = hit.slice(0, 4000);
+      } else {
+        const share = Math.max(300, Math.floor(budget / Math.max(1, metas.length)));
+        text = text.slice(0, share);
+      }
+      out.push({ file: m.f, text });
+      budget -= text.length;
+      if (budget <= 0) break;
+    } catch (e) { /* 跳过不可读文件 */ }
+  }
+  return { ok: true, folder: root, files: out };
 });
 
 ipcMain.on('xj:openActivation', () => openActivationWindow());

@@ -50,7 +50,10 @@ const Supervisors = (() => {
     // U2 #4：严格按模式取提示词，禁止跨模式静默回落（避免选 cangjie 却用 nvwa）
     const base = mode === 'cangjie' ? CANGJIE_PROMPT : NVWA_PROMPT;
     if (!base) return '';
-    return base + '\n\n' + STYLE_CONSTRAINTS + '\n\n' + WINNICOTT_PERSONA_GUARD;
+    // v3.5.0：被动注入用户自建资料库（仅本机读取，零出网）
+    const ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
+    return base + '\n\n' + STYLE_CONSTRAINTS + '\n\n' + WINNICOTT_PERSONA_GUARD
+      + (ud ? '\n\n[我的资料库]\n' + ud : '');
   }
 
   function ensureSeed() {
