@@ -53,7 +53,7 @@
 <div class="rs-page">
 <div class="rs-top">
   <button class="back" onclick="location.href='index.html'">← 返回</button>
-  <h2>真人督导</h2>
+  <h2>真人督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="real-supervision-ai.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> AI 分析 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
   <span class="sp"></span>
   <select id="rs-client" onchange="loadClientRecords()"><option value="">选择来访者…</option></select>
   <button class="back" style="border:1px solid var(--border);padding:5px 12px;border-radius:8px" onclick="startNewRecord()">+ 新记录</button>
@@ -126,5 +126,14 @@
 <script src="js/app.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/real-supervision.js"></script>
+
+<script>
+(function(){
+  if (typeof App !== 'undefined' && App.membershipBadge) {
+    var el = document.getElementById('member-badge-slot');
+    if (el) el.innerHTML = App.membershipBadge();
+  }
+})();
+</script>
 </body>
 </html>

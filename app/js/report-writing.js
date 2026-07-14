@@ -98,7 +98,7 @@
 
   // AI 填写当前步骤
   window.aiFillCurrent = function () {
-    if (!App.aiUnlocked()) { App.showToast('AI 填充需激活后使用', 'warning'); return; }
+    if (!App.featureGate('ai-report')) { App.showToast('AI 填充需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     var secs = getSections();
     var sec = secs[currentStep];
@@ -151,7 +151,7 @@
 
   // AI 填写全部
   window.aiFillAll = function () {
-    if (!App.aiUnlocked()) { App.showToast('AI 填充需激活后使用', 'warning'); return; }
+    if (!App.featureGate('ai-report')) { App.showToast('AI 填充需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     var secs = getSections();
     secs.forEach(function (sec, i) { goToStep(i); window.aiFillCurrent(); });

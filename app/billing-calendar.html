@@ -18,8 +18,8 @@
 .bc-ov-card{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:14px 16px;text-align:center}
 .bc-ov-card .lbl{font-size:11px;color:var(--ink-3);font-weight:600}
 .bc-ov-card .val{font-family:var(--serif);font-size:26px;font-weight:700;margin-top:4px}
-.bc-ov-card .val.green{color:var(--success)}
-.bc-ov-card .val.red{color:var(--danger)}
+.bc-ov-card .val.green{color:var(--danger)} /* 中国财务惯例：涨/收=红 */
+.bc-ov-card .val.red{color:var(--orange)} /* 待收=警告橙 */
 .bc-ov-card .val.accent{color:var(--accent)}
 .bc-calendar{border:1px solid var(--border);border-radius:var(--r-card,14px);overflow:hidden;background:var(--paper-2,#fff)}
 .bc-cal-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border)}
@@ -34,8 +34,8 @@
 .bc-day.today .day-num{color:var(--accent)}
 .bc-day .day-events{display:flex;flex-direction:column;gap:2px;margin-top:2px}
 .bc-day .day-event{font-size:9px;padding:1px 4px;border-radius:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bc-day .day-event.in{background:rgba(111,174,143,.12);color:var(--success)}
-.bc-day .day-event.out{background:rgba(217,140,140,.12);color:var(--danger)}
+.bc-day .day-event.in{background:rgba(217,140,140,.12);color:var(--danger)} /* 涨/收=红 */
+.bc-day .day-event.out{background:rgba(111,174,143,.12);color:var(--success)} /* 跌/支=绿 */
 .bc-day .day-event.pending{background:rgba(214,168,92,.12);color:var(--orange)}
 .bc-day .day-more{font-size:9px;color:var(--ink-3);text-align:center;margin-top:1px}
 </style>

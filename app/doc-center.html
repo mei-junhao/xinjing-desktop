@@ -56,7 +56,7 @@
 <div class="dc-page">
 <div class="dc-top">
   <button class="back" onclick="location.href='index.html'">← 返回</button>
-  <h2>文档中心</h2>
+  <h2>文档中心</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="doc-growth.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> 成长轨迹 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
   <span class="sp"></span>
   <input type="text" id="dc-search" placeholder="搜索文档…" oninput="filterDocs()">
 </div>
@@ -88,5 +88,14 @@
 <script src="js/app.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/doc-center.js"></script>
+
+<script>
+(function(){
+  if (typeof App !== 'undefined' && App.membershipBadge) {
+    var el = document.getElementById('member-badge-slot');
+    if (el) el.innerHTML = App.membershipBadge();
+  }
+})();
+</script>
 </body>
 </html>

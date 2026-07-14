@@ -82,12 +82,11 @@
 <div class="sup-page">
 <div class="sup-top">
   <button class="back" onclick="location.href='index.html'">← 返回</button>
-  <h2>AI 督导</h2>
+  <h2>AI 督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="supervision-mindmap.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> 思维导图 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
   <span class="sp"></span>
   <select id="sup-client" onchange="onClientChange()"><option value="">选择来访者…</option></select>
-  <select id="sup-orient"><option value="winnicott">温尼科特</option><option value="psychoanalysis">精神分析</option><option value="cbt">CBT</option><option value="generic">通用</option></select>
-  <select id="sup-version"><option value="nvwa">女娲版</option><option value="cangjie">仓颉版</option></select>
-  <span class="badge" id="sup-badge">温尼科特 · 女娲版</span>
+  <select id="sup-orient"><option value="">选择督导流派…</option></select>
+  <span class="badge" id="sup-badge">AI 督导</span>
 </div>
 
 <div class="sup-body">
@@ -168,5 +167,14 @@
 <script src="js/supervisors.js"></script>
 <script src="js/supervision-core.js"></script>
 <script src="js/supervision.js"></script>
+
+<script>
+(function(){
+  if (typeof App !== 'undefined' && App.membershipBadge) {
+    var el = document.getElementById('member-badge-slot');
+    if (el) el.innerHTML = App.membershipBadge();
+  }
+})();
+</script>
 </body>
 </html>

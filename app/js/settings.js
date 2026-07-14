@@ -331,15 +331,35 @@ App.initPage({
     const folder = await window.__XJ_API__.selectUserDocFolder();
     const el = document.getElementById('userdoc-path');
     if (el) el.textContent = folder || '未设置';
-    if (window.UserDocs) window.UserDocs.preload(); // 重新预取缓存
+    if (window.UserDocs) {
+      window.UserDocs.preload();        // 重新预取 AI 注入缓存
+      if (window.UserDocs.invalidateMeta) window.UserDocs.invalidateMeta();
+    }
+    await renderUserDocStats(true);
     App.showToast(folder ? '已设置资料库' : '已清除资料库', folder ? 'success' : 'info');
   };
+  async function renderUserDocStats(force) {
+    const st = document.getElementById('userdoc-stats');
+    if (!st) return;
+    if (!window.UserDocs || !window.UserDocs.getMeta) { st.textContent = ''; return; }
+    try {
+      const meta = await window.UserDocs.getMeta(!!force);
+      if (!meta || !meta.ok || !meta.folder) { st.textContent = ''; return; }
+      const s = meta.stats || {};
+      const files = s.fileCount || (meta.files ? meta.files.length : 0);
+      if (!files) { st.textContent = '文件夹为空，未发现 .md / .txt 文件'; return; }
+      const chars = s.totalChars || 0;
+      const charTxt = chars >= 10000 ? (Math.round(chars / 1000) / 10) + ' 万字' : chars + ' 字';
+      st.textContent = files + ' 份资料 · ' + charTxt + ' · ' + (s.categoryCount || 0) + ' 个分类';
+    } catch (e) { st.textContent = ''; }
+  }
   window.loadUserDocUI = async function () {
     try {
       const r = await window.__XJ_API__.getUserDocFolder();
       const el = document.getElementById('userdoc-path');
       if (el) el.textContent = (r && r.folder) ? r.folder : '未设置';
     } catch (e) { /* ignore */ }
+    renderUserDocStats(false);
   };
   window.saveBackupSettings = async function () {
     const cfg = getBackupConfig();
@@ -594,7 +614,7 @@ App.initPage({
   // ============================================================
   const CD = { state: 'ask', provider: '', baseUrl: '', model: '', models: [], defaultModel: '', apiKey: '' };
   const PROVIDER_PRESETS = {
-    deepseek:   { label: 'DeepSeek',   baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-v4-flash', models: ['deepseek-v4-flash', 'deepseek-v4-pro'] },
+    deepseek:   { label: 'DeepSeek',   baseUrl: 'https://api.deepseek.com/v1', defaultModel: 'deepseek-v4-pro', models: ['deepseek-v4-pro', 'deepseek-v4-flash'] },
     siliconflow:{ label: '硅基流动',   baseUrl: 'https://api.siliconflow.cn/v1', defaultModel: 'Qwen/Qwen3.5-4B', models: ['Qwen/Qwen3.5-4B', 'Qwen/Qwen3-235B-A22B', 'deepseek-ai/DeepSeek-V3'] },
     openai:     { label: 'OpenAI',     baseUrl: 'https://api.openai.com/v1', defaultModel: 'gpt-4o', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'] },
     moonshot:   { label: '月之暗面',   baseUrl: 'https://api.moonshot.cn/v1', defaultModel: 'moonshot-v1-8k', models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'] },
@@ -841,6 +861,10 @@ App.initPage({
     loadConfig();
     bindConnectDrawer();
     updateTierStatus();
+    // v3.4.1: 暴露给 settings.html 内联脚本使用
+    window.openConnectDrawer = openConnectDrawer;
+    window.cdPickProvider = cdPickProvider;
+    window.closeConnectDrawer = closeConnectDrawer;
     // 订阅试用额度变更，实时刷新进度条（v1.7.0）
     if (typeof AI !== 'undefined' && AI.onQuotaChange) {
       try { AI.onQuotaChange(renderTrialQuota); } catch (e) {}

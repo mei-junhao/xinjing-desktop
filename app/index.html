@@ -62,6 +62,7 @@
     <div><h1>心镜</h1><div class="date" id="wel-date"></div></div>
     <div class="spacer"></div>
     <button class="xj-toggle" id="xj-toggle-btn" onclick="toggleXiaojing()"><span class="xj-dot"></span> 小镜</button>
+    <button class="xj-new-client" onclick="if(typeof ClientModal!=='undefined')ClientModal.show(function(c){if(typeof App!=='undefined')App.showToast('已新增来访者「'+c.name+'」','success');})" style="border:2px solid var(--accent);border-radius:12px;padding:10px 20px;font:600 13px var(--sans);cursor:pointer;background:var(--paper-2,#fff);color:var(--accent);display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(139,147,199,.15);transition:all .2s">👤＋ 新建来访</button>
   </div>
   <div class="hero-grid" id="hero-stats">
     <div class="kv-card accent"><div class="kv-num" id="stat-today">0</div><div class="kv-label">今日咨询</div><div class="kv-sub" id="stat-today-sub"></div></div>
@@ -101,6 +102,10 @@
       <div class="m-icon">&#x1F5E3;</div><div class="m-title">大师对话</div>
       <div class="m-desc">与 11 位思想者对话，多大师圆桌研讨</div>
     </a>
+    <a class="mod" href="knowledge.html">
+      <div class="m-icon">&#x1F4D6;</div><div class="m-title">我的资料库</div>
+      <div class="m-desc">导入课程讲义与文献，被动注入 AI 对话，随时检索</div><div class="m-tag" id="kb-mod-count">未设置</div>
+    </a>
     <a class="mod" href="settings.html">
       <div class="m-icon">&#x2699;</div><div class="m-title">设置</div>
       <div class="m-desc">API 配置，备份恢复，激活管理</div>
@@ -120,7 +125,10 @@
 </div>
 
 <script src="js/store.js"></script>
+<script src="js/memory.js"></script>
+<script src="js/persona-preamble.js"></script>
 <script src="js/app.js"></script>
 <script src="js/dashboard.js"></script>
+<script>if(typeof Memory!=='undefined'&&Memory.init)Memory.init();</script>
 </body>
 </html>

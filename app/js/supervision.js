@@ -7,8 +7,8 @@ App.initPage({
     var chat = document.getElementById('sup-chat');
     var input = document.getElementById('sup-input');
     var materialTA = document.getElementById('sup-material');
-    var curOrient = 'winnicott';
-    var curVersion = 'nvwa';
+    var curOrient = 'builtin-winnicott';
+    var curOrientName = '温尼科特取向督导师';
     var messages = [];
     var busy = false;
     var currentClientId = null;
@@ -29,17 +29,33 @@ App.initPage({
     try { var d = localStorage.getItem(draftKey); if (d) materialTA.value = d; } catch(e){}
     materialTA.addEventListener('input', function () { try { localStorage.setItem(draftKey, this.value); } catch(e){} });
 
-    // 取向/版本切换
-    document.getElementById('sup-orient').addEventListener('change', function () {
-      curOrient = this.value; updateBadge();
-    });
-    document.getElementById('sup-version').addEventListener('change', function () {
-      curVersion = this.value; updateBadge();
+    // 动态填充督导流派下拉
+    var orientSel = document.getElementById('sup-orient');
+    if (typeof Supervisors !== 'undefined' && Supervisors.getBuiltinList) {
+      Supervisors.getBuiltinList().forEach(function (s) {
+        var opt = document.createElement('option');
+        opt.value = s.id; opt.textContent = s.name;
+        orientSel.appendChild(opt);
+      });
+      // 自定义督导占位
+      var custOpt = document.createElement('option');
+      custOpt.value = '__custom__'; custOpt.textContent = '自定义督导（会员专属）';
+      custOpt.style.color = 'var(--ink-3)';
+      orientSel.appendChild(custOpt);
+    }
+    orientSel.value = curOrient;
+    orientSel.addEventListener('change', function () {
+      if (this.value === '__custom__') {
+        alert('自定义督导功能请联系开发者定制。');
+        this.value = curOrient;
+        return;
+      }
+      curOrient = this.value;
+      curOrientName = this.options[this.selectedIndex].textContent;
+      updateBadge();
     });
     function updateBadge() {
-      var names = { winnicott: '温尼科特', psychoanalysis: '精神分析', cbt: 'CBT', generic: '通用' };
-      var vers = { nvwa: '女娲版', cangjie: '仓颉版' };
-      document.getElementById('sup-badge').textContent = (names[curOrient] || curOrient) + ' · ' + (vers[curVersion] || curVersion);
+      document.getElementById('sup-badge').textContent = curOrientName;
     }
 
     // Tab 切换
@@ -139,18 +155,15 @@ App.initPage({
     function removeTyping() { var t = document.getElementById('sup-typing'); if (t) t.remove(); }
 
     function buildMessages(userText, isImpression) {
-      var orientNames = { winnicott: '温尼科特取向（足够好的母亲、抱持性环境、过渡性客体、真/假自体）', psychoanalysis: '精神分析取向（无意识、移情、防御）', cbt: '认知行为取向（自动思维、信念、行为实验）', generic: '通用整合取向' };
-      var versionDesc = curVersion === 'nvwa' ? '你是女娲版督导——教咨询师"怎么督导"，侧重引导提问而非直接给答案。' : '你是仓颉版督导——直接示范"我怎么督导"，给出完整的督导师视角分析。';
-      var sys = '你是一位心理咨询督导，' + (orientNames[curOrient] || orientNames.generic) + '。' + versionDesc + ' 请用中文回应，语气专业而温暖，避免套话。引用概念时标注英文原词。';
-      var styleC = (typeof PromptsBuiltin !== 'undefined') ? PromptsBuiltin.STYLE_CONSTRAINTS : '';
-      if (styleC) sys += '\n\n' + styleC;
-
+      var sys = (typeof Supervisors !== 'undefined' && Supervisors.buildSystemPrompt)
+        ? Supervisors.buildSystemPrompt(curOrient.replace('builtin-', ''))
+        : '你是一位心理咨询督导，请用中文回应，语气专业而温暖。';
       var material = materialTA.value.trim();
       var hist = messages.slice(-12).map(function (m) { return { role: m.role, content: m.content }; });
 
       var userContent = '';
       if (isImpression) {
-        userContent = '以下是临床材料，请基于' + (orientNames[curOrient] || '通用') + '给出整体印象（个案概念化、核心议题、治疗师功能、值得注意的线索）：\n\n' + material;
+        userContent = '以下是临床材料，请基于' + curOrientName + '给出整体印象（个案概念化、核心议题、治疗师功能、值得注意的线索）：\n\n' + material;
       } else {
         userContent = userText;
         if (material) userContent += '\n\n--- 临床材料 ---\n' + material;
@@ -185,7 +198,7 @@ App.initPage({
 
     window.generateImpression = function () {
       if (busy) return;
-      if (!App.aiUnlocked()) { App.showToast('AI 督导需激活后使用', 'warning'); return; }
+      if (!App.featureGate('ai-supervise')) { App.showToast('AI 督导需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
       var mat = materialTA.value.trim();
       if (!mat) { App.showToast('请先在材料区填写临床材料', 'warning'); return; }
       sendToAI('生成整体印象', true);
@@ -193,7 +206,7 @@ App.initPage({
 
     window.quickAction = function (kind) {
       if (busy) return;
-      if (!App.aiUnlocked()) { App.showToast('AI 督导需激活后使用', 'warning'); return; }
+      if (!App.featureGate('ai-supervise')) { App.showToast('AI 督导需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
       var prompts = {
         deepen: '请就材料中的核心议题深化讨论，提出进一步的思考角度与开放式提问。',
         polish: '请在不改变原意的前提下润色以下临床材料的语言，使其更通顺、专业。',
@@ -239,7 +252,7 @@ App.initPage({
     window.sendSupMsg = function () {
       var text = (input.value || '').trim();
       if (!text || busy) return;
-      if (!App.aiUnlocked()) { App.showToast('AI 督导需激活后使用', 'warning'); return; }
+      if (!App.featureGate('ai-supervise')) { App.showToast('AI 督导需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
       input.value = '';
       sendToAI(text, false);
     };
@@ -277,8 +290,7 @@ App.initPage({
     window.saveSup = function () {
       if (!messages.length) { App.showToast('无内容可保存', 'warning'); return; }
       var full = messages.map(function (m) { return (m.role === 'user' ? '咨询师：' : '督导师：') + m.content; }).join('\n\n');
-      var orientNames = { winnicott: '温尼科特', psychoanalysis: '精神分析', cbt: 'CBT', generic: '通用' };
-      var modeName = (orientNames[curOrient] || curOrient) + ' · ' + (curVersion === 'cangjie' ? '仓颉版' : '女娲版');
+      var modeName = curOrientName;
       if (typeof Store !== 'undefined' && typeof Store.saveAiSupervision === 'function') {
         Store.saveAiSupervision({
           supervisorName: modeName,
@@ -289,6 +301,7 @@ App.initPage({
         });
       }
       App.showToast('已保存督导记录', 'success');
+      if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '完成了 AI 督导' });
     };
 
     window.exportSup = function () {

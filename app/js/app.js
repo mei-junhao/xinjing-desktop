@@ -25,7 +25,10 @@
     'js/agent-tools.js',
     'js/agent-shell.js',
     'js/memory.js',
-    'js/persona-preamble.js'
+    'js/persona-preamble.js',
+    'js/client-modal.js',
+    'js/xiaojing-panel.js',
+    'js/page-hints.js'
   ];
   list.forEach(function (src) {
     // 双重守卫：typeof 检测全局是否已声明（防重复加载 const SyntaxError）
@@ -43,7 +46,10 @@
       'js/agent-tools.js': function () { return typeof AgentTools !== 'undefined'; },
       'js/agent-shell.js': function () { return typeof AgentShell !== 'undefined'; },
       'js/memory.js': function () { return typeof Memory !== 'undefined'; },
-      'js/persona-preamble.js': function () { return typeof PersonaPreamble !== 'undefined'; }
+      'js/persona-preamble.js': function () { return typeof PersonaPreamble !== 'undefined'; },
+      'js/client-modal.js': function () { return typeof ClientModal !== 'undefined'; },
+      'js/xiaojing-panel.js': function () { return typeof XiaojingPanel !== 'undefined'; },
+      'js/page-hints.js': function () { return typeof PageHints !== 'undefined'; }
     };
     if (guards[src] && guards[src]()) return;
     if (document.querySelector('script[src="' + src + '"]')) return;
@@ -160,10 +166,11 @@ const App = (() => {
 
   const NAV_ITEMS = [
     { key: 'dashboard', label: '首页', icon: 'home', href: 'index.html' },
-    { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consultations.html' },
+    { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consult-notes.html' },
     { key: 'supervision', label: '督导', icon: 'cap', href: 'supervision.html' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html' },
+    { key: 'knowledge', label: '知识库', icon: 'doc', href: 'knowledge.html' },
     { key: 'settings', label: '设置', icon: 'gear', href: 'settings.html' },
     { key: 'feedback', label: '意见建议', icon: 'chat', href: 'feedback.html' },
   ];
@@ -197,8 +204,10 @@ const App = (() => {
       'supervision.html': 'supervision',
       'billing-shell.html': 'billing',
       'masters.html': 'masters',
+      'knowledge.html': 'knowledge',
       'settings.html': 'settings',
       'feedback.html': 'feedback',
+      'consult-notes.html': 'consultations',
     };
     return map[path] || 'dashboard';
   }
@@ -487,12 +496,12 @@ const App = (() => {
   const CMD_COMMANDS = [
     { label: '新建来访者', hint: '创建一位新的咨询来访者', run: function () {
         if (document.getElementById('client-modal')) App.openModal('client-modal');
-        else location.href = 'consultations.html';
+        else location.href = 'consult-notes.html';
       } },
     { label: '记账', hint: '打开记账页面', run: function () { location.href = 'billing-shell.html'; } },
     { label: 'AI 督导', hint: '打开 AI 督导页面', run: function () { location.href = 'supervision.html'; } },
     { label: '大师对话', hint: '打开大师对话页面', run: function () { location.href = 'masters.html'; } },
-    { label: '咨询记录', hint: '打开咨询记录工作区', run: function () { location.href = 'consultations.html'; } },
+    { label: '咨询记录', hint: '打开咨询记录工作区', run: function () { location.href = 'consult-notes.html'; } },
     { label: '设置', hint: '打开设置页面', run: function () { location.href = 'settings.html'; } },
   ];
 
@@ -611,3 +620,74 @@ const App = (() => {
 if (typeof window !== 'undefined') {
   window.App = App;
 }
+
+// v3.4.0：顶栏剩余次数（未激活用户可见）
+(function injectQuotaBar() {
+  function build() {
+    if (location.pathname.includes('activation.html')) return;
+    var bar = document.createElement('div');
+    bar.id = 'xj-quota-bar';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;height:24px;background:var(--accent-soft,#ECEEF9);display:flex;align-items:center;justify-content:center;font:11px var(--sans);color:var(--accent);gap:12px;border-bottom:1px solid var(--accent-line,#B5BDE0)';
+    try {
+      var q = (typeof AI !== 'undefined' && AI.getQuota) ? AI.getQuota() : null;
+      if (q && q.percent != null) {
+        bar.innerHTML = '今日剩余 <b>' + q.percent + '%</b> 额度 · <a href="activation.html" style="color:var(--accent);text-decoration:underline">激活后解锁全部</a>';
+      } else {
+        bar.innerHTML = '试用中 · <a href="activation.html" style="color:var(--accent);text-decoration:underline">激活会员</a>';
+      }
+    } catch (e) {
+      bar.innerHTML = '试用中 · <a href="activation.html" style="color:var(--accent);text-decoration:underline">激活会员</a>';
+    }
+    // 已激活用户不显示
+    try {
+      if (typeof App !== 'undefined' && App.aiUnlocked && App.aiUnlocked()) {
+        var tier = (App.getLicenseState && App.getLicenseState().tier) || '';
+        if (tier === 'pro' || tier === 'full' || tier === 'custom') return;
+      }
+    } catch (e) {}
+    document.body.insertBefore(bar, document.body.firstChild);
+    document.body.style.paddingTop = '24px';
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(build, 100); });
+  } else {
+    setTimeout(build, 100);
+  }
+})();
+
+// v3.4.0：全局"＋新建来访"注入（所有页面的来访者下拉统一加）
+(function injectNewClientOption() {
+  var DROPDOWN_IDS = ['tp-client','sup-client','rs-client','rpt-client','sel-client','dc-client','bill-client'];
+  function tryInject() {
+    for (var i = 0; i < DROPDOWN_IDS.length; i++) {
+      var el = document.getElementById(DROPDOWN_IDS[i]);
+      if (el && !el.__xj_new_client_injected) {
+        el.__xj_new_client_injected = true;
+        if (typeof ClientModal !== 'undefined' && ClientModal.injectIntoDropdown) {
+          ClientModal.injectIntoDropdown(el, function (client) {
+            if (typeof App !== 'undefined' && App.showToast) App.showToast('已新增来访者「' + client.name + '」', 'success');
+          });
+        }
+      }
+    }
+    // 首页"新建来访"按钮
+    var hero = document.getElementById('hero-stats');
+    if (hero && !hero.querySelector('.xj-new-client-btn')) {
+      var btn = document.createElement('button');
+      btn.className = 'xj-new-client-btn';
+      btn.textContent = '＋ 新建来访';
+      btn.style.cssText = 'border:1px dashed var(--border);border-radius:999px;padding:6px 16px;font:12px var(--sans);cursor:pointer;background:transparent;color:var(--accent);margin-top:2px';
+      btn.onclick = function () {
+        if (typeof ClientModal !== 'undefined') ClientModal.show(function (c) {
+          if (typeof App !== 'undefined' && App.showToast) App.showToast('已新增来访者「' + c.name + '」', 'success');
+        });
+      };
+      hero.parentElement.insertBefore(btn, hero.nextSibling);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(tryInject, 500); });
+  } else {
+    setTimeout(tryInject, 500);
+  }
+})();

@@ -44,23 +44,33 @@
 
   <div class="about"><div class="logo">心镜</div><div class="ver" id="ver-text">v3.0.0</div></div>
 
+  <div class="group"><div class="group-head"><span class="icon">👤</span> 账号</div><div class="group-body">
+    <div class="row"><div class="lbl"><div class="t">称呼</div><div class="d" id="account-name-display">未设置</div></div><button class="btn" id="btn-edit-name">编辑</button></div>
+    <div class="row"><div class="lbl"><div class="t">执业取向</div><div class="d" id="account-orientation-display">未设置</div></div><button class="btn" id="btn-edit-orient">编辑</button></div>
+    <div class="row" style="background:var(--accent-soft);border-radius:8px;margin:8px 12px;padding:10px 14px"><div style="font-size:12px;color:var(--ink-3);line-height:1.6">💡 这些信息会用于小镜的问候语和 AI 对话的人格化。数据仅存储在本地。</div></div>
+  </div></div>
+
   <div class="group"><div class="group-head"><span class="icon">🔑</span> AI 接口配置</div><div class="group-body">
-    <div class="row" style="background:var(--accent-soft);border-radius:8px;margin:8px 12px;padding:10px 14px"><div style="font-size:12.5px;color:var(--ink-2);line-height:1.7">💡 推荐：对小镜说 <b>"接入 DeepSeek，密钥 sk-xxx"</b> 即可自动配置。也可以手动填写下方字段。</div></div>
+    <div class="row" style="background:var(--accent-soft);border-radius:8px;margin:8px 12px;padding:10px 14px"><div style="font-size:12.5px;color:var(--ink-2);line-height:1.7">💡 推荐：对小镜说 <b>"接入 DeepSeek，密钥 sk-xxx"</b> 即可自动配置。或点击下方按钮选择服务商。</div></div>
+    <div class="row"><div class="lbl"><div class="t">当前状态</div><div class="d" id="api-tier-status">加载中…</div></div><button class="btn pri" id="btn-connect-ai">接入高性能 AI</button></div>
+    <div class="row" style="padding:8px 18px"><div style="font-size:12px;color:var(--ink-3);margin-bottom:6px">快速接入：</div><div id="provider-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div></div>
+    <div id="trial-quota-box"></div>
+  </div></div>
+
+  <details class="group" style="cursor:pointer"><summary class="group-head" style="list-style:none"><span class="icon">⚙️</span> 高级手动配置</summary><div class="group-body">
     <div class="row"><div class="lbl"><div class="t">API 地址</div><div class="d">OpenAI 兼容接口地址</div></div><input type="text" id="api-baseurl" placeholder="https://api.deepseek.com/v1" style="width:280px"></div>
     <div class="row"><div class="lbl"><div class="t">API Key</div><div class="d">密钥仅存储在本地，不会上传</div></div><input type="password" id="api-key" placeholder="sk-..." style="width:280px"></div>
     <div class="row"><div class="lbl"><div class="t">模型</div><div class="d">选择或输入模型名</div></div>
-      <select id="api-model"><option value="__builtin__">内置免费模型</option><option value="deepseek-chat">deepseek-chat</option><option value="deepseek-coder">deepseek-coder</option><option value="__custom__">自定义...</option></select></div>
+      <select id="api-model"><option value="__builtin__">内置免费模型</option><option value="deepseek-v4-pro">deepseek-v4-pro</option><option value="deepseek-v4-flash">deepseek-v4-flash</option><option value="__custom__">自定义...</option></select></div>
     <div class="row" id="custom-model-row" style="display:none"><div class="lbl"><div class="t">自定义模型名</div><div class="d">输入你要用的模型名称</div></div><input type="text" id="api-custom-model" placeholder="如 gpt-4o" style="width:200px"></div>
-    <div class="row"><div class="lbl"><div class="t">当前档位</div><div class="d" id="api-tier-status">加载中…</div></div></div>
     <div class="row"><div class="lbl"><div class="t">连接测试</div><div class="d">验证 API 是否可用</div></div><button class="btn pri" onclick="testApi()">测试连接</button><button class="btn" onclick="saveApiConfig()">保存</button></div>
-    <div id="trial-quota-box"></div>
-  </div></div>
+  </div></details>
 
   <div class="group"><div class="group-head"><span class="icon">💾</span> 数据管理</div><div class="group-body">
     <div class="row"><div class="lbl"><div class="t">备份数据</div><div class="d">导出全部数据为 JSON 文件</div></div><button class="btn" onclick="backupData()">导出备份</button></div>
     <div class="row"><div class="lbl"><div class="t">恢复数据</div><div class="d">从 JSON 备份文件导入</div></div><button class="btn" onclick="document.getElementById('restore-file').click()">导入备份</button><input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)"></div>
-    <div class="row"><div class="lbl"><div class="t">我的资料库</div><div class="d" id="userdoc-path">未设置</div></div><button class="btn" onclick="selectUserDocFolder()">选择文件夹</button></div>
-    <div class="row"><div class="lbl"><div class="d">支持 .md / .txt；资料仅本机读取，不上传任何服务器</div></div></div>
+    <div class="row"><div class="lbl"><div class="t">我的资料库</div><div class="d" id="userdoc-path">未设置</div><div class="d" id="userdoc-stats" style="margin-top:2px;color:var(--accent)"></div></div><div style="display:flex;gap:8px"><button class="btn" onclick="location.href='knowledge.html'">打开资料库</button><button class="btn" onclick="selectUserDocFolder()">选择文件夹</button></div></div>
+    <div class="row"><div class="lbl"><div class="d">支持 .md / .txt；资料仅本机读取，不上传任何服务器。资料会被动注入 AI 对话（咨询/督导/大师等 6 处），也可在资料库中检索。</div></div></div>
     <div class="row"><div class="lbl"><div class="t">存储概况</div><div class="d" id="storage-text">加载中…</div></div></div>
     <div class="row"><div class="lbl"><div class="t">清除账单数据</div><div class="d">仅清除账单，保留督导和对话记录</div></div><button class="btn danger" onclick="location.href='billing-shell.html'">前往账单清除</button></div>
     <div class="row"><div class="lbl"><div class="t">清除全部数据</div><div class="d">删除所有本地数据，不可恢复</div></div><button class="btn danger" onclick="clearAllData()">清除全部</button></div>
@@ -84,6 +94,145 @@
   </div>
 </div>
 </main></div>
-<script src="js/store.js"></script><script src="js/app.js"></script><script src="js/settings.js"></script>
+<script src="js/store.js"></script><script src="js/memory.js"></script><script src="js/persona-preamble.js"></script><script src="js/app.js"></script><script src="js/settings.js"></script>
+
+<!-- connect-drawer（对话式 AI 接入引导） -->
+<div class="xj-connect-drawer" id="connect-drawer">
+  <div class="xj-cd-panel">
+    <div class="xj-cd-head"><span>⚡ 接入高性能 AI</span><button class="btn" id="cd-close" style="border:none;background:transparent;font-size:18px;cursor:pointer">✕</button></div>
+    <div class="xj-cd-msgs" id="cd-msgs"></div>
+    <div class="xj-cd-chips" id="cd-chips"></div>
+    <div class="xj-cd-input-row" id="cd-input-row" style="display:none">
+      <input class="xj-cd-input" id="cd-input" placeholder="…" />
+      <button class="btn pri" id="cd-send">发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- DeepSeek 购买指南模态 -->
+<div class="xj-modal-overlay" id="ds-guide-modal" style="display:none">
+  <div class="xj-modal" style="max-width:480px">
+    <h3 style="font-family:var(--serif);margin:0 0 12px">如何获取 DeepSeek API 密钥</h3>
+    <ol style="font-size:13px;line-height:1.8;padding-left:20px;color:var(--ink-2)">
+      <li>访问 <b>platform.deepseek.com</b>，注册/登录</li>
+      <li>进入「API Keys」页面，点击「创建 API Key」</li>
+      <li>复制密钥（sk-开头），回到心镜粘贴</li>
+    </ol>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn" id="ds-guide-close">关闭</button>
+      <button class="btn pri" id="ds-guide-done">我已拿到密钥</button>
+    </div>
+  </div>
+</div>
+
+<!-- 账号编辑模态 -->
+<div class="xj-modal-overlay" id="account-edit-modal" style="display:none">
+  <div class="xj-modal" style="max-width:380px">
+    <h3 id="account-edit-title" style="font-family:var(--serif);margin:0 0 12px">编辑</h3>
+    <input type="text" id="account-edit-input" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font:14px var(--sans);outline:none" />
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn" id="account-edit-cancel">取消</button>
+      <button class="btn pri" id="account-edit-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.xj-connect-drawer{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.3);display:none;align-items:flex-end;justify-content:center}
+.xj-connect-drawer.xj-open{display:flex}
+.xj-cd-panel{background:var(--paper,#fff);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 -8px 32px rgba(0,0,0,.15)}
+.xj-cd-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:16px;font-weight:600}
+.xj-cd-msgs{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.xj-cd-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6}
+.xj-cd-msg.xj-cd-ai{background:var(--accent-soft,#ECEEF9);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}
+.xj-cd-msg.xj-cd-user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.xj-cd-chips{display:flex;flex-wrap:wrap;gap:6px;padding:8px 20px}
+.xj-chip{border:1px solid var(--border);border-radius:999px;padding:6px 14px;font:12px var(--sans);cursor:pointer;background:var(--paper,#fff);color:var(--ink-2);transition:.15s}
+.xj-chip:hover{border-color:var(--accent);color:var(--accent)}
+.xj-cd-input-row{display:flex;gap:8px;padding:12px 20px;border-top:1px solid var(--border)}
+.xj-cd-input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);outline:none}
+.xj-cd-input:focus{border-color:var(--accent)}
+.xj-modal-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
+.xj-modal{background:var(--paper,#fff);border-radius:14px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+details.group summary::-webkit-details-marker{display:none}
+details.group summary{cursor:pointer}
+details.group summary .group-head::after{content:'▸';margin-left:auto;font-size:12px;color:var(--ink-3);transition:.2s}
+details.group[open] summary .group-head::after{transform:rotate(90deg)}
+</style>
+
+<script>
+// 渲染 provider chips
+(function(){
+  var PROVIDERS = [
+    {key:'deepseek',label:'DeepSeek'},
+    {key:'siliconflow',label:'硅基流动'},
+    {key:'openai',label:'OpenAI'},
+    {key:'moonshot',label:'月之暗面'},
+    {key:'zhipu',label:'智谱'},
+    {key:'qwen',label:'通义千问'},
+    {key:'doubao',label:'豆包'},
+    {key:'other',label:'其他'}
+  ];
+  var box = document.getElementById('provider-chips');
+  if(!box)return;
+  PROVIDERS.forEach(function(p){
+    var b = document.createElement('button');
+    b.className = 'xj-chip';
+    b.textContent = p.label;
+    b.onclick = function(){
+      if(typeof openConnectDrawer==='function'){
+        openConnectDrawer();
+        setTimeout(function(){
+          if(typeof cdPickProvider==='function') cdPickProvider(p.key);
+        },300);
+      }
+    };
+    box.appendChild(b);
+  });
+})();
+
+// 账号编辑逻辑
+(function(){
+  var modal = document.getElementById('account-edit-modal');
+  var input = document.getElementById('account-edit-input');
+  var title = document.getElementById('account-edit-title');
+  var currentField = '';
+  function showEdit(field, lbl, val){
+    currentField = field;
+    title.textContent = '编辑' + lbl;
+    input.value = val || '';
+    modal.style.display = 'flex';
+    setTimeout(function(){input.focus();},100);
+  }
+  function hideEdit(){ modal.style.display = 'none'; }
+  function saveEdit(){
+    var v = input.value.trim();
+    if(!v){ App.showToast('不能为空','warning'); return; }
+    var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
+    p[currentField] = v;
+    if(typeof Memory!=='undefined' && Memory.setProfile) Memory.setProfile(p);
+    document.getElementById('account-name-display').textContent = p.name || '未设置';
+    document.getElementById('account-orientation-display').textContent = p.orientation || '未设置';
+    App.showToast('已保存','success');
+    hideEdit();
+  }
+  document.getElementById('btn-edit-name').onclick = function(){
+    var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
+    showEdit('name','称呼', p.name);
+  };
+  document.getElementById('btn-edit-orient').onclick = function(){
+    var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
+    showEdit('orientation','执业取向', p.orientation);
+  };
+  document.getElementById('account-edit-cancel').onclick = hideEdit;
+  document.getElementById('account-edit-save').onclick = saveEdit;
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') saveEdit(); });
+  modal.addEventListener('click', function(e){ if(e.target===modal) hideEdit(); });
+  // 初始化显示
+  var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
+  document.getElementById('account-name-display').textContent = p.name || '未设置';
+  document.getElementById('account-orientation-display').textContent = p.orientation || '未设置';
+})();
+</script>
 </body>
 </html>

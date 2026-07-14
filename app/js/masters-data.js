@@ -28,6 +28,11 @@
       emoji: '🧸',
       introTitle: '今天想聊聊什么？',
       intro: '选一个方向，我来调成最适合聊天的模式',
+      quickOptions: [
+        '我在临床中感到"抱持"很困难——来访者总想让我给答案',
+        '如何理解来访者对过渡客体的依赖？',
+        '真自体与假自体在治疗中如何区分？'
+      ],
       font: '"Noto Serif SC","STSong","Songti SC",Georgia,serif',
       chatAccent: '#8B93C7', lightAccent: '#ECEEF9', bg: '#f8f3ed', border: '#e5d9c8',
       knowledgeFile: 'masters/knowledge/winnicott-knowledge.md',
@@ -50,6 +55,11 @@
       emoji: '🎭',
       introTitle: '你以为你在说什么？',
       intro: '你不知道的，语言替你说',
+      quickOptions: [
+        '来访者的症状是一个能指——它指向什么？',
+        '如何理解镜像阶段对自我形成的意义？',
+        '父之名（Nom-du-Père）在当代家庭中的失效'
+      ],
       font: '"Palatino Linotype","STSong",serif',
       chatAccent: '#5b3a8c', lightAccent: '#EEEDFE', bg: '#f5f0eb', border: '#d5c8e0',
       knowledgeFile: 'masters/knowledge/lacan-knowledge.md',
@@ -71,6 +81,11 @@
       emoji: '🧔',
       introTitle: '今天想谈谈什么？',
       intro: '自由联想、梦的解析——让我们探索你的无意识',
+      quickOptions: [
+        '如何理解来访者梦中的凝缩与移置？',
+        '阻抗在治疗中意味着什么？',
+        '俄狄浦斯情结在非传统家庭中的表现'
+      ],
       font: '"Georgia","Noto Serif SC",serif',
       chatAccent: '#5b3a8c', lightAccent: '#EEEDFE', bg: '#f5f0eb', border: '#d5c8e0',
       knowledgeFile: 'masters/knowledge/freud-knowledge.md',
@@ -92,6 +107,11 @@
       emoji: '👩',
       introTitle: '你准备好深入了吗？',
       intro: '探索早期客体关系——你的内在世界远比你以为的更早开始',
+      quickOptions: [
+        '如何识别偏执-分裂位与抑郁位的摆动？',
+        '投射性认同在治疗关系中的运作',
+        '嫉妒（envy）与修复（reparation）的动力学'
+      ],
       font: '"Palatino Linotype","STSong",serif',
       chatAccent: '#3a8c5b', lightAccent: '#EAF3DE', bg: '#f0f5ea', border: '#c8ddc0',
       knowledgeFile: 'masters/knowledge/klein-knowledge.md',
@@ -113,6 +133,11 @@
       emoji: '🔮',
       introTitle: '你的灵魂在说什么？',
       intro: '探索梦境、原型与个性化之路',
+      quickOptions: [
+        '来访者反复出现的梦境——原型在说话',
+        '阴影整合：如何面对内在的黑暗面？',
+        '中年危机与个体化（individuation）进程'
+      ],
       font: '"Garamond","Noto Serif SC",serif',
       chatAccent: '#8c6b3a', lightAccent: '#FAEEDA', bg: '#f5f0e5', border: '#ddd0b8',
       knowledgeFile: 'masters/knowledge/jung-knowledge.md',
@@ -134,6 +159,11 @@
       emoji: '🧠',
       introTitle: '你想被理解，还是被容受？',
       intro: '短句、悖论、数学式抽象——准备好遭遇比昂',
+      quickOptions: [
+        '来访者的情绪是β元素——我如何用α功能去消化？',
+        '容器与被容者（♀♂）在治疗中如何运作？',
+        '当治疗陷入PS↔D的摆动时该怎么办？'
+      ],
       font: '"Courier New","FangSong",monospace',
       chatAccent: '#6B4C8C', lightAccent: '#E8E0F0', bg: '#f4f0f7', border: '#d5c8e5',
       knowledgeFile: 'masters/knowledge/bion-knowledge.md',
@@ -156,6 +186,11 @@
       emoji: '🌱',
       introTitle: '不用急着改变——先听听你内心在说什么。',
       intro: '你不需要变成别人。你只需要成为你自己。',
+      quickOptions: [
+        '我觉得来访者在说一件事，但她好像在感受另一件事',
+        '如何做到真正的无条件积极关注？',
+        '当治疗师自己也感到不自在时，如何保持真诚一致？'
+      ],
       font: '"Verdana","Noto Sans SC",sans-serif',
       chatAccent: '#B8734A', lightAccent: '#F0E8E0', bg: '#faf5f0', border: '#e0d5c8',
       knowledgeFile: 'masters/knowledge/rogers-knowledge.md',
@@ -177,6 +212,11 @@
       emoji: '🧪',
       introTitle: '数据不会撒谎。我们来检验你的想法。',
       intro: '不是事件决定你的感受——是你如何解释它。',
+      quickOptions: [
+        '来访者有哪些典型的自动思维？',
+        '如何用苏格拉底式提问挑战"全或无"的认知扭曲？',
+        '设计一个行为实验来检验来访者的核心信念'
+      ],
       font: '"Arial","Microsoft YaHei",sans-serif',
       chatAccent: '#4A6B8C', lightAccent: '#E0E8F0', bg: '#f0f4f8', border: '#c8d5e0',
       knowledgeFile: 'masters/knowledge/beck-knowledge.md',
@@ -198,6 +238,11 @@
       emoji: '📖',
       introTitle: '我没有菜谱给你——我只有哲学。',
       intro: '死亡、自由、孤独、无意义——你在和哪一个搏斗？',
+      quickOptions: [
+        '来访者反复谈论死亡焦虑——如何在此处开展工作？',
+        '团体治疗中的"此时此地"如何利用？',
+        '如何直面存在性孤独而非急于填补？'
+      ],
       font: '"Georgia","Noto Serif SC",serif',
       chatAccent: '#8C4A6B', lightAccent: '#F0E8F0', bg: '#f8f0f5', border: '#e0c8d5',
       knowledgeFile: 'masters/knowledge/yalom-knowledge.md',
@@ -219,6 +264,11 @@
       emoji: '🧭',
       introTitle: '重要的不是被给予了什么，而是如何去利用被给予的东西。',
       intro: '自卑不是病，勇气可以改变一切——你在和什么搏斗？',
+      quickOptions: [
+        '来访者的生活目标是什么？这个症状服务于什么目的？',
+        '如何理解家庭星座对当前关系模式的影响？',
+        '社会兴趣不足的来访者如何重建联结感？'
+      ],
       font: '"Trebuchet MS","Noto Sans SC",sans-serif',
       chatAccent: '#C49A3C', lightAccent: '#F8F0D8', bg: '#FCF8E8', border: '#E8DDB0',
       knowledgeFile: 'masters/knowledge/adler-knowledge.md',
@@ -239,6 +289,11 @@
       emoji: '💞',
       introTitle: '你在爱里循环的是什么？',
       intro: '情感聚焦疗法（EFT）——看你的情绪如何塑造关系模式',
+      quickOptions: [
+        '如何追踪伴侣间的负向互动循环？',
+        '退缩者背后的依恋需求是什么？',
+        '如何帮助来访者触及核心情绪而非停留在表层愤怒？'
+      ],
       font: '"Segoe UI","PingFang SC",sans-serif',
       chatAccent: '#D4537E', lightAccent: '#FBEAF0', bg: '#faf0f3', border: '#e8cdd0',
       knowledgeFile: 'masters/knowledge/sue-johnson-knowledge.md',

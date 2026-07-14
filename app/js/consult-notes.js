@@ -87,6 +87,7 @@
       hasDap: hasDap,
     });
     App.showToast('已保存', 'success');
+    if (typeof Memory !== 'undefined' && Memory.record) Memory.record('session_saved', { summary: '保存了咨询记录', relatedClientId: currentClientId });
   };
 
   window.sendToXj = function () {
@@ -96,7 +97,7 @@
     addXjMsg('me', text);
     input.value = '';
     // 调用 AI
-    if (!App.aiUnlocked()) { addXjMsg('ai', 'AI 功能需激活后使用。'); return; }
+    if (!App.featureGate('ai-notes')) { addXjMsg('ai', 'AI 功能需激活后使用。'); return; }
     addXjMsg('ai', '思考中…');
     var orient = '温尼科特取向';
     var sys = '你是心理咨询师的小镜助手，温尼科特取向。请用中文简短回应咨询师的问题，帮助梳理临床材料。';

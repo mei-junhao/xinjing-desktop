@@ -75,7 +75,7 @@
   // AI 检测错误
   window.detectErrors = function () {
     if (!lines.length) { App.showToast('请先导入文本', 'warning'); return; }
-    if (!App.aiUnlocked()) { App.showToast('AI 检测需激活后使用', 'warning'); return; }
+    if (!App.featureGate('ai-detect')) { App.showToast('AI 检测需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
 
     // 先应用记忆规则
     applyMemRules();
@@ -142,20 +142,14 @@
     var l = lines[lineIdx];
     var err = l.errors[errIdx];
     if (!err || l.fixed) return;
-    // 自动修正所有同样的错误
+    // 从出错行截取出"错误原词"（修正前快照，避免 text 已被改后取错 pattern）
+    var originalWord = l.original ? l.original.slice(err.pos, err.pos + err.len) : l.text.slice(err.pos, err.pos + err.len);
+    // 自动修正：在所有行替换"原词"为"修正词"
     var autoCount = 0;
     lines.forEach(function (otherL, oi) {
-      if (oi === lineIdx && l.fixed) return;
       var idx = 0;
-      while ((idx = otherL.text.indexOf(err.fix, idx)) >= 0) {
-        otherL.text = otherL.text.slice(0, idx) + otherL.text.slice(idx + err.fix.length);
-        idx += 1; // 避免无限循环
-      }
-      // 找原词
-      idx = 0;
-      var pattern = lines[oi].text.slice(err.pos, err.pos + err.len);
-      while ((idx = otherL.text.indexOf(pattern, idx)) >= 0) {
-        otherL.text = otherL.text.slice(0, idx) + err.fix + otherL.text.slice(idx + pattern.length);
+      while ((idx = otherL.text.indexOf(originalWord, idx)) >= 0) {
+        otherL.text = otherL.text.slice(0, idx) + err.fix + otherL.text.slice(idx + originalWord.length);
         otherL.fixed = true;
         idx += err.fix.length;
         autoCount++;
@@ -166,10 +160,7 @@
     fixedCount++;
     errorCount--;
 
-    // 存入记忆库
-    var pattern = lines[lineIdx].text.slice(err.pos, err.pos + err.len);
-    // 用原词模板
-    var originalWord = lines[lineIdx].original ? lines[lineIdx].original.slice(err.pos, err.pos + err.len) : pattern;
+    // 存入记忆库（originalWord 已在函数开头提取）
     var existing = memRules.find(function (r) { return r.pattern === originalWord; });
     if (existing) {
       existing.count = (existing.count || 1) + 1;

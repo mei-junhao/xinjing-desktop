@@ -25,7 +25,7 @@ if (!SECRET) {
 const TRIAL_DAYS = 90;
 // AI 助手 / AI 督导 的免费试用窗口：安装后 30 天内无限制免费使用（此后需激活）。
 // 与 90 天基础试用相互独立：0~30 天 AI 免费 + 基础可用；31~90 天 AI 锁定 + 基础可用；90 天后受限。
-const AI_TRIAL_DAYS = 30;
+const AI_TRIAL_DAYS = 60;
 
 // 付费分层（Freemium）：
 //   pro    = 标准付费版（解锁 AI 助手 / 多位置备份等拓展功能）

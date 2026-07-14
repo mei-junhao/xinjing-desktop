@@ -33,7 +33,9 @@
     var doneToday = todaySessions.filter(function (s) { return s.billing && s.billing.paid; }).length;
     var pendingReports = allSessions.filter(function (s) { return s.hasTranscript && !s.hasSoap && !s.hasDap; }).length;
 
-    document.getElementById('xj-greet').innerHTML = '下午好，梅。<br>今天完成了 ' + doneToday + ' 节咨询，共 ' + todaySessions.length + ' 节。';
+    var profile = (typeof Memory !== 'undefined' && Memory.getProfile) ? Memory.getProfile() : {};
+    var userName = (profile && profile.name) || '梅';
+    document.getElementById('xj-greet').innerHTML = '你好，' + userName + '。<br>今天完成了 ' + doneToday + ' 节咨询，共 ' + todaySessions.length + ' 节。';
 
     var body = document.getElementById('xj-body');
     var msgs = [];
@@ -161,7 +163,8 @@
       '- 如果用户问的问题需要查更细的数据（如特定来访者的欠费），引导用户去账单页面自己查看。\n' +
       '- 如果用户问的专业问题超出你的能力范围，诚实地让对方去AI督导页面。';
 
-    var sys = XIAOJING_IDENTITY + '\n\n' + ctx;
+    var preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
+    var sys = (preamble ? preamble + '\n\n' : '') + XIAOJING_IDENTITY + '\n\n' + ctx;
     var msgs = [{ role: 'system', content: sys }, { role: 'user', content: text }];
 
     if (typeof AI !== 'undefined' && AI.send) {
@@ -257,11 +260,46 @@
     }).join('');
   }
 
+  // ---- 我的资料库瓦片（入口4：仪表盘统计瓦片）----
+  function renderKbTile(_retry) {
+    var el = document.getElementById('kb-mod-count');
+    if (!el) return;
+    if (typeof UserDocs === 'undefined' || !UserDocs.getMeta) {
+      // userdocs.js 经 preload 异步注入，可能尚未就绪，短暂重试一次
+      if ((_retry || 0) < 10) { setTimeout(function () { renderKbTile((_retry || 0) + 1); }, 300); }
+      return;
+    }
+    UserDocs.getMeta(false).then(function (meta) {
+      if (!meta || !meta.ok || !meta.folder) {
+        el.textContent = '未设置';
+        el.style.background = 'var(--bg-sunken)';
+        el.style.color = 'var(--ink-2)';
+        return;
+      }
+      var st = meta.stats || {};
+      var files = st.fileCount || (meta.files ? meta.files.length : 0);
+      if (!files) {
+        el.textContent = '空文件夹';
+        el.style.background = 'var(--bg-sunken)';
+        el.style.color = 'var(--ink-2)';
+        return;
+      }
+      var chars = st.totalChars || 0;
+      var kw = chars >= 10000 ? (Math.round(chars / 1000) / 10) + '万字' : chars + '字';
+      el.textContent = files + ' 份 · ' + kw;
+      el.style.background = 'var(--success)';
+      el.style.color = '#fff';
+    }).catch(function () {
+      el.textContent = '未设置';
+    });
+  }
+
   // ---- 初始化 ----
   App.initPage({ title: '首页', subtitle: '', actions: '', noSidebar: true, onReady: function () {
     renderStats();
     renderRecent();
     renderTodo();
     renderXjGreet();
+    renderKbTile();
   }});
 })();

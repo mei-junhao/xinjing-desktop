@@ -105,6 +105,10 @@
               <span>💬 交心</span>
               <input type="range" id="temp-slider" min="0" max="100" value="60" step="1" style="width:64px;height:4px;accent-color:var(--accent);cursor:pointer" oninput="onTempChange(this.value)">
               <span>📖 教学</span>
+              <span style="margin:0 4px;border-left:1px solid var(--border);height:14px;display:inline-block"></span>
+              <span>📝 简洁</span>
+              <input type="range" id="detail-slider" min="0" max="100" value="50" step="1" style="width:64px;height:4px;accent-color:var(--accent);cursor:pointer" oninput="onDetailChange(this.value)">
+              <span>📋 详尽</span>
             </div>
           </div>
           <div class="chat-body" id="chat-body">
@@ -115,16 +119,16 @@
             <button id="send-btn" onclick="sendMessage()" disabled>发送</button>
           </div>
           <div class="lock-overlay hidden" id="ai-lock">
-            <div class="lock-emoji">🔒</div>
-            <div class="lock-title">AI 对话为付费功能</div>
-            <div class="lock-sub">安装后 30 天内可免费试用。如已过期，请到「设置 → 关于」输入激活码解锁。</div>
+            <div class="lock-emoji">💡</div>
+            <div class="lock-title">AI 大师对话需要激活</div>
+            <div class="lock-sub">试用期内可免费使用。如已过期，请到「设置 → 激活」输入激活码。</div>
             <button class="btn btn-primary btn-sm" onclick="openActivation()">去激活</button>
           </div>
         </div>
       </div>
       <!-- 右栏：历史对话 -->
       <div style="background:var(--paper-2,var(--bg-elevated,#fff));border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
-        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font:600 12px var(--sans);color:var(--text-secondary)">历史对话</div>
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font:600 12px var(--sans);color:var(--text-secondary);display:flex;align-items:center;gap:8px"><span>历史对话</span><span class="sp" style="flex:1"></span><button class="btn btn-ghost btn-sm" onclick="exportCurrent()" title="导出当前对话为 Markdown" style="border:1px solid var(--border);border-radius:6px;padding:3px 8px;font:11px var(--sans);cursor:pointer;background:transparent;color:var(--ink-2)">📄 导出</button></div>
         <div id="hist-list" style="flex:1;overflow-y:auto;padding:6px"></div>
       </div>
     </main>
@@ -143,6 +147,7 @@
   <script src="js/ai.js"></script>
   <script src="js/prompts.builtin.js"></script>
   <script src="js/masters-data.js"></script>
+  <script src="js/knowledge.builtins.js"></script>
   <script src="js/masters.js"></script>
 </body>
 </html>

@@ -25,6 +25,7 @@ const Store = (() => {
     supervisions: [],
     supervisorIdentities: [],
     masterConversations: [],
+    expenses: [],
     settings: { apiConfig: {}, version: '1.0.0' },
   };
   let hydrated = false;
@@ -173,12 +174,13 @@ const Store = (() => {
   async function hydrate() {
     if (hydrated) return;
     await migrateFromLocalStorage();
-    const [clients, sessions, supervisions, supervisorIdentities, masterConversations, settings] = await Promise.all([
+    const [clients, sessions, supervisions, supervisorIdentities, masterConversations, expenses, settings] = await Promise.all([
       idbGet('clients'),
       idbGet('sessions'),
       idbGet('supervisions'),
       idbGet('supervisorIdentities'),
       idbGet('masterConversations'),
+      idbGet('expenses'),
       idbGet('settings'),
     ]);
     cache.clients = Array.isArray(clients) ? clients : [];
@@ -186,6 +188,7 @@ const Store = (() => {
     cache.supervisions = Array.isArray(supervisions) ? supervisions : [];
     cache.supervisorIdentities = Array.isArray(supervisorIdentities) ? supervisorIdentities : [];
     cache.masterConversations = Array.isArray(masterConversations) ? masterConversations : [];
+    cache.expenses = Array.isArray(expenses) ? expenses : [];
     cache.settings =
       settings && typeof settings === 'object'
         ? Object.assign({ apiConfig: {}, version: '1.0.0' }, settings)
@@ -608,6 +611,70 @@ const Store = (() => {
     cache.masterConversations = cache.masterConversations.filter((c) => c.id !== id);
     persist('masterConversations');
     return true;
+  }
+
+  // ============================================================
+  // 支出（专业发展费用）—— 收入侧的镜像数据
+  // 每条 = { id, category:'personal'|'individual'|'group'|'course'|'other',
+  //          date, amount, description, createdAt, updatedAt }
+  // ============================================================
+  function getExpenses() {
+    return cache.expenses.slice().sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  }
+  function getExpense(id) {
+    return cache.expenses.find((e) => e.id === id) || null;
+  }
+  function getExpensesByCategory(cat) {
+    if (!cat || cat === 'all') return getExpenses();
+    return getExpenses().filter((e) => e.category === cat);
+  }
+  function getExpensesByMonth(ym) {
+    if (!ym) return getExpenses();
+    return getExpenses().filter((e) => (e.date || '').slice(0, 7) === ym);
+  }
+  function createExpense(data) {
+    const exp = Object.assign(
+      {
+        id: genId('exp'),
+        category: 'other',
+        date: nowISO().slice(0, 10),
+        amount: 0,
+        description: '',
+        createdAt: nowISO(),
+        updatedAt: nowISO(),
+      },
+      data
+    );
+    cache.expenses.push(exp);
+    persist('expenses');
+    return exp;
+  }
+  function updateExpense(id, patch) {
+    const idx = cache.expenses.findIndex((e) => e.id === id);
+    if (idx < 0) return null;
+    cache.expenses[idx] = Object.assign({}, cache.expenses[idx], patch, { updatedAt: nowISO() });
+    persist('expenses');
+    return cache.expenses[idx];
+  }
+  function deleteExpense(id) {
+    cache.expenses = cache.expenses.filter((e) => e.id !== id);
+    persist('expenses');
+    return true;
+  }
+  function getExpenseStats() {
+    const list = cache.expenses;
+    const total = list.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const byCat = {};
+    ['personal', 'individual', 'group', 'course', 'other'].forEach((cat) => {
+      byCat[cat] = { count: 0, total: 0 };
+    });
+    list.forEach((e) => {
+      if (byCat[e.category]) {
+        byCat[e.category].count++;
+        byCat[e.category].total += Number(e.amount) || 0;
+      }
+    });
+    return { total, byCat, count: list.length };
   }
 
   // ============================================================
@@ -1059,10 +1126,10 @@ const Store = (() => {
 
   // 对当前库已有重复做一次去重（应对旧端口已归档、迁移不再触发的现状）
   async function maybeDedupe() {
-    const flag = await idbGet('__xj_dedup_v2');
+    const flag = await idbGet('__xj_dedup_v3');
     if (flag && flag.done) return 0; // 已处理过，防重
     const all = await readAllKv();
-    const ARRAY_KEYS = ['clients', 'sessions', 'supervisions', 'masterConversations', 'supervisorIdentities'];
+    const ARRAY_KEYS = ['clients', 'sessions', 'supervisions', 'masterConversations', 'supervisorIdentities', 'expenses'];
     let removed = 0;
     const backup = {};
     for (const k of ARRAY_KEYS) {
@@ -1093,8 +1160,38 @@ const Store = (() => {
         }
       }
     }
+    // v3.4.2 第三轮：同 clientId+date 零费用空记录 vs 有费用记录 → 删零费用
+    if (Array.isArray(all.sessions)) {
+      const dateGroups = new Map();
+      for (const s of all.sessions) {
+        if (!s.date || !s.clientId) continue;
+        const key = s.clientId + '|' + s.date;
+        if (!dateGroups.has(key)) dateGroups.set(key, []);
+        dateGroups.get(key).push(s);
+      }
+      const keep3 = [];
+      for (const g of dateGroups.values()) {
+        if (g.length < 2) { keep3.push.apply(keep3, g); continue; }
+        const hasContent = g.some(function (s) { return (s.billing && Number(s.billing.fee) || 0) > 0; });
+        const hasZero = g.some(function (s) { return (s.billing && Number(s.billing.fee) || 0) === 0; });
+        if (hasContent && hasZero) {
+          var removedFromGroup = 0;
+          g.forEach(function (s) {
+            if ((s.billing && Number(s.billing.fee) || 0) === 0) { removedFromGroup++; }
+            else { keep3.push(s); }
+          });
+          removed += removedFromGroup;
+        } else {
+          keep3.push.apply(keep3, g);
+        }
+      }
+      if (keep3.length < all.sessions.length) {
+        if (!backup.sessions) backup.sessions = all.sessions;
+        all.sessions = keep3;
+      }
+    }
     if (removed === 0) {
-      await idbPut('__xj_dedup_v2', { done: true, at: Date.now(), removed: 0 });
+      await idbPut('__xj_dedup_v3', { done: true, at: Date.now(), removed: 0 });
       return 0;
     }
     // 备份原始重复数据，极端情况可经开发者工具恢复
@@ -1102,7 +1199,7 @@ const Store = (() => {
     for (const k of ARRAY_KEYS) {
       if (all[k] !== undefined) await idbPut(k, all[k]);
     }
-    await idbPut('__xj_dedup_v2', { done: true, at: Date.now(), removed });
+    await idbPut('__xj_dedup_v3', { done: true, at: Date.now(), removed });
     return removed;
   }
 
@@ -1123,6 +1220,9 @@ const Store = (() => {
     getSupervisionsByClient, buildSupervisionGrowthContext, saveAiSupervision,
     // 大师对话
     getMasterConversations, getMasterConversation, saveMasterConversation, deleteMasterConversation,
+    // 支出
+    getExpenses, getExpense, getExpensesByCategory, getExpensesByMonth,
+    createExpense, updateExpense, deleteExpense, getExpenseStats,
     // 督导师身份（AI 督导，付费）
     getSupervisorIdentities, getSupervisorIdentity,
     createSupervisorIdentity, updateSupervisorIdentity, deleteSupervisorIdentity,
@@ -1136,6 +1236,8 @@ const Store = (() => {
     storageInfo,
     // 授权闸门
     licenseMode, aiUnlocked,
+    // v3.3.0 记忆系统：暴露 KV 原语供 Memory 模块使用
+    _get: idbGet, _put: idbPut,
   };
 })();
 

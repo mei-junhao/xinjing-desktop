@@ -267,6 +267,8 @@
    ============================================================ */
 :root {
   --dock-w: 380px;
+  --radius: 14px;
+  --radius-sm: 10px;
   --radius-lg: 14px;
   --font-serif: var(--serif);
   --font-sans: var(--sans);
@@ -308,4 +310,54 @@
   --warning: var(--orange);
   --danger: var(--red);
   --shadow-md: var(--shadow);
+}
+
+/* ============================================================
+   心镜 XinJing · 会员与门控视觉系统
+   适用于所有皮肤（pro/custom/trial/free 统一语义）
+   ============================================================ */
+.xj-tier-badge, .xj-lock-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--sans); font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px; line-height: 1.4;
+  letter-spacing: 0.02em; white-space: nowrap; vertical-align: middle;
+}
+.xj-tier-badge.pro, .xj-tier-badge.full {
+  background: rgba(214, 168, 92, 0.15); color: var(--orange, #D6A85C);
+  border: 1px solid rgba(214, 168, 92, 0.25);
+}
+.xj-tier-badge.custom {
+  background: rgba(155, 133, 199, 0.15); color: var(--purple, #9B85C7);
+  border: 1px solid rgba(155, 133, 199, 0.25);
+}
+.xj-tier-badge.trial {
+  background: var(--accent-soft, rgba(139, 147, 199, 0.1)); color: var(--accent, #8B93C7);
+  border: 1px solid rgba(139, 147, 199, 0.2);
+}
+.xj-lock-badge {
+  background: rgba(0, 0, 0, 0.04); color: var(--ink-3, #99A1B3);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08)); cursor: help;
+}
+.xj-lock-badge:hover { color: var(--accent); }
+.xj-premium-btn { position: relative; }
+.xj-premium-btn::after {
+  content: '🔒'; font-size: 9px; position: absolute;
+  top: 2px; right: 4px; opacity: .6;
+}
+.xj-locked-area { position: relative; }
+.xj-locked-area > .xj-lock-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(246, 248, 252, 0.78);
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-card, 14px);
+  font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--ink-3, #646B7D);
+  pointer-events: auto;
+}
+.xj-locked-area > .xj-lock-overlay::before {
+  content: "🔒"; margin-right: 6px; font-size: 14px; opacity: 0.7;
+}
+:root.dark .xj-locked-area > .xj-lock-overlay,
+[data-skin="editorial"].dark .xj-locked-area > .xj-lock-overlay {
+  background: rgba(25, 21, 15, 0.78);
 }

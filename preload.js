@@ -44,7 +44,11 @@ const api = {
   // v3.5.0 用户自建知识库：选择资料文件夹 / 读配置 / 读资料（仅本机 fs，零出网）
   selectUserDocFolder: () => ipcRenderer.invoke('xj:selectUserDocFolder'),
   getUserDocFolder: () => ipcRenderer.invoke('xj:getUserDocFolder'),
-  readUserDocs: (opts) => ipcRenderer.invoke('xj:readUserDocs', opts)
+  readUserDocs: (opts) => ipcRenderer.invoke('xj:readUserDocs', opts),
+  // v3.5.0-UI 知识库界面依赖：元数据 / 单文件全文 / 片段化搜索（均仅本机 fs，零出网）
+  readUserDocMeta: () => ipcRenderer.invoke('xj:readUserDocMeta'),
+  readUserDocFile: (relPath) => ipcRenderer.invoke('xj:readUserDocFile', { relPath }),
+  searchUserDocs: (query, max) => ipcRenderer.invoke('xj:searchUserDocs', { query, max })
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];

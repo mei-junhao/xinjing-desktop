@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · AI 督导思维导图</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/agent.css">
+<style>
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
+.xj-tier-badge.custom{background:rgba(155,133,199,.12);color:#9B85C7;border:1px solid rgba(155,133,199,.25)}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,rgba(155,133,199,.12),rgba(139,147,199,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .sp{flex:1}
+.sup-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.sup-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
+.sup-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.sup-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
+.sup-top .sp{flex:1}
+.sup-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.sup-body{flex:1;display:grid;grid-template-columns:280px 1fr 340px;min-height:0;overflow:hidden}
+.sup-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sup-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.sup-left .lh-list{flex:1;overflow-y:auto;padding:8px}
+.sup-left .lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font:12.5px/1.5 var(--sans);margin-bottom:4px;transition:all .15s}
+.sup-left .lh-item:hover{background:var(--hover-tint)}
+.sup-left .lh-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
+.sup-left .lh-item .s-name{font-weight:600;color:var(--accent)}
+.sup-left .lh-item .s-date{font:11px var(--sans);color:var(--ink-3)}
+.sup-mid{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.sup-mid .m-head{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--paper-2);flex-shrink:0;display:flex;align-items:center;gap:8px}
+.sup-mid .m-head .title{font:600 14px var(--serif)}
+.sup-mid .m-head .sp{flex:1}
+.mindmap-canvas{flex:1;overflow-y:auto;padding:20px;display:flex;align-items:center;justify-content:center}
+.mindmap-canvas svg{max-width:100%;height:auto}
+.sup-right{background:var(--paper-2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sup-right .sr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.sup-right .sr-body{flex:1;overflow-y:auto;padding:16px}
+.sr-stat{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.sr-stat span{font:11px var(--sans);color:var(--ink-3)}
+.sr-stat b{font:600 14px var(--serif);color:var(--ink)}
+.sr-divider{height:1px;background:var(--border);margin:12px 0}
+.sr-node-info{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);padding:12px;margin-bottom:10px}
+.sr-node-info .ni-title{font:600 12px var(--sans);color:var(--accent);margin-bottom:4px}
+.sr-node-info .ni-desc{font:11px/1.5 var(--sans);color:var(--ink-2);margin-bottom:8px}
+.sup-right .sr-action{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.sup-right .sr-action button{width:100%;border:none;background:var(--accent);color:#fff;border-radius:8px;padding:10px;font:13px var(--sans);cursor:pointer;margin-bottom:8px}
+.sup-right .sr-action button:disabled{opacity:.5;cursor:not-allowed}
+.sup-right .sr-action button.ghost{background:var(--paper-2);border:1px solid var(--border);color:var(--ink-2)}
+.empty-state{font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px}
+</style>
+</head>
+<body>
+
+<div class="preview-bar" id="preview-bar" style="display:none">
+  <span>🔒</span>
+  <span>旗舰版预览模式 · 这是 <b>AI 督导思维导图</b> 旗舰增值功能，升级 <span class="xj-tier-badge custom" style="display:inline">旗舰版</span> 后从方案 C 三栏自动生成可视化导图</span>
+  <span class="sp"></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">三栏研究台 → <a href="supervision.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<div class="sup-top">
+  <button class="back" onclick="location.href='supervision.html'">← 返回三栏研究台</button>
+  <h2>AI 督导思维导图 <span class="sub">· 旗舰版D</span></h2>
+  <span class="sp"></span>
+  <select id="sel-client" onchange="loadHistory()"><option value="">选择来访者…</option></select>
+  <span id="tier-badge" class="xj-tier-badge custom" style="display:none">旗舰版</span>
+</div>
+
+<div class="sup-body">
+
+  <div class="sup-left">
+    <div class="lh-head">📋 督导历史</div>
+    <div class="lh-list" id="history-list">
+      <div class="empty-state">选择来访者后加载</div>
+    </div>
+  </div>
+
+  <div class="sup-mid">
+    <div class="m-head">
+      <span class="title">🗺 思维导图</span>
+      <span class="sp"></span>
+      <button id="btn-generate" class="xj-premium-btn" style="border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled onclick="generateMindmap()">生成导图</button>
+    </div>
+    <div class="mindmap-canvas" id="canvas">
+      <div class="empty-state">选择左侧督导记录<br>点击"生成导图"从 AI 督导内容<br>自动提取主题并可视化</div>
+    </div>
+  </div>
+
+  <div class="sup-right">
+    <div class="sr-head">📊 导图面板</div>
+    <div class="sr-body" id="panel-body">
+      <div class="xj-locked-area" id="panel-locked" style="min-height:200px">
+        <div class="xj-lock-overlay">🔒 旗舰版功能 · 点击节点查看</div>
+        <div class="sr-stat"><span>导图层级</span><b>-</b></div>
+        <div class="sr-stat"><span>节点总数</span><b>-</b></div>
+        <div class="sr-divider"></div>
+        <div style="font:600 11px var(--sans);color:var(--ink-3);letter-spacing:.05em;margin-bottom:8px">🎯 选中节点</div>
+        <div class="sr-node-info"><div class="ni-title">等待选择…</div></div>
+      </div>
+    </div>
+    <div class="sr-action">
+      <button id="btn-regen" class="xj-premium-btn" disabled onclick="generateMindmap()">🔄 重新生成导图</button>
+      <button id="btn-export" class="xj-premium-btn" disabled onclick="exportSvg()">📊 导出 SVG</button>
+      <button class="ghost" onclick="location.href='supervision.html'">返回方案 C 三栏</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/ai.js"></script>
+<script>
+App.initPage({ title: '督导 · 思维导图', noSidebar: true, onReady: function () {
+  'use strict';
+  var isMember = typeof App !== 'undefined' && App.featureGate && App.featureGate('ai-mindmap');
+  var previewBar = document.getElementById('preview-bar');
+  if (isMember) {
+    previewBar.style.display = 'none';
+    document.getElementById('tier-badge').style.display = 'inline-flex';
+    document.querySelectorAll('.xj-premium-btn').forEach(function (b) { b.disabled = false; });
+    document.getElementById('btn-export').disabled = false;
+    var locked = document.getElementById('panel-locked');
+    if (locked) { locked.classList.remove('xj-locked-area'); locked.querySelector('.xj-lock-overlay').style.display = 'none'; }
+  } else {
+    previewBar.style.display = 'flex';
+  }
+
+  var sel = document.getElementById('sel-client');
+  Store.getClients().forEach(function (c) {
+    var opt = document.createElement('option');
+    opt.value = c.id; opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+
+  window.loadHistory = function () {
+    var clientId = sel.value;
+    var list = document.getElementById('history-list');
+    if (!clientId) { list.innerHTML = '<div class="empty-state">选择来访者</div>'; return; }
+    var records = Store.getSupervisionsByClient ? Store.getSupervisionsByClient(clientId) : [];
+    if (!records.length) { list.innerHTML = '<div class="empty-state">暂无督导记录</div>'; return; }
+    list.innerHTML = records.map(function (r, i) {
+      return '<div class="lh-item' + (i === 0 ? ' active' : '') + '" data-id="' + r.id + '" onclick="selectRecord(\'' + r.id + '\')">' +
+        '<div class="s-name">' + App.escapeHtml(r.supervisorName || '督导') + '</div>' +
+        '<div class="s-date">' + App.formatDate(r.date) + '</div></div>';
+    }).join('');
+  };
+
+  window.selectRecord = function (id) {
+    document.querySelectorAll('.lh-item').forEach(function (el) { el.classList.toggle('active', el.dataset.id === id); });
+  };
+
+  window.generateMindmap = function () {
+    if (!isMember) return;
+    var active = document.querySelector('.lh-item.active');
+    if (!active || !active.dataset.id) { App.showToast('请先选择督导记录', 'warning'); return; }
+    var record = Store.getSupervision ? Store.getSupervision(active.dataset.id) : null;
+    if (!record) return;
+    var content = record.content || '';
+    var canvas = document.getElementById('canvas');
+    canvas.innerHTML = '<div class="empty-state">AI 生成思维导图…</div>';
+    var sys = '你是心理咨询督导分析专家。请分析以下督导记录，提取主题树结构，输出 JSON：{"root":"标题","children":[{"name":"分支名","color":"#hex","children":[{"name":"叶子名","desc":"描述"}]}]}。颜色用 #8B93C7(根)、#B5BDE0(一级)、#ECEEF9(二级)、#6FAE8F(洞察)。只输出 JSON。';
+    AI.send([{ role: 'system', content: sys }, { role: 'user', content: content }], function (res) {
+      if (res && res.content && !res.error) {
+        try {
+          var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          renderMindmap(json);
+        } catch (e) {
+          canvas.innerHTML = '<div class="empty-state" style="color:var(--danger)">AI 返回格式异常，请重试</div>';
+        }
+      } else {
+        canvas.innerHTML = '<div class="empty-state" style="color:var(--danger)">AI 生成失败</div>';
+      }
+    });
+  };
+
+  function renderMindmap(data) {
+    var canvas = document.getElementById('canvas');
+    var root = data.root || 'AI 督导';
+    var children = data.children || [];
+    var childCount = children.length;
+    var W = 900, H = 560;
+    var cx = W / 2, cy = 50;
+    var l1Y = 200, l2Y = 360, insY = 470;
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;max-width:' + W + 'px">';
+    svg += '<defs><linearGradient id="rg" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="#8B93C7"/><stop offset="100%" stop-color="#9B85C7"/></linearGradient><filter id="ns"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12"/></filter></defs>';
+    // 连接线
+    var spacing = W / (childCount + 1);
+    children.forEach(function (c, i) {
+      var x = spacing * (i + 1);
+      svg += '<line x1="' + cx + '" y1="' + (cy + 25) + '" x2="' + x + '" y2="' + l1Y + '" stroke="#B5BDE0" stroke-width="2" opacity=".5"/>';
+      var leaves = c.children || [];
+      leaves.forEach(function (leaf, j) {
+        var lx = x - (leaves.length - 1) * 70 + j * 140;
+        svg += '<line x1="' + x + '" y1="' + (l1Y + 40) + '" x2="' + lx + '" y2="' + l2Y + '" stroke="#D2D9E6" stroke-width="1" stroke-dasharray="4,3"/>';
+      });
+    });
+    // 根节点
+    svg += '<g filter="url(#ns)"><rect x="' + (cx - 80) + '" y="' + (cy - 25) + '" width="160" height="50" rx="25" fill="url(#rg)"/>';
+    svg += '<text x="' + cx + '" y="' + (cy + 2) + '" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" font-family="serif">' + App.escapeHtml(root) + '</text></g>';
+    // 一级节点
+    children.forEach(function (c, i) {
+      var x = spacing * (i + 1);
+      var color = c.color || '#B5BDE0';
+      svg += '<g filter="url(#ns)"><rect x="' + (x - 70) + '" y="' + (l1Y - 20) + '" width="140" height="40" rx="20" fill="#fff" stroke="' + color + '" stroke-width="2"/>';
+      svg += '<text x="' + x + '" y="' + (l1Y - 2) + '" text-anchor="middle" fill="' + color + '" font-size="13" font-weight="600">' + App.escapeHtml(c.name) + '</text></g>';
+      // 二级节点
+      var leaves = c.children || [];
+      leaves.forEach(function (leaf, j) {
+        var lx = x - (leaves.length - 1) * 70 + j * 140;
+        svg += '<g><rect x="' + (lx - 60) + '" y="' + (l2Y - 18) + '" width="120" height="36" rx="10" fill="#ECEEF9" stroke="#8B93C7" stroke-width="1"/>';
+        svg += '<text x="' + lx + '" y="' + (l2Y - 1) + '" text-anchor="middle" fill="#2B3140" font-size="11">' + App.escapeHtml(leaf.name) + '</text></g>';
+      });
+    });
+    // 洞察终端
+    svg += '<g><rect x="' + (cx - 90) + '" y="' + (insY - 25) + '" width="180" height="50" rx="12" fill="rgba(111,174,143,.15)" stroke="#6FAE8F" stroke-width="2"/>';
+    svg += '<text x="' + cx + '" y="' + (insY - 3) + '" text-anchor="middle" fill="#6FAE8F" font-size="13" font-weight="600">💡 督导洞察</text></g>';
+    svg += '</svg>';
+    canvas.innerHTML = svg;
+    // 面板更新
+    var panel = document.getElementById('panel-body');
+    var totalNodes = 1 + childCount + children.reduce(function (s, c) { return s + (c.children ? c.children.length : 0); }, 0) + 1;
+    panel.innerHTML = '<div class="sr-stat"><span>导图层级</span><b>3 级</b></div><div class="sr-stat"><span>节点总数</span><b>' + totalNodes + '</b></div><div class="sr-divider"></div><div class="sr-node-info"><div class="ni-title">' + App.escapeHtml(root) + ' · 根节点</div><div class="ni-desc">' + childCount + ' 个分支</div></div>';
+  }
+
+  window.exportSvg = function () {
+    var svg = document.getElementById('canvas').querySelector('svg');
+    if (!svg) { App.showToast('请先生成导图', 'warning'); return; }
+    var data = new XMLSerializer().serializeToString(svg);
+    App.downloadFile('督导思维导图_' + App.todayStr() + '.svg', data, 'image/svg+xml');
+  };
+}});
+</script>
+</body>
+</html>

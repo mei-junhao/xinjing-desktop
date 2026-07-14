@@ -16,22 +16,26 @@
   var convList = [];
   // 温度滑块：每位大师独立存储，圆桌模式无滑块
   var talkTemp = 60;
+  var talkDetail = 50;
   function loadTemp(key) {
     try { var v = localStorage.getItem('mc_temp_' + key); if (v != null) talkTemp = parseInt(v, 10) || 60; } catch(e) {}
+    try { var d = localStorage.getItem('mc_detail_' + key); if (d != null) talkDetail = parseInt(d, 10) || 50; } catch(e) {}
     var slider = document.getElementById('temp-slider');
-    if (slider) {
-      slider.value = talkTemp;
-      slider.parentElement.style.display = key ? '' : 'none';
-    }
+    if (slider) { slider.value = talkTemp; slider.parentElement.style.display = key ? '' : 'none'; }
+    var dslider = document.getElementById('detail-slider');
+    if (dslider) { dslider.value = talkDetail; }
   }
   function saveTemp(key) {
     try { localStorage.setItem('mc_temp_' + key, talkTemp); } catch(e) {}
+    try { localStorage.setItem('mc_detail_' + key, talkDetail); } catch(e) {}
   }
   window.onTempChange = function (val) {
     talkTemp = parseInt(val, 10) || 60;
-    if (currentConv && currentConv.mode === '1v1') {
-      saveTemp(currentConv.masterKeys[0]);
-    }
+    if (currentConv && currentConv.mode === '1v1') saveTemp(currentConv.masterKeys[0]);
+  };
+  window.onDetailChange = function (val) {
+    talkDetail = parseInt(val, 10) || 50;
+    if (currentConv && currentConv.mode === '1v1') saveTemp(currentConv.masterKeys[0]);
   };
 
   function genId() { return 'mc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -68,10 +72,11 @@
       var date = c.updatedAt ? new Date(c.updatedAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) : '';
       var preview = c.messages.length ? (c.messages[0].content || '').slice(0, 20) : '';
       var active = currentConv && c.id === currentConv.id;
-      return '<div class="hist-item' + (active ? ' active' : '') + '" onclick="loadHist(\'' + c.id + '\')" style="padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;' + (active ? 'background:var(--accent-soft)' : '') + '">'
-        + '<div style="font:600 12px var(--sans)">' + App.escapeHtml(title) + '</div>'
+      return '<div class="hist-item' + (active ? ' active' : '') + '" onclick="loadHist(\'' + c.id + '\')" style="padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;position:relative;' + (active ? 'background:var(--accent-soft)' : '') + '">'
+        + '<div style="font:600 12px var(--sans);padding-right:20px">' + App.escapeHtml(title) + '</div>'
         + '<div style="font-size:10px;color:var(--text-muted)">' + date + ' · ' + c.messages.length + '条</div>'
         + (preview ? '<div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + App.escapeHtml(preview) + '</div>' : '')
+        + '<button onclick="deleteConvById(\'' + c.id + '\', event)" title="删除" style="position:absolute;top:8px;right:8px;border:none;background:transparent;cursor:pointer;font-size:14px;color:var(--text-muted);opacity:0.5;padding:2px 4px">🗑️</button>'
         + '</div>';
     }).join('');
   }
@@ -158,7 +163,17 @@
       var m = getMasterByKey(currentConv.masterKeys[0]);
       titleEl.innerHTML = '<span style="font-size:20px">' + (m && m.emoji ? m.emoji + ' ' : '') + '</span>' + (m ? m.name : currentConv.masterKeys[0]);
       if (m && currentConv.messages.length === 0 && (m.introTitle || m.intro)) {
-        subEl.innerHTML = '<div style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:2px">' + App.escapeHtml(m.introTitle || '') + '</div><div style="font-size:13px;color:var(--ink-3);line-height:1.8">' + App.escapeHtml(m.intro || '') + '</div>';
+        // v3.4.2: 复刻截图式空态 — emoji + 问候 + 3 个专属选项
+        var opts = '';
+        var quickOpts = m.quickOptions || ['帮我理解临床中的移情-反移情', '如何理解来访者的沉默', '我最近在临床中感到疲惫'];
+        opts = '<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">';
+        quickOpts.forEach(function (o) {
+          opts += '<button onclick="sendQuick(\'' + App.escapeHtml(o).replace(/'/g, "\\'") + '\')" style="text-align:left;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:12px var(--sans);cursor:pointer;background:var(--paper-2,#fff);color:var(--ink);line-height:1.5">' + App.escapeHtml(o) + '</button>';
+        });
+        opts += '</div>';
+        subEl.innerHTML = '<div style="font-size:18px;margin-bottom:4px">' + (m.emoji || '') + '</div>'
+          + '<div style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:2px">' + App.escapeHtml(m.introTitle || '') + '</div>'
+          + '<div style="font-size:13px;color:var(--ink-3);line-height:1.8">' + App.escapeHtml(m.intro || '') + '</div>' + opts;
       } else {
         subEl.textContent = (m ? m.school : '') + ' · 一对一';
       }
@@ -185,6 +200,13 @@
     var initial = m ? m.initial : '师';
     return '<div class="msg ai"><div class="av" style="background:' + color + '">' + initial + '</div><div class="body"><div class="sender">' + name + '</div><div class="bubble">' + App.escapeHtml(msg.content) + '</div></div></div>';
   }
+
+  // ---------- 快捷提问（空态点击） ----------
+  window.sendQuick = function (text) {
+    var input = $('msg-input');
+    if (input) input.value = text;
+    window.sendMessage();
+  };
 
   // ---------- 发送消息 ----------
   window.sendMessage = function () {
@@ -398,7 +420,11 @@
       };
     } else {
       system = build1v1SysPrompt(m);
-      options = { temperature: 0.7, maxTokens: 512 };
+      // v3.4.2: 温度滑块控制 temperature，详细度滑块控制 maxTokens
+      options = {
+        temperature: talkTemp / 100,
+        maxTokens: 256 + Math.round(talkDetail / 100 * 768)
+      };
     }
 
     var hist = currentConv.messages.filter(function (x) { return x.role === 'user' || x.role === 'assistant'; }).slice(-16).map(function (x) {
@@ -441,6 +467,38 @@
       Store.deleteMasterConversation(currentConv.id);
       convList = convList.filter(function (c) { return c.id !== currentConv.id; });
       currentConv = null; renderMasterList(); renderChat(); renderHistList();
+    }, true);
+  };
+  // v3.4.2: 导出当前对话为 Markdown
+  window.exportCurrent = function () {
+    if (!currentConv) { App.showToast('请先选择对话', 'warning'); return; }
+    var md = '# ' + (currentConv.title || '大师对话') + '\n\n';
+    md += '> 日期：' + (currentConv.updatedAt ? new Date(currentConv.updatedAt).toLocaleDateString('zh-CN') : '') + ' | ' + currentConv.messages.length + ' 条消息\n\n';
+    if (currentConv.summary) md += '## 摘要\n\n' + currentConv.summary + '\n\n';
+    md += '## 对话\n\n';
+    currentConv.messages.forEach(function (msg) {
+      if (msg.role === 'user') md += '**你**：' + msg.content + '\n\n';
+      else if (msg.role === 'assistant') {
+        var nm = msg.masterKey ? (masterName(msg.masterKey) || msg.masterKey) : '大师';
+        md += '**' + nm + '**：' + msg.content + '\n\n';
+      }
+    });
+    var blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (currentConv.title || 'master_chat') + '_' + new Date().toISOString().slice(0, 10) + '.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    App.showToast('已导出为 Markdown', 'success');
+  };
+  // v3.4.2: 删除指定对话（从历史列表）
+  window.deleteConvById = function (id, event) {
+    if (event) event.stopPropagation();
+    App.confirmDialog('确定删除这条对话？此操作不可恢复。', function () {
+      Store.deleteMasterConversation(id);
+      convList = convList.filter(function (c) { return c.id !== id; });
+      if (currentConv && currentConv.id === id) currentConv = null;
+      renderMasterList(); renderChat(); renderHistList();
     }, true);
   };
 

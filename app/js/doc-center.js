@@ -135,11 +135,40 @@
     }
     html += '</div>';
 
-    // 会员功能：AI生成洞察
-    html += '<div class="trajectory" style="margin-top:12px">';
-    html += '<div class="tj-head"><span class="tj-title">🤖 AI 成长洞察</span><span class="tj-badge" style="background:var(--bg-sunken);color:var(--ink-3)">🔒 会员</span></div>';
-    html += '<div style="text-align:center;padding:24px;color:var(--ink-3);font-size:12px">升级会员后，AI 将自动分析所有材料，生成来访者的成长轨迹、核心议题变化与治疗进展洞察</div>';
-    html += '</div>';
+    // 会员功能：AI生成洞察（featureGate 硬门控 + 实际 AI 调用）
+    if (typeof App !== 'undefined' && typeof App.featureGate === 'function' && !App.featureGate('ai-growth')) {
+      html += '<div class="trajectory" style="margin-top:12px">';
+      html += '<div class="tj-head"><span class="tj-title">🤖 AI 成长洞察</span>' + App.lockBadge('ai-growth') + '</div>';
+      html += '<div class="xj-locked-area"><div style="text-align:center;padding:24px;color:var(--ink-3);font-size:12px">升级会员后，AI 将自动分析所有材料，生成来访者的成长轨迹、核心议题变化与治疗进展洞察</div></div>';
+      html += '</div>';
+    } else {
+      html += '<div class="trajectory" style="margin-top:12px">';
+      html += '<div class="tj-head"><span class="tj-title">🤖 AI 成长洞察</span><span class="tj-badge">已解锁</span></div>';
+      html += '<div id="ai-trajectory-output" style="padding:16px"><button class="btn btn-primary" onclick="generateAiTrajectory()">生成成长洞察</button></div>';
+      html += '</div>';
+    }
+    window.generateAiTrajectory = function () {
+      var out = document.getElementById('ai-trajectory-output');
+      if (out) out.innerHTML = '<div style="text-align:center;padding:20px;color:var(--ink-3)">AI 分析中…</div>';
+      var sessions = Store.getSessionsByClient(currentClientId);
+      var sups = Store.getSupervisionsByClient(currentClientId) || [];
+      var ctx = sessions.map(function (s) { return '第' + (s.sessionNumber || '?') + '节(' + (s.date || '?') + '): ' + ((s.soap && s.soap.assessment) || s.summary || '').slice(0, 200); }).join('\n');
+      ctx += '\n督导: ' + sups.map(function (sv) { return (sv.date || '?') + ': ' + (sv.conclusion || sv.content || '').slice(0, 200); }).join('\n');
+      AI.send([{ role: 'system', content: '你是心理咨询个案分析专家。根据以下咨询记录和督导记录，生成来访者的成长轨迹分析。输出JSON：{"trajectory":"整体成长轨迹描述","keyChanges":["关键变化1","关键变化2"],"insights":["AI洞察1","洞察2"],"recommendations":["后续建议1"]}' }, { role: 'user', content: ctx }], function (res) {
+        if (res && res.content && !res.error) {
+          try {
+            var j = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+            var h = '<div style="line-height:1.8;font-size:13px">';
+            h += '<p><b>成长轨迹</b>：' + App.escapeHtml(j.trajectory || '') + '</p>';
+            if (j.keyChanges) h += '<p><b>关键变化</b>：<br>' + j.keyChanges.map(function (c) { return '· ' + App.escapeHtml(c); }).join('<br>') + '</p>';
+            if (j.insights) h += '<p><b>AI 洞察</b>：<br>' + j.insights.map(function (c) { return '· ' + App.escapeHtml(c); }).join('<br>') + '</p>';
+            if (j.recommendations) h += '<p><b>后续建议</b>：<br>' + j.recommendations.map(function (c) { return '· ' + App.escapeHtml(c); }).join('<br>') + '</p>';
+            h += '</div>';
+            if (out) out.innerHTML = h;
+          } catch (e) { if (out) out.innerHTML = '<pre>' + App.escapeHtml(res.content) + '</pre>'; }
+        } else { if (out) out.innerHTML = '<span style="color:var(--danger)">AI 分析失败</span>'; }
+      });
+    };
 
     box.innerHTML = html;
   }

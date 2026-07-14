@@ -914,6 +914,228 @@ ipcMain.handle('xj:readUserDocs', async (e, opts) => {
   return { ok: true, folder: root, files: out };
 });
 
+// ---- 知识库 UI 后端依赖（v3.5.0-UI）：元数据 / 单文件全文 / 片段化搜索 ----
+// 铁律：全程 fs.promises + 逐文件 setImmediate 让出，绝不用 fs.readFileSync，避免同步 IO 冻结主进程 UI。
+// 防穿越：folder 永远取自 readUserDocConfig()（不信任前端）；每文件 ensureInsideUserDoc 二次校验。
+
+// 约 120 停用词（中文高频虚词/功能词），用于 n-gram 关键词过滤
+const KB_STOPWORDS = new Set(('的 了 和 是 在 我 有 也 就 不 人 都 一 上 中 下 你 会 对 要 能 而 与 及 或 其 之 为 以 于 等 这 那 他 她 它 我们 ' +
+  '你们 他们 这个 那个 什么 怎么 如果 因为 所以 但是 而且 一些 这样 那样 可以 没有 自己 时候 已经 现在 通过 进行 一种 一样 这些 那些 ' +
+  '的话 来说 起来 出来 这种 一下 这里 那里 然后 还是 只是 就是 这么 那么 非常 比较 觉得 知道 应该 可能 需要 问题 情况 方面 方式 方法 ' +
+  '时间 工作 生活 感觉 关系 开始 发现 出现 存在 包括 属于 作为 由于 关于 对于 根据 按照 通常 一直 总是 常常 有时 例如 比如 因此 于是 ' +
+  '不过 而是 并且 或者 以及 还有 一个 一次 一点 大家 目前 一般 由此 从而 此外 另外 首先 其次 最后 综上').split(/\s+/));
+
+// 提取 markdown 标题（跳过代码围栏），返回 [{level,text,line}]
+function extractHeadings(text) {
+  const lines = String(text).split('\n');
+  const out = [];
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*```/.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    const m = /^(#{1,4})\s+(.+?)\s*#*$/.exec(line);
+    if (m) out.push({ level: m[1].length, text: m[2].trim(), line: i + 1 });
+  }
+  return out;
+}
+
+// frontmatter 中的 category:（优先级最高）
+function extractFrontmatterCategory(text) {
+  const m = /^---\s*\n([\s\S]*?)\n---/.exec(text);
+  if (!m) return null;
+  const cm = /(^|\n)\s*category\s*:\s*(.+)/i.exec(m[1]);
+  if (!cm) return null;
+  return (cm[2].trim().replace(/^["']|["']$/g, '')) || null;
+}
+
+// 中文 2-4 字 n-gram 关键词：最小文档频率 minDF≥2，去停用词，去被长词包含的冗余短词
+function extractKeywords(docTexts, topN = 40) {
+  const tf = new Map(); // 全局词频
+  const df = new Map(); // 文档频率
+  for (const text of docTexts) {
+    const seen = new Set();
+    const runs = String(text).match(/[\u4e00-\u9fa5]{2,}/g) || [];
+    for (const run of runs) {
+      for (let n = 2; n <= 4; n++) {
+        for (let i = 0; i + n <= run.length; i++) {
+          const gram = run.slice(i, i + n);
+          if (KB_STOPWORDS.has(gram)) continue;
+          tf.set(gram, (tf.get(gram) || 0) + 1);
+          if (!seen.has(gram)) { seen.add(gram); df.set(gram, (df.get(gram) || 0) + 1); }
+        }
+      }
+    }
+  }
+  let cands = [...tf.keys()].filter(t => (df.get(t) || 0) >= 2);
+  cands.sort((a, b) => (df.get(b) * Math.log(1 + tf.get(b))) - (df.get(a) * Math.log(1 + tf.get(a))));
+  const picked = [];
+  for (const t of cands) {
+    if (picked.length >= topN) break;
+    const redundant = picked.some(p => p.length > t.length && p.includes(t) && tf.get(p) >= tf.get(t) * 0.6);
+    if (redundant) continue;
+    picked.push(t);
+  }
+  return picked.map(t => ({ term: t, count: tf.get(t), docs: df.get(t) }));
+}
+
+// 由 files（含 relPath）构建嵌套目录树
+function buildTree(files) {
+  const root = { children: {} };
+  for (const f of files) {
+    const parts = f.relPath.split(/[\\/]/);
+    let node = root;
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (i === parts.length - 1) {
+        node.children[part] = { name: part, type: 'file', relPath: f.relPath, size: f.size };
+      } else {
+        if (!node.children[part] || node.children[part].type !== 'dir') node.children[part] = { name: part, type: 'dir', children: {} };
+        node = node.children[part];
+      }
+    }
+  }
+  function toArr(node) {
+    return Object.values(node.children).map(c => c.type === 'dir'
+      ? { name: c.name, type: 'dir', children: toArr(c) }
+      : { name: c.name, type: 'file', relPath: c.relPath, size: c.size })
+      .sort((a, b) => (a.type !== b.type) ? (a.type === 'dir' ? -1 : 1) : a.name.localeCompare(b.name, 'zh'));
+  }
+  return toArr(root);
+}
+
+// 异步递归遍历（深度≤maxDepth、文件≤maxFiles），逐文件 setImmediate 让出
+async function walkUserDoc(root, maxDepth = 4, maxFiles = 500) {
+  const results = [];
+  async function walk(dir, depth, relBase) {
+    if (depth > maxDepth || results.length >= maxFiles) return;
+    let entries;
+    try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); }
+    catch (e) { return; }
+    for (const ent of entries) {
+      if (results.length >= maxFiles) break;
+      if (ent.name.startsWith('.')) continue; // 跳过隐藏文件/目录
+      const abs = path.join(dir, ent.name);
+      const rel = relBase ? relBase + '/' + ent.name : ent.name;
+      if (ent.isDirectory()) {
+        await walk(abs, depth + 1, rel);
+      } else if (ent.isFile() && /\.(md|txt)$/i.test(ent.name)) {
+        if (!ensureInsideUserDoc(abs, root)) continue; // 防穿越（主进程校验）
+        let size = 0, mtime = 0;
+        try { const st = await fs.promises.stat(abs); size = st.size; mtime = st.mtimeMs; } catch (e) {}
+        results.push({ relPath: rel, absPath: abs, size, mtime });
+        await new Promise(r => setImmediate(r)); // 让出，避免长时间占用主线程
+      }
+    }
+  }
+  await walk(root, 1, '');
+  return results;
+}
+
+// 元数据：files/tree/categories/keywords/stats（供三栏/卡片/属性表/图谱/统计视图）
+ipcMain.handle('xj:readUserDocMeta', async () => {
+  const cfg = readUserDocConfig();
+  if (!cfg.folder) return { ok: false, reason: 'no-folder' };
+  const root = cfg.folder;
+  let entries;
+  try { entries = await walkUserDoc(root, 4, 500); }
+  catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
+  if (!entries.length) {
+    return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], stats: { fileCount: 0, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
+  }
+  const files = [], docTexts = [], catMap = new Map();
+  let totalChars = 0, totalBytes = 0;
+  for (const ent of entries) {
+    let text = '';
+    try { text = await fs.promises.readFile(ent.absPath, 'utf8'); }
+    catch (e) { continue; }
+    await new Promise(r => setImmediate(r)); // 逐文件让出
+    const headings = extractHeadings(text);
+    const fmCat = extractFrontmatterCategory(text);
+    const cat = fmCat || (ent.relPath.includes('/') ? ent.relPath.split('/')[0] : '未分类');
+    const fmMatch = /^---\s*\n[\s\S]*?\n---\s*\n/.exec(text);
+    const body = fmMatch ? text.slice(fmMatch[0].length) : text;
+    let summary = '';
+    for (const line of body.split('\n')) {
+      const t = line.trim();
+      if (!t || t.startsWith('#') || t.startsWith('---')) continue;
+      summary = t.slice(0, 120); break;
+    }
+    const title = (headings.find(h => h.level === 1) || {}).text || ent.relPath.split('/').pop().replace(/\.(md|txt)$/i, '');
+    files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, category: cat, headingCount: headings.length, summary });
+    docTexts.push(text);
+    catMap.set(cat, (catMap.get(cat) || 0) + 1);
+    totalChars += text.length; totalBytes += ent.size;
+  }
+  const keywords = extractKeywords(docTexts, 40);
+  const tree = buildTree(files);
+  const categories = [...catMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  return {
+    ok: true, folder: root, files, tree, categories, keywords,
+    stats: { fileCount: files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0 },
+  };
+});
+
+// 单文件全文（供沉浸阅读视图）：folder 取自 config，path.resolve 后二次防穿越校验
+ipcMain.handle('xj:readUserDocFile', async (e, args) => {
+  args = args || {};
+  const relPath = String(args.relPath || '');
+  if (!relPath) return { ok: false, reason: 'no-path' };
+  const cfg = readUserDocConfig();
+  if (!cfg.folder) return { ok: false, reason: 'no-folder' };
+  const root = cfg.folder;
+  const abs = path.resolve(root, relPath);
+  if (!ensureInsideUserDoc(abs, root)) return { ok: false, reason: 'traversal' };
+  if (!/\.(md|txt)$/i.test(abs)) return { ok: false, reason: 'bad-type' };
+  let text;
+  try { text = await fs.promises.readFile(abs, 'utf8'); }
+  catch (err) { return { ok: false, reason: 'read-failed', message: err.message }; }
+  const headings = extractHeadings(text);
+  let mtime = 0, size = 0;
+  try { const st = await fs.promises.stat(abs); mtime = st.mtimeMs; size = st.size; } catch (e) {}
+  return { ok: true, relPath, name: relPath.split(/[\\/]/).pop(), text, headings, chars: text.length, size, mtime };
+});
+
+// 片段化全文搜索（供搜索视图）：逐文件逐行匹配，返回 {relPath,name,lineNo,text,score}
+ipcMain.handle('xj:searchUserDocs', async (e, args) => {
+  args = args || {};
+  const query = String(args.query || '').trim();
+  const max = Math.min(200, Math.max(1, args.max || 50));
+  if (!query) return { ok: true, query: '', hits: [], fileCount: 0 };
+  const cfg = readUserDocConfig();
+  if (!cfg.folder) return { ok: false, reason: 'no-folder' };
+  const root = cfg.folder;
+  let entries;
+  try { entries = await walkUserDoc(root, 4, 500); }
+  catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
+  const q = query.toLowerCase();
+  const hits = [];
+  const fileSet = new Set();
+  for (const ent of entries) {
+    if (hits.length >= max) break;
+    let text;
+    try { text = await fs.promises.readFile(ent.absPath, 'utf8'); }
+    catch (e) { continue; }
+    await new Promise(r => setImmediate(r)); // 逐文件让出
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (hits.length >= max) break;
+      const line = lines[i];
+      const idx = line.toLowerCase().indexOf(q);
+      if (idx === -1) continue;
+      const occ = line.toLowerCase().split(q).length - 1;
+      const isHeading = /^\s*#{1,4}\s/.test(line);
+      const score = occ * (isHeading ? 3 : 1);
+      const start = Math.max(0, idx - 30);
+      const snippet = (start > 0 ? '…' : '') + line.slice(start, idx + q.length + 60).trim();
+      hits.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), lineNo: i + 1, text: snippet, score });
+      fileSet.add(ent.relPath);
+    }
+  }
+  hits.sort((a, b) => b.score - a.score);
+  return { ok: true, query, hits, fileCount: fileSet.size };
+});
+
 ipcMain.on('xj:openActivation', () => openActivationWindow());
 
 // 关闭确认窗的抉择：cancel=取消退出(主窗口保持打开) / stay=后台常驻 / quit=完全退出

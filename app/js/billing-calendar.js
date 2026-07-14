@@ -51,9 +51,9 @@
 
     var overviewHtml = '<div class="bc-overview">' +
       '<div class="bc-ov-card"><div class="lbl">会谈次数</div><div class="val accent">' + sessionCount + '</div></div>' +
-      '<div class="bc-ov-card"><div class="lbl">总收入</div><div class="val green">¥' + totalFee.toLocaleString() + '</div></div>' +
-      '<div class="bc-ov-card"><div class="lbl">已收款</div><div class="val green">¥' + totalPaid.toLocaleString() + '</div></div>' +
-      '<div class="bc-ov-card"><div class="lbl">待收款</div><div class="val red">¥' + totalPending.toLocaleString() + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">总收入</div><div class="val red">¥' + totalFee.toLocaleString() + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">已收款</div><div class="val red">¥' + totalPaid.toLocaleString() + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">待收款</div><div class="val accent">¥' + totalPending.toLocaleString() + '</div></div>' +
       '</div>';
 
     // 日历
@@ -82,25 +82,37 @@
     }
 
     var calHtml = '<div class="bc-calendar">' + headHtml + '<div class="bc-cal-body">';
+    // 读取当月支出
+    var allExpenses = Store.getExpenses ? Store.getExpenses() : [];
+    var monthExpenses = allExpenses.filter(function (e) {
+      if (!e.date) return false;
+      var d = new Date(e.date);
+      return d.getFullYear() === curYear && d.getMonth() === curMonth;
+    });
+
     cells.forEach(function (c) {
       var cls = 'bc-day';
       if (c.other) cls += ' other';
       if (c.today) cls += ' today';
       var events = '';
+      var eCount = 0;
       if (c.sessions) {
-        var count = 0;
         c.sessions.forEach(function (s) {
-          if (count >= 3) return;
+          if (eCount >= 3) return;
           var b = s.billing || {};
           var cls2 = b.paid ? 'in' : (b.fee > 0 ? 'pending' : '');
           var client = Store.getClient(s.clientId);
           events += '<div class="day-event ' + cls2 + '">' + (client ? client.name : '?') + (b.fee ? ' ¥' + b.fee : '') + '</div>';
-          count++;
+          eCount++;
         });
-        if (c.sessions.length > 3) {
-          events += '<div class="day-more">+' + (c.sessions.length - 3) + ' 更多</div>';
-        }
       }
+      // 当日支出事件
+      var dayExpenses = monthExpenses.filter(function (e) { return e.date === c.date; });
+      dayExpenses.forEach(function (e) {
+        if (eCount >= 4) return;
+        events += '<div class="day-event out">' + (e.category || '支出') + ' -¥' + (e.amount || 0) + '</div>';
+        eCount++;
+      });
       calHtml += '<div class="' + cls + '" onclick="viewDay(\'' + (c.date || '') + '\')">' +
         '<div class="day-num">' + c.day + '</div>' +
         '<div class="day-events">' + events + '</div></div>';
@@ -122,4 +134,13 @@
   };
 
   init();
+  // 月历底部会员门控（v3.2.0 featureGate 硬门控 + lockBadge 视觉）
+  if (typeof App !== 'undefined' && typeof App.featureGate === 'function' && !App.featureGate('billing-calendar')) {
+    var bcBody = document.getElementById('bc-body');
+    if (bcBody) {
+      var gateDiv = document.createElement('div');
+      gateDiv.innerHTML = '<div class="xj-locked-area" style="text-align:center;padding:24px;font-size:12px;color:var(--ink-3);border-top:1px solid var(--border);margin-top:16px"><div class="xj-lock-overlay"></div>' + App.lockBadge('billing-calendar') + ' 月历明细<br>升级会员查看每日收入支出明细</div>';
+      bcBody.appendChild(gateDiv);
+    }
+  }
 })();

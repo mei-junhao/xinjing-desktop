@@ -190,11 +190,82 @@
     .inout-tabs{display:flex;gap:4px;background:var(--bg-sunken);border-radius:999px;padding:3px;margin-bottom:12px;width:fit-content}
     .inout-tabs button{flex:1;border:none;background:transparent;padding:6px 16px;border-radius:999px;font:600 12px var(--sans);cursor:pointer;color:var(--ink-2);transition:.15s}
     .inout-tabs button.active{background:var(--paper,#fff);color:var(--accent);box-shadow:inset 0 0 0 1px var(--border)}
+
+    /* ============================================================
+       新双栏记账布局（v3.1.0，对齐 demo-C 双栏对照）
+       ============================================================ */
+    .dual-billing{display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;min-height:0;overflow:hidden;background:var(--paper-2,#fff);transition:grid-template-columns .3s ease}
+    .dual-billing.income-focused{grid-template-columns:1fr 200px}
+    .dual-billing.expense-focused{grid-template-columns:200px 1fr}
+    .dual-billing .col{display:flex;flex-direction:column;overflow:hidden}
+    .dual-billing .col-left{border-right:1px solid var(--border)}
+    .dual-billing .col-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--paper-2,#fff)}
+    .dual-billing .col-head .title{font-family:var(--serif);font-size:16px;font-weight:600}
+    .dual-billing .col-head .sp{flex:1}
+    .dual-billing .col-head button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
+    .dual-billing .col-head button.primary{background:var(--accent);color:#fff;border:none}
+    .dual-billing .col-body{flex:1;overflow-y:auto;padding:14px 16px}
+    .dual-billing .badge{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:600}
+    .dual-billing .badge.in{background:rgba(107,174,143,.15);color:var(--green)}
+    .dual-billing .badge.out{background:rgba(217,140,140,.15);color:var(--red)}
+    .dual-billing .empty-state{text-align:center;color:var(--ink-3);padding:40px 20px;font-size:13px}
+    /* 收入左侧列表项 */
+    .bin-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:6px;transition:.15s;border:1px solid transparent;background:var(--paper-2,#fff)}
+    .bin-item:hover{background:var(--accent-soft)}
+    .bin-item.active{background:var(--accent-soft);border-color:var(--accent)}
+    .bin-item .ava{width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+    .bin-item .info{flex:1;min-width:0}
+    .bin-item .nm{font-weight:600;font-size:13.5px}
+    .bin-item .mt{font-size:11px;color:var(--ink-3)}
+    .bin-item .amt{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--text)}
+    .bin-item .amt.owe{color:var(--danger)}
+    /* 收入右侧明细 */
+    .bin-detail-title{margin-top:16px;font-size:12px;color:var(--ink-3);font-weight:600;margin-bottom:8px}
+    .bin-detail-table{width:100%;border-collapse:collapse;font:13px var(--sans)}
+    .bin-detail-table th{padding:7px 8px;text-align:left;font-size:11px;color:var(--ink-3);border-bottom:1px solid var(--border);font-weight:600}
+    .bin-detail-table td{padding:8px;border-bottom:1px solid var(--border)}
+    .bin-detail-table .dup-row{background:rgba(217,140,140,.06)}
+    .bin-detail-table .dup-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--danger);color:#fff;margin-left:4px}
+    .bin-detail-table .paid-y{color:var(--success);font-weight:600}.bin-detail-table .paid-n{color:var(--danger);font-weight:600}
+    /* 支出分类卡 */
+    .exp-cat{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;cursor:pointer;margin-bottom:8px;transition:.15s;border:1px solid var(--border);background:var(--paper-2,#fff)}
+    .exp-cat:hover{border-color:var(--accent)}
+    .exp-cat .icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .exp-cat .info{flex:1}
+    .exp-cat .name{font-weight:600;font-size:14px}
+    .exp-cat .cnt{font-size:11px;color:var(--ink-3)}
+    .exp-cat .amt{font-family:var(--serif);font-size:16px;color:var(--danger);font-weight:600}
+    .exp-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)}
+    .exp-row:last-child{border:none}
+    .cat-tag{font-size:10px;padding:2px 7px;border-radius:5px;flex-shrink:0;width:64px;text-align:center;font-weight:600}
+    .cat-personal{background:rgba(107,174,143,.15);color:var(--green)}
+    .cat-individual{background:var(--accent-soft);color:var(--accent)}
+    .cat-group{background:rgba(214,168,92,.15);color:var(--orange)}
+    .cat-course{background:rgba(155,133,199,.15);color:#9B85C7}
+    .cat-other{background:var(--bg-soft);color:var(--ink-3)}
+    .exp-row .info{flex:1}
+    .exp-row .desc{font-size:13px}
+    .exp-row .dt{font-size:10.5px;color:var(--ink-3)}
+    .exp-row .amt{font-family:var(--serif);font-size:14px;color:var(--danger);font-weight:600}
+    .add-expense{border:1px dashed var(--border);border-radius:10px;padding:12px;text-align:center;color:var(--ink-3);cursor:pointer;font-size:13px;margin-top:8px;transition:.15s}
+    .add-expense:hover{border-color:var(--accent);color:var(--accent)}
+    /* 搜索折叠 */
+    .billing-search-row{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border)}
+    .billing-search-row input{flex:1;border:1px solid var(--border);border-radius:8px;padding:5px 8px;font:12px var(--sans)}
+    .billing-search-row select{border:1px solid var(--border);border-radius:8px;padding:5px 8px;font:12px var(--sans)}
+    /* 隐藏的旧三栏（JS 仍可操作，不报错） */
+    #b-center,#billing-aidock,#billing-resizer{display:none!important}
+    #billing-ws{grid-template-columns:1fr!important}
+    /* 支出表单 */
+    .dual-billing .exp-form{background:var(--bg-soft);border-radius:var(--r-sm,10px);padding:12px;margin-bottom:10px;border:1px solid var(--border)}
+    .dual-billing .exp-form label{font-size:11px;color:var(--ink-3);display:block;margin-bottom:3px}
+    .dual-billing .exp-form input,.dual-billing .exp-form select{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font:12px var(--sans);width:100%;box-sizing:border-box}
+    .dual-billing .exp-form .row-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+    .dual-billing .exp-form .row-actions button{font:12px var(--sans);padding:5px 12px;border-radius:6px}
   </style>
 </head>
 <body>
   <div class="layout">
-    <div id="sidebar-mount"></div>
     <main class="main">
       <!-- 工作区顶栏：统计卡 + 操作按钮 -->
       <div class="topbar" style="margin-top:0">
@@ -202,13 +273,15 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="vertical-align:middle" width="18" height="18"><path d="M15 5l-7 7 7 7"/></svg>
         </button>
         <div class="brand">记账 <small>与心镜共用同一份数据</small></div>
+        <div class="summary" id="billing-summary" style="display:flex;gap:8px;font:12px var(--sans)">
+          <div class="item" style="padding:4px 10px;border-radius:6px;background:var(--bg-sunken)">收入 <b id="sum-income" style="font-family:var(--serif);color:var(--green)">¥0</b></div>
+          <div class="item" style="padding:4px 10px;border-radius:6px;background:var(--bg-sunken)">支出 <b id="sum-expense" style="font-family:var(--serif);color:var(--danger)">¥0</b></div>
+          <div class="item" style="padding:4px 10px;border-radius:6px;background:var(--bg-sunken)">净收入 <b id="sum-net" style="font-family:var(--serif);color:var(--accent)">¥0</b></div>
+        </div>
         <div class="cards" id="billing-stats">
           <div class="card"><b id="stat-m-receivable">¥0</b><span>本月应收</span></div>
           <div class="card"><b id="stat-m-received">¥0</b><span>本月已收</span></div>
           <div class="card owe"><b id="stat-m-balance">¥0</b><span>本月欠费</span></div>
-          <div class="card"><b id="stat-t-receivable">¥0</b><span>总应收</span></div>
-          <div class="card"><b id="stat-t-received">¥0</b><span>总已收</span></div>
-          <div class="card owe"><b id="stat-t-balance">¥0</b><span>总欠费</span></div>
         </div>
         <div class="actions">
           <button class="primary" onclick="toggleAddForm()">+ 记一笔</button>
@@ -219,10 +292,11 @@
           <button class="danger-btn" onclick="confirmClearData()" style="background:transparent;border:1px solid var(--danger);color:var(--danger);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;margin-left:8px">清除数据</button>
         </div>
       </div>
-      <!-- 三栏：左客户列表 + 拖拽条 + 右 AI 记账坞 -->
-      <div class="ws billing" id="billing-ws" style="grid-template-columns: 280px 1fr 6px var(--dock-w)">
-        <!-- 左栏：客户记账列表 -->
-        <div class="rail" id="b-rail">
+      <!-- 双栏记账主界面（v3.1.0，对齐 demo-C）-->
+      <!-- 旧三栏容器仍然保留但被隐藏：旧 JS 启动时会往 cpanel-* / aidock 写内容，删除会报 null 错误 -->
+      <div class="ws billing" id="billing-ws" style="display:flex;flex-direction:column;flex:1;min-height:0">
+        <!-- 隐藏的旧容器（JS 仍需要它们的引用） -->
+        <div class="rail" id="b-rail" style="display:none">
           <div class="top"><input id="b-search" placeholder="搜索来访者…"></div>
           <div class="pills" id="b-modePills">
             <span class="pill active" data-m="all">全部</span>
@@ -232,33 +306,54 @@
           <div class="clist" id="b-clist"></div>
           <div class="letter-nav" id="b-letter-nav" style="display:none"></div>
         </div>
-
-        <!-- 中栏：客户明细 + 三分段（明细/趋势/账单） -->
-        <div class="center" id="b-center">
-          <div class="seg" id="b-cseg">
-            <div class="seg-btn active" data-c="detail" onclick="switchCtab('detail')">明细</div>
-            <div class="seg-btn" data-c="trend" onclick="switchCtab('trend')">趋势</div>
-            <div class="seg-btn" data-c="invoice" onclick="switchCtab('invoice')">账单</div>
-          </div>
+        <div class="center" id="b-center" style="display:none">
           <div id="cpanel-detail"></div>
           <div id="cpanel-trend" style="display:none"></div>
           <div id="cpanel-invoice" style="display:none"></div>
         </div>
+        <div class="resizer" id="billing-resizer" style="display:none"></div>
+        <aside class="aidock" id="billing-aidock" style="display:none"></aside>
 
-        <div class="resizer" id="billing-resizer"></div>
-        <aside class="aidock" id="billing-aidock" style="display:none">
-          <div class="dock-head">🤖 AI 记账坞</div>
-          <div class="dock-body">
-            <p class="hint">用自然语言记账，自动映射到记账工具：<br>「帮林小满记 7 月 10 号会谈 300 块次结没付」<br>「给陈默做 6 月月结 560」</p>
-            <textarea class="ai-input" id="billing-ai-input" placeholder="说一句话就能记账…"></textarea>
-            <div class="dock-actions">
-              <button class="primary" onclick="billingAiSend()"><span>⚡</span> 发送并记账</button>
-              <button onclick="billingAiDemo('记一笔')"><span>📝</span> 记一笔示例</button>
-              <button onclick="billingAiDemo('月结')"><span>🗓</span> 月结示例</button>
+        <!-- 新双栏布局 -->
+        <div class="dual-billing" id="dual-billing-shell">
+          <!-- 左侧：收入 -->
+          <div class="col col-left">
+            <div class="col-head">
+              <span class="title">收入</span>
+              <span class="badge in">来访者账单</span>
+              <span class="sp"></span>
+              <button onclick="billingToggleAddForm()">+ 记一笔</button>
+              <button onclick="billingToggleSettleForm()">月结</button>
             </div>
-            <div class="chat-mini" id="billing-ai-result" style="display:none"></div>
+            <div class="billing-search-row">
+              <input id="bin-search" placeholder="搜索来访者…" oninput="renderIncomeList()">
+              <select id="bin-month" onchange="renderIncomeList()">
+                <option value="all">全部月份</option>
+              </select>
+            </div>
+            <div class="col-body" id="bin-body">
+              <div class="empty-state">加载中…</div>
+            </div>
           </div>
-        </aside>
+          <!-- 右侧：支出 -->
+          <div class="col">
+            <div class="col-head">
+              <span class="title">支出</span>
+              <span class="badge out">专业发展</span>
+              <div class="sp"></div>
+              <button class="primary" onclick="openExpenseForm()">+ 记支出</button>
+            </div>
+            <div class="billing-search-row">
+              <input id="bexp-search" placeholder="搜索支出…" oninput="renderExpensePanel()">
+              <select id="bexp-month" style="border:1px solid var(--border);border-radius:8px;padding:5px 8px;font:12px var(--sans)" onchange="renderExpensePanel()">
+                <option value="">全部月份</option>
+              </select>
+            </div>
+            <div class="col-body" id="bexp-body">
+              <div class="empty-state">加载中…</div>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -274,32 +369,10 @@
 
         <!-- Tab 切换 -->
         <div class="import-tabs" id="importTabs">
-          <button data-tab="billing" class="active">旧版记账</button>
-          <button data-tab="meetings">腾讯会议</button>
-          <button data-tab="manual">手动 JSON</button>
+          <button data-tab="meetings" class="active">腾讯会议</button>
         </div>
 
-        <!-- Tab 1：旧版记账（复用原 BillingSync 桥接层） -->
-        <div class="import-tab-pane active" data-tab="billing">
-          <div class="import-hint">
-            从原「心理咨询记账系统」导出的 JSON / CSV 导入。<br>
-            • JSON：<code>{ clients, records, monthlyPayments }</code><br>
-            • CSV：导出时带"来访者/日期/次数/单价/缴费状态/结算方式"列的表格<br>
-            导入即写入心镜本地数据库，按来访者/记录幂等去重，可重复运行。
-          </div>
-          <div class="file-row">
-            <input type="file" id="billing-file" accept=".json,.csv" />
-            <button class="btn btn-outline btn-sm" onclick="BillingImport.parseFile()">解析文件</button>
-          </div>
-          <textarea id="billing-input" placeholder="或在此粘贴 JSON / CSV 内容…"></textarea>
-          <div class="file-row" style="margin-top:10px">
-            <button class="btn btn-outline btn-sm" onclick="BillingImport.parseText()">解析文本</button>
-          </div>
-          <div id="billing-preview"></div>
-          <div class="import-result" id="billing-result"></div>
-        </div>
-
-        <!-- Tab 2：腾讯会议 -->
+        <!-- Tab：腾讯会议 -->
         <div class="import-tab-pane" data-tab="meetings">
           <div class="import-hint">
             把腾讯会议参会记录（<code>latest_meetings.json</code>）转成心镜咨询会话。<br>
@@ -316,17 +389,6 @@
           </div>
           <div id="meetings-list"></div>
           <div class="import-result" id="meetings-result"></div>
-        </div>
-
-        <!-- Tab 3：手动 JSON（高级 / 原始） -->
-        <div class="import-tab-pane" data-tab="manual">
-          <div class="import-hint">
-            高级入口：直接写进心镜 Store 的 <code>psyc_billing_v8</code> 键。<br>
-            ⚠️ JSON 结构必须与旧版记账系统导出完全一致：<code>{ clients: [], records: [], monthlyPayments: [] }</code><br>
-            大多数情况请用「旧版记账」Tab，这个 Tab 留给调试用。
-          </div>
-          <textarea id="import-json" placeholder='{"clients":[],"records":[],"monthlyPayments":[]}'></textarea>
-          <div id="import-result" class="import-result"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -352,7 +414,6 @@
 
   <script src="js/store.js"></script>
   <script src="js/app.js"></script>
-  <script src="js/billing-sync.js"></script>
   <script>
   /* ============================================================
      心镜 · 记账 · v2.0 壳页（原生三栏，无 iframe）
@@ -360,7 +421,8 @@
             ③ 内联「记一笔 / 月结」表单 ④ AI 记账坞 ⑤ 拖拽分隔条
             ⑥ 「导入数据」modal 三 Tab 统一入口（保留）
      ============================================================ */
-  document.getElementById('sidebar-mount').outerHTML = App.renderSidebar();
+  // 记账页不使用侧边栏（noSidebar）
+  // document.getElementById('sidebar-mount').outerHTML = App.renderSidebar();
 
   // ====== 内部状态 ======
   let bCurMode = 'all';
@@ -395,6 +457,7 @@
     try {
       const clients = Store.getClients();
       const allSessions = Store.getSessions();
+      const allExpenses = Store.getExpenses ? Store.getExpenses() : [];
       const ym = new Date().toISOString().slice(0, 7);
       let mRec = 0, mPaid = 0, tRec = 0, tPaid = 0;
       allSessions.forEach(function (s) {
@@ -424,6 +487,14 @@
       document.getElementById('stat-t-receivable').textContent = '¥' + tRec.toLocaleString();
       document.getElementById('stat-t-received').textContent = '¥' + tPaid.toLocaleString();
       document.getElementById('stat-t-balance').textContent = '¥' + Math.max(0, tRec - tPaid).toLocaleString();
+      // 汇总三卡（收入/支出/净收入）
+      var expTotal = allExpenses.reduce(function (s, e) { return s + (Number(e.amount) || 0); }, 0);
+      var sumI = document.getElementById('sum-income');
+      var sumE = document.getElementById('sum-expense');
+      var sumN = document.getElementById('sum-net');
+      if (sumI) sumI.textContent = '¥' + tRec.toLocaleString();
+      if (sumE) sumE.textContent = '¥' + expTotal.toLocaleString();
+      if (sumN) sumN.textContent = '¥' + (tPaid - expTotal).toLocaleString();
     } catch (e) { console.warn('[billing stats]', e); }
   }
   window.renderBillingStats = renderBillingStats;
@@ -695,16 +766,136 @@
   }
   window.switchCtab = switchCtab;
 
-  // ====== 内联表单 ======
+  // ====== v3.4.2 记一笔模态框（统一入口，含来访者选择 + 日历 + 多日） ======
+  var addModalDates = [];
+
   function toggleAddForm() {
-    if (!bCurClient) { App.showToast('请先选择来访者', 'warning'); return; }
-    closeBForms();
-    document.getElementById('b-form-add').classList.add('show');
+    var cid = bCurClient ? bCurClient.id : (binCurClient ? binCurClient.id : '');
+    openAddModal(cid);
   }
+  window.billingToggleAddForm = function () {
+    var cid = binCurClient ? binCurClient.id : '';
+    openAddModal(cid);
+  };
+
+  function openAddModal(preClientId) {
+    addModalDates = [];
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'bf-modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
+    var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+    var clientOpts = clients.map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === preClientId ? ' selected' : '') + '>' + App.escapeHtml(c.name) + '</option>';
+    }).join('');
+    var today = App.todayStr();
+    var defaultFee = 300;
+    if (preClientId) {
+      var pc = clients.find(function (x) { return x.id === preClientId; });
+      if (pc && pc.billing && pc.billing.feePerSession) defaultFee = pc.billing.feePerSession;
+    }
+    var modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--paper-2,#fff);border-radius:14px;padding:28px;max-width:480px;width:92%;max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.18)';
+    modal.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:18px">' +
+        '<h3 style="margin:0;font-family:var(--serif);font-size:20px;flex:1">📝 记一笔</h3>' +
+        '<button onclick="this.closest(\'.modal-overlay\').remove()" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--ink-3);padding:4px">×</button>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:14px">' +
+      '<div><label style="font:11px var(--sans);color:var(--ink-3);display:block;margin-bottom:3px">来访者</label>' +
+      '<div style="display:flex;gap:8px">' +
+      '<select id="am-client" style="border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:13px var(--sans);flex:1;background:var(--paper,#fff)">' +
+      '<option value="">选择来访者…</option>' + clientOpts +
+      '<option value="__new__" style="color:var(--accent);font-weight:600">＋ 新建来访者</option></select>' +
+      '<button onclick="amNewClient()" style="border:1px dashed var(--accent);border-radius:8px;padding:9px 14px;font:12px var(--sans);cursor:pointer;color:var(--accent);background:transparent;white-space:nowrap">＋ 新建</button>' +
+      '</div></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+      '<div><label style="font:11px var(--sans);color:var(--ink-3);display:block;margin-bottom:3px">节次</label><input type="number" id="am-snum" value="1" min="1" style="border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:13px var(--sans);width:100%"></div>' +
+      '<div><label style="font:11px var(--sans);color:var(--ink-3);display:block;margin-bottom:3px">费用(元)</label><input type="number" id="am-fee" value="' + defaultFee + '" min="0" style="border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:13px var(--sans);width:100%"></div>' +
+      '<div><label style="font:11px var(--sans);color:var(--ink-3);display:block;margin-bottom:3px">已收</label><select id="am-paid" style="border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:13px var(--sans);width:100%;background:var(--paper,#fff)"><option value="0">未收</option><option value="1">已收</option></select></div>' +
+      '</div>' +
+      '<div><label style="font:11px var(--sans);color:var(--ink-3);display:block;margin-bottom:3px">日期</label>' +
+      '<input type="date" id="am-date" value="' + today + '" style="border:1px solid var(--border);border-radius:8px;padding:9px 12px;font:13px var(--sans);width:100%">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">' +
+      '<label style="font:11px var(--sans);color:var(--ink-3);cursor:pointer;display:flex;align-items:center;gap:4px"><input type="checkbox" id="am-multi"> 多选多天</label>' +
+      '<span style="font:11px var(--sans);color:var(--ink-3)">勾选后每次选日期自动添加</span></div>' +
+      '<div id="am-dates" style="display:flex;flex-wrap:wrap;gap:4px;min-height:0;margin-top:4px"></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">' +
+      '<button onclick="this.closest(\'.modal-overlay\').remove()" style="border:1px solid var(--border);border-radius:8px;padding:9px 20px;font:13px var(--sans);cursor:pointer;background:transparent">取消</button>' +
+      '<button id="am-save" style="border:none;border-radius:8px;padding:9px 20px;font:13px var(--sans);cursor:pointer;background:var(--accent);color:#fff;font-weight:600">保存</button>' +
+      '</div></div>';
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+    document.getElementById('am-date').addEventListener('change', function () {
+      var multi = document.getElementById('am-multi');
+      if (multi && multi.checked && this.value) {
+        if (addModalDates.indexOf(this.value) < 0) addModalDates.push(this.value);
+        addModalDates.sort();
+        this.value = '';
+        renderAddDates();
+      }
+    });
+    document.getElementById('am-save').addEventListener('click', function () {
+      var cid = document.getElementById('am-client').value;
+      if (cid === '__new__') { amNewClient(); return; }
+      if (!cid) { App.showToast('请选择来访者', 'warning'); return; }
+      var multi = document.getElementById('am-multi');
+      var dates = [];
+      if (multi && multi.checked && addModalDates.length > 0) dates = addModalDates.slice();
+      else { var dv = document.getElementById('am-date').value; if (dv) dates = [dv]; }
+      if (!dates.length) { App.showToast('请选择日期', 'warning'); return; }
+      var snum = parseInt(document.getElementById('am-snum').value, 10) || 1;
+      var fee = Number(document.getElementById('am-fee').value) || 0;
+      var paid = document.getElementById('am-paid').value === '1';
+      if (fee <= 0) { App.showToast('费用需 > 0', 'warning'); return; }
+      var client = Store.getClients().find(function (c) { return c.id === cid; });
+      if (!client) { App.showToast('来访者不存在', 'error'); return; }
+      var mode = (client.billing && client.billing.billingMode) || 'per-session';
+      dates.forEach(function (date) {
+        var nextNo = Store.nextSessionNumber(cid);
+        for (var i = 0; i < snum; i++) {
+          Store.createSession({
+            clientId: cid, date: date, sessionNumber: nextNo + i, durationMinutes: 0,
+            billing: { fee: fee, paid: paid, source: 'manual', billingMode: mode },
+            notes: '来源：手动记账｜¥' + fee + '｜' + (paid ? '已缴' : '未缴')
+          });
+        }
+      });
+      App.showToast('已记 ' + (dates.length * snum) + ' 笔', 'success');
+      overlay.remove();
+      bCurClient = Store.getClients().find(function (c) { return c.id === cid; }) || null;
+      binCurClient = bCurClient;
+      refreshAll();
+      if (typeof renderIncomeList === 'function') renderIncomeList();
+      if (typeof renderExpensePanel === 'function') renderExpensePanel();
+    });
+    setTimeout(function () { var sel = document.getElementById('am-client'); if (sel) sel.focus(); }, 100);
+  }
+
+  function renderAddDates() {
+    var box = document.getElementById('am-dates');
+    if (!box) return;
+    box.innerHTML = addModalDates.map(function (d, i) {
+      return '<span style="display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:6px;background:var(--accent-soft);font:11px var(--sans);cursor:pointer;color:var(--accent)" onclick="removeAddDate(' + i + ')">' + d + ' ×</span>';
+    }).join('');
+  }
+  window.removeAddDate = function (i) { addModalDates.splice(i, 1); renderAddDates(); };
+
+  window.amNewClient = function () {
+    if (typeof ClientModal !== 'undefined') ClientModal.show(function (client) {
+      var sel = document.getElementById('am-client');
+      if (sel) { var o = document.createElement('option'); o.value = client.id; o.textContent = client.name; sel.appendChild(o); sel.value = client.id; }
+    });
+  };
+  window.openAddModal = openAddModal;
+  // 补回月结内联表单
   function toggleSettleForm() {
     if (!bCurClient) { App.showToast('请先选择来访者', 'warning'); return; }
     closeBForms();
-    document.getElementById('b-form-settle').classList.add('show');
+    var el = document.getElementById('b-form-settle');
+    if (el) el.classList.add('show');
   }
   function closeBForms() {
     ['b-form-add', 'b-form-settle'].forEach(function (k) {
@@ -712,35 +903,7 @@
       if (el) el.classList.remove('show');
     });
   }
-  function addRecord() {
-    if (!bCurClient) return;
-    var datesStr = document.getElementById('bf-date').value;
-    var fee = Number(document.getElementById('bf-fee').value) || 0;
-    var paid = document.getElementById('bf-paid').value === '1';
-    var snum = parseInt(document.getElementById('bf-snum').value, 10) || 1;
-    var mode = document.getElementById('bf-mode') ? document.getElementById('bf-mode').value : 'per-session';
-    if (!datesStr) { App.showToast('请选择日期（可多选）', 'warning'); return; }
-    if (fee <= 0) { App.showToast('费用需 > 0', 'warning'); return; }
-    var dates = datesStr.split(',').map(function (d) { return d.trim(); }).filter(Boolean);
-    if (!dates.length) dates = [datesStr];
-    dates.forEach(function (date) {
-      var nextNo = Store.nextSessionNumber(bCurClient.id);
-      for (var i = 0; i < snum; i++) {
-        Store.createSession({
-          clientId: bCurClient.id,
-          date: date,
-          sessionNumber: nextNo + i,
-          durationMinutes: 0,
-          billing: { fee: fee, paid: paid, source: 'manual', billingMode: mode },
-          notes: ['来源：手动记账', '单价 ¥' + fee, '方式：' + (MODE_TEXT[mode] || mode), paid ? '已缴' : '未缴'].join('｜')
-        });
-      }
-    });
-    App.showToast('已记 ' + (dates.length * snum) + ' 笔', 'success');
-    closeBForms();
-    bCurClient = Store.getClients().find(function (c) { return c.id === bCurClient.id; }) || bCurClient;
-    refreshAll();
-  }
+  function addRecord() { openAddModal(bCurClient ? bCurClient.id : ''); }
   function settleMonth() {
     if (!bCurClient) return;
     const month = document.getElementById('bf-month').value;
@@ -767,6 +930,7 @@
   // ====== 刷新所有 ======
   function refreshAll() {
     renderBillingStats();
+    if (typeof renderIncomeList === 'function') { renderIncomeList(); renderExpensePanel(); }
     renderBRail();
     if (bCurCtab === 'detail') renderBDetail();
     else if (bCurCtab === 'trend') renderBTrend();
@@ -950,6 +1114,10 @@
         renderBRail();
       });
     });
+    // 初始化新双栏记账视图（v3.1.0）
+    if (typeof initDualBillingShell === 'function') {
+      initDualBillingShell();
+    }
   })();
 
   // ── 打开导入 modal ──
@@ -1357,32 +1525,20 @@
   })();
 
   /* ──────────────────────────────────────────────────────────
-     Tab 3：手动 JSON（直接写 psyc_billing_v8，由 bridge 翻译）
+     旧版记账 / 手动 JSON 导入已在页面合并时下线（桥接层 BillingSync 已移除）。
+     如仍需从旧系统迁移数据，请走「设置 → 数据导入」或联系开发者。
      ────────────────────────────────────────────────────────── */
   function doImport() {
-    const raw = document.getElementById('import-json').value.trim();
-    if (!raw) { App.showToast('请先粘贴导出的 JSON', 'warning'); return false; }
-    let parsed; try { parsed = JSON.parse(raw); }
-    catch (e) { App.showToast('JSON 格式错误，请检查', 'warning'); return false; }
-    if (typeof window.BillingSync === 'undefined') { App.showToast('桥接层未加载', 'warning'); return false; }
-    window.BillingSync.psycToStore(window.Store, {
-      clients: parsed.clients || [],
-      records: parsed.records || [],
-      monthlyPayments: parsed.monthlyPayments || []
-    });
-    document.getElementById('import-result').textContent = '已写入心镜本地数据库。';
-    refreshAll();
-    return true;
+    App.showToast('旧版记账导入已下线，请使用「腾讯会议」导入或设置中的数据工具', 'warning');
+    return false;
   }
 
   /* ── 主按钮分发 ── */
   const ImportModal = {
-    currentTab: 'billing',
+    currentTab: 'meetings',
     confirm: function () {
       let ok = false;
-      if (this.currentTab === 'billing') ok = BillingImport.doImport();
-      else if (this.currentTab === 'meetings') ok = MeetingsImport.importSelected();
-      else if (this.currentTab === 'manual') ok = doImport();
+      if (this.currentTab === 'meetings') ok = MeetingsImport.importSelected();
       if (ok) {
         // 刷新原生三栏视图，无 iframe
         refreshAll();
@@ -1390,6 +1546,324 @@
         // 不自动关 modal，让用户看结果
       }
     }
+  };
+
+  // ============================================================
+  // 新双栏记账视图（v3.1.0，对齐 demo-C 双栏对照）
+  // 与旧 JS 共享 clientAgg / MODE_TEXT / renderBillingStats
+  // ============================================================
+  var binCurClient = null;
+  var binMonthFilter = 'all';
+  var EXPENSE_CATEGORIES = [
+    { key: 'personal', name: '个人体验', icon: '🧘', bg: 'rgba(107,174,143,.15)' },
+    { key: 'individual', name: '个体督导', icon: '👤', bg: 'var(--accent-soft)' },
+    { key: 'group', name: '团体督导', icon: '👥', bg: 'rgba(214,168,92,.15)' },
+    { key: 'course', name: '课程', icon: '📚', bg: 'rgba(155,133,199,.15)' },
+    { key: 'other', name: '其他', icon: '📋', bg: 'var(--bg-soft)' }
+  ];
+  var CAT_NAMES = { personal: '个人体验', individual: '个体督导', group: '团体督导', course: '课程', other: '其他' };
+
+  function initDualBillingShell() {
+    populateMonthSelect();
+    renderIncomeList();
+    renderExpensePanel();
+  }
+
+  function populateMonthSelect() {
+    var sel = document.getElementById('bin-month');
+    if (!sel) return;
+    var months = [];
+    var today = new Date();
+    for (var i = 11; i >= 0; i--) {
+      var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+    }
+    sel.innerHTML = '<option value="all">全部月份</option>' + months.map(function (m) {
+      return '<option value="' + m + '">' + m + '</option>';
+    }).join('');
+  }
+
+  function renderIncomeList() {
+    var q = (document.getElementById('bin-search') || {}).value || '';
+    binMonthFilter = (document.getElementById('bin-month') || {}).value || 'all';
+    q = q.toLowerCase();
+    var clients = Store.getClients().filter(function (c) {
+      if (c.status === 'ended') return false;
+      if (q && (c.name || '').toLowerCase().indexOf(q) < 0) return false;
+      if (binMonthFilter !== 'all') {
+        var hasSessions = Store.getSessionsByClient(c.id).some(function (s) {
+          return s.date && s.date.slice(0, 7) === binMonthFilter;
+        });
+        var hasMP = (c.billing && c.billing.monthlyPayments || []).some(function (mp) {
+          return mp.month === binMonthFilter;
+        });
+        if (!hasSessions && !hasMP) return false;
+      }
+      return true;
+    });
+    var body = document.getElementById('bin-body');
+    if (!body) return;
+    if (!clients.length) {
+      body.innerHTML = '<div class="empty-state">无匹配来访者<br>请先在「来访者」页创建</div>';
+      return;
+    }
+    var html = clients.map(function (c) {
+      var agg = clientAgg(c);
+      var mode = (c.billing && c.billing.billingMode) || 'per-session';
+      var ym = new Date().toISOString().slice(0, 7);
+      var monthSessions = Store.getSessionsByClient(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
+      var active = binCurClient && binCurClient.id === c.id;
+      return '<div class="bin-item' + (active ? ' active' : '') + '" onclick="selectIncomeClient(\'' + c.id + '\')">' +
+        '<div class="ava">' + (c.name ? c.name[0] : '?') + '</div>' +
+        '<div class="info"><div class="nm">' + App.escapeHtml(c.name) + '</div>' +
+        '<div class="mt">' + monthSessions.length + '节 · ' + (MODE_TEXT[mode] || '次结') + ' · 应收¥' + agg.total.toLocaleString() + '</div></div>' +
+        '<div class="amt' + (agg.owe > 0 ? ' owe' : '') + '">' + (agg.owe > 0 ? '¥' + agg.owe.toLocaleString() : '¥0') + '</div></div>';
+    }).join('');
+    html += '<div class="bin-detail-title" id="bin-detail-title"></div>';
+    html += '<div id="bin-detail-table"></div>';
+    body.innerHTML = html;
+    if (binCurClient) renderIncomeDetail();
+  }
+
+  window.selectIncomeClient = function (clientId) {
+    binCurClient = Store.getClients().find(function (c) { return c.id === clientId; }) || null;
+    renderIncomeList();
+    renderIncomeDetail();
+    // v3.4.2: 双栏联动 — 收入聚焦时右侧支出列缩小
+    var shell = document.getElementById('dual-billing-shell');
+    if (shell) { shell.classList.add('income-focused'); shell.classList.remove('expense-focused'); }
+  };
+
+  function renderIncomeDetail() {
+    var titleEl = document.getElementById('bin-detail-title');
+    var tableEl = document.getElementById('bin-detail-table');
+    if (!titleEl || !tableEl) return;
+    if (!binCurClient) {
+      titleEl.innerHTML = '';
+      tableEl.innerHTML = '';
+      return;
+    }
+    var c = binCurClient;
+    var sessions = Store.getSessionsByClient(c.id).slice().sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '');
+    });
+    if (binMonthFilter !== 'all') {
+      sessions = sessions.filter(function (s) { return s.date && s.date.slice(0, 7) === binMonthFilter; });
+    }
+    var agg = clientAgg(c);
+    var mode = (c.billing && c.billing.billingMode) || 'per-session';
+    titleEl.innerHTML = '<span style="color:var(--accent);font-weight:700">' + App.escapeHtml(c.name) + '</span> · ' + (MODE_TEXT[mode] || '次结') + ' · 应收 ¥' + agg.total.toLocaleString() + ' · 欠 ¥' + agg.owe.toLocaleString();
+    if (!sessions.length) {
+      tableEl.innerHTML = '<div style="text-align:center;color:var(--ink-3);padding:16px;font-size:13px">暂无记录</div>';
+      return;
+    }
+    var html = '<table class="bin-detail-table"><thead><tr><th>日期</th><th>节次</th><th>费用</th><th>已收</th><th>类型</th></tr></thead><tbody>';
+    html += sessions.map(function (s) {
+      var sf = (s.billing && Number(s.billing.fee)) || 0;
+      var paid = !!(s.billing && s.billing.paid);
+      var stype = (s.billing && s.billing.source === 'tmeet') ? '会议' : (s.billing && s.billing.source === 'billing' ? '导入' : ((s.billing && s.billing.billingMode === 'monthly') ? '月结' : ((s.billing && s.billing.billingMode === 'prepaid') ? '预付费' : '次结')));
+      return '<tr>' +
+        '<td>' + App.escapeHtml(s.date || '') + '</td>' +
+        '<td>第' + (s.sessionNumber || '?') + '节</td>' +
+        '<td>¥' + sf.toLocaleString() + '</td>' +
+        '<td class="' + (paid ? 'paid-y' : 'paid-n') + '">' + (paid ? '已收' : '未收') + '</td>' +
+        '<td><span class="tag">' + stype + '</span></td></tr>';
+    }).join('');
+    html += '</tbody></table>';
+    tableEl.innerHTML = html;
+  }
+
+  window.billingToggleAddForm = function () {
+    if (!binCurClient) { App.showToast('请先选择来访者', 'warning'); return; }
+    var body = document.getElementById('bin-body');
+    if (!body) return;
+    var c = binCurClient;
+    var fee = (c.billing && Number(c.billing.feePerSession)) || 0;
+    var formHtml = '<div class="exp-form" style="margin-bottom:12px;border:1px solid var(--accent)" id="add-bf-form">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:100px"><label>日期</label><input type="date" id="add-bf-date" value="' + App.todayStr() + '"></div>' +
+      '<div style="flex:1;min-width:60px"><label>节次</label><input type="number" id="add-bf-snum" value="1" min="1"></div>' +
+      '<div style="flex:1;min-width:80px"><label>费用</label><input type="number" id="add-bf-fee" value="' + fee + '" min="0"></div>' +
+      '<div style="flex:1;min-width:80px"><label>已收</label><select id="add-bf-paid"><option value="0">未收</option><option value="1">已收</option></select></div>' +
+      '</div><div class="row-actions"><button class="btn btn-ghost" onclick="closeBinForm(\'add-bf-form\')">取消</button>' +
+      '<button class="btn btn-primary" onclick="doAddIncome()">保存</button></div></div>';
+    var old = document.getElementById('add-bf-form');
+    if (old) old.remove();
+    body.insertAdjacentHTML('afterbegin', formHtml);
+  };
+
+  window.billingToggleSettleForm = function () {
+    if (!binCurClient) { App.showToast('请先选择来访者', 'warning'); return; }
+    var body = document.getElementById('bin-body');
+    if (!body) return;
+    var ym = new Date().toISOString().slice(0, 7);
+    var formHtml = '<div class="exp-form" style="margin-bottom:12px;border:1px solid var(--accent)" id="settle-bf-form">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:100px"><label>月份</label><input type="month" id="settle-bf-month" value="' + ym + '"></div>' +
+      '<div style="flex:1;min-width:80px"><label>金额</label><input type="number" id="settle-bf-amount" value="0" min="0"></div></div>' +
+      '<div class="row-actions"><button class="btn btn-ghost" onclick="closeBinForm(\'settle-bf-form\')">取消</button>' +
+      '<button class="btn btn-primary" onclick="doSettleMonth()">保存</button></div></div>';
+    var old = document.getElementById('settle-bf-form');
+    if (old) old.remove();
+    body.insertAdjacentHTML('afterbegin', formHtml);
+  };
+
+  window.closeBinForm = function (id) {
+    var el = document.getElementById(id);
+    if (el) el.remove();
+    renderIncomeList();
+  };
+
+  window.doAddIncome = function () {
+    if (!binCurClient) return;
+    var date = (document.getElementById('add-bf-date') || {}).value || '';
+    var snum = parseInt((document.getElementById('add-bf-snum') || {}).value, 10) || 1;
+    var fee = Number((document.getElementById('add-bf-fee') || {}).value) || 0;
+    var paid = ((document.getElementById('add-bf-paid') || {}).value || '0') === '1';
+    if (!date) { App.showToast('请选择日期', 'warning'); return; }
+    if (fee <= 0) { App.showToast('费用需 > 0', 'warning'); return; }
+    var nextNo = Store.nextSessionNumber(binCurClient.id);
+    for (var i = 0; i < snum; i++) {
+      Store.createSession({
+        clientId: binCurClient.id, date: date, sessionNumber: nextNo + i, durationMinutes: 0,
+        billing: { fee: fee, paid: paid, source: 'manual', billingMode: (binCurClient.billing && binCurClient.billing.billingMode) || 'per-session' },
+        notes: ['来源：手动记账', '￥' + fee, paid ? '已缴' : '未缴'].join('｜')
+      });
+    }
+    App.showToast('已记 ' + snum + ' 笔', 'success');
+    closeBinForm('add-bf-form');
+    binCurClient = Store.getClients().find(function (c) { return c.id === binCurClient.id; }) || binCurClient;
+    renderIncomeList();
+    renderBillingStats();
+  };
+
+  window.doSettleMonth = function () {
+    if (!binCurClient) return;
+    var month = (document.getElementById('settle-bf-month') || {}).value || '';
+    var amount = Number((document.getElementById('settle-bf-amount') || {}).value) || 0;
+    if (!month) { App.showToast('请选择月份', 'warning'); return; }
+    if (amount <= 0) { App.showToast('月结金额需 > 0', 'warning'); return; }
+    var billing = Object.assign({}, binCurClient.billing || {});
+    billing.monthlyPayments = Array.isArray(billing.monthlyPayments) ? billing.monthlyPayments.slice() : [];
+    var exist = billing.monthlyPayments.findIndex(function (m) { return m.month === month; });
+    if (exist >= 0) billing.monthlyPayments[exist].amount = amount;
+    else billing.monthlyPayments.push({ month: month, amount: amount });
+    Store.updateClient(binCurClient.id, { billing: billing });
+    App.showToast('月结已保存', 'success');
+    closeBinForm('settle-bf-form');
+    binCurClient = Store.getClients().find(function (c) { return c.id === binCurClient.id; }) || binCurClient;
+    renderIncomeList();
+    renderBillingStats();
+  };
+
+  function renderExpensePanel() {
+    var body = document.getElementById('bexp-body');
+    if (!body) return;
+    // v3.4.2: 返回支出分类时恢复双栏
+    var shell = document.getElementById('dual-billing-shell');
+    if (shell) { shell.classList.remove('income-focused', 'expense-focused'); }
+    var q = '';
+    var searchEl = document.getElementById('bexp-search');
+    if (searchEl) q = (searchEl.value || '').toLowerCase();
+    var monthFilter = '';
+    var monthEl = document.getElementById('bexp-month');
+    if (monthEl) monthFilter = monthEl.value || '';
+    var allExpenses = Store.getExpenses ? Store.getExpenses() : [];
+    // 月份选项填充
+    if (monthEl) {
+      var months = [];
+      allExpenses.forEach(function (e) { if (e.date) { var ym = e.date.slice(0, 7); if (months.indexOf(ym) < 0) months.push(ym); } });
+      months.sort().reverse();
+      var cur = monthEl.value;
+      monthEl.innerHTML = '<option value="">全部月份</option>' + months.map(function (m) {
+        return '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>' + m + '</option>';
+      }).join('');
+    }
+    var filtered = allExpenses.filter(function (e) {
+      if (q) {
+        var desc = (e.description || '').toLowerCase();
+        var cat = (e.category || '').toLowerCase();
+        if (desc.indexOf(q) < 0 && cat.indexOf(q) < 0) return false;
+      }
+      if (monthFilter && (!e.date || e.date.slice(0, 7) !== monthFilter)) return false;
+      return true;
+    });
+    var stats = Store.getExpenseStats ? Store.getExpenseStats() : { total: 0, byCat: {}, count: 0 };
+    var html = '';
+    EXPENSE_CATEGORIES.forEach(function (cat) {
+      var cs = (stats.byCat && stats.byCat[cat.key]) || { count: 0, total: 0 };
+      html += '<div class="exp-cat" onclick="openExpenseCat(\'' + cat.key + '\')">' +
+        '<div class="icon" style="background:' + cat.bg + '">' + cat.icon + '</div>' +
+        '<div class="info"><div class="name">' + cat.name + '</div><div class="cnt">' + cs.count + '笔</div></div>' +
+        '<div class="amt">¥' + cs.total.toLocaleString() + '</div></div>';
+    });
+    html += '<div class="add-expense" onclick="openExpenseForm()">+ 记一笔支出</div>';
+    body.innerHTML = html;
+  }
+
+  window.openExpenseCat = function (cat) {
+    var body = document.getElementById('bexp-body');
+    if (!body) return;
+    // v3.4.2: 双栏联动 — 支出聚焦时左侧收入列缩小
+    var shell = document.getElementById('dual-billing-shell');
+    if (shell) { shell.classList.add('expense-focused'); shell.classList.remove('income-focused'); }
+    var name = CAT_NAMES[cat] || cat;
+    var expenses = Store.getExpensesByCategory ? Store.getExpensesByCategory(cat) : [];
+    var catInfo = EXPENSE_CATEGORIES.find(function (c) { return c.key === cat; });
+    var html = '<div style="display:flex;align-items:center;gap:4px;margin-bottom:12px;cursor:pointer" onclick="renderExpensePanel()"><span style="font-size:12px;color:var(--ink-3)">← 返回支出分类</span></div>';
+    html += '<div class="exp-cat" style="cursor:default">' +
+      '<div class="icon" style="background:' + (catInfo ? catInfo.bg : 'var(--bg-soft)') + '">' + (catInfo ? catInfo.icon : '📋') + '</div>' +
+      '<div class="info"><div class="name">' + name + '</div><div class="cnt">' + expenses.length + '笔 · ¥' + expenses.reduce(function(s,e){return s+(Number(e.amount)||0);},0).toLocaleString() + '</div></div></div>';
+    if (!expenses.length) {
+      html += '<div class="empty-state">暂无记录</div>';
+    } else {
+      expenses.forEach(function (e) {
+        html += '<div class="exp-row"><div class="info"><div class="desc">' + App.escapeHtml(e.description || '未命名') + '</div><div class="dt">' + App.escapeHtml(e.date || '') + '</div></div>' +
+          '<span class="amt">¥' + (Number(e.amount) || 0).toLocaleString() + '</span></div>';
+      });
+    }
+    html += '<div class="add-expense" onclick="openExpenseForm(\'' + cat + '\')">+ 记一笔</div>';
+    body.innerHTML = html;
+  };
+
+  window.openExpenseForm = function (preCat) {
+    var cat = preCat || 'other';
+    var body = document.getElementById('bexp-body');
+    if (!body) return;
+    var formHtml = '<div class="exp-form" id="exp-form-card">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:100px"><label>分类</label><select id="exp-form-cat">' +
+      EXPENSE_CATEGORIES.map(function (c) { return '<option value="' + c.key + '"' + (c.key === cat ? ' selected' : '') + '>' + c.icon + ' ' + c.name + '</option>'; }).join('') +
+      '</select></div>' +
+      '<div style="flex:1;min-width:100px"><label>日期</label><input type="date" id="exp-form-date" value="' + App.todayStr() + '"></div>' +
+      '<div style="flex:1;min-width:80px"><label>金额</label><input type="number" id="exp-form-amount" value="0" min="0"></div></div>' +
+      '<div style="margin-top:8px"><label>描述</label><input type="text" id="exp-form-desc" placeholder="如：温尼科特式个人体验" style="width:100%"></div>' +
+      '<div class="row-actions"><button class="btn btn-ghost" onclick="closeExpForm()">取消</button>' +
+      '<button class="btn btn-primary" onclick="doAddExpense()">保存</button></div></div>';
+    var old = document.getElementById('exp-form-card');
+    if (old) old.remove();
+    body.insertAdjacentHTML('afterbegin', formHtml);
+  };
+
+  window.closeExpForm = function () {
+    var el = document.getElementById('exp-form-card');
+    if (el) el.remove();
+    renderExpensePanel();
+  };
+
+  window.doAddExpense = function () {
+    var cat = (document.getElementById('exp-form-cat') || {}).value || 'other';
+    var date = (document.getElementById('exp-form-date') || {}).value || '';
+    var amount = Number((document.getElementById('exp-form-amount') || {}).value) || 0;
+    var desc = (document.getElementById('exp-form-desc') || {}).value || '';
+    if (!date) { App.showToast('请选择日期', 'warning'); return; }
+    if (amount <= 0) { App.showToast('金额需 > 0', 'warning'); return; }
+    if (Store.createExpense) {
+      Store.createExpense({ category: cat, date: date, amount: amount, description: desc });
+      App.showToast('支出已记录', 'success');
+    }
+    closeExpForm();
+    renderBillingStats();
   };
   </script>
 </body>

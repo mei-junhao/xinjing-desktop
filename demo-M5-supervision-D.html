@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · AI 督导 — 旗舰版D（思维导图）</title>
+<style>
+:root{--r-shell:14px;--r-card:10px;--r-ctl:8px;--r-sm:6px;--gap:16px;--ease:cubic-bezier(.22,1,.36,1);--serif:"Noto Serif SC","Songti SC","STSong",serif;--sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;--mono:"JetBrains Mono","SF Mono",ui-monospace,monospace}
+:root{--bg:#F6F8FC;--bg-elevated:#FFFFFF;--bg-sunken:#EDF0F7;--border-c:#E2E7F0;--text-c:#2B3140;--text-secondary-c:#646B7D;--text-muted-c:#99A1B3;--accent:#8B93C7;--accent-hover:#777FBC;--accent-soft:#ECEEF9;--accent-line:#B5BDE0;--success-c:#6FAE8F;--warning-c:#D6A85C;--danger-c:#D98C8C;--shadow-sm:0 1px 3px rgba(43,49,64,.05);--shadow:0 4px 16px rgba(43,49,64,.07);--hover-tint:rgba(43,49,64,.04)}
+:root{--paper:#F6F8FC;--paper-2:#FFFFFF;--sidebar:#EDF0F7;--ink:#2B3140;--ink-2:#646B7D;--ink-3:#99A1B3;--hair:#E2E7F0;--hair-strong:#D2D9E6;--green:#6FAE8F;--orange:#D6A85C;--blue:#9DB8D6;--purple:#8B93C7;--red:#D98C8C;--radius:14px;--radius-sm:10px;--border:var(--hair-strong);--text:var(--ink);--card:var(--paper-2);--bg-soft:var(--sidebar);--transition:.2s var(--ease)}
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
+.xj-tier-badge.custom{background:rgba(155,133,199,.18);color:#9B85C7;border:1px solid rgba(155,133,199,.3);font-weight:700}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,rgba(155,133,199,.12),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .sp{flex:1}
+.sup-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.sup-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
+.sup-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.sup-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
+.sup-top .sp{flex:1}
+.sup-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.mm-toolbar{display:flex;align-items:center;gap:6px;padding:6px 20px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--paper-2);font:11px var(--sans);color:var(--ink-3)}
+.mm-toolbar .sp{flex:1}
+.mm-toolbar button{border:1px solid var(--border);background:var(--paper-2);border-radius:6px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
+.mm-toolbar button:hover{border-color:var(--accent);color:var(--accent)}
+.mm-toolbar button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.mm-toolbar .stat{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--bg-sunken);color:var(--ink-2)}
+.sup-body{flex:1;display:grid;grid-template-columns:280px 1fr 280px;min-height:0;overflow:hidden}
+.sup-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sup-left .sl-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.sup-left .sl-list{flex:1;overflow-y:auto;padding:8px}
+.sup-left .sl-item{padding:10px 12px;border-radius:8px;cursor:pointer;font:12.5px/1.5 var(--sans);margin-bottom:4px;transition:all .15s}
+.sup-left .sl-item:hover{background:var(--hover-tint)}
+.sup-left .sl-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
+.sup-left .sl-item .s-title{font-weight:600;color:var(--accent);margin-bottom:2px}
+.sup-left .sl-item .s-date{font-size:11px;color:var(--ink-3)}
+.sup-left .sl-item .s-preview{font:11px var(--sans);color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sup-mid{display:flex;flex-direction:column;overflow:hidden;background:var(--bg);position:relative}
+.sup-mid .mm-head{padding:10px 16px;border-bottom:1px solid var(--border);font:600 13px var(--sans);background:var(--paper-2);flex-shrink:0;display:flex;align-items:center;gap:8px;color:var(--ink-2)}
+.sup-mid .mm-head .mm-title{font-family:var(--serif);font-size:14px;color:var(--ink)}
+.mm-canvas{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(circle at center,var(--paper-2),var(--bg));position:relative}
+.sup-right{background:var(--paper-2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sup-right .sr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.sup-right .sr-body{flex:1;overflow-y:auto;padding:14px 16px}
+.sr-stat{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font:12px var(--sans);color:var(--ink-2)}
+.sr-stat b{font-family:var(--serif);color:var(--ink);font-size:14px}
+.sr-divider{height:1px;background:var(--border);margin:12px 0}
+.sr-node-info{background:var(--bg-sunken);border-radius:10px;padding:12px;margin-bottom:12px}
+.sr-node-info .ni-title{font:600 12px var(--sans);color:var(--accent);margin-bottom:4px}
+.sr-node-info .ni-desc{font:12px/1.6 var(--sans);color:var(--ink-2)}
+.sr-node-info .ni-actions{display:flex;gap:6px;margin-top:8px}
+.sr-node-info .ni-actions button{flex:1;border:1px solid var(--border);background:var(--paper-2);border-radius:6px;padding:5px 0;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
+.sr-node-info .ni-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.sr-node-info .ni-actions button.pri{background:var(--accent);color:#fff;border:none}
+.sup-right .sr-action{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.sup-right .sr-action button{width:100%;border:1px solid var(--border);background:var(--paper-2);border-radius:8px;padding:8px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);margin-bottom:6px}
+.sup-right .sr-action button:hover{border-color:var(--accent);color:var(--accent)}
+.sup-right .sr-action button.pri{background:var(--accent);color:#fff;border:none}
+</style>
+</head>
+<body>
+
+<div class="preview-bar">
+  <span>👑</span>
+  <span>旗舰会员预览 · 这是 <b>AI 督导思维导图</b>（最高档 custom），由方案 C 三栏研究台自动生成，支持无限扩展节点</span>
+  <span class="sp"></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">普通会员（方案C）→ <a href="supervision.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<div class="sup-top">
+  <button class="back" onclick="history.back()">← 返回</button>
+  <h2>AI 督导思维导图 <span class="sub">· 旗舰版D · 在 C 基础上生成</span></h2>
+  <span class="sp"></span>
+  <select><option>林小满 · 第8次 · 2026-07-12</option><option>陈默 · 第3次</option></select>
+  <span class="xj-tier-badge custom">旗舰会员</span>
+</div>
+
+<div class="mm-toolbar">
+  <span>🧠</span>
+  <button class="active">自动布局</button>
+  <button>聚焦</button>
+  <button>折叠</button>
+  <button>展开全部</button>
+  <span style="color:var(--border);padding:0 4px">|</span>
+  <button>🔍 +</button>
+  <button>🔍 -</button>
+  <span class="sp"></span>
+  <span class="stat">节点 18</span>
+  <span class="stat">层级 3</span>
+  <span class="stat">已折叠 2</span>
+  <span style="color:var(--border);padding:0 4px">|</span>
+  <button class="xj-premium-btn" disabled>导出图片</button>
+  <button class="xj-premium-btn" disabled>导出 MD</button>
+</div>
+
+<div class="sup-body">
+
+  <div class="sup-left">
+    <div class="sl-head">📋 督导历史</div>
+    <div class="sl-list">
+      <div class="sl-item active"><div class="s-title">林小满 第8次</div><div class="s-date">2026-07-12 · 印象+深化</div><div class="s-preview">真假自体浮现，自主表达质变…</div></div>
+      <div class="sl-item"><div class="s-title">林小满 第7次</div><div class="s-date">2026-07-05 · 临床材料</div><div class="s-preview">母亲来电的情绪反应…</div></div>
+      <div class="sl-item"><div class="s-title">林小满 第6次</div><div class="s-date">2026-06-28</div><div class="s-preview">不同意咨询师的表达…</div></div>
+      <div class="sl-item"><div class="s-title">林小满 第5次</div><div class="s-date">2026-06-21</div><div class="s-preview">第一次不同意…</div></div>
+      <div class="sl-item"><div class="s-title">林小满 第4次</div><div class="s-date">2026-06-14 · 印象</div><div class="s-preview">移情的深度分析…</div></div>
+      <div class="sl-item"><div class="s-title">陈默 第3次</div><div class="s-date">2026-07-08</div><div class="s-preview">沉默与阻抗…</div></div>
+    </div>
+  </div>
+
+  <div class="sup-mid">
+    <div class="mm-head">
+      <span class="mm-title">🧠 林小满 · 第8次 · AI 督导思维导图</span>
+      <span style="font:11px var(--sans);color:var(--ink-3);margin-left:4px">由方案 C 三栏研究台自动生成</span>
+    </div>
+
+    <div class="mm-canvas">
+      <svg viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet" style="width:100%;max-width:900px;height:auto">
+        <defs>
+          <linearGradient id="rootGrad" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#8B93C7"/>
+            <stop offset="100%" stop-color="#9B85C7"/>
+          </linearGradient>
+          <filter id="nodeShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12"/></filter>
+        </defs>
+
+        <!-- 连接线 -->
+        <line x1="450" y1="80" x2="180" y2="220" stroke="#B5BDE0" stroke-width="2" opacity=".5"/>
+        <line x1="450" y1="80" x2="450" y2="220" stroke="#B5BDE0" stroke-width="2" opacity=".5"/>
+        <line x1="450" y1="80" x2="720" y2="220" stroke="#B5BDE0" stroke-width="2" opacity=".5"/>
+        <line x1="180" y1="250" x2="100" y2="360" stroke="#D2D9E6" stroke-width="1" stroke-dasharray="4,3"/>
+        <line x1="180" y1="250" x2="260" y2="360" stroke="#D2D9E6" stroke-width="1" stroke-dasharray="4,3"/>
+        <line x1="450" y1="250" x2="370" y2="360" stroke="#D2D9E6" stroke-width="1" stroke-dasharray="4,3"/>
+        <line x1="450" y1="250" x2="530" y2="360" stroke="#D2D9E6" stroke-width="1" stroke-dasharray="4,3"/>
+        <line x1="720" y1="250" x2="640" y2="360" stroke="#D2D9E6" stroke-width="1" stroke-dasharray="4,3"/>
+        <line x1="720" y1="250" x2="800" y2="360" stroke="#D2D9E6" stroke-width="1" stroke-dasharray="4,3"/>
+        <line x1="450" y1="80" x2="450" y2="470" stroke="#6FAE8F" stroke-width="1.5" stroke-dasharray="5,4" opacity=".5"/>
+
+        <!-- 根节点 -->
+        <g filter="url(#nodeShadow)">
+          <rect x="370" y="40" width="160" height="50" rx="25" fill="url(#rootGrad)"/>
+          <text x="450" y="62" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" font-family="serif">AI 督导</text>
+          <text x="450" y="79" text-anchor="middle" fill="rgba(255,255,255,.85)" font-size="10">林小满 第8次</text>
+        </g>
+
+        <!-- L1: 整体印象 -->
+        <g filter="url(#nodeShadow)">
+          <rect x="110" y="210" width="140" height="40" rx="20" fill="#fff" stroke="#B5BDE0" stroke-width="2"/>
+          <text x="180" y="228" text-anchor="middle" fill="#8B93C7" font-size="13" font-weight="600">整体印象</text>
+          <text x="180" y="243" text-anchor="middle" fill="#99A1B3" font-size="9">温尼科特分析</text>
+        </g>
+
+        <!-- L1: 深化分析 -->
+        <g filter="url(#nodeShadow)">
+          <rect x="380" y="210" width="140" height="40" rx="20" fill="#fff" stroke="#B5BDE0" stroke-width="2"/>
+          <text x="450" y="228" text-anchor="middle" fill="#9E7A2E" font-size="13" font-weight="600">深化分析</text>
+          <text x="450" y="243" text-anchor="middle" fill="#99A1B3" font-size="9">核心议题展开</text>
+        </g>
+
+        <!-- L1: 临床材料 -->
+        <g filter="url(#nodeShadow)">
+          <rect x="650" y="210" width="140" height="40" rx="20" fill="#fff" stroke="#B5BDE0" stroke-width="2"/>
+          <text x="720" y="228" text-anchor="middle" fill="#6FAE8F" font-size="13" font-weight="600">临床材料</text>
+          <text x="720" y="243" text-anchor="middle" fill="#99A1B3" font-size="9">SOAP 评估</text>
+        </g>
+
+        <!-- L2: 印叶子节点 -->
+        <g>
+          <rect x="30" y="345" width="140" height="36" rx="10" fill="#ECEEF9" stroke="#8B93C7" stroke-width="1"/>
+          <text x="100" y="362" text-anchor="middle" fill="#2B3140" font-size="11">真自体浮现</text>
+          <text x="100" y="375" text-anchor="middle" fill="#99A1B3" font-size="9">自发姿态</text>
+        </g>
+        <g>
+          <rect x="190" y="345" width="140" height="36" rx="10" fill="#ECEEF9" stroke="#8B93C7" stroke-width="1"/>
+          <text x="260" y="362" text-anchor="middle" fill="#2B3140" font-size="11">假自体退行</text>
+          <text x="260" y="375" text-anchor="middle" fill="#99A1B3" font-size="9">防御松动</text>
+        </g>
+
+        <!-- L2: 深化叶子节点 -->
+        <g>
+          <rect x="300" y="345" width="140" height="36" rx="10" fill="rgba(214,168,92,.1)" stroke="#D6A85C" stroke-width="1"/>
+          <text x="370" y="362" text-anchor="middle" fill="#2B3140" font-size="11">攻击性健康表达</text>
+          <text x="370" y="375" text-anchor="middle" fill="#99A1B3" font-size="9">第5节转折</text>
+        </g>
+        <g>
+          <rect x="460" y="345" width="140" height="36" rx="10" fill="rgba(214,168,92,.1)" stroke="#D6A85C" stroke-width="1"/>
+          <text x="530" y="362" text-anchor="middle" fill="#2B3140" font-size="11">抱持环境</text>
+          <text x="530" y="375" text-anchor="middle" fill="#99A1B3" font-size="9">安全基地</text>
+        </g>
+
+        <!-- L2: 材料叶子节点 -->
+        <g>
+          <rect x="570" y="345" width="140" height="36" rx="10" fill="rgba(111,174,143,.08)" stroke="#6FAE8F" stroke-width="1"/>
+          <text x="640" y="362" text-anchor="middle" fill="#2B3140" font-size="11">主观材料</text>
+          <text x="640" y="375" text-anchor="middle" fill="#99A1B3" font-size="9">来访者叙述</text>
+        </g>
+        <g>
+          <rect x="730" y="345" width="140" height="36" rx="10" fill="rgba(111,174,143,.08)" stroke="#6FAE8F" stroke-width="1"/>
+          <text x="800" y="362" text-anchor="middle" fill="#2B3140" font-size="11">评估建议</text>
+          <text x="800" y="375" text-anchor="middle" fill="#99A1B3" font-size="9">下一步计划</text>
+        </g>
+
+        <!-- 洞察终端 -->
+        <g>
+          <rect x="360" y="450" width="180" height="50" rx="12" fill="rgba(111,174,143,.15)" stroke="#6FAE8F" stroke-width="2"/>
+          <text x="450" y="472" text-anchor="middle" fill="#6FAE8F" font-size="13" font-weight="600">💡 督导洞察</text>
+          <text x="450" y="489" text-anchor="middle" fill="#646B7D" font-size="10">真自体开始占主导</text>
+        </g>
+
+        <!-- 连接标注 -->
+        <text x="260" y="165" fill="#8B93C7" font-size="8" opacity=".6" font-family="sans-serif">温尼科特分析</text>
+        <text x="420" y="165" fill="#9E7A2E" font-size="8" opacity=".6" font-family="sans-serif">核心议题</text>
+        <text x="640" y="165" fill="#6FAE8F" font-size="8" opacity=".6" font-family="sans-serif">材料评估</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="sup-right">
+    <div class="sr-head">📊 导图面板</div>
+    <div class="sr-body xj-locked-area">
+      <div class="xj-lock-overlay">🔒 旗舰版功能 · 点击节点查看</div>
+
+      <div class="sr-stat"><span>导图层级</span><b>3 级</b></div>
+      <div class="sr-stat"><span>节点总数</span><b>18</b></div>
+      <div class="sr-stat"><span>分支颜色</span><b>4 种</b></div>
+      <div class="sr-divider"></div>
+
+      <div style="font:600 11px var(--sans);color:var(--ink-3);letter-spacing:.05em;margin-bottom:8px">🎯 选中节点</div>
+      <div class="sr-node-info">
+        <div class="ni-title">「AI 督导」· 根节点</div>
+        <div class="ni-desc">林小满第8次咨询的 AI 督导全景图。从"防御模式"向"觉察模式"的质变阶段。</div>
+        <div class="ni-actions">
+          <button class="pri" disabled>展开分支</button>
+          <button disabled>深化 AI</button>
+        </div>
+      </div>
+
+      <div class="sr-divider"></div>
+
+      <div style="font:600 11px var(--sans);color:var(--ink-3);letter-spacing:.05em;margin-bottom:8px">🏷 图例</div>
+      <div style="display:flex;flex-direction:column;gap:6px;font:11px var(--sans);color:var(--ink-2)">
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,#8B93C7,#9B85C7);display:inline-block"></span>根节点</div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid #B5BDE0;display:inline-block"></span>一级分支</div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#ECEEF9;border:1px solid #8B93C7;display:inline-block"></span>二级子主题</div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:rgba(111,174,143,.15);border:2px solid #6FAE8F;display:inline-block"></span>洞察终端</div>
+      </div>
+
+    </div>
+    <div class="sr-action">
+      <button class="pri xj-premium-btn" disabled>🔄 重新生成导图</button>
+      <button class="xj-premium-btn" disabled>📊 导出为 PDF</button>
+      <button disabled>返回方案 C 三栏</button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

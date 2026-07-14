@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · AI 成长轨迹</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/agent.css">
+<style>
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
+.xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .sp{flex:1}
+.dc-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.dc-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
+.dc-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.dc-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
+.dc-top .sp{flex:1}
+.dc-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.dc-body{flex:1;display:grid;grid-template-columns:280px 1fr;min-height:0;overflow:hidden}
+.dc-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.dc-left .dl-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.dc-left .dl-body{flex:1;overflow-y:auto;padding:12px}
+.stat-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);padding:14px;margin-bottom:10px}
+.stat-card .s-label{font:11px var(--sans);color:var(--ink-3);font-weight:600}
+.stat-card .s-value{font:24px var(--serif);font-weight:700;margin:4px 0}
+.stat-card .s-sub{font:11px var(--sans);color:var(--ink-2)}
+.phase-bar{background:var(--bg-sunken);border-radius:6px;height:8px;margin:8px 0;overflow:hidden}
+.phase-bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .5s var(--ease)}
+.dc-right{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.dc-right .dr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0;background:var(--paper-2)}
+.dc-right .dr-body{flex:1;overflow-y:auto;padding:20px}
+.tl-item{display:flex;gap:12px;margin-bottom:0;position:relative}
+.tl-date{width:50px;font:11px var(--sans);color:var(--ink-3);text-align:right;padding-top:4px;flex-shrink:0}
+.tl-dot-content{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:12px}
+.tl-dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--accent);background:var(--paper-2);z-index:1}
+.tl-dot.active{background:var(--accent)}
+.tl-dot.supervision{border-color:var(--orange);background:var(--paper-2)}
+.tl-dot.supervision.active{background:var(--orange)}
+.tl-dot.report{border-color:var(--green);background:var(--paper-2)}
+.tl-dot.report.active{background:var(--green)}
+.tl-line{width:1px;flex:1;background:var(--border);min-height:12px}
+.tl-card{flex:1;background:var(--paper-2);border:1px solid var(--border);border-radius:var(--r-card);padding:12px 14px;margin-bottom:12px;transition:var(--transition)}
+.tl-card:hover{border-color:var(--accent-line)}
+.tl-card.active{border-color:var(--accent);box-shadow:0 2px 8px rgba(139,147,199,.1)}
+.tc-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.tc-num{font:600 13px var(--sans);color:var(--ink)}
+.tc-type{font:10px var(--sans);padding:2px 7px;border-radius:4px;font-weight:600}
+.tc-type.session{background:var(--accent-soft);color:var(--accent)}
+.tc-type.supervision{background:rgba(214,168,92,.15);color:var(--orange)}
+.tc-type.report{background:rgba(111,174,143,.15);color:var(--green)}
+.tc-summary{font:12px/1.6 var(--sans);color:var(--ink-2);margin-bottom:6px}
+.tc-tags{display:flex;gap:4px;flex-wrap:wrap}
+.tc-tags .tag{font:10px var(--sans);padding:2px 7px;border-radius:4px;background:var(--bg-sunken);color:var(--ink-3)}
+.tc-insight{margin-top:8px;padding:8px 12px;background:rgba(111,174,143,.06);border-left:3px solid var(--green);border-radius:4px;font:12px/1.5 var(--sans);color:var(--ink-2)}
+.tc-insight .insight-label{font:600 11px var(--sans);color:var(--green);margin-bottom:3px}
+.tl-connector{display:flex;align-items:center;gap:12px;padding:6px 0;margin-bottom:0}
+.tl-connector .conn-line{width:12px;height:1px;background:var(--green);flex-shrink:0}
+.tl-connector .conn-text{font:11px var(--sans);color:var(--green);font-weight:500}
+</style>
+</head>
+<body>
+
+<div class="preview-bar" id="preview-bar" style="display:none">
+  <span>🔒</span>
+  <span>会员预览模式 · 这是 <span class="xj-tier-badge pro">会员</span> <b>AI 成长轨迹</b> 会员增值功能，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后 AI 自动分析来访者成长轨迹与核心议题变化</span>
+  <span class="sp"></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">文档中心 → <a href="doc-center.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<div class="dc-top">
+  <button class="back" onclick="location.href='doc-center.html'">← 返回文档中心</button>
+  <h2>AI 成长轨迹 <span class="sub">· 会员版C</span></h2>
+  <span class="sp"></span>
+  <select id="sel-client" onchange="loadTrajectory()"><option value="">选择来访者…</option></select>
+  <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span>
+</div>
+
+<div class="dc-body">
+
+  <div class="dc-left">
+    <div class="dl-head">📊 成长概览</div>
+    <div class="dl-body">
+      <div class="stat-card">
+        <div class="s-label">咨询节次</div>
+        <div class="s-value" id="stat-sessions" style="color:var(--accent)">0</div>
+        <div class="s-sub">节</div>
+      </div>
+      <div class="stat-card">
+        <div class="s-label">督导次数</div>
+        <div class="s-value" id="stat-supervisions" style="color:var(--orange)">0</div>
+        <div class="s-sub">次</div>
+      </div>
+      <div class="stat-card">
+        <div class="s-label">当前阶段</div>
+        <div class="s-value" id="stat-phase" style="font-size:16px;color:var(--green)">-</div>
+        <div class="phase-bar"><div class="fill" id="phase-fill" style="width:0%"></div></div>
+        <div class="s-sub" id="stat-phase-sub">等待分析</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dc-right">
+    <div class="dr-head">📈 成长时间轴</div>
+    <div class="dr-body" id="trajectory-body">
+      <div class="xj-locked-area" style="min-height:400px">
+        <div class="xj-lock-overlay">🔒 选择来访者后，AI 生成成长轨迹</div>
+        <div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px">选择左侧来访者<br>AI 将自动分析所有材料<br>生成成长轨迹与核心议题变化</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/ai.js"></script>
+<script>
+App.initPage({ title: 'AI 成长轨迹', noSidebar: true, onReady: function () {
+  'use strict';
+  var isMember = typeof App !== 'undefined' && App.featureGate && App.featureGate('ai-growth');
+  var previewBar = document.getElementById('preview-bar');
+  if (isMember) {
+    previewBar.style.display = 'none';
+    document.getElementById('tier-badge').style.display = 'inline-flex';
+  } else {
+    previewBar.style.display = 'flex';
+  }
+
+  var sel = document.getElementById('sel-client');
+  Store.getClients().forEach(function (c) {
+    var opt = document.createElement('option');
+    opt.value = c.id; opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+
+  window.loadTrajectory = function () {
+    var clientId = sel.value;
+    if (!clientId) return;
+    var client = Store.getClient(clientId);
+    if (!client) return;
+    var sessions = Store.getSessionsByClient ? Store.getSessionsByClient(clientId).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); }) : [];
+    var supervisions = Store.getSupervisionsByClient ? Store.getSupervisionsByClient(clientId) : [];
+    document.getElementById('stat-sessions').textContent = sessions.length;
+    document.getElementById('stat-supervisions').textContent = supervisions.length;
+
+    if (!isMember) return;
+
+    var body = document.getElementById('trajectory-body');
+    body.innerHTML = '<div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:20px">AI 分析中…</div>';
+
+    var items = [];
+    sessions.forEach(function (s) {
+      if (s.date) items.push({ date: s.date, type: 'session', num: '第' + (s.sessionNumber || '?') + '节', text: (s.summary || s.transcript || '').slice(0, 120), tags: [] });
+    });
+    supervisions.forEach(function (sv) {
+      if (sv.date) items.push({ date: sv.date, type: 'supervision', num: '督导#' + (items.filter(function (x) { return x.type === 'supervision'; }).length + 1), text: (sv.content || '').slice(0, 120), tags: [] });
+    });
+    items.sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+    // AI 生成洞察
+    var context = '来访者：' + client.name + '\n\n';
+    items.forEach(function (item) {
+      context += '[' + item.date + '] ' + item.num + ' ' + item.type + ': ' + item.text + '\n';
+    });
+    var sys = '你是心理咨询个案分析专家。请分析来访者的成长轨迹，输出 JSON：{"phase":"当前阶段","phaseProgress":百分比数字,"coreIssues":["核心议题变化"],"items":[{每个item用"insight":"AI洞察"}],"overallInsight":"整体成长洞察"}。只输出 JSON。';
+    AI.send([{ role: 'system', content: sys }, { role: 'user', content: context }], function (res) {
+      if (res && res.content && !res.error) {
+        try {
+          var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          document.getElementById('stat-phase').textContent = json.phase || '-';
+          document.getElementById('phase-fill').style.width = (json.phaseProgress || 0) + '%';
+          document.getElementById('stat-phase-sub').textContent = '已分析 ' + items.length + ' 条记录';
+          var html = '';
+          var prevDate = '';
+          items.forEach(function (item, i) {
+            var dotCls = 'tl-dot' + (item.type === 'supervision' ? ' supervision' : '') + (item.type === 'report' ? ' report' : '');
+            var insightText = (json.items && json.items[i] && json.items[i].insight) || '';
+            html += '<div class="tl-item">';
+            html += '<div class="tl-date">' + (item.date !== prevDate ? App.formatDate(item.date) : '') + '</div>';
+            html += '<div class="tl-dot-content"><div class="' + dotCls + '"></div><div class="tl-line"></div></div>';
+            html += '<div class="tl-card"><div class="tc-head"><span class="tc-num">' + App.escapeHtml(item.num) + '</span><span class="tc-type ' + item.type + '">' + (item.type === 'session' ? '咨询' : '督导') + '</span></div>';
+            html += '<div class="tc-summary">' + App.escapeHtml(item.text) + '</div>';
+            if (insightText) html += '<div class="tc-insight"><div class="insight-label">💡 AI 洞察</div>' + App.escapeHtml(insightText) + '</div>';
+            html += '</div></div>';
+            prevDate = item.date;
+          });
+          if (json.overallInsight) {
+            html += '<div class="tl-connector"><div class="conn-line"></div><div class="conn-text">📈 ' + App.escapeHtml(json.overallInsight) + '</div></div>';
+          }
+          body.innerHTML = html;
+        } catch (e) {
+          body.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 返回格式异常，请重试</div>';
+        }
+      }
+    });
+  };
+}});
+</script>
+</body>
+</html>

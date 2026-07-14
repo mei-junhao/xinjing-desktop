@@ -40,8 +40,10 @@ const SupervisionCore = (() => {
   // 返回 Promise<{impression, chatMessages, error?}>
   async function runImpression(mode, material, options) {
     const spvSystem = buildSystemPrompt(mode);
+    const preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
     const prompt = buildImpressionPrompt(material);
-    const messages = [{ role: 'system', content: spvSystem }, { role: 'user', content: prompt }];
+    const systemContent = (preamble ? preamble + '\n\n' : '') + spvSystem;
+    const messages = [{ role: 'system', content: systemContent }, { role: 'user', content: prompt }];
     return new Promise((resolve) => {
       if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
       AI.send(messages, (res) => {
@@ -161,8 +163,9 @@ const SupervisionCore = (() => {
     const safe = sanitizeRealSupInput(rawDocText);
     if (!safe || safe.length < 30) throw new Error('文字稿过短或未通过 sanitize');
     const systemPrompt = buildRealSupPrompt();
+    const preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
     const messages = [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: (preamble ? preamble + '\n\n' : '') + systemPrompt },
       { role: 'user', content: safe },
     ];
     const r = await new Promise(function (resolve) {

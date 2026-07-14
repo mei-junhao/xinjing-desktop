@@ -19,6 +19,68 @@
   let inputEl = null;       // 输入框
   let messages = [];        // 对话历史（含 system）
   let busy = false;         // 防重入
+  let lastWriteAction = null; // 撤销栈：最近一次写操作
+
+  var MEM_KEY = 'xj_agent_messages_v1';
+  var MEM_MAX = 20; // 跨页记忆最多保留 20 条（不含 system）
+
+  // 跨页记忆：保存到 localStorage
+  function saveMemory() {
+    try {
+      var chat = messages.filter(function (m) { return m.role !== 'system'; });
+      if (chat.length > MEM_MAX) chat = chat.slice(-MEM_MAX);
+      localStorage.setItem(MEM_KEY, JSON.stringify(chat));
+    } catch (e) { /* ignore */ }
+  }
+
+  // 跨页记忆：从 localStorage 恢复
+  function restoreMemory() {
+    try {
+      var saved = localStorage.getItem(MEM_KEY);
+      if (saved) {
+        var chat = JSON.parse(saved);
+        if (Array.isArray(chat) && chat.length > 0) {
+          // 在 system prompt 之后插入历史消息
+          for (var i = 0; i < chat.length; i++) {
+            messages.push(chat[i]);
+            renderMsg(chat[i].role, chat[i].content);
+          }
+          // 显示恢复提示
+          var note = el('div', 'xj-agent-msg xj-agent-system');
+          note.innerHTML = '<span style="font-size:11px;color:var(--muted)">↩ 已恢复跨页对话记忆（' + chat.length + ' 条）</span>';
+          messagesEl.appendChild(note);
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // 撤销：记录最近写操作
+  function recordWriteAction(toolName, args, result) {
+    lastWriteAction = { toolName: toolName, args: args, result: result, ts: Date.now() };
+  }
+
+  // 撤销：执行撤销（目前支持 billing.add_record 撤销）
+  function undoLastWrite() {
+    if (!lastWriteAction) {
+      toast('没有可撤销的操作', 'info');
+      return;
+    }
+    var w = lastWriteAction;
+    if (w.toolName === 'billing.add_record' && w.result && w.result.sessionIds) {
+      // 撤销记账：删除刚创建的会话
+      try {
+        w.result.sessionIds.forEach(function (sid) {
+          if (typeof Store !== 'undefined' && Store.deleteSession) Store.deleteSession(sid);
+        });
+        toast('已撤销 ' + w.result.sessionIds.length + ' 条记账记录', 'success');
+        lastWriteAction = null;
+      } catch (e) {
+        toast('撤销失败：' + (e.message || ''), 'error');
+      }
+    } else {
+      toast('该操作不支持撤销', 'info');
+    }
+  }
 
   // ---------- 工具：DOM 创建 ----------
   function el(tag, className, html) {
@@ -66,6 +128,8 @@
     } catch (e) { /* ignore */ }
     // 授权门控 UI（解锁时一并刷新档位横幅与欢迎语）
     refreshLock();
+    // 跨页记忆：恢复上次对话
+    restoreMemory();
   }
 
   function refreshLock() {
@@ -363,6 +427,10 @@
               : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
               : '✓ 已完成');
             renderProgress(summary);
+            // 撤销：记录写操作供 AgentUndo 使用
+            if (data.added !== undefined && data.sessionIds) {
+              recordWriteAction(name, {}, data);
+            }
           }
         }
       }, function (evt) {
@@ -382,7 +450,11 @@
       renderMsg('system', '⚠ 执行异常：' + (e.message || '未知错误'));
     }
     busy = false;
+    saveMemory();
   }
+
+  // 撤销：最近写操作的撤销入口
+  window.AgentUndo = undoLastWrite;
 
   // ---------- 入口：window.AgentOpen / Close / Send ----------
   window.AgentOpen = function () {
@@ -421,16 +493,54 @@
     }
   } catch (e) { /* ignore */ }
 
-  // ---------- Agent FAB 已在 v3.0.0 移除（小镜已内嵌各页面） ----------
-  let fabEl = null;
+  // ---------- FAB 悬浮球已废弃（v3.4.0），由 xiaojing-panel.js 替代 ----------
 
-  function buildFab() { /* FAB removed in v3.0.0 — 小镜内嵌各页面，不再需要悬浮球 */ }
+  // 主动引擎：每日启动时检查待办（仅首页，避免每页弹窗）
+  function dailyCheck() {
+    try {
+      if (location.pathname.indexOf('index.html') < 0 && location.pathname.indexOf('dashboard') < 0) return;
+      var today = new Date().toISOString().slice(0, 10);
+      var lastCheck = localStorage.getItem('xj_daily_check');
+      if (lastCheck === today) return;
+      localStorage.setItem('xj_daily_check', today);
 
-  function restoreFabPos() { /* no-op */ }
+      var sessions = [];
+      try { if (typeof Store !== 'undefined') sessions = Store.getSessions(); } catch (e) {}
+      var pending = sessions.filter(function (s) {
+        var fee = (s.billing && s.billing.fee) || 0;
+        return fee > 0 && !(s.billing && s.billing.paid);
+      });
+
+      var stale = [];
+      try {
+        if (typeof Store !== 'undefined') {
+          var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+          var now = Date.now();
+          clients.forEach(function (c) {
+            var cs = sessions.filter(function (s) { return s.clientId === c.id; });
+            cs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+            if (cs.length > 0 && cs[0].date) {
+              var daysAgo = Math.floor((now - new Date(cs[0].date).getTime()) / 86400000);
+              if (daysAgo > 30) stale.push(c.name + '（' + daysAgo + '天未会谈）');
+            }
+          });
+        }
+      } catch (e) {}
+
+      if (pending.length > 0 || stale.length > 0) {
+        var msg = '';
+        if (pending.length > 0) msg += '📋 ' + pending.length + ' 笔未收款 ';
+        if (stale.length > 0) msg += '⏰ ' + stale.length + ' 位来访者待跟进';
+        try {
+          if (typeof App !== 'undefined' && App.showToast) App.showToast(msg.trim(), 'info');
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', buildFab);
+    document.addEventListener('DOMContentLoaded', dailyCheck);
   } else {
-    buildFab();
+    dailyCheck();
   }
 })();

@@ -33,37 +33,7 @@
   box-shadow: 0 6px 18px var(--shadow-lg, rgba(0,0,0,.22));
 }
 
-/* Agent FAB 呼吸球（agent-shell.js 创建，可拖动） */
-.xj-agent-fab {
-  position: fixed;
-  left: 24px;
-  bottom: 24px;
-  z-index: 2147483640;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  background: var(--accent, #8B93C7);
-  color: #fff;
-  font-size: 22px;
-  line-height: 1;
-  box-shadow: 0 4px 16px rgba(139,147,199,.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: xj-fab-breathe 3s ease-in-out infinite;
-  transition: box-shadow .25s;
-  touch-action: none;
-}
-.xj-agent-fab:hover {
-  animation: none;
-  box-shadow: 0 6px 22px rgba(139,147,199,.65);
-}
-@keyframes xj-fab-breathe {
-  0%, 100% { box-shadow: 0 4px 16px rgba(139,147,199,.4); }
-  50% { box-shadow: 0 4px 28px rgba(139,147,199,.55); }
-}
+/* Agent FAB 已废弃（v3.4.0），由 xiaojing-panel.js 替代 */
 
 /* navigate_to 跳转提示卡 */
 .xj-agent-nav-card {
