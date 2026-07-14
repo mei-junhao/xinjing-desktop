@@ -40,6 +40,9 @@ zip-green.py
 build-pack.cmd
 noop-sign.js
 
+# 构建期临时 .npmrc（可能含私有源 token，绝不入库）
+.npmrc-build.tmp
+
 # 沙箱调试残留（含死代理配置，不入库）
 dl.js
 proxy.js

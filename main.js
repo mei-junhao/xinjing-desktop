@@ -950,19 +950,27 @@ function extractFrontmatterCategory(text) {
 }
 
 // 中文 2-4 字 n-gram 关键词：最小文档频率 minDF≥2，去停用词，去被长词包含的冗余短词
-function extractKeywords(docTexts, topN = 40) {
+// 每个词附带 relPaths[]（出现过的文档 relPath），供知识图谱构建「文档-概念」共现网络。
+function extractKeywords(docs, topN = 40) {
+  // docs: [{ relPath, text }]
   const tf = new Map(); // 全局词频
   const df = new Map(); // 文档频率
-  for (const text of docTexts) {
+  const docMap = new Map(); // term -> Set(relPath)
+  for (const d of docs) {
     const seen = new Set();
-    const runs = String(text).match(/[\u4e00-\u9fa5]{2,}/g) || [];
+    const runs = String(d.text || '').match(/[\u4e00-\u9fa5]{2,}/g) || [];
     for (const run of runs) {
       for (let n = 2; n <= 4; n++) {
         for (let i = 0; i + n <= run.length; i++) {
           const gram = run.slice(i, i + n);
           if (KB_STOPWORDS.has(gram)) continue;
           tf.set(gram, (tf.get(gram) || 0) + 1);
-          if (!seen.has(gram)) { seen.add(gram); df.set(gram, (df.get(gram) || 0) + 1); }
+          if (!seen.has(gram)) {
+            seen.add(gram);
+            df.set(gram, (df.get(gram) || 0) + 1);
+            if (!docMap.has(gram)) docMap.set(gram, new Set());
+            docMap.get(gram).add(d.relPath);
+          }
         }
       }
     }
@@ -976,7 +984,7 @@ function extractKeywords(docTexts, topN = 40) {
     if (redundant) continue;
     picked.push(t);
   }
-  return picked.map(t => ({ term: t, count: tf.get(t), docs: df.get(t) }));
+  return picked.map(t => ({ term: t, count: tf.get(t), docs: df.get(t), relPaths: [...(docMap.get(t) || [])] }));
 }
 
 // 由 files（含 relPath）构建嵌套目录树
@@ -1043,8 +1051,8 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
   if (!entries.length) {
     return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], stats: { fileCount: 0, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
   }
-  const files = [], docTexts = [], catMap = new Map();
-  let totalChars = 0, totalBytes = 0;
+  const files = [], docs = [], catMap = new Map();
+  let totalChars = 0, totalBytes = 0, mdCount = 0, txtCount = 0;
   for (const ent of entries) {
     let text = '';
     try { text = await fs.promises.readFile(ent.absPath, 'utf8'); }
@@ -1062,17 +1070,18 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
       summary = t.slice(0, 120); break;
     }
     const title = (headings.find(h => h.level === 1) || {}).text || ent.relPath.split('/').pop().replace(/\.(md|txt)$/i, '');
-    files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, category: cat, headingCount: headings.length, summary });
-    docTexts.push(text);
+    files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, category: cat, headingCount: headings.length, summary, injected: true, fmt: /\.md$/i.test(ent.relPath) ? 'md' : 'txt' });
+    docs.push({ relPath: ent.relPath, text });
     catMap.set(cat, (catMap.get(cat) || 0) + 1);
     totalChars += text.length; totalBytes += ent.size;
+    if (/\.md$/i.test(ent.relPath)) mdCount++; else if (/\.txt$/i.test(ent.relPath)) txtCount++;
   }
-  const keywords = extractKeywords(docTexts, 40);
+  const keywords = extractKeywords(docs, 40);
   const tree = buildTree(files);
   const categories = [...catMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   return {
     ok: true, folder: root, files, tree, categories, keywords,
-    stats: { fileCount: files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0 },
+    stats: { fileCount: files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0, mdCount, txtCount },
   };
 });
 

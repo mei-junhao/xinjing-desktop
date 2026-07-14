@@ -2035,6 +2035,35 @@ test('v3.5.0-UI-12 settings 页增强：统计回显 + 打开资料库入口', f
   assert.ok(/renderUserDocStats/.test(SETTINGSJS_350), 'settings.js 缺 renderUserDocStats');
 });
 
+// --- 复刻关键回归（暖色独立皮肤 + 去侧栏 + 9 视图 + 入口画廊）---
+test('v3.5.0-UI-13 knowledge.js 进入资料库去侧栏（noSidebar:true）', function () {
+  assert.ok(/noSidebar:\s*true/.test(KNOWJS_350UI), 'knowledge.js 未传 noSidebar:true（进入资料库应无左侧栏）');
+});
+test('v3.5.0-UI-14 knowledge.js 默认入口=概览画廊 + 含 renderGallery', function () {
+  assert.ok(/function renderGallery\b/.test(KNOWJS_350UI), 'knowledge.js 缺 renderGallery（入口4画廊）');
+  assert.ok(/mode:\s*'gallery'/.test(KNOWJS_350UI), 'knowledge.js 默认视图应为 gallery');
+  assert.ok(/gallery/.test(KNOWJS_350UI) && /renderThreeCol/.test(KNOWJS_350UI), 'knowledge.js 应含 9 视图分发');
+});
+test('v3.5.0-UI-15 knowledge.js 三栏用分类树 + 统计格式环形图', function () {
+  assert.ok(/\.kb-catnode/.test(KNOWJS_350UI), '三栏左栏应为分类树（.kb-catnode）而非目录树');
+  assert.ok(/kb-donut|function donut\b/.test(KNOWJS_350UI), '统计视图缺格式环形图（donut）');
+  assert.ok(/kb-gallery-hero/.test(KNOWJS_350UI), '概览视图缺 hero 结构');
+});
+test('v3.5.0-UI-16 knowledge.js 对话视图支持引用开关（排除未勾选资料）', function () {
+  assert.ok(/excludedRelPaths/.test(KNOWJS_350UI), 'chat 视图未将未勾选资料从 getContextBlock 排除');
+  assert.ok(/refsOn/.test(KNOWJS_350UI), 'chat 视图缺 references 引用开关状态');
+});
+test('v3.5.0-UI-17 main.js 关键词带 relPaths + files 含 injected/fmt 标记', function () {
+  assert.ok(/relPaths/.test(MAIN_350), 'extractKeywords 返回的关键词缺 relPaths（图谱共现需要）');
+  assert.ok(/injected:\s*true/.test(MAIN_350), 'readUserDocMeta 文件缺 injected 标记');
+  assert.ok(/fmt:\s*(\\.md|'md'|\"md\")/.test(MAIN_350) || /fmt:/.test(MAIN_350), 'readUserDocMeta 文件缺 fmt 字段');
+});
+test('v3.5.0-UI-18 knowledge.html 自绘标题栏 + 概览画廊结构', function () {
+  assert.ok(/id="kb-modes"/.test(KNOWHTML_350UI), 'knowledge.html 缺模式切换器');
+  assert.ok(/kb-gallery-hero/.test(KNOWHTML_350UI), 'knowledge.html 缺概览画廊 hero');
+  assert.ok(/kb-progress/.test(KNOWHTML_350UI), 'knowledge.html 缺阅读进度条元素');
+});
+
 // ============================================================
 // v3.4.1 — 账号编辑 + AI 接入引导
 // ============================================================

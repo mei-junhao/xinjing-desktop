@@ -23,13 +23,18 @@
   }
 
   // 供各 build 函数同步调用：返回拼好的 [我的资料库] 块（带文件名标注）
-  function getContextBlock() {
+  // opts.excludedRelPaths: 数组，指定不纳入本次注入上下文的文件 relPath（对话视图「引用开关」用）
+  function getContextBlock(opts) {
     if (!_cache || Date.now() - _cacheAt > TTL) {
       refresh(); // 懒触发，不阻塞；本次返回空
       return '';
     }
     if (!_cache.length) return '';
-    const body = _cache.map(f => '文件：' + f.file + '\n' + f.text).join('\n\n');
+    const exclude = (opts && opts.excludedRelPaths) || null;
+    const body = _cache
+      .filter(f => !exclude || !exclude.includes(f.file))
+      .map(f => '文件：' + f.file + '\n' + f.text).join('\n\n');
+    if (!body) return '';
     return '[我的资料库]\n' + body;
   }
 
