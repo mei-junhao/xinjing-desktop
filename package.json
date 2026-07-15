@@ -65,6 +65,10 @@
     "portable": {
       "artifactName": "xinjing-portable-${version}.exe"
     },
+    "dmg": {
+      "title": "XinJing-${version}",
+      "format": "UDZO"
+    },
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
