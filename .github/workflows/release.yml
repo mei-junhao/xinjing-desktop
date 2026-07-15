@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         shell: pwsh
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       # 构建期注入 LICENSE_SECRET（来自 repo secret），生成 secret.generated.js（gitignored，不入库）
       - name: Generate license secret

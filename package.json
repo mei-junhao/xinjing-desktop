@@ -75,7 +75,8 @@
       "identity": null,
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "darkModeSupport": true
+      "darkModeSupport": true,
+      "icon": "build/icon-mac.png"
     }
   },
   "dependencies": {
