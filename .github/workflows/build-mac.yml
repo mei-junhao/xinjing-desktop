@@ -32,6 +32,27 @@ jobs:
           # 失败仅告警、不阻断（已提交的 app/js/prompts.builtin.js 会被打包使用）
           python3 scripts/gen-prompts-builtin.py || echo "gen-prompts-builtin 跳过（非致命，使用已提交的 prompts.builtin.js）"
 
+      # electron-builder 24 捆绑的 7zip-bin 7za 16.02 在 macOS 15/26 创建 DMG 报
+      # E_INVALIDARG（老二进制与新系统不兼容）。用官方新版 7zz（7-Zip 26，universal）
+      # 覆盖，命令行参数兼容，不影响其它步骤。
+      - name: Fix 7za for macOS 15+ (E_INVALIDARG)
+        run: |
+          set -e
+          curl -fSL -o /tmp/7z-mac.tar.xz "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-mac.tar.xz" \
+            || curl -fSL -o /tmp/7z-mac.tar.xz "https://7-zip.org/a/7z2602-mac.tar.xz"
+          rm -rf /tmp/7zmac && mkdir -p /tmp/7zmac
+          tar -xf /tmp/7z-mac.tar.xz -C /tmp/7zmac
+          SRC=$(find /tmp/7zmac -name '7zz' -type f | head -1)
+          [ -n "$SRC" ] || SRC=$(find /tmp/7zmac -name '7zzs' -type f | head -1)
+          [ -n "$SRC" ] || { echo "未找到 7zz 二进制"; exit 1; }
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then P="mac/arm64/7za"; else P="mac/x64/7za"; fi
+          DST="node_modules/7zip-bin/$P"
+          mkdir -p "$(dirname "$DST")"
+          cp -f "$SRC" "$DST"
+          chmod +x "$DST"
+          echo "7za 已替换为：$("$DST" i 2>&1 | head -3)"
+
       - name: Build Mac (unsigned, no notarization)
         run: npm run dist -- --mac --publish never
 
