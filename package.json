@@ -72,7 +72,6 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dmg",
         "zip"
       ],
       "artifactName": "xinjing-${version}.dmg",

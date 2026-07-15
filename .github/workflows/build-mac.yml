@@ -56,6 +56,21 @@ jobs:
       - name: Build Mac (unsigned, no notarization)
         run: npm run dist -- --mac --publish never
 
+      # electron-builder 的 DMG 走 7za（7zip-bin 16.02 在 macOS 15+ 报 E_INVALIDARG/ E_NOTIMPL）。
+      # 改为：上面的 zip 走 7zz 正常产出；DMG 用系统 hdiutil 生成「真正可挂载」的磁盘镜像，
+      # 内含 App + /Applications 快捷方式，命名与 artifactName 一致（xinjing-${version}.dmg）。
+      - name: Create DMG via hdiutil (real mountable DMG, bypass 7za)
+        run: |
+          set -e
+          APP=$(find dist -maxdepth 2 -name '心镜 XinJing.app' -type d | head -1)
+          [ -n "$APP" ] || { echo "未找到 心镜 XinJing.app"; ls -R dist | head -40; exit 1; }
+          TMP=$(mktemp -d)
+          cp -R "$APP" "$TMP/"
+          ln -s /Applications "$TMP/Applications"
+          hdiutil create -volname "XinJing" -srcfolder "$TMP" -ov -format UDZO "dist/xinjing-3.6.3.dmg"
+          rm -rf "$TMP"
+          echo "DMG 创建完成：$(du -h dist/xinjing-3.6.3.dmg)"
+
       - name: Postbuild (patch latest-mac.yml)
         run: node scripts/postbuild.js
 
