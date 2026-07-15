@@ -29,21 +29,92 @@
   window.loadClientSessions = function () {
     var sel = document.getElementById('rpt-client');
     currentClientId = sel.value || null;
-    if (!currentClientId) return;
-    var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) {
-      return (b.date || '').localeCompare(a.date || '');
-    });
-    var strip = document.getElementById('sessions-strip');
-    strip.innerHTML = sessions.map(function (s) {
-      return '<label class="sess-chip checked"><input type="checkbox" checked value="' + s.id + '"> 第' + s.sessionNumber + '节</label>';
-    }).join('');
-    document.getElementById('sess-bar').style.display = 'flex';
+    if (!currentClientId) { document.getElementById('sess-dd').style.display = 'none'; return; }
     // 载入来访者基本信息到第 1 步
     var c = Store.getClient(currentClientId);
     stepData[0] = App.escapeHtml(c.name) + '（化名）\n' + (c.notes || '');
-    // 渲染步骤导航
+    document.getElementById('sess-dd').style.display = '';
+    document.getElementById('sess-menu').style.display = 'none';
+    renderSessMenu();
     renderStepsNav();
     goToStep(0);
+  };
+
+  // 渲染「基于节次」下拉菜单（默认不勾选，避免占满视觉）
+  window.renderSessMenu = function () {
+    var list = document.getElementById('sessions-list');
+    if (!list || !currentClientId) return;
+    var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '');
+    });
+    var onlyHas = document.getElementById('sess-only-has') && document.getElementById('sess-only-has').checked;
+    var filtered = sessions.filter(function (s) {
+      if (!onlyHas) return true;
+      return s.hasTranscript || s.hasSoap || s.hasDap || (s.notes && s.notes.trim());
+    });
+    // 防御：按 id 去重，避免缓存中重复会话记录导致「基于节次」出现多个重复节数
+    var seenM = {};
+    filtered = filtered.filter(function (s) { if (seenM[s.id]) return false; seenM[s.id] = 1; return true; });
+    if (!filtered.length) {
+      list.innerHTML = '<div class="sess-empty">该来访者暂无可用的逐字稿或咨询记录</div>';
+      return;
+    }
+    list.innerHTML = filtered.map(function (s) {
+      var tags = [];
+      if (s.hasTranscript) tags.push('逐字稿');
+      if (s.hasSoap) tags.push('SOAP');
+      if (s.hasDap) tags.push('DAP');
+      if (!tags.length && s.notes && s.notes.trim()) tags.push('记录');
+      var tagHtml = tags.map(function (t) { return '<span class="tag">' + t + '</span>'; }).join('');
+      return '<label class="sess-item"><input type="checkbox" class="sess-cb" value="' + s.id + '"> 第' + s.sessionNumber + '节 ' + (s.date || '') + tagHtml + '</label>';
+    }).join('');
+    updateSessBtnLabel();
+  };
+
+  window.toggleSessMenu = function () {
+    var m = document.getElementById('sess-menu');
+    m.style.display = m.style.display === 'none' ? '' : 'none';
+  };
+
+  window.sessSelectAll = function (checked) {
+    document.querySelectorAll('#sessions-list .sess-cb').forEach(function (cb) { cb.checked = checked; });
+    updateSessBtnLabel();
+  };
+
+  function updateSessBtnLabel() {
+    var btn = document.querySelector('.sess-dd-btn');
+    if (!btn) return;
+    var cbs = document.querySelectorAll('#sessions-list .sess-cb');
+    var n = Array.prototype.filter.call(cbs, function (c) { return c.checked; }).length;
+    if (n > 0) { btn.classList.add('has-sel'); btn.textContent = '基于节次（' + n + '）▾'; }
+    else { btn.classList.remove('has-sel'); btn.textContent = '基于节次 ▾'; }
+  }
+
+  // 上传逐字稿到报告（写入该来访者一条带 transcript 的会话，便于 AI 引用）
+  window.onReportTranscriptUpload = function (event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); event.target.value = ''; return; }
+    App.showToast('正在读取逐字稿…', 'info');
+    var reader = new FileReader();
+    var onText = function (text) {
+      var r = Store.createSession({
+        clientId: currentClientId, date: App.todayStr(), durationMinutes: 0, type: 'individual',
+        recordKind: 'clinical', billing: null, transcript: text, hasTranscript: true, notes: '',
+      });
+      App.showToast('逐字稿已存入数据库，可在「基于节次」中勾选引用', 'success');
+      renderSessMenu();
+    };
+    if (file.name.toLowerCase().endsWith('.docx')) {
+      if (typeof mammoth !== 'undefined') {
+        reader.onload = function (ev) { mammoth.extractRawText({ arrayBuffer: ev.target.result }).then(function (r) { onText(r.value); }).catch(function () { App.showToast('docx 解析失败', 'error'); }); };
+        reader.readAsArrayBuffer(file);
+      } else { App.showToast('docx 解析库未加载', 'warning'); }
+    } else {
+      reader.onload = function (ev) { onText(ev.target.result); };
+      reader.readAsText(file, 'UTF-8');
+    }
+    event.target.value = '';
   };
 
   function renderStepsNav() {
@@ -104,8 +175,8 @@
     var sec = secs[currentStep];
     var ta = document.getElementById('step-ta');
     if (ta) ta.value = '生成中…';
-    // 收集选中节次
-    var checked = document.querySelectorAll('#sessions-strip input:checked');
+    // 收集选中节次（来自「基于节次」下拉菜单）
+    var checked = document.querySelectorAll('#sessions-list .sess-cb:checked');
     var sessionIds = Array.prototype.map.call(checked, function (c) { return c.value; });
     var sessionData = sessionIds.map(function (sid) {
       var s = Store.getSession(sid);
@@ -237,5 +308,12 @@
 
   App.initPage({ title: '撰写报告', subtitle: '', actions: '', noSidebar: true, onReady: function () {
     loadClients();
+    // 点击外部关闭「基于节次」下拉菜单
+    document.addEventListener('click', function (e) {
+      var dd = document.getElementById('sess-dd');
+      var menu = document.getElementById('sess-menu');
+      if (!dd || !menu || menu.style.display === 'none') return;
+      if (!dd.contains(e.target)) menu.style.display = 'none';
+    });
   }});
 })();

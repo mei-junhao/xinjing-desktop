@@ -50,6 +50,8 @@
     }
 
     var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var seenDc = {};
+    sessions = sessions.filter(function (s) { if (seenDc[s.id]) return false; seenDc[s.id] = 1; return true; });
     var supervisions = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(currentClientId) : []) || [];
     var docs = [];
 
@@ -108,6 +110,8 @@
 
   function renderTrajectory(box, client) {
     var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var seenDc2 = {};
+    sessions = sessions.filter(function (s) { if (seenDc2[s.id]) return false; seenDc2[s.id] = 1; return true; });
     var supervisions = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(currentClientId) : []) || [];
 
     var html = '<div class="trajectory">';

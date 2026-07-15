@@ -72,6 +72,8 @@ App.initPage({
       if (!cid) { currentClientId = null; renderSessionHistory([]); return; }
       currentClientId = cid;
       var sessions = Store.getSessionsByClient(cid).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      var seenSup = {};
+      sessions = sessions.filter(function (s) { if (seenSup[s.id]) return false; seenSup[s.id] = 1; return true; });
       renderSessionHistory(sessions);
       // 自动载入最近一次会话的逐字稿
       if (sessions.length && sessions[0].transcript) {

@@ -967,6 +967,54 @@ App.initPage({
     loadConfig();
     bindConnectDrawer();
     updateTierStatus();
+    // ===== 账号：称呼 / 执业取向 编辑（此前按钮无处理函数，点击无效）=====
+    function loadProfile() {
+      var s = (Store.getSettings().profile) || {};
+      var nameEl = document.getElementById('account-name-display');
+      var orientEl = document.getElementById('account-orientation-display');
+      if (nameEl) nameEl.textContent = s.displayName ? s.displayName : '未设置';
+      if (orientEl) orientEl.textContent = s.orientation ? s.orientation : '未设置';
+    }
+    var _editField = null;
+    function openAccountEdit(field) {
+      _editField = field;
+      var s = (Store.getSettings().profile) || {};
+      var title = document.getElementById('account-edit-title');
+      var input = document.getElementById('account-edit-input');
+      if (title) title.textContent = (field === 'name') ? '编辑称呼' : '编辑执业取向';
+      if (input) input.value = (field === 'name') ? (s.displayName || '') : (s.orientation || '');
+      var modal = document.getElementById('account-edit-modal');
+      if (modal) modal.style.display = 'flex';
+      if (input) setTimeout(function () { input.focus(); }, 30);
+    }
+    function saveAccountEdit() {
+      var input = document.getElementById('account-edit-input');
+      var val = input ? input.value.trim() : '';
+      var s = (Store.getSettings().profile) || {};
+      if (_editField === 'name') s.displayName = val;
+      else if (_editField === 'orient') s.orientation = val;
+      Store.saveSettings({ profile: s });
+      loadProfile();
+      var modal = document.getElementById('account-edit-modal');
+      if (modal) modal.style.display = 'none';
+      _editField = null;
+    }
+    function closeAccountEdit() {
+      var modal = document.getElementById('account-edit-modal');
+      if (modal) modal.style.display = 'none';
+      _editField = null;
+    }
+    var btnName = document.getElementById('btn-edit-name');
+    var btnOrient = document.getElementById('btn-edit-orient');
+    var btnSave = document.getElementById('account-edit-save');
+    var btnCancel = document.getElementById('account-edit-cancel');
+    var modalOverlay = document.getElementById('account-edit-modal');
+    if (btnName) btnName.addEventListener('click', function () { openAccountEdit('name'); });
+    if (btnOrient) btnOrient.addEventListener('click', function () { openAccountEdit('orient'); });
+    if (btnSave) btnSave.addEventListener('click', saveAccountEdit);
+    if (btnCancel) btnCancel.addEventListener('click', closeAccountEdit);
+    if (modalOverlay) modalOverlay.addEventListener('click', function (e) { if (e.target === modalOverlay) closeAccountEdit(); });
+    loadProfile();
     // v3.4.1: 暴露给 settings.html 内联脚本使用
     window.openConnectDrawer = openConnectDrawer;
     window.cdPickProvider = cdPickProvider;
