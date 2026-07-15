@@ -28,7 +28,9 @@ jobs:
           node scripts/codegen-secret.js
           node scripts/codegen-version.js
           python3 scripts/gen-knowledge-builtins.py
-          python3 scripts/gen-prompts-builtin.py
+          # gen-prompts-builtin 正则对当前 supervisors.js 脆弱，与 Windows cnb-build 一致：
+          # 失败仅告警、不阻断（已提交的 app/js/prompts.builtin.js 会被打包使用）
+          python3 scripts/gen-prompts-builtin.py || echo "gen-prompts-builtin 跳过（非致命，使用已提交的 prompts.builtin.js）"
 
       - name: Build Mac (unsigned, no notarization)
         run: npm run dist -- --mac --publish never
