@@ -23,7 +23,6 @@ try { BUILD_VERSION = require('./version.generated.js').VERSION || BUILD_VERSION
 const api = {
   openActivation: () => ipcRenderer.send('xj:openActivation'),
   getState: () => ipcRenderer.invoke('xj:getState'),
-  // 返回构建期注入的版本（不再经 IPC，避免运行时桥接失败退回写死兜底）
   getVersion: () => BUILD_VERSION,
   activate: (code) => ipcRenderer.invoke('xj:activate', code),
   cloudActivate: (code) => ipcRenderer.invoke('xj:cloud-activate', code),
@@ -31,27 +30,20 @@ const api = {
   done: () => ipcRenderer.send('xj:activationDone'),
   saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
   selectBackupFolder: () => ipcRenderer.invoke('xj:selectBackupFolder'),
-  // 订阅主进程激活后的状态广播，renderer 端可据此实时刷新解锁 UI（跨 realm 可用）
   onLicenseState: (cb) => { if (typeof cb === 'function') stateListeners.push(cb); },
-  // 旧端口历史数据迁移：主进程扫描到旧端口后通知渲染进程；迁移完成后回传关闭临时服务
   onLegacyPorts: (cb) => { if (typeof cb === 'function') legacyPortsListeners.push(cb); },
   notifyMigrateDone: (ports) => ipcRenderer.send('xj:migrate-done', ports),
-  // 首页「检查更新」按钮：经主进程触发 autoUpdater 手动检查（有更新弹下载框，无更新弹「已是最新」）
   checkForUpdates: () => ipcRenderer.invoke('xj:check-updates'),
-  // API 密钥安全存储（H1 修复）：经主进程 safeStorage 加解密
   encryptSecret: (plain) => ipcRenderer.invoke('xj:encryptSecret', plain),
   decryptSecret: (stored) => ipcRenderer.invoke('xj:decryptSecret', stored),
-  // 代理共享密钥：构建期注入 secret.generated.js，供渲染进程（ai.js）经韩国代理访问试用模型。
-  // 仅共享密钥（非 provider 密钥），被逆向也无妨——服务端按机器码硬限额兜底。
   appProxyKey: () => { try { return require('./secret.generated').APP_PROXY_KEY || ''; } catch (e) { return ''; } },
-  // v3.5.0 用户自建知识库：选择资料文件夹 / 读配置 / 读资料（仅本机 fs，零出网）
   selectUserDocFolder: () => ipcRenderer.invoke('xj:selectUserDocFolder'),
   getUserDocFolder: () => ipcRenderer.invoke('xj:getUserDocFolder'),
   readUserDocs: (opts) => ipcRenderer.invoke('xj:readUserDocs', opts),
-  // v3.5.0-UI 知识库界面依赖：元数据 / 单文件全文 / 片段化搜索（均仅本机 fs，零出网）
   readUserDocMeta: () => ipcRenderer.invoke('xj:readUserDocMeta'),
   readUserDocFile: (relPath) => ipcRenderer.invoke('xj:readUserDocFile', { relPath }),
-  searchUserDocs: (query, max) => ipcRenderer.invoke('xj:searchUserDocs', { query, max })
+  searchUserDocs: (query, max) => ipcRenderer.invoke('xj:searchUserDocs', { query, max }),
+  openExternal: (url) => ipcRenderer.invoke('xj:openExternal', url),
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];

@@ -1348,6 +1348,15 @@ ipcMain.handle('xj:cloud-activate', async (e, code) => {
   return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, source: 'cloud' };
 });
 
+ipcMain.handle('xj:openExternal', (e, url) => {
+  try {
+    shell.openExternal(url);
+    return true;
+  } catch (err) {
+    return false;
+  }
+});
+
 ipcMain.on('xj:activationDone', () => {
   if (activationWindow) {
     try { activationWindow.close(); } catch (e) { /* ignore */ }

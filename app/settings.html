@@ -99,6 +99,10 @@ function switchSkin(name){App.Theme.setSkin(name);document.querySelectorAll('.sk
 </script>
   </div></div>
 
+  <div class="group"><div class="group-head"><span class="icon">🧭</span> 帮助与引导</div><div class="group-body">
+    <div class="row"><div class="lbl"><div class="t">重看新手引导</div><div class="d">重新播放首页聚光灯导览，并重置新手任务清单</div></div><button class="btn" onclick="if(window.Onboarding)Onboarding.reset()">重看引导</button></div>
+  </div></div>
+
   <div class="group"><div class="group-head"><span class="icon">🔄</span> 更新</div><div class="group-body">
     <div class="row"><div class="lbl"><div class="t">检查更新</div><div class="d" id="update-info">当前版本</div></div><button class="btn" onclick="checkUpdate()">检查更新</button></div>
   </div></div>
@@ -113,7 +117,7 @@ function switchSkin(name){App.Theme.setSkin(name);document.querySelectorAll('.sk
 </div>
 </main></div>
 <script src="js/store.js"></script><script src="js/memory.js"></script><script src="js/persona-preamble.js"></script><script src="js/app.js"></script>
-<script src="js/xiaojing-panel.js"></script><script src="js/settings.js"></script>
+<script src="js/xiaojing-panel.js"></script><script src="js/onboarding.js"></script><script src="js/settings.js"></script>
 
 <!-- connect-drawer（对话式 AI 接入引导） -->
 <div class="xj-connect-drawer" id="connect-drawer">

@@ -1,0 +1,76 @@
+name: Build Mac (dmg + zip) and publish to COS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Codegen (secret / version / builtin prompts)
+        env:
+          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
+        run: |
+          node scripts/codegen-secret.js
+          node scripts/codegen-version.js
+          python3 scripts/gen-knowledge-builtins.py
+          python3 scripts/gen-prompts-builtin.py
+
+      - name: Build Mac (unsigned, no notarization)
+        run: npm run dist -- --mac --publish never
+
+      - name: Postbuild (patch latest-mac.yml)
+        run: node scripts/postbuild.js
+
+      - name: Install coscli
+        run: |
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "arm64" ]; then A="darwin-arm64"; else A="darwin-amd64"; fi
+          VER=$(curl -s https://api.github.com/repos/tencentyun/coscli/releases/latest \
+                | grep -o '"tag_name": *"[^"]*"' | head -1 \
+                | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+          echo "coscli version: $VER  arch: $A"
+          URL="https://github.com/tencentyun/coscli/releases/download/${VER}/coscli-${VER}-${A}"
+          echo "downloading $URL"
+          curl -fSL -o coscli "$URL" || \
+            curl -fSL -o coscli "https://ghproxy.net/${URL}"
+          chmod +x coscli
+          ./coscli --version
+
+      - name: Upload to Tencent COS
+        env:
+          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
+          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
+          COS_BUCKET: ${{ secrets.COS_BUCKET }}
+          COS_REGION: ${{ secrets.COS_REGION }}
+        run: |
+          cat > "$HOME/.cos.yaml" <<EOF
+          cos:
+            base:
+              secretid: "$COS_SECRET_ID"
+              secretkey: "$COS_SECRET_KEY"
+            buckets:
+              - name: $COS_BUCKET
+                alias: $COS_BUCKET
+                region: $COS_REGION
+          EOF
+          for f in dist/xinjing-*.dmg dist/xinjing-*.zip dist/*.blockmap dist/latest-mac.yml; do
+            [ -f "$f" ] || continue
+            echo "uploading $f"
+            ./coscli cp "$f" "cos://$COS_BUCKET/$(basename "$f")" --acl public-read
+          done
+          echo "==> Done. COS latest-mac.yml: https://$COS_BUCKET.cos.$COS_REGION.myqcloud.com/latest-mac.yml"

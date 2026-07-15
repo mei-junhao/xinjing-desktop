@@ -27,6 +27,27 @@ App.initPage({
     }
     setVersion();
 
+    // 手动检查更新（修复：此前 checkUpdate() 未定义，设置页按钮失效）
+    // 后端链路：__XJ_API__.checkForUpdates() -> IPC xj:check-updates
+    //          -> main.js checkForUpdatesFromRenderer()（有更新/出错会弹窗，
+    //          已最新给明确反馈）。此处仅同步界面状态文字。
+    window.checkUpdate = function () {
+      var info = document.getElementById('update-info');
+      if (info) info.textContent = '正在检查更新…';
+      try {
+        if (window.__XJ_API__ && typeof window.__XJ_API__.checkForUpdates === 'function') {
+          window.__XJ_API__.checkForUpdates();
+        }
+      } catch (e) { /* 忽略桥接异常，main.js 会兜底弹网络错误 */ }
+      // 安全兜底：3 秒后若仍停在"检查中"，按已最新处理
+      setTimeout(function () {
+        if (info && info.textContent === '正在检查更新…') {
+          var v = (window.__XJ_API__ && window.__XJ_API__.getVersion) ? window.__XJ_API__.getVersion() : '';
+          info.textContent = '已是最新版本 v' + v;
+        }
+      }, 3000);
+    };
+
     // 主题 toggle 初始状态
     var themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {

@@ -693,6 +693,7 @@ const fs = require('fs');
   'cloud-verify.js',
   'app/js/supervision-core.js',
   'app/js/masters-core.js',
+  'app/js/onboarding.js',
 ].forEach(function (f) {
   test('F1 静态语法 OK：' + f, function () {
     const code = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
@@ -2344,6 +2345,63 @@ test('v3.4.2-10 masters.js 历史列表含删除按钮', function () {
   assert.ok(/deleteConvById/.test(js), 'masters.js 缺 deleteConvById 函数');
 });
 
+
+
+// ============================================================
+// 测试组 OB：v3.6.2 强引导 Onboarding（聚光灯导览 + 新手任务清单）
+// ============================================================
+console.log('\n[OB] v3.6.2 强引导 Onboarding');
+
+const OB_JS = fs.readFileSync(path.join(APP_DIR, 'js', 'onboarding.js'), 'utf8');
+const OB_INDEX = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf8');
+const OB_SETTINGS = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf8');
+const OB_DASH = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf8');
+
+test('OB-1 onboarding.js 暴露四个对外方法', function () {
+  assert.ok(/window\.Onboarding\s*=/.test(OB_JS), '未挂 window.Onboarding');
+  ['maybeStartTour', 'startTour', 'renderChecklist', 'reset'].forEach(function (m) {
+    assert.ok(new RegExp(m + '\\s*:').test(OB_JS), '缺方法 ' + m);
+  });
+});
+
+test('OB-2 onboarding.js 绝不含字面 style 关闭标签（防 CSS 泄漏）', function () {
+  assert.ok(OB_JS.indexOf('</' + 'style>') === -1, 'onboarding.js 含字面 </style>，会导致样式泄漏');
+});
+
+test('OB-3 onboarding.js 样式经 JS 创建 style 元素注入', function () {
+  assert.ok(/createElement\(['"]style['"]\)/.test(OB_JS), '未用 createElement style 注入样式');
+  assert.ok(/\.textContent\s*=\s*css/.test(OB_JS), '样式未用 textContent 注入');
+});
+
+test('OB-4 首启判定用 localStorage xj_onboarding_done', function () {
+  assert.ok(/xj_onboarding_done/.test(OB_JS), '缺首启判定键 xj_onboarding_done');
+});
+
+test('OB-5 任务清单真实数据驱动（AI.getTier / Store.getClients / Store.getSessions）', function () {
+  assert.ok(/AI\.getTier\(\)\s*===\s*'user'/.test(OB_JS), '配 AI 任务未用 getTier===user 判定');
+  assert.ok(/Store\.getClients\(\)\.length/.test(OB_JS), '建来访任务未用 getClients 判定');
+  assert.ok(/Store\.getSessions\(\)\.length/.test(OB_JS), '记咨询任务未用 getSessions 判定');
+});
+
+test('OB-6 聚光灯用 box-shadow 挖洞高亮', function () {
+  assert.ok(/box-shadow:0 0 0 9999px/.test(OB_JS), '未用 box-shadow 9999px 挖洞蒙层');
+});
+
+test('OB-7 index.html 有 #ob-checklist 容器且引入 onboarding.js + client-modal.js', function () {
+  assert.ok(/id="ob-checklist"/.test(OB_INDEX), 'index.html 缺 #ob-checklist 容器');
+  assert.ok(/js\/onboarding\.js/.test(OB_INDEX), 'index.html 未引 onboarding.js');
+  assert.ok(/js\/client-modal\.js/.test(OB_INDEX), 'index.html 未补引 client-modal.js（顶栏新建来访按钮依赖）');
+});
+
+test('OB-8 dashboard.js onReady 挂接引导', function () {
+  assert.ok(/Onboarding\.renderChecklist\(\)/.test(OB_DASH), 'dashboard 未渲染任务清单');
+  assert.ok(/Onboarding\.maybeStartTour\(\)/.test(OB_DASH), 'dashboard 未触发首启导览');
+});
+
+test('OB-9 settings.html 有「重看引导」入口且引 onboarding.js', function () {
+  assert.ok(/Onboarding\.reset\(\)/.test(OB_SETTINGS), 'settings.html 缺 Onboarding.reset 入口');
+  assert.ok(/js\/onboarding\.js/.test(OB_SETTINGS), 'settings.html 未引 onboarding.js');
+});
 
 
 // ============================================================

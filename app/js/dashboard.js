@@ -114,5 +114,12 @@
     renderRecent();
     renderTodo();
     renderKbTile();
+    // 强引导：新手任务清单（真实数据驱动）+ 首启聚光灯导览
+    try {
+      if (window.Onboarding) {
+        Onboarding.renderChecklist();
+        Onboarding.maybeStartTour();
+      }
+    } catch (e) { console.warn('[dashboard] onboarding 挂接失败', e); }
   }});
 })();
