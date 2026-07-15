@@ -71,6 +71,8 @@
     <div class="row"><div class="lbl"><div class="t">恢复数据</div><div class="d">从 JSON 备份文件导入</div></div><button class="btn" onclick="document.getElementById('restore-file').click()">导入备份</button><input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)"></div>
     <div class="row"><div class="lbl"><div class="t">我的资料库</div><div class="d" id="userdoc-path">未设置</div><div class="d" id="userdoc-stats" style="margin-top:2px;color:var(--accent)"></div></div><div style="display:flex;gap:8px"><button class="btn" onclick="location.href='knowledge.html'">打开资料库</button><button class="btn" onclick="selectUserDocFolder()">选择文件夹</button></div></div>
     <div class="row"><div class="lbl"><div class="d">支持 .md / .txt；资料仅本机读取，不上传任何服务器。资料会被动注入 AI 对话（咨询/督导/大师等 6 处），也可在资料库中检索。</div></div></div>
+    <div class="row"><div class="lbl"><div class="t">向量索引</div><div class="d" id="rag-index-status">未构建</div><div class="d" id="rag-index-progress-text" style="margin-top:2px;color:var(--accent);display:none"></div></div><div style="display:flex;gap:8px"><button class="btn pri" id="rag-index-btn" onclick="buildRagIndex()">构建索引</button><button class="btn" id="rag-cancel-btn" onclick="cancelRagIndex()" style="display:none">取消</button></div></div>
+    <div class="row" id="rag-progress-row" style="display:none"><div class="lbl"><div class="d"><div class="prog-bar" style="width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div id="rag-progress-bar" style="height:100%;width:0%;background:var(--accent);transition:width .3s ease"></div></div></div></div></div>
     <div class="row"><div class="lbl"><div class="t">存储概况</div><div class="d" id="storage-text">加载中…</div></div></div>
     <div class="row"><div class="lbl"><div class="t">清除账单数据</div><div class="d">仅清除账单，保留督导和对话记录</div></div><button class="btn danger" onclick="location.href='billing-shell.html'">前往账单清除</button></div>
     <div class="row"><div class="lbl"><div class="t">清除全部数据</div><div class="d">删除所有本地数据，不可恢复</div></div><button class="btn danger" onclick="clearAllData()">清除全部</button></div>
@@ -78,7 +80,23 @@
 
   <div class="group"><div class="group-head"><span class="icon">🎨</span> 外观</div><div class="group-body">
     <div class="row"><div class="lbl"><div class="t">深色模式</div><div class="d">切换浅色/深色主题</div></div><div class="toggle" id="theme-toggle" onclick="toggleTheme()"></div></div>
-    <div class="row"><div class="lbl"><div class="t">设计语言</div><div class="d">静谧留白 calm</div></div><span class="badge ok">calm</span></div>
+    <div class="row"><div class="lbl"><div class="t">设计语言</div><div class="d">切换应用配色方案</div></div>
+  <div class="skin-selector">
+    <button class="skin-btn" data-skin-name="calm" onclick="switchSkin('calm')">静谧留白</button>
+    <button class="skin-btn" data-skin-name="editorial" onclick="switchSkin('editorial')">暖棕编辑</button>
+    <button class="skin-btn" data-skin-name="xinjing" onclick="switchSkin('xinjing')">暖色治愈</button>
+  </div>
+</div>
+<style>
+.skin-selector{display:flex;gap:6px;flex-wrap:wrap}
+.skin-btn{border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--radius-sm);padding:6px 14px;font-size:13px;cursor:pointer;font-family:var(--sans);color:var(--text-secondary);transition:.18s}
+.skin-btn:hover{border-color:var(--accent);color:var(--accent)}
+.skin-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+</style>
+<script>
+(function(){var s=App.Theme.getSkin();document.querySelectorAll('.skin-btn').forEach(function(b){if(b.getAttribute('data-skin-name')===s)b.classList.add('active')})})();
+function switchSkin(name){App.Theme.setSkin(name);document.querySelectorAll('.skin-btn').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-skin-name')===name)})}
+</script>
   </div></div>
 
   <div class="group"><div class="group-head"><span class="icon">🔄</span> 更新</div><div class="group-body">
@@ -94,7 +112,8 @@
   </div>
 </div>
 </main></div>
-<script src="js/store.js"></script><script src="js/memory.js"></script><script src="js/persona-preamble.js"></script><script src="js/app.js"></script><script src="js/settings.js"></script>
+<script src="js/store.js"></script><script src="js/memory.js"></script><script src="js/persona-preamble.js"></script><script src="js/app.js"></script>
+<script src="js/xiaojing-panel.js"></script><script src="js/settings.js"></script>
 
 <!-- connect-drawer（对话式 AI 接入引导） -->
 <div class="xj-connect-drawer" id="connect-drawer">
@@ -158,81 +177,88 @@ details.group summary::-webkit-details-marker{display:none}
 details.group summary{cursor:pointer}
 details.group summary .group-head::after{content:'▸';margin-left:auto;font-size:12px;color:var(--ink-3);transition:.2s}
 details.group[open] summary .group-head::after{transform:rotate(90deg)}
+/* ============================================================
+   全局视觉增强 — 暖色治愈系（追加层，不修改任何已有选择器）
+   注入到每个页面 </style> 前
+   ============================================================ */
+
+/* 入场动画 */
+@keyframes xjFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xjFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes xjScaleIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+
+/* 通用交互增强 */
+[data-xj-enhance] *{box-sizing:border-box}
+
+/* 卡片悬停增强（追加到已有卡片选择器，不覆盖） */
+.card:hover,.list-card:hover,.stat-card:hover,.kv-card:hover,.mod:hover,.sc-ov-card:hover,
+.analysis-block:hover,.ccard:hover,.tcard:hover{
+  transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;
+}
+
+/* 输入框聚焦增强 */
+textarea:focus,input:focus,select:focus{
+  transition:border-color .2s ease,box-shadow .2s ease;
+}
+
+/* 按钮点击反馈 */
+button:active{
+  transform:scale(.97);
+  transition:transform .1s ease;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border,#ECE5D9);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-strong,#DDD4C5)}
+
+
+/* === xinjing 骨架增强 === */
+
+/* 设置分组卡片悬停效果 */
+.xj-settings-group-hover{
+  transition:box-shadow .25s ease,border-color .25s ease,transform .25s ease;
+}
+.xj-settings-group-hover:hover{
+  box-shadow:0 4px 16px rgba(139,147,199,.1);
+  border-color:rgba(139,147,199,.25);
+  transform:translateY(-1px);
+}
+
+/* 开关平滑过渡 */
+.xj-toggle-smooth{
+  transition:background .3s cubic-bezier(.4,0,.2,1),box-shadow .3s ease;
+  cursor:pointer;
+}
+.xj-toggle-smooth:hover{
+  box-shadow:0 0 0 3px rgba(139,147,199,.12);
+}
+.xj-toggle-smooth::after{
+  transition:left .3s cubic-bezier(.4,0,.2,1),transform .3s cubic-bezier(.4,0,.2,1),box-shadow .2s ease;
+}
+
+/* 标签页药丸平滑激活过渡 */
+.xj-tab-pill{
+  transition:background .25s ease,color .25s ease,border-color .25s ease,transform .2s ease,box-shadow .2s ease;
+  border-radius:999px;
+}
+.xj-tab-pill:hover{
+  transform:translateY(-1px);
+  box-shadow:0 2px 8px rgba(139,147,199,.12);
+}
+.xj-tab-pill.xj-tab-active{
+  background:var(--accent);
+  color:#fff;
+  border-color:var(--accent);
+  box-shadow:0 2px 10px rgba(139,147,199,.2);
+}
+
+/* 表单输入聚焦发光 */
+.xj-form-input-glow:focus{
+  box-shadow:0 0 0 3px rgba(139,147,199,.15),0 0 8px rgba(139,147,199,.06);
+  border-color:var(--accent) !important;
+  transition:box-shadow .25s ease,border-color .25s ease;
+}
+
 </style>
-
-<script>
-// 渲染 provider chips
-(function(){
-  var PROVIDERS = [
-    {key:'deepseek',label:'DeepSeek'},
-    {key:'siliconflow',label:'硅基流动'},
-    {key:'openai',label:'OpenAI'},
-    {key:'moonshot',label:'月之暗面'},
-    {key:'zhipu',label:'智谱'},
-    {key:'qwen',label:'通义千问'},
-    {key:'doubao',label:'豆包'},
-    {key:'other',label:'其他'}
-  ];
-  var box = document.getElementById('provider-chips');
-  if(!box)return;
-  PROVIDERS.forEach(function(p){
-    var b = document.createElement('button');
-    b.className = 'xj-chip';
-    b.textContent = p.label;
-    b.onclick = function(){
-      if(typeof openConnectDrawer==='function'){
-        openConnectDrawer();
-        setTimeout(function(){
-          if(typeof cdPickProvider==='function') cdPickProvider(p.key);
-        },300);
-      }
-    };
-    box.appendChild(b);
-  });
-})();
-
-// 账号编辑逻辑
-(function(){
-  var modal = document.getElementById('account-edit-modal');
-  var input = document.getElementById('account-edit-input');
-  var title = document.getElementById('account-edit-title');
-  var currentField = '';
-  function showEdit(field, lbl, val){
-    currentField = field;
-    title.textContent = '编辑' + lbl;
-    input.value = val || '';
-    modal.style.display = 'flex';
-    setTimeout(function(){input.focus();},100);
-  }
-  function hideEdit(){ modal.style.display = 'none'; }
-  function saveEdit(){
-    var v = input.value.trim();
-    if(!v){ App.showToast('不能为空','warning'); return; }
-    var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
-    p[currentField] = v;
-    if(typeof Memory!=='undefined' && Memory.setProfile) Memory.setProfile(p);
-    document.getElementById('account-name-display').textContent = p.name || '未设置';
-    document.getElementById('account-orientation-display').textContent = p.orientation || '未设置';
-    App.showToast('已保存','success');
-    hideEdit();
-  }
-  document.getElementById('btn-edit-name').onclick = function(){
-    var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
-    showEdit('name','称呼', p.name);
-  };
-  document.getElementById('btn-edit-orient').onclick = function(){
-    var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
-    showEdit('orientation','执业取向', p.orientation);
-  };
-  document.getElementById('account-edit-cancel').onclick = hideEdit;
-  document.getElementById('account-edit-save').onclick = saveEdit;
-  input.addEventListener('keydown', function(e){ if(e.key==='Enter') saveEdit(); });
-  modal.addEventListener('click', function(e){ if(e.target===modal) hideEdit(); });
-  // 初始化显示
-  var p = (typeof Memory!=='undefined' && Memory.getProfile) ? Memory.getProfile() : {};
-  document.getElementById('account-name-display').textContent = p.name || '未设置';
-  document.getElementById('account-orientation-display').textContent = p.orientation || '未设置';
-})();
-</script>
-</body>
-</html>

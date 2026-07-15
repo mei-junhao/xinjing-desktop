@@ -1,6 +1,6 @@
 {
   "name": "xinjing",
-  "version": "3.5.1",
+  "version": "3.6.0",
   "description": "心镜 XinJing — 心理咨询本地管理工作台（桌面版）",
   "author": "Mei",
   "main": "main.js",
@@ -38,6 +38,8 @@
       "license-core.js",
       "secret.generated.js",
       "version.generated.js",
+      "doc-chunker.js",
+      "rag-index.js",
       "app/**/*",
       "build/**/*"
     ],

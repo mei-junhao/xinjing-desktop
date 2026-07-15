@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preflight</title>
+    <style id="theme-vars">
+/* ============================================================
+   心镜 XinJing · 治愈书房 Brand CSS
+   Tone: warm/human, organic/soft, safe & professional
+   Palette: cream white base, warm neutral text, sage green accent
+   ============================================================ */
+
+:root {
+  /* --- Seed Colors --- */
+  --xj-cream: #FAF7F2;
+  --xj-cream-elevated: #FFFFFF;
+  --xj-cream-sunken: #F3EFE8;
+  --xj-sand: #E8E2D8;
+  --xj-sand-strong: #D6CFC3;
+  --xj-warm-ink: #2D2A26;
+  --xj-warm-ink-2: #6B6560;
+  --xj-warm-ink-3: #9E9890;
+  --xj-sage: #7A9E7E;
+  --xj-sage-hover: #6A8D6E;
+  --xj-sage-soft: #EEF4EF;
+  --xj-sage-line: #C4D8C6;
+  --xj-terracotta: #C08B6A;
+  --xj-terracotta-soft: #F7EDE5;
+  --xj-success: #7A9E7E;
+  --xj-success-soft: #EEF4EF;
+  --xj-warning: #C9A45C;
+  --xj-warning-soft: #FBF5E8;
+  --xj-danger: #BF7B7B;
+  --xj-danger-soft: #F8ECEC;
+  --xj-info: #7A9EAA;
+  --xj-info-soft: #EBF2F4;
+
+  /* --- Semantic Token Aliases --- */
+  --xj-background: var(--xj-cream);
+  --xj-foreground: var(--xj-warm-ink);
+  --xj-card: var(--xj-cream-elevated);
+  --xj-card-foreground: var(--xj-warm-ink);
+  --xj-popover: var(--xj-cream-elevated);
+  --xj-popover-foreground: var(--xj-warm-ink);
+  --xj-primary: var(--xj-sage);
+  --xj-primary-foreground: #FFFFFF;
+  --xj-muted: var(--xj-warm-ink-3);
+  --xj-muted-foreground: var(--xj-warm-ink-2);
+  --xj-border: var(--xj-sand);
+  --xj-input: var(--xj-sand);
+  --xj-ring: var(--xj-sage);
+  --xj-radius-sm: 6px;
+  --xj-radius-md: 12px;
+  --xj-radius-lg: 16px;
+  --xj-radius-xl: 20px;
+
+  /* --- Typography --- */
+  --xj-font-sans: "Inter", "Noto Sans SC", "PingFang SC", system-ui, -apple-system, sans-serif;
+  --xj-font-serif: "Noto Serif SC", "Songti SC", Georgia, serif;
+  --xj-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* --- Shadows (warm-tinted, low alpha) --- */
+  --xj-shadow-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
+  --xj-shadow: 0 2px 8px rgba(45, 42, 38, 0.05);
+  --xj-shadow-md: 0 4px 16px rgba(45, 42, 38, 0.06);
+  --xj-shadow-lg: 0 12px 36px rgba(45, 42, 38, 0.10);
+
+  /* --- Transitions --- */
+  --xj-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --xj-transition: 0.2s var(--xj-ease);
+}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--xj-background);
+    --color-foreground: var(--xj-foreground);
+    --color-card: var(--xj-card);
+    --color-card-foreground: var(--xj-card-foreground);
+    --color-popover: var(--xj-popover);
+    --color-popover-foreground: var(--xj-popover-foreground);
+    --color-primary: var(--xj-primary);
+    --color-primary-foreground: var(--xj-primary-foreground);
+    --color-muted: var(--xj-muted);
+    --color-muted-foreground: var(--xj-muted-foreground);
+    --color-border: var(--xj-border);
+    --color-input: var(--xj-input);
+    --color-ring: var(--xj-ring);
+    --radius-sm: var(--xj-radius-sm);
+    --radius-md: var(--xj-radius-md);
+    --radius-lg: var(--xj-radius-lg);
+    --radius-xl: var(--xj-radius-xl);
+  }
+  @layer base {
+    body { background: var(--xj-background); color: var(--xj-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--xj-background); }
+      .text-background { color: var(--xj-background); }
+      .border-background { border-color: var(--xj-background); }
+      .ring-background { --tw-ring-color: var(--xj-background); }
+      .bg-foreground { background-color: var(--xj-foreground); }
+      .text-foreground { color: var(--xj-foreground); }
+      .border-foreground { border-color: var(--xj-foreground); }
+      .ring-foreground { --tw-ring-color: var(--xj-foreground); }
+      .bg-card { background-color: var(--xj-card); }
+      .text-card { color: var(--xj-card); }
+      .border-card { border-color: var(--xj-card); }
+      .ring-card { --tw-ring-color: var(--xj-card); }
+      .bg-card-foreground { background-color: var(--xj-card-foreground); }
+      .text-card-foreground { color: var(--xj-card-foreground); }
+      .border-card-foreground { border-color: var(--xj-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--xj-card-foreground); }
+      .bg-popover { background-color: var(--xj-popover); }
+      .text-popover { color: var(--xj-popover); }
+      .border-popover { border-color: var(--xj-popover); }
+      .ring-popover { --tw-ring-color: var(--xj-popover); }
+      .bg-popover-foreground { background-color: var(--xj-popover-foreground); }
+      .text-popover-foreground { color: var(--xj-popover-foreground); }
+      .border-popover-foreground { border-color: var(--xj-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--xj-popover-foreground); }
+      .bg-primary { background-color: var(--xj-primary); }
+      .text-primary { color: var(--xj-primary); }
+      .border-primary { border-color: var(--xj-primary); }
+      .ring-primary { --tw-ring-color: var(--xj-primary); }
+      .bg-primary-foreground { background-color: var(--xj-primary-foreground); }
+      .text-primary-foreground { color: var(--xj-primary-foreground); }
+      .border-primary-foreground { border-color: var(--xj-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--xj-primary-foreground); }
+      .bg-muted { background-color: var(--xj-muted); }
+      .text-muted { color: var(--xj-muted); }
+      .border-muted { border-color: var(--xj-muted); }
+      .ring-muted { --tw-ring-color: var(--xj-muted); }
+      .bg-muted-foreground { background-color: var(--xj-muted-foreground); }
+      .text-muted-foreground { color: var(--xj-muted-foreground); }
+      .border-muted-foreground { border-color: var(--xj-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--xj-muted-foreground); }
+      .bg-border { background-color: var(--xj-border); }
+      .text-border { color: var(--xj-border); }
+      .border-border { border-color: var(--xj-border); }
+      .ring-border { --tw-ring-color: var(--xj-border); }
+      .bg-input { background-color: var(--xj-input); }
+      .text-input { color: var(--xj-input); }
+      .border-input { border-color: var(--xj-input); }
+      .ring-input { --tw-ring-color: var(--xj-input); }
+      .bg-ring { background-color: var(--xj-ring); }
+      .text-ring { color: var(--xj-ring); }
+      .border-ring { border-color: var(--xj-ring); }
+      .ring-ring { --tw-ring-color: var(--xj-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

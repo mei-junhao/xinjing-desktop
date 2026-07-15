@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    心镜 XinJing · 设计令牌层（tokens.css）
    - 语义层：间距/圆角/字体/动效/层级——皮肤无关
    - 颜色层：按皮肤(skin)组织
@@ -262,6 +262,137 @@
 }
 
 /* ============================================================
+   颜色层：xinjing 皮肤（暖色治愈系）
+   方向 C 暖色治愈：青绿 #2F8F83 主 / 暖陶 #E08D5B 次 / 奶油暖底
+   非默认——通过 settings 外观面板切换或 Theme.setSkin('xinjing') 激活
+   ============================================================ */
+
+/* ---------- xinjing 浅色 ---------- */
+[data-skin="xinjing"] {
+  /* calm 原名 */
+  --bg: #FAF7F2;
+  --bg-elevated: #FFFFFF;
+  --bg-sunken: #F3EDE4;
+  --bg-glass: rgba(255, 255, 255, 0.72);
+  --border-c: #ECE5D9;
+  --border-strong-c: #DDD4C5;
+  --text-c: #2E2A26;
+  --text-secondary-c: #5C544C;
+  --text-muted-c: #9A9089;
+  --accent: #2F8F83;
+  --accent-hover: #267A6F;
+  --accent-soft: #E6F2F0;
+  --accent-2: #E08D5B;
+  --success-c: #5FAE7B;
+  --warning-c: #E0A855;
+  --danger-c: #D98C8C;
+  --blur: 14px;
+
+  /* editorial 同名映射 */
+  --paper: #FAF7F2;
+  --paper-2: #FFFFFF;
+  --sidebar: #F3EDE4;
+  --shell: #F3EDE4;
+  --ink: #2E2A26;
+  --ink-2: #5C544C;
+  --ink-3: #9A9089;
+  --hair: #ECE5D9;
+  --hair-strong: #DDD4C5;
+
+  /* 主题色补充 */
+  --accent-line: #7ABFB5;
+
+  /* 语义色（映射到暖色治愈色系） */
+  --green: #5FAE7B;   --green-soft: #E4F2EA;
+  --orange: #E08D5B;  --orange-soft: #FDF0E5;
+  --blue: #5A9DBF;    --blue-soft: #E5F0F7;
+  --purple: #9B85C7;  --purple-soft: #EDE9F5;
+  --indigo: #6A7FB5;  --indigo-soft: #E8EBF5;
+  --red: #D98C8C;     --red-soft: #F8ECEC;
+
+  /* 阴影：暖灰 tint（对应 xinjing 深色文字 #2E2A26） */
+  --shadow-sm: 0 1px 3px rgba(46, 42, 38, 0.05);
+  --shadow: 0 4px 16px rgba(46, 42, 38, 0.07);
+  --shadow-lg: 0 12px 36px rgba(46, 42, 38, 0.10);
+  --shadow-bezel: 0 2px 10px rgba(46, 42, 38, 0.08);
+
+  /* hover 微底色与遮罩 rim */
+  --hover-tint: rgba(46, 42, 38, 0.04);
+  --scrim: rgba(46, 42, 38, 0.4);
+
+  /* 兼容令牌 */
+  --radius: 10px;
+  --border: var(--hair-strong);
+  --muted: var(--ink-2);
+  --text: var(--ink);
+  --transition: .2s var(--ease);
+  --card: var(--paper-2);
+  --bg-soft: var(--sidebar);
+  --text-soft: var(--ink-3);
+  --text-faint: #C4BAB0;
+  --bg-alt: #F3EDE4;
+}
+
+/* ---------- xinjing 暗色 ---------- */
+[data-skin="xinjing"].dark {
+  --bg: #1A1816;
+  --bg-elevated: #232120;
+  --bg-sunken: #1E1C1A;
+  --bg-glass: rgba(35, 33, 32, 0.66);
+  --border-c: #332F2B;
+  --border-strong-c: #443E38;
+  --text-c: #ECE6DF;
+  --text-secondary-c: #B0A89E;
+  --text-muted-c: #7A726A;
+  --accent: #4DB8AC;
+  --accent-hover: #62C9BE;
+  --accent-soft: #1E3230;
+  --accent-2: #E8A572;
+  --success-c: #72C492;
+  --warning-c: #E4BA6A;
+  --danger-c: #E49E9E;
+
+  /* editorial 同名映射 */
+  --paper: #1A1816;
+  --paper-2: #232120;
+  --sidebar: #1E1C1A;
+  --shell: #1E1C1A;
+  --ink: #ECE6DF;
+  --ink-2: #B0A89E;
+  --ink-3: #7A726A;
+  --hair: #332F2B;
+  --hair-strong: #443E38;
+
+  --accent-line: #3A7A72;
+
+  --green: #72C492;   --green-soft: #1C2E22;
+  --orange: #E8A572;  --orange-soft: #2E2418;
+  --blue: #7AB4CC;    --blue-soft: #1A2228;
+  --purple: #B8A5D8;  --purple-soft: #261F30;
+  --indigo: #8A9ACC;  --indigo-soft: #1E2230;
+  --red: #E49E9E;     --red-soft: #2E201E;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.30);
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.30);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.40);
+  --shadow-bezel: 0 2px 10px rgba(0, 0, 0, 0.30);
+
+  --hover-tint: rgba(255, 255, 255, 0.04);
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  --radius: 10px;
+  --border: var(--hair-strong);
+  --muted: var(--ink-2);
+  --text: var(--ink);
+  --transition: .2s var(--ease);
+  --card: var(--paper-2);
+  --bg-soft: var(--sidebar);
+  --text-soft: var(--ink-3);
+  --text-faint: #5E564E;
+  --bg-alt: #1E1C1A;
+}
+
+/* ============================================================
    v2.0 组件别名层（统一 components.css 单一视觉来源）
    仅追加别名，不改既有令牌；所有皮肤生效。
    ============================================================ */
@@ -312,6 +443,118 @@
   --shadow-md: var(--shadow);
 }
 
+
+[data-skin="xinjing"] {
+  --text-secondary: var(--text-secondary-c);
+  --text-muted: var(--text-muted-c);
+  --border-strong: var(--border-strong-c);
+  --success: var(--success-c);
+  --warning: var(--warning-c);
+  --danger: var(--danger-c);
+  --shadow-md: var(--shadow);
+}
+[data-skin="xinjing"].dark {
+  --text-secondary: var(--text-secondary-c);
+  --text-muted: var(--text-muted-c);
+  --border-strong: var(--border-strong-c);
+  --success: var(--success-c);
+  --warning: var(--warning-c);
+  --danger: var(--danger-c);
+  --shadow-md: var(--shadow);
+}
+
+
+﻿
+/* ============================================================
+   档位视觉系统（data-tier）
+   与皮肤正交：tier 控制品牌色与装饰强度，skin 控制整体配色方向
+   tier 值：free / pro(full) / custom(旗舰)
+   ============================================================ */
+
+/* ---------- 免费版：精简灰调 ---------- */
+[data-tier="free"] {
+  --accent: #7A8B8A;
+  --accent-hover: #6A7B7A;
+  --accent-soft: #E8ECEC;
+  --accent-2: #8A9590;
+  --accent-line: #A8B5B2;
+}
+[data-tier="free"] .brand .mark {
+  background: var(--accent);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.2), 0 4px 12px rgba(122,139,138,.15);
+}
+[data-tier="free"] body::before {
+  display: none;
+}
+[data-tier="free"] .stat-card,
+[data-tier="free"] .list-card {
+  animation: none;
+}
+
+/* ---------- 会员版 Pro：标准暖色治愈 ---------- */
+[data-tier="pro"] .brand .mark,
+[data-tier="full"] .brand .mark {
+  background: linear-gradient(135deg, #f8d36b 0%, #e3a52f 100%);
+  color: #5b3b00;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), 0 4px 14px rgba(227,165,47,.5);
+}
+
+/* ---------- 旗舰版 Custom：精致暖调 ---------- */
+[data-tier="custom"] .brand .mark {
+  background: linear-gradient(135deg, #2F8F83 0%, #E08D5B 50%, #C89060 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.45), 0 4px 16px rgba(180,130,100,.4);
+  background-size: 200% 200%;
+  animation: tierGradient 6s ease infinite;
+}
+@keyframes tierGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+[data-tier="custom"] .topbar {
+  background: var(--bg-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom-color: rgba(236,229,217,.6);
+}
+[data-tier="custom"] .sidebar {
+  box-shadow: 2px 0 20px rgba(46,42,38,.06);
+}
+[data-tier="custom"] .sidebar::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 80px;
+  background: linear-gradient(to top, var(--accent-soft), transparent);
+  pointer-events: none;
+  opacity: .5;
+}
+[data-tier="custom"] .stat-card:hover {
+  box-shadow: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong),
+              0 18px 40px var(--scrim),
+              0 0 30px rgba(47,143,131,.08);
+}
+[data-tier="custom"] .nav-item.active::before {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+[data-tier="custom"] .actions button.primary,
+[data-tier="custom"] .quick button.primary,
+[data-tier="custom"] .ai-actions button.primary,
+[data-tier="custom"] .dock-actions button.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 2px 8px rgba(47,143,131,.2);
+}
+[data-tier="custom"] .actions button.primary:hover,
+[data-tier="custom"] .quick button.primary:hover,
+[data-tier="custom"] .ai-actions button.primary:hover,
+[data-tier="custom"] .dock-actions button.primary:hover {
+  box-shadow: 0 4px 16px rgba(47,143,131,.3);
+  transform: translateY(-1px);
+}
+[data-tier="custom"] .editor blockquote {
+  border-left: 3px solid;
+  border-image: linear-gradient(180deg, var(--accent), var(--accent-2)) 1;
+}
 /* ============================================================
    心镜 XinJing · 会员与门控视觉系统
    适用于所有皮肤（pro/custom/trial/free 统一语义）

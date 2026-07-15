@@ -1,18 +1,21 @@
 'use strict';
 /**
- * 心镜 XinJing — 韩国代理服务端 (v1.7.0)
+ * 心镜 XinJing — 韩国代理服务端 (v1.8.0)
  *
  * 路由：
  *  - GET  /                      健康检查（含代理配置状态）
  *  - POST /                      旧版 DeepSeek 透传（向后兼容，保留）
  *  - POST /v1/chat/completions   试用代理（按机器码配额门控 + 模型路由）
  *  - GET  /quota?mid=<machineId> 配额查询
+ *  - POST /v1/embeddings         知识库向量检索（bge-m3，Pro/旗舰）
+ *  - POST /v1/rerank             知识库重排序（bge-reranker-v2-m3，旗舰）
  *
  * 安全模型：
  *  - 共享密钥(APP_PROXY_KEY) + 机器码(X-Machine-Id) 双因子；
  *  - 服务端按机器码硬限额兜底（客户端密钥被逆向也不怕刷量）；
  *  - 免费档：DeepSeek-V4-Flash 受 ¥5 / 30天 滚动窗口限制，超额/过期自动降级到
  *    内置基础模型 Qwen3.5-4B（走 SiliconFlow，不限量免费）。
+ *  - RAG：embedding 按文档数天然限流，rerank 按每天 200 次/机器码限制。
  *
  * 密钥全部来自 .env（dotenv），代码不含任何明文密钥。
  */
@@ -30,8 +33,11 @@ const QUOTA_FILE = path.join(DATA_DIR, 'quota.json');
 
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY || '';
 const SILICONFLOW_KEY = process.env.SILICONFLOW_API_KEY || '';
+const SF_EMBEDDING_KEY = process.env.SF_EMBEDDING_KEY || SILICONFLOW_KEY;
+const SF_RERANK_KEY = process.env.SF_RERANK_KEY || SILICONFLOW_KEY;
 const APP_PROXY_KEY = process.env.APP_PROXY_KEY || '';
 const QUOTA_BUDGET = parseFloat(process.env.QUOTA_BUDGET_YUAN || '5');
+const RERANK_DAILY_LIMIT = parseInt(process.env.RERANK_DAILY_LIMIT || '200', 10);
 const QUOTA_WINDOW_DAYS = parseInt(process.env.QUOTA_WINDOW_DAYS || '30', 10);
 const QUOTA_WINDOW_MS = QUOTA_WINDOW_DAYS * 24 * 3600 * 1000;
 
@@ -103,7 +109,7 @@ function costYuan(usage) {
 // clientHeaders: 要回写在「客户端响应」上的头（如额度 X-Tier/X-Quota-*），
 // 注意不能放进上行请求头（否则被发给上游且客户端读不到）。
 function forward(opts) {
-  const { host, apiKey, payload, wantStream, res, onUsage, clientHeaders } = opts;
+  const { host, path: upPath, apiKey, payload, wantStream, res, onUsage, clientHeaders } = opts;
   const body = JSON.stringify(payload);
   const hdrs = {
     'Content-Type': 'application/json',
@@ -112,13 +118,13 @@ function forward(opts) {
     'Content-Length': Buffer.byteLength(body),
   };
   const up = https.request(
-    { hostname: host, path: '/v1/chat/completions', method: 'POST', headers: hdrs },
+    { hostname: host, path: upPath || '/v1/chat/completions', method: 'POST', headers: hdrs },
     (upRes) => {
       if (upRes.statusCode !== 200) {
         let eb = '';
         upRes.on('data', (c) => (eb += c));
         upRes.on('end', () => {
-          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.writeHead(upRes.statusCode >= 500 ? 502 : upRes.statusCode, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Upstream ' + upRes.statusCode, detail: eb.slice(0, 600) }));
         });
         return;
@@ -168,6 +174,132 @@ function forward(opts) {
   });
   up.write(body);
   up.end();
+}
+
+// ---------- RAG 配额（rerank 按天计数）----------
+let ragStore = {};
+const RAG_FILE = path.join(DATA_DIR, 'rag-quota.json');
+function loadRagQuota() {
+  try { ragStore = JSON.parse(fs.readFileSync(RAG_FILE, 'utf8')) || {}; } catch (e) { ragStore = {}; }
+}
+function saveRagQuota() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(RAG_FILE, JSON.stringify(ragStore, null, 2));
+  } catch (e) { console.error('[rag-quota] 持久化失败', e.message); }
+}
+loadRagQuota();
+function _today() { return new Date().toISOString().slice(0, 10); }
+function checkRerankQuota(mc) {
+  const today = _today();
+  if (!ragStore[mc] || ragStore[mc].day !== today) {
+    ragStore[mc] = { day: today, rerankCount: 0 };
+    saveRagQuota();
+  }
+  return ragStore[mc].rerankCount < RERANK_DAILY_LIMIT;
+}
+function incRerankQuota(mc) {
+  const today = _today();
+  if (!ragStore[mc] || ragStore[mc].day !== today) {
+    ragStore[mc] = { day: today, rerankCount: 0 };
+  }
+  ragStore[mc].rerankCount++;
+  saveRagQuota();
+}
+
+// ---------- 鉴权工具 ----------
+function _authCheck(req, res) {
+  const auth = req.headers['authorization'] || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  const providedKey = m ? m[1].trim() : '';
+  const mc = (req.headers['x-machine-id'] || '').toString().trim();
+  if (!APP_PROXY_KEY || providedKey !== APP_PROXY_KEY) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'unauthorized' }));
+    return null;
+  }
+  if (!mc) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'missing X-Machine-Id' }));
+    return null;
+  }
+  return { mc, providedKey };
+}
+
+// ---------- RAG: Embeddings ----------
+function handleEmbeddings(req, res) {
+  const auth = _authCheck(req, res);
+  if (!auth) return;
+  const { mc } = auth;
+  let body = '';
+  req.on('data', (c) => (body += c));
+  req.on('end', () => {
+    let data;
+    try { data = JSON.parse(body); } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Invalid JSON' }));
+    }
+    const input = data.input;
+    if (!input) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'missing input' }));
+    }
+    const model = 'BAAI/bge-m3';
+    const payload = { model, input: Array.isArray(input) ? input.slice(0, 64) : input };
+    forward({
+      host: 'api.siliconflow.cn',
+      path: '/v1/embeddings',
+      apiKey: SF_EMBEDDING_KEY,
+      payload,
+      wantStream: false,
+      res,
+      onUsage: null,
+      clientHeaders: { 'X-Provider': 'SiliconFlow-Embeddings' },
+    });
+  });
+}
+
+// ---------- RAG: Rerank ----------
+function handleRerank(req, res) {
+  const auth = _authCheck(req, res);
+  if (!auth) return;
+  const { mc } = auth;
+  if (!checkRerankQuota(mc)) {
+    res.writeHead(429, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'rerank daily limit exceeded', limit: RERANK_DAILY_LIMIT }));
+  }
+  let body = '';
+  req.on('data', (c) => (body += c));
+  req.on('end', () => {
+    let data;
+    try { data = JSON.parse(body); } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Invalid JSON' }));
+    }
+    const { query, documents, top_n } = data;
+    if (!query || !Array.isArray(documents)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'missing query or documents' }));
+    }
+    const model = 'BAAI/bge-reranker-v2-m3';
+    const payload = {
+      model,
+      query,
+      documents: documents.slice(0, 50),
+      top_n: top_n || 5,
+      return_documents: true,
+    };
+    forward({
+      host: 'api.siliconflow.cn',
+      path: '/v1/rerank',
+      apiKey: SF_RERANK_KEY,
+      payload,
+      wantStream: false,
+      res,
+      onUsage: () => incRerankQuota(mc),
+      clientHeaders: { 'X-Provider': 'SiliconFlow-Rerank' },
+    });
+  });
 }
 
 // ---------- 试用代理 ----------
@@ -316,12 +448,15 @@ function router(req, res) {
   res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
-  if (req.method === 'GET' && req.url.split('?')[0] === '/quota') return handleQuota(req, res);
+  const urlPath = req.url.split('?')[0];
+  if (req.method === 'GET' && urlPath === '/quota') return handleQuota(req, res);
   if (req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true, deepseekConfigured: !!DEEPSEEK_KEY, proxyConfigured: !!APP_PROXY_KEY, quotaBudgetYuan: QUOTA_BUDGET }));
+    return res.end(JSON.stringify({ ok: true, deepseekConfigured: !!DEEPSEEK_KEY, proxyConfigured: !!APP_PROXY_KEY, quotaBudgetYuan: QUOTA_BUDGET, ragEmbeddings: !!SF_EMBEDDING_KEY, ragRerank: !!SF_RERANK_KEY }));
   }
-  if (req.method === 'POST' && req.url.split('?')[0] === '/v1/chat/completions') return handleTrial(req, res);
+  if (req.method === 'POST' && urlPath === '/v1/chat/completions') return handleTrial(req, res);
+  if (req.method === 'POST' && urlPath === '/v1/embeddings') return handleEmbeddings(req, res);
+  if (req.method === 'POST' && urlPath === '/v1/rerank') return handleRerank(req, res);
   if (req.method === 'POST') return handleLegacyPost(req, res);
   res.writeHead(405, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Method not allowed' }));

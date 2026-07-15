@@ -74,7 +74,7 @@
       }
     }
     // 从尾部贪心取，整单元不拆；允许略微不足 windowSize 以保完整
-    const result = [];
+    let result = [];
     let count = 0;
     for (let j = units.length - 1; j >= 0; j--) {
       const unit = units[j];
@@ -95,7 +95,7 @@
     while (result.length > 0 && result[0].role === 'tool') {
       result.shift();
     }
-    return system.concat(result);
+    return result;
   }
 
   // ---------- 工具：JSON Schema 简校验（draft-07 子集） ----------

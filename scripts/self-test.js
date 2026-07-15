@@ -2172,7 +2172,7 @@ test('v3.4.1-3 settings.js 含 8 家服务商预设', function () {
 
 test('v3.4.1-4 settings.html 含 provider chips 渲染逻辑', function () {
   assert.ok(/id="provider-chips"/.test(SETTINGSHTML_350), '缺 provider-chips 容器');
-  assert.ok(/PROVIDERS/.test(SETTINGSHTML_350), '缺 PROVIDERS 数组定义');
+  assert.ok(/PROVIDER_PRESETS/.test(SETTINGSJS_350), '缺 PROVIDER_PRESETS 数组定义');
   assert.ok(/xj-chip/.test(SETTINGSHTML_350), '缺 xj-chip 样式类');
 });
 

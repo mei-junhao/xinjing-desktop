@@ -1,0 +1,35 @@
+{
+  "success": true,
+  "skillProvenance": {
+    "name": "solo-design",
+    "version": "2026.07.06.8",
+    "version_source": "skill-version.json",
+    "runtime_skill_dir": "c:\\Users\\Administrator\\.trae-cn\\builtin\\design\\default\\skills\\solo-design",
+    "recorded_at": "2026-07-14T22:48:00+08:00",
+    "read_status": "ok"
+  },
+  "operatingMode": "free-explore",
+  "renderBlockingErrorCount": 0,
+  "softWarningCount": 4,
+  "renderBlockingErrors": [],
+  "softWarnings": [
+    "[html-head-style] consult-notes.html: found 1 custom <style> block(s) in <head>. The <head> is owned by fill-html-head.mjs; move custom styles before </body> or re-run fill-html-head.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] index.html: found 1 custom <style> block(s) in <head>. The <head> is owned by fill-html-head.mjs; move custom styles before </body> or re-run fill-html-head.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-quality] colors_and_type.css: free-explore radius tokens must stay within the restrained 2/4/8/12/16px scale; oversized or forbidden radius tokens found (--xj-radius-xl: 20px). Do not use 20px+ radii unless the user explicitly requested large rounded shapes.",
+    "[html-quality] colors_and_type.css: ordinary/static shadow tokens must keep every shadow alpha <= 0.05; deeper shadows are allowed only for floating-layer tokens such as modal/popover/dropdown/drawer/overlay (--xj-shadow-md: 0 4px 16px rgba(45, 42, 38, 0.06), --xj-shadow-lg: 0 12px 36px rgba(45, 42, 38, 0.10))."
+  ],
+  "repairPlanHints": [],
+  "errorCount": 0,
+  "warningCount": 4,
+  "errors": [],
+  "warnings": [
+    "[html-head-style] consult-notes.html: found 1 custom <style> block(s) in <head>. The <head> is owned by fill-html-head.mjs; move custom styles before </body> or re-run fill-html-head.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-head-style] index.html: found 1 custom <style> block(s) in <head>. The <head> is owned by fill-html-head.mjs; move custom styles before </body> or re-run fill-html-head.mjs <css-path> <html-file> --replace-head to relocate them.",
+    "[html-quality] colors_and_type.css: free-explore radius tokens must stay within the restrained 2/4/8/12/16px scale; oversized or forbidden radius tokens found (--xj-radius-xl: 20px). Do not use 20px+ radii unless the user explicitly requested large rounded shapes.",
+    "[html-quality] colors_and_type.css: ordinary/static shadow tokens must keep every shadow alpha <= 0.05; deeper shadows are allowed only for floating-layer tokens such as modal/popover/dropdown/drawer/overlay (--xj-shadow-md: 0 4px 16px rgba(45, 42, 38, 0.06), --xj-shadow-lg: 0 12px 36px rgba(45, 42, 38, 0.10))."
+  ],
+  "designDir": "d:\\xinjing-electron\\xinjing-redesign",
+  "expectedPages": 2,
+  "requireInteractions": null,
+  "checkedAt": "2026-07-14T15:23:00.988Z"
+}

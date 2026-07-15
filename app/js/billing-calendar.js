@@ -102,7 +102,7 @@
           var b = s.billing || {};
           var cls2 = b.paid ? 'in' : (b.fee > 0 ? 'pending' : '');
           var client = Store.getClient(s.clientId);
-          events += '<div class="day-event ' + cls2 + '">' + (client ? client.name : '?') + (b.fee ? ' ¥' + b.fee : '') + '</div>';
+          events += '<div class="day-event ' + cls2 + '">' + (client ? App.escapeHtml(client.name) : '?') + (b.fee ? ' ¥' + b.fee : '') + '</div>';
           eCount++;
         });
       }

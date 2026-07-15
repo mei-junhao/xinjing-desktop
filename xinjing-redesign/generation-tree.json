@@ -1,0 +1,36 @@
+{
+  "root": {
+    "nodeId": "gen-project-shell",
+    "kind": "project-shell",
+    "pageIds": ["page-index", "page-consult-notes"],
+    "output": "partials/project-shell.html",
+    "sharedRegions": ["sidebar", "layout-frame"],
+    "privateRegions": [],
+    "mutableSlots": ["activeNavItem"],
+    "status": "generated",
+    "children": [
+      {
+        "nodeId": "gen-page-index",
+        "kind": "page-leaf",
+        "pageIds": ["page-index"],
+        "output": "pages/index.html",
+        "sharedRegions": [],
+        "privateRegions": ["dashboard body content"],
+        "mutableSlots": ["activeNavItem"],
+        "status": "generated",
+        "children": []
+      },
+      {
+        "nodeId": "gen-page-consult-notes",
+        "kind": "page-leaf",
+        "pageIds": ["page-consult-notes"],
+        "output": "pages/consult-notes.html",
+        "sharedRegions": [],
+        "privateRegions": ["consult notes workspace"],
+        "mutableSlots": ["activeNavItem"],
+        "status": "generated",
+        "children": []
+      }
+    ]
+  }
+}

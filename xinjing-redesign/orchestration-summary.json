@@ -1,0 +1,170 @@
+{
+  "skillProvenance": {
+    "name": "solo-design",
+    "version": "2026.07.06.8",
+    "version_source": "skill-version.json",
+    "runtime_skill_dir": "c:\\Users\\Administrator\\.trae-cn\\builtin\\design\\default\\skills\\solo-design",
+    "recorded_at": "2026-07-14T22:48:00+08:00"
+  },
+  "project": {
+    "name": "心镜 · 治愈书房重设计",
+    "path": "d:\\xinjing-electron\\xinjing-redesign",
+    "operation": "create",
+    "deviceType": "desktop",
+    "language": "zh-CN",
+    "dashboardMode": false,
+    "intentProfile": {
+      "caseFamily": "free_exploration",
+      "graphicStrategy": null,
+      "sourceType": null,
+      "routingReason": "User requests new UI design for existing app, no restoration target, no active Design Library"
+    },
+    "replicationMode": null,
+    "sourceUrl": null,
+    "contextReadBudget": {
+      "workflowFileReadLimit": 1,
+      "largeWorkflowFilesCachedInSummary": [],
+      "restoreInputsCached": [],
+      "subAgentReadsFullSummary": false
+    },
+    "readBudgetLedger": [
+      { "file": "workflows/create-project-free-fast.md", "readCount": 1, "limit": 1, "reason": "initial route-locked workflow read", "exceeded": false }
+    ],
+    "cssPreflightEvidence": {
+      "applies": true,
+      "status": "passed",
+      "command": "node c:\\Users\\Administrator\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\script\\fill-html-head.mjs d:\\xinjing-electron\\xinjing-redesign\\colors_and_type.css d:\\xinjing-electron\\xinjing-redesign\\.preflight\\preflight.html --title=\"Preflight\" --lang=\"zh-CN\" --prefix=xj",
+      "brandPrefix": "xj",
+      "checks": {
+        "themeVars": "present",
+        "semanticTokenFallback": "present",
+        "themeInline": "present",
+        "tailwindCdn": "present",
+        "htmlClass": "present",
+        "semanticMappings": "resolved"
+      },
+      "retryCount": 0,
+      "blockingReason": null
+    },
+    "designRead": "desktop client app / solo psychotherapist / warm healing study / balanced / avoid purple-blue tech feel",
+    "designDials": {
+      "layoutVariance": 2,
+      "motionIntensity": 1,
+      "visualDensity": 3
+    },
+    "styleDefinitionBrief": "Cream-white warm base, warm gray-brown text, sage green accent. Rounded cards, soft shadows, serif headings for warmth. Organic shapes, no sharp edges. Professional yet comforting, like a quiet study room.",
+    "styleContinuityAnchors": {
+      "colorSystem": {
+        "primaryColorRole": "single brand hue: sage green #7A9E7E used for primary CTA, active nav states, and key interactive elements",
+        "brandHuePolicy": "free-explore uses no secondary/accent brand hue; extra hues only through semantic state tokens (success, warning, danger, info)",
+        "stateColors": "success=#7A9E7E, warning=#C9A45C, danger=#BF7B7B, info=#7A9EAA with matching soft background tints"
+      },
+      "shapeSystem": "rounded-warm: radius-md=12px for cards, radius-lg=16px for larger surfaces, radius-sm=6px for small controls, radius-xl=20px for modals. No sharp corners anywhere.",
+      "typographySystem": "serif for headings/brand (Noto Serif SC), sans for body/UI (Inter/Noto Sans SC). Heading weights 600. Body 14px, line-height 1.6. Numbers in mono for data.",
+      "spacingSystem": "16px base gap, 24px large gap, 10px small gap. Content max-width 1080px. Sidebar 220px.",
+      "componentLanguage": "clean minimal controls: border-first cards (no shadow on static cards), warm-tinted borders, pill-shaped tags, rounded buttons with subtle hover. No bezel/double-border effects.",
+      "surfaceAndDepth": "border-first layering: static cards use 1px border only (no shadow). Floating layers (modal/dropdown) may use shadow-md. Shadow alpha always <= 0.06 for static, <= 0.10 for floating.",
+      "imageryAndIconography": "Lucide icons throughout. No emoji. No decorative illustrations. Warm-toned avatar circles with initials.",
+      "interactionTone": "gentle: 0.2s ease transitions, subtle hover background tints, no dramatic transforms. Focus uses sage green ring."
+    },
+    "sharedProjectShellContract": {
+      "navigationShell": "Left sidebar 220px, cream-sunken background (#F3EFE8), border-right with sand color. Brand mark at top (serif '心镜' in a rounded sage-green square). Nav items: vertical list, rounded-md hover, sage-soft active background with sage text. Each item has Lucide icon + Chinese label. data-nav-key on each item.",
+      "primaryColorSystem": "single sage green hue #7A9E7E for all primary interactive elements",
+      "typographySystem": "Noto Serif SC for brand/headings, Inter/Noto Sans SC for body. 14px base, 1.6 line-height.",
+      "radiusScale": "sm=6px, md=12px, lg=16px, xl=20px. Cards always use md or lg.",
+      "surfaceDepthModel": "border-first: static cards use 1px solid var(--xj-border) with no shadow. Only floating layers get shadow.",
+      "ctaStyle": "primary CTA: sage green bg, white text, rounded-lg, 40px height, font-medium. Hover: darker sage. Ghost: transparent with sage border.",
+      "alignmentRules": "left-aligned content, centered stat numbers, flex row layouts with explicit gap"
+    }
+  },
+  "designSource": {
+    "operatingMode": "free-explore",
+    "libraryIdentity": { "name": null, "id": null, "version": null, "scope": null, "path": null, "versionSource": null },
+    "cssFilePath": "d:\\xinjing-electron\\xinjing-redesign\\colors_and_type.css",
+    "brandPrefix": "xj",
+    "themeMode": "light",
+    "designDecisionSummary": "Warm cream palette, sage green accent, border-first surface model, serif headings, rounded shapes",
+    "componentContractKind": null,
+    "forbiddenInventedComponents": [],
+    "allowedComponents": [],
+    "styleConstraints": {},
+    "productContext": { "kitType": "desktop-client", "productType": "psychotherapy practice management" },
+    "actualTokenNameReference": []
+  },
+  "pages": [
+    {
+      "nodeId": "page-index",
+      "slug": "index",
+      "title": "首页",
+      "htmlSrc": "pages/index.html",
+      "pageIndex": 1,
+      "stateGroupId": null,
+      "stateRole": null,
+      "baseStatePageId": null,
+      "sharedShellContract": [],
+      "mutableRegions": [],
+      "derivedFromHtmlSrc": null,
+      "derivationType": "original",
+      "sourcePageId": null,
+      "sourceHtmlSrc": null,
+      "pageType": "information-dense",
+      "viewportMode": "document-scroll",
+      "businessScenario": "Therapist daily dashboard: no sidebar, centered content, module grid, KPI stats, slide-out AI panel",
+      "visualNorthStar": "A calm, warm dashboard that feels like glancing at a well-organized desk in a sunlit study room",
+      "compositionPattern": "dashboard-kpi-grid",
+      "continuityAnchors": ["border-first style", "sage green accent", "serif headings", "inline SVG icons"],
+      "libraryRestraintMode": false,
+      "componentPlan": [],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false,
+      "qualityRisks": ["CJK text length in module cards"],
+      "generationNodeId": "gen-page-index",
+      "generationPath": ["gen-project-shell", "gen-page-index"],
+      "inheritedFragments": ["partials/project-shell.html"],
+      "privateRegions": ["dashboard body content"],
+      "mutableSlots": ["activeNavItem"]
+    },
+    {
+      "nodeId": "page-consult-notes",
+      "slug": "consult-notes",
+      "title": "咨询记录",
+      "htmlSrc": "pages/consult-notes.html",
+      "pageIndex": 2,
+      "stateGroupId": null,
+      "stateRole": null,
+      "baseStatePageId": null,
+      "sharedShellContract": [],
+      "mutableRegions": [],
+      "derivedFromHtmlSrc": null,
+      "derivationType": "original",
+      "sourcePageId": null,
+      "sourceHtmlSrc": null,
+      "pageType": "task-driven",
+      "viewportMode": "fixed-viewport",
+      "businessScenario": "Two-column form editor: APA/SOAP/DAP structured notes on left, persistent AI chat dock on right. Client selected via dropdown.",
+      "visualNorthStar": "A focused writing environment — clean form with labeled textareas, quiet AI assistant available without competing for attention",
+      "compositionPattern": "workspace-two-column",
+      "continuityAnchors": ["border-first style", "sage green accent", "serif headings", "inline SVG icons"],
+      "libraryRestraintMode": false,
+      "componentPlan": [],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false,
+      "qualityRisks": ["three-column density management"],
+      "generationNodeId": "gen-page-consult-notes",
+      "generationPath": ["gen-project-shell", "gen-page-consult-notes"],
+      "inheritedFragments": ["partials/project-shell.html"],
+      "privateRegions": ["consult notes workspace"],
+      "mutableSlots": ["activeNavItem"]
+    }
+  ],
+  "assets": [],
+  "wiringPlan": [
+    { "sourceNodeId": "page-index", "domId": "cta-consult-notes", "targetPageId": "page-consult-notes" }
+  ],
+  "hiddenInteractionPlan": [
+    { "sourceNodeId": "page-index", "domId": "nav-consult-notes", "targetPageId": "page-consult-notes", "hideEdge": true, "reason": "sidebar nav" },
+    { "sourceNodeId": "page-consult-notes", "domId": "nav-index", "targetPageId": "page-index", "hideEdge": true, "reason": "sidebar nav back to home" }
+  ]
+}

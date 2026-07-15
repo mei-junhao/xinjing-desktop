@@ -1,0 +1,170 @@
+<!-- project-shell.html — sidebar + layout frame partial -->
+<!-- Inserted inside <body> after fill-html-head has run -->
+
+<div class="flex h-screen overflow-hidden bg-[var(--xj-cream)]">
+
+  <!-- ========== Sidebar ========== -->
+  <aside class="w-[220px] shrink-0 h-full flex flex-col bg-[var(--xj-cream-sunken)] border-r border-[var(--xj-sand)] select-none">
+
+    <!-- Brand -->
+    <div class="flex items-center gap-3 px-5 pt-6 pb-5">
+      <div class="w-[40px] h-[40px] rounded-[16px] bg-[var(--xj-sage)] flex items-center justify-center shrink-0">
+        <span class="text-white font-semibold text-[18px] leading-none" style="font-family:var(--xj-font-serif);">镜</span>
+      </div>
+      <div class="flex flex-col">
+        <span class="text-[18px] font-semibold leading-tight" style="font-family:var(--xj-font-serif);color:var(--xj-warm-ink);">心镜</span>
+        <span class="text-[9px] tracking-[0.3em] uppercase leading-tight mt-[2px]" style="font-family:var(--xj-font-sans);color:var(--xj-warm-ink-3);">XINJING</span>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex flex-col gap-[2px] px-3 flex-1">
+
+      <!-- 首页 -->
+      <a href="index.html"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="home"
+         data-dom-id="nav-consult-notes"
+         data-active="false">
+        <i data-lucide="layout-dashboard" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>首页</span>
+      </a>
+
+      <!-- 咨询记录 -->
+      <a href="consult-notes.html"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="consult-notes"
+         data-dom-id="nav-index"
+         data-active="false">
+        <i data-lucide="file-text" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>咨询记录</span>
+      </a>
+
+      <!-- 撰写报告 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="write-report"
+         data-active="false">
+        <i data-lucide="file-pen-line" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>撰写报告</span>
+      </a>
+
+      <!-- AI 督导 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="ai-supervision"
+         data-active="false">
+        <i data-lucide="brain" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>AI 督导</span>
+      </a>
+
+      <!-- 真人督导 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="human-supervision"
+         data-active="false">
+        <i data-lucide="users" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>真人督导</span>
+      </a>
+
+      <!-- 文档中心 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="document-center"
+         data-active="false">
+        <i data-lucide="folder-open" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>文档中心</span>
+      </a>
+
+      <!-- 账单 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="billing"
+         data-active="false">
+        <i data-lucide="receipt" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>账单</span>
+      </a>
+
+      <!-- 大师对话 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="master-dialogue"
+         data-active="false">
+        <i data-lucide="message-circle" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>大师对话</span>
+      </a>
+
+      <!-- 资料库 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="library"
+         data-active="false">
+        <i data-lucide="book-open" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>资料库</span>
+      </a>
+
+      <!-- 设置 -->
+      <a href="#"
+         class="xj-nav-item flex items-center gap-[10px] rounded-[12px] px-3 py-[10px] text-[13.5px] leading-none transition-colors duration-200"
+         style="color:var(--xj-warm-ink-2);"
+         data-nav-key="settings"
+         data-active="false">
+        <i data-lucide="settings" class="w-[18px] h-[18px] shrink-0" style="color:var(--xj-warm-ink-3);"></i>
+        <span>设置</span>
+      </a>
+
+    </nav>
+
+    <!-- Bottom: theme toggle + version -->
+    <div class="flex flex-col px-5 pb-5 pt-2 gap-3">
+
+      <!-- Theme toggle row -->
+      <button class="flex items-center gap-[8px] text-[12px] leading-none transition-colors duration-200 hover:opacity-80 self-start" style="color:var(--xj-warm-ink-3);">
+        <i data-lucide="sun" class="w-[14px] h-[14px]"></i>
+        <span>外观</span>
+      </button>
+
+      <!-- Version -->
+      <span class="text-[11px] leading-none" style="color:var(--xj-warm-ink-3);">v3.4</span>
+
+    </div>
+
+  </aside>
+
+  <!-- ========== Main Content (private region) ========== -->
+  <main class="flex-1 min-h-screen overflow-auto bg-[var(--xj-background)]">
+    <!-- Page-specific content goes here -->
+  </main>
+
+</div>
+
+<!-- ========== Sidebar Active State Styles ========== -->
+<style>
+  /* Default idle state for nav items */
+  .xj-nav-item:hover {
+    background: var(--xj-cream-sunken);
+    color: var(--xj-warm-ink);
+  }
+  .xj-nav-item:hover i {
+    color: var(--xj-warm-ink);
+  }
+
+  /* Active state applied when data-active="true" */
+  .xj-nav-item[data-active="true"] {
+    background: var(--xj-sage-soft);
+    color: var(--xj-sage);
+    font-weight: 500;
+  }
+  .xj-nav-item[data-active="true"] i {
+    color: var(--xj-sage);
+  }
+</style>

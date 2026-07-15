@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心镜 · 咨询记录</title>
+    <style id="theme-vars">
+/* ============================================================
+   心镜 XinJing · 治愈书房 Brand CSS
+   Tone: warm/human, organic/soft, safe & professional
+   Palette: cream white base, warm neutral text, sage green accent
+   ============================================================ */
+
+:root {
+  /* --- Seed Colors --- */
+  --xj-cream: #FAF7F2;
+  --xj-cream-elevated: #FFFFFF;
+  --xj-cream-sunken: #F3EFE8;
+  --xj-sand: #E8E2D8;
+  --xj-sand-strong: #D6CFC3;
+  --xj-warm-ink: #2D2A26;
+  --xj-warm-ink-2: #6B6560;
+  --xj-warm-ink-3: #9E9890;
+  --xj-sage: #7A9E7E;
+  --xj-sage-hover: #6A8D6E;
+  --xj-sage-soft: #EEF4EF;
+  --xj-sage-line: #C4D8C6;
+  --xj-terracotta: #C08B6A;
+  --xj-terracotta-soft: #F7EDE5;
+  --xj-success: #7A9E7E;
+  --xj-success-soft: #EEF4EF;
+  --xj-warning: #C9A45C;
+  --xj-warning-soft: #FBF5E8;
+  --xj-danger: #BF7B7B;
+  --xj-danger-soft: #F8ECEC;
+  --xj-info: #7A9EAA;
+  --xj-info-soft: #EBF2F4;
+
+  /* --- Semantic Token Aliases --- */
+  --xj-background: var(--xj-cream);
+  --xj-foreground: var(--xj-warm-ink);
+  --xj-card: var(--xj-cream-elevated);
+  --xj-card-foreground: var(--xj-warm-ink);
+  --xj-popover: var(--xj-cream-elevated);
+  --xj-popover-foreground: var(--xj-warm-ink);
+  --xj-primary: var(--xj-sage);
+  --xj-primary-foreground: #FFFFFF;
+  --xj-muted: var(--xj-warm-ink-3);
+  --xj-muted-foreground: var(--xj-warm-ink-2);
+  --xj-border: var(--xj-sand);
+  --xj-input: var(--xj-sand);
+  --xj-ring: var(--xj-sage);
+  --xj-radius-sm: 6px;
+  --xj-radius-md: 12px;
+  --xj-radius-lg: 16px;
+  --xj-radius-xl: 20px;
+
+  /* --- Typography --- */
+  --xj-font-sans: "Inter", "Noto Sans SC", "PingFang SC", system-ui, -apple-system, sans-serif;
+  --xj-font-serif: "Noto Serif SC", "Songti SC", Georgia, serif;
+  --xj-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* --- Shadows (warm-tinted, low alpha) --- */
+  --xj-shadow-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
+  --xj-shadow: 0 2px 8px rgba(45, 42, 38, 0.05);
+  --xj-shadow-md: 0 4px 16px rgba(45, 42, 38, 0.06);
+  --xj-shadow-lg: 0 12px 36px rgba(45, 42, 38, 0.10);
+
+  /* --- Transitions --- */
+  --xj-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --xj-transition: 0.2s var(--xj-ease);
+}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--xj-background);
+    --color-foreground: var(--xj-foreground);
+    --color-card: var(--xj-card);
+    --color-card-foreground: var(--xj-card-foreground);
+    --color-popover: var(--xj-popover);
+    --color-popover-foreground: var(--xj-popover-foreground);
+    --color-primary: var(--xj-primary);
+    --color-primary-foreground: var(--xj-primary-foreground);
+    --color-muted: var(--xj-muted);
+    --color-muted-foreground: var(--xj-muted-foreground);
+    --color-border: var(--xj-border);
+    --color-input: var(--xj-input);
+    --color-ring: var(--xj-ring);
+    --radius-sm: var(--xj-radius-sm);
+    --radius-md: var(--xj-radius-md);
+    --radius-lg: var(--xj-radius-lg);
+    --radius-xl: var(--xj-radius-xl);
+  }
+  @layer base {
+    body { background: var(--xj-background); color: var(--xj-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--xj-background); }
+      .text-background { color: var(--xj-background); }
+      .border-background { border-color: var(--xj-background); }
+      .ring-background { --tw-ring-color: var(--xj-background); }
+      .bg-foreground { background-color: var(--xj-foreground); }
+      .text-foreground { color: var(--xj-foreground); }
+      .border-foreground { border-color: var(--xj-foreground); }
+      .ring-foreground { --tw-ring-color: var(--xj-foreground); }
+      .bg-card { background-color: var(--xj-card); }
+      .text-card { color: var(--xj-card); }
+      .border-card { border-color: var(--xj-card); }
+      .ring-card { --tw-ring-color: var(--xj-card); }
+      .bg-card-foreground { background-color: var(--xj-card-foreground); }
+      .text-card-foreground { color: var(--xj-card-foreground); }
+      .border-card-foreground { border-color: var(--xj-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--xj-card-foreground); }
+      .bg-popover { background-color: var(--xj-popover); }
+      .text-popover { color: var(--xj-popover); }
+      .border-popover { border-color: var(--xj-popover); }
+      .ring-popover { --tw-ring-color: var(--xj-popover); }
+      .bg-popover-foreground { background-color: var(--xj-popover-foreground); }
+      .text-popover-foreground { color: var(--xj-popover-foreground); }
+      .border-popover-foreground { border-color: var(--xj-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--xj-popover-foreground); }
+      .bg-primary { background-color: var(--xj-primary); }
+      .text-primary { color: var(--xj-primary); }
+      .border-primary { border-color: var(--xj-primary); }
+      .ring-primary { --tw-ring-color: var(--xj-primary); }
+      .bg-primary-foreground { background-color: var(--xj-primary-foreground); }
+      .text-primary-foreground { color: var(--xj-primary-foreground); }
+      .border-primary-foreground { border-color: var(--xj-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--xj-primary-foreground); }
+      .bg-muted { background-color: var(--xj-muted); }
+      .text-muted { color: var(--xj-muted); }
+      .border-muted { border-color: var(--xj-muted); }
+      .ring-muted { --tw-ring-color: var(--xj-muted); }
+      .bg-muted-foreground { background-color: var(--xj-muted-foreground); }
+      .text-muted-foreground { color: var(--xj-muted-foreground); }
+      .border-muted-foreground { border-color: var(--xj-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--xj-muted-foreground); }
+      .bg-border { background-color: var(--xj-border); }
+      .text-border { color: var(--xj-border); }
+      .border-border { border-color: var(--xj-border); }
+      .ring-border { --tw-ring-color: var(--xj-border); }
+      .bg-input { background-color: var(--xj-input); }
+      .text-input { color: var(--xj-input); }
+      .border-input { border-color: var(--xj-input); }
+      .ring-input { --tw-ring-color: var(--xj-input); }
+      .bg-ring { background-color: var(--xj-ring); }
+      .text-ring { color: var(--xj-ring); }
+      .border-ring { border-color: var(--xj-ring); }
+      .ring-ring { --tw-ring-color: var(--xj-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <style>
+      /* ===== Notes Page Layout ===== */
+      .layout { display: flex; height: 100vh; overflow: hidden; }
+      .layout .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+      .notes-page { display: flex; height: 100vh; overflow: hidden; flex-direction: column; }
+
+      /* ===== Top Bar ===== */
+      .ntop { display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--xj-cream-elevated); border-bottom: 1px solid var(--xj-sand); flex-shrink: 0; }
+      .ntop .back { color: var(--xj-warm-ink-2); font-size: 13px; cursor: pointer; border: none; background: none; padding: 6px 10px; border-radius: 6px; font-family: var(--xj-font-sans); display: flex; align-items: center; gap: 4px; transition: all .15s; }
+      .ntop .back:hover { color: var(--xj-sage); background: var(--xj-sage-soft); }
+      .ntop h2 { font-family: var(--xj-font-serif); font-size: 18px; margin: 0; color: var(--xj-warm-ink); }
+      .ntop .spacer { flex: 1; }
+      .ntop .client-select { border: 1px solid var(--xj-sand); border-radius: 8px; padding: 6px 10px; font: 13px var(--xj-font-sans); background: var(--xj-cream-elevated); color: var(--xj-warm-ink); outline: none; }
+      .ntop .client-select:focus { border-color: var(--xj-sage); }
+
+      /* ===== Prompt Strip ===== */
+      .prompt-strip { display: flex; gap: 8px; padding: 10px 24px; background: var(--xj-cream-sunken); border-bottom: 1px solid var(--xj-sand); flex-wrap: wrap; flex-shrink: 0; align-items: center; }
+      .prompt-strip .chip { border: 1px solid var(--xj-sand); border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--xj-warm-ink-2); background: var(--xj-cream-elevated); font-family: var(--xj-font-sans); transition: .15s; }
+      .prompt-strip .chip:hover { border-color: var(--xj-sage); color: var(--xj-sage); }
+      .prompt-strip .chip.active { background: var(--xj-sage); color: var(--xj-primary-foreground); border-color: var(--xj-sage); }
+      .prompt-strip .strip-hint { margin-left: auto; font-size: 11px; color: var(--xj-warm-ink-3); }
+
+      /* ===== Two-Column Split ===== */
+      .split { display: flex; flex: 1; min-height: 0; }
+
+      /* ===== Left: Form Editor ===== */
+      .left { flex: 1; overflow-y: auto; padding: 24px; min-width: 0; }
+      .left .guide { font-size: 12px; color: var(--xj-warm-ink-2); margin-bottom: 14px; line-height: 1.6; padding: 10px 14px; background: var(--xj-cream-sunken); border-radius: 10px; border-left: 3px solid var(--xj-sage); }
+      .left .field { margin-bottom: 16px; }
+      .left .field label { display: block; font-size: 12px; color: var(--xj-sage); font-weight: 600; margin-bottom: 6px; font-family: var(--xj-font-sans); }
+      .left .field textarea { width: 100%; border: 1px solid var(--xj-sand); border-radius: 10px; padding: 12px 14px; font: 14px/1.8 var(--xj-font-sans); color: var(--xj-warm-ink); resize: vertical; min-height: 80px; outline: none; background: var(--xj-cream-elevated); }
+      .left .field textarea:focus { border-color: var(--xj-sage); }
+      .left .field textarea.tall { min-height: 140px; }
+
+      /* ===== Right: AI Dock ===== */
+      .right { width: 360px; flex-shrink: 0; background: var(--xj-cream-elevated); border-left: 1px solid var(--xj-sand); display: flex; flex-direction: column; }
+      .rdock-head { padding: 14px 16px; border-bottom: 1px solid var(--xj-sand); font-family: var(--xj-font-serif); font-size: 14px; font-weight: 600; color: var(--xj-sage); }
+      .rdock-chat { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+      .rmsg { font-size: 13px; line-height: 1.7; padding: 10px 14px; border-radius: 12px; max-width: 88%; font-family: var(--xj-font-sans); }
+      .rmsg.ai { background: var(--xj-sage-soft); color: var(--xj-warm-ink); align-self: flex-start; border-bottom-left-radius: 4px; }
+      .rmsg.me { background: var(--xj-sage); color: var(--xj-primary-foreground); align-self: flex-end; border-bottom-right-radius: 4px; }
+      .rdock-input { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--xj-sand); }
+      .rdock-input input { flex: 1; border: 1px solid var(--xj-sand); border-radius: 9px; padding: 9px 12px; font: 13px var(--xj-font-sans); outline: none; background: var(--xj-cream); color: var(--xj-warm-ink); }
+      .rdock-input input:focus { border-color: var(--xj-sage); }
+      .rdock-input button { background: var(--xj-sage); color: var(--xj-primary-foreground); border: none; border-radius: 9px; padding: 9px 16px; font: 600 13px var(--xj-font-sans); cursor: pointer; }
+      .rdock-input button:hover { background: var(--xj-sage-hover); }
+
+      /* ===== Footer Actions ===== */
+      .foot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+      .foot-actions .btn-save { border: 1px solid var(--xj-sand); background: var(--xj-cream-elevated); border-radius: 7px; padding: 6px 14px; font-size: 12px; cursor: pointer; color: var(--xj-warm-ink-2); font-family: var(--xj-font-sans); transition: all .15s; }
+      .foot-actions .btn-save:hover { border-color: var(--xj-sage); color: var(--xj-sage); }
+      .foot-actions .btn-primary { background: var(--xj-sage); color: var(--xj-primary-foreground); border: none; border-radius: 9px; padding: 10px 24px; font: 600 14px var(--xj-font-sans); cursor: pointer; }
+      .foot-actions .btn-primary:hover { background: var(--xj-sage-hover); }
+    </style>
+</head>
+<body>
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="notes-page">
+
+  <!-- ===== TOP BAR ===== -->
+  <div class="ntop">
+    <button class="back" data-dom-id="nav-index">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M15 5l-7 7 7 7"/></svg>
+      返回
+    </button>
+    <h2>咨询记录</h2>
+    <span class="spacer"></span>
+    <select class="client-select">
+      <option>选择来访者...</option>
+      <option selected>林小雨</option>
+      <option>陈明远</option>
+      <option>张语桐</option>
+    </select>
+  </div>
+
+  <!-- ===== PROMPT STRIP (mode switching) ===== -->
+  <div class="prompt-strip">
+    <span class="chip active" data-mode="apa">APA 引导</span>
+    <span class="chip" data-mode="soap">SOAP</span>
+    <span class="chip" data-mode="dap">DAP</span>
+    <span class="chip" data-mode="free">自由笔记</span>
+    <span class="strip-hint">小镜问答</span>
+  </div>
+
+  <!-- ===== TWO-COLUMN SPLIT ===== -->
+  <div class="split">
+    <!-- LEFT: Form Editor -->
+    <div class="left" id="left-pane">
+
+      <!-- APA Mode (visible by default) -->
+      <div id="pane-apa">
+        <div class="guide"><b>APA 结构化提示</b> — 以下 5 个维度帮助快速梳理本次咨询。右侧小镜可逐条展开。</div>
+        <div class="field"><label>1. 主诉与咨询目标</label><textarea placeholder="来访者本次提出的主要问题或咨询目标..."></textarea></div>
+        <div class="field"><label>2. 行为观察与非言语信息</label><textarea placeholder="咨询中观察到的身体语言、情绪状态、互动模式..."></textarea></div>
+        <div class="field"><label>3. 情绪状态与情感反应</label><textarea placeholder="来访者的主要情绪、咨询师的反移情体验..."></textarea></div>
+        <div class="field"><label>4. 关键对话片段</label><textarea class="tall" placeholder="一段代表性对话，尽量还原原话..."></textarea></div>
+        <div class="field"><label>5. 下次咨询方向</label><textarea placeholder="下一阶段的探索方向..."></textarea></div>
+      </div>
+
+      <!-- SOAP Mode (hidden) -->
+      <div id="pane-soap" style="display:none">
+        <div class="guide"><b>SOAP 个案记录</b> — 主观/客观/评估/计划四维结构化记录。</div>
+        <div class="field"><label>S — 主观资料 (Subjective)</label><textarea placeholder="来访者的自述、主诉、主观体验..."></textarea></div>
+        <div class="field"><label>O — 客观资料 (Objective)</label><textarea placeholder="可观察的行为、情绪、非言语信息..."></textarea></div>
+        <div class="field"><label>A — 评估 (Assessment)</label><textarea placeholder="临床评估、动力学理解、诊断印象..."></textarea></div>
+        <div class="field"><label>P — 计划 (Plan)</label><textarea placeholder="后续咨询方向、家庭作业、转介建议..."></textarea></div>
+      </div>
+
+      <!-- DAP Mode (hidden) -->
+      <div id="pane-dap" style="display:none">
+        <div class="guide"><b>DAP 临床记录</b> — 资料/评估/计划三维结构化记录。</div>
+        <div class="field"><label>D — 资料 (Data)</label><textarea placeholder="会谈中呈现的事实与素材..."></textarea></div>
+        <div class="field"><label>A — 评估 (Assessment)</label><textarea placeholder="对资料的理解与评估..."></textarea></div>
+        <div class="field"><label>P — 计划 (Plan)</label><textarea placeholder="后续计划..."></textarea></div>
+      </div>
+
+      <!-- Free Notes Mode (hidden) -->
+      <div id="pane-free" style="display:none">
+        <div class="guide"><b>自由笔记</b> — 无结构约束，自由书写。</div>
+        <div class="field"><textarea class="tall" style="min-height:340px" placeholder="自由书写本次咨询的任何想法、观察、反思..."></textarea></div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="foot-actions">
+        <button class="btn-save">保存到数据库</button>
+        <button class="btn-primary" style="margin-left:auto">完成并跳转撰写报告</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: AI Dock (360px persistent) -->
+    <div class="right">
+      <div class="rdock-head">小镜</div>
+      <div class="rdock-chat" id="rdock-chat">
+        <div class="rmsg ai">选择来访者和会话后，我将帮你梳理 APA 各维度。你也可以选中左栏任一文字后点发送来提问。</div>
+      </div>
+      <div class="rdock-input">
+        <input placeholder="问小镜...">
+        <button>发送</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main></div>
+</body>
+</html>

@@ -79,7 +79,7 @@ const App = (() => {
 
   // 皮肤管理（正交于 .dark 明暗切换）：skin=配色族，dark=明暗
   const Theme = {
-    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'calm'; } catch (e) { return 'calm'; } },
+    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'xinjing'; } catch (e) { return 'calm'; } },
     setSkin: function (name) {
       try { localStorage.setItem('xj_skin', name); } catch (e) {}
       document.documentElement.setAttribute('data-skin', name);
@@ -159,6 +159,7 @@ const App = (() => {
     const mark = document.querySelector('.brand .mark');
     if (!mark) return;
     const tier = licenseStateCache.tier || 'free';
+    document.documentElement.setAttribute('data-tier', tier);
     mark.classList.remove('tier-pro', 'tier-custom', 'tier-full');
     if (tier === 'pro' || tier === 'full') mark.classList.add('tier-pro');
     else if (tier === 'custom') mark.classList.add('tier-custom');
@@ -167,6 +168,7 @@ const App = (() => {
   const NAV_ITEMS = [
     { key: 'dashboard', label: '首页', icon: 'home', href: 'index.html' },
     { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consult-notes.html' },
+    { key: 'session-calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html' },
     { key: 'supervision', label: '督导', icon: 'cap', href: 'supervision.html' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html' },
@@ -314,6 +316,85 @@ const App = (() => {
     }
   }
 
+  // ---------- 小镜页面上下文 ----------
+  var PAGE_CAPABILITIES = {
+    'index.html': ['查今日安排', '查欠费明细', '查本月收入', '查看待办', '跳转到各页面'],
+    'consult-notes.html': ['记录咨询笔记', '切换笔记模板', '小镜帮你润色', '查询来访者资料'],
+    'session-calendar.html': ['查看本月会谈', '按来访者筛选', '点击日跳转会话'],
+    'supervision.html': ['生成整体印象', '深化分析', '技术建议', '移情分析', '邀请大师视角'],
+    'real-supervision.html': ['整理真人督导记录', 'AI 分析逐字稿'],
+    'billing-shell.html': ['查看收入统计', '月结', '预付费管理', '导出账单', '查欠费'],
+    'masters.html': ['与大师 1v1 对话', '圆桌多大师讨论', '调节温度/详细度'],
+    'knowledge.html': ['搜索资料库', '与资料对话', '管理知识文件'],
+    'transcript.html': ['整理逐字稿', 'AI 检测识别错误'],
+    'report-writing.html': ['撰写案例报告', 'AI 填充报告步骤', '分析模板结构'],
+    'doc-center.html': ['查看来访者档案', '生成成长轨迹', '管理文档'],
+    'settings.html': ['配置 AI 密钥', '切换主题', '管理数据备份'],
+  };
+
+  function _defaultPageCtx(title, path) {
+    var fn = (path || '').split('/').pop() || '';
+    var caps = PAGE_CAPABILITIES[fn] || [];
+    return {
+      title: title || fn.replace('.html', ''),
+      path: fn,
+      capabilities: caps
+    };
+  }
+
+  function _fireEntryNotification(title, path) {
+    if (typeof window === 'undefined') return;
+    if (!window.__XJ_NOTIFY_FIRED__) window.__XJ_NOTIFY_FIRED__ = {};
+    var fn = (path || '').split('/').pop() || '';
+    if (window.__XJ_NOTIFY_FIRED__[fn]) return;
+    window.__XJ_NOTIFY_FIRED__[fn] = true;
+    try {
+      if (typeof Store === 'undefined') return;
+      var sessions = Store.getSessions();
+      var clients = Store.getClients();
+      var owing = clients.filter(function (c) {
+        return Store.getSessionsByClient(c.id).some(function (s) {
+          return s.billing && s.billing.fee > 0 && !s.billing.paid;
+        });
+      });
+      var body = '';
+      if (owing.length > 0) {
+        body = owing.length + ' 位来访者有欠费待收';
+      } else {
+        var pendingReports = sessions.filter(function (s) { return s.hasTranscript && !s.hasSoap && !s.hasDap; }).length;
+        if (pendingReports > 0) body = pendingReports + ' 份逐字稿待整理';
+      }
+      if (body && window.__XJ_API__ && typeof window.__XJ_API__.notify === 'function') {
+        window.__XJ_API__.notify('小镜提醒', body);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function _initXiaojingWhenReady(opts) {
+    var tries = 0;
+    function tryInit() {
+      if (typeof XiaojingPanel !== 'undefined' && XiaojingPanel.build && typeof PageHints !== 'undefined') {
+        try {
+          XiaojingPanel.build();
+          var ctx = opts.xjContext || _defaultPageCtx(opts.title, location.pathname);
+          if (ctx) {
+            window.__XJ_PAGE__ = ctx;
+            XiaojingPanel.updateSub(ctx.title || '工作台助手');
+          }
+          if (typeof PageHints !== 'undefined' && PageHints.getHints) {
+            var h = PageHints.getHints(location.pathname);
+            if (h && h.length) XiaojingPanel.showNewHint();
+          }
+          _fireEntryNotification(opts.title, location.pathname);
+        } catch (e) { console.warn('[xiaojing] init fail', e); }
+      } else if (tries < 50) {
+        tries++;
+        setTimeout(tryInit, 50);
+      }
+    }
+    tryInit();
+  }
+
   // ---------- 页面初始化门控 ----------
   // 统一流程：渲染布局 -> 等待数据从 IndexedDB 载入内存 -> 执行页面逻辑
   // 各页面 JS 通过 App.initPage({ title, subtitle, actions, onReady }) 接入
@@ -337,6 +418,11 @@ const App = (() => {
       }
     }
     if (typeof opts.onReady === 'function') opts.onReady();
+
+    // 小镜面板：页面就绪后自动构建 + 注册页面上下文 + 提示
+    if (opts.noXiaojing !== true) {
+      _initXiaojingWhenReady(opts);
+    }
 
     // 订阅主进程激活广播，后续状态变化自动刷新缓存并通知各页
     if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
@@ -510,6 +596,78 @@ const App = (() => {
     URL.revokeObjectURL(url);
   }
 
+  function enableDragDrop(textareaOrSelector, opts) {
+    var el = typeof textareaOrSelector === 'string' ? document.querySelector(textareaOrSelector) : textareaOrSelector;
+    if (!el) return;
+    opts = opts || {};
+    var acceptExts = opts.accept || ['.txt', '.md', '.docx'];
+    var onFile = opts.onFile || null;
+
+    function isAccepted(file) {
+      var name = file.name.toLowerCase();
+      return acceptExts.some(function (ext) { return name.endsWith(ext); });
+    }
+
+    el.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer && e.dataTransfer.items) {
+        var hasFile = Array.from(e.dataTransfer.items).some(function (it) { return it.kind === 'file'; });
+        if (hasFile) el.classList.add('xj-dragover');
+      } else {
+        el.classList.add('xj-dragover');
+      }
+    });
+
+    el.addEventListener('dragleave', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove('xj-dragover');
+    });
+
+    el.addEventListener('drop', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      el.classList.remove('xj-dragover');
+      var files = e.dataTransfer && e.dataTransfer.files;
+      if (!files || !files.length) return;
+      var file = files[0];
+      if (!isAccepted(file)) {
+        App.showToast('不支持的文件格式，仅支持 ' + acceptExts.join(' / '), 'warning');
+        return;
+      }
+      readFileAsText(file, function (text, err) {
+        if (err) { App.showToast('文件读取失败：' + err, 'error'); return; }
+        if (onFile) { onFile(text, file); return; }
+        if (el.tagName === 'TEXTAREA') {
+          el.value = text;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          App.showToast('已加载 ' + file.name, 'success');
+        }
+      });
+    });
+  }
+
+  function readFileAsText(file, cb) {
+    var name = file.name.toLowerCase();
+    var reader = new FileReader();
+    if (name.endsWith('.docx')) {
+      if (typeof mammoth !== 'undefined') {
+        reader.onload = function (ev) {
+          mammoth.extractRawText({ arrayBuffer: ev.target.result }).then(function (r) {
+            cb(r.value, null);
+          }).catch(function () { cb(null, 'docx 解析失败'); });
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        cb(null, 'docx 解析库未加载');
+      }
+    } else {
+      reader.onload = function (ev) { cb(ev.target.result, null); };
+      reader.readAsText(file, 'UTF-8');
+    }
+  }
+
   // ---------- 全局常驻：Ctrl+K 命令面板 ----------
   // Agent 呼吸球 (#6) 由 agent-shell.js 统一渲染（可拖动 + 全屏/小屏切换），app.js 不再注入 FAB
   const CMD_COMMANDS = [
@@ -588,6 +746,9 @@ const App = (() => {
     window.__xjCloseCmd = close;
   }
 
+    // 启动时自动应用已保存的皮肤
+  document.documentElement.setAttribute('data-skin', Theme.getSkin());
+
   function setupGlobalChrome() {
     ensureCmdPalette();
     if (window.__xjCmdKeyBound) return;
@@ -625,6 +786,8 @@ const App = (() => {
     bindModalClose,
     confirmDialog,
     downloadFile,
+    enableDragDrop,
+    readFileAsText,
     aiUnlocked,
     onLicenseStateChange,
     getLicenseState,

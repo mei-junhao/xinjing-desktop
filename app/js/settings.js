@@ -376,6 +376,70 @@ App.initPage({
       if (el) el.textContent = (r && r.folder) ? r.folder : '未设置';
     } catch (e) { /* ignore */ }
     renderUserDocStats(false);
+    loadRagIndexStatus();
+  };
+  async function loadRagIndexStatus() {
+    const st = document.getElementById('rag-index-status');
+    if (!st) return;
+    if (!window.__XJ_API__ || !window.__XJ_API__.ragIndexStatus) { st.textContent = '不可用'; return; }
+    try {
+      const r = await window.__XJ_API__.ragIndexStatus();
+      if (!r || !r.ok) { st.textContent = '未构建'; return; }
+      if (!r.fileCount) { st.textContent = '未构建'; return; }
+      const time = r.lastIndexed ? new Date(r.lastIndexed).toLocaleString('zh-CN') : '-';
+      st.textContent = r.fileCount + ' 份文件 · ' + r.chunkCount + ' 个文本块 · ' + time;
+    } catch (e) { st.textContent = '未构建'; }
+  }
+  window.buildRagIndex = async function () {
+    if (!window.__XJ_API__ || !window.__XJ_API__.ragIndex) {
+      App.showToast('索引功能不可用', 'error'); return;
+    }
+    const btn = document.getElementById('rag-index-btn');
+    const cancelBtn = document.getElementById('rag-cancel-btn');
+    const progRow = document.getElementById('rag-progress-row');
+    const progBar = document.getElementById('rag-progress-bar');
+    const progText = document.getElementById('rag-index-progress-text');
+    if (btn) btn.style.display = 'none';
+    if (cancelBtn) cancelBtn.style.display = '';
+    if (progRow) progRow.style.display = '';
+    if (progText) { progText.style.display = ''; progText.textContent = '准备中…'; }
+    let progressOff = null;
+    try {
+      if (window.__XJ_API__.onRagProgress) {
+        progressOff = window.__XJ_API__.onRagProgress(function (p) {
+          if (progBar && p.total) {
+            const pct = Math.min(100, Math.round((p.current / p.total) * 100));
+            progBar.style.width = pct + '%';
+          }
+          if (progText && p.fileName) {
+            progText.textContent = (p.stage || '索引中') + '：' + p.fileName;
+          }
+        });
+      }
+      const r = await window.__XJ_API__.ragIndex();
+      if (r && r.ok) {
+        App.showToast('索引构建完成', 'success');
+      } else if (r && r.canceled) {
+        App.showToast('已取消', 'info');
+      } else {
+        App.showToast('索引失败：' + ((r && r.error) || 'unknown'), 'error');
+      }
+    } catch (e) {
+      App.showToast('索引失败：' + e.message, 'error');
+    } finally {
+      if (progressOff && typeof progressOff === 'function') { try { progressOff(); } catch (e) {} }
+      if (btn) btn.style.display = '';
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      if (progRow) progRow.style.display = 'none';
+      if (progText) progText.style.display = 'none';
+      if (progBar) progBar.style.width = '0%';
+      loadRagIndexStatus();
+    }
+  };
+  window.cancelRagIndex = function () {
+    if (window.__XJ_API__ && window.__XJ_API__.ragCancel) {
+      window.__XJ_API__.ragCancel();
+    }
   };
   window.saveBackupSettings = async function () {
     const cfg = getBackupConfig();

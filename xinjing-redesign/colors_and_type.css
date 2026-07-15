@@ -1,0 +1,65 @@
+/* ============================================================
+   心镜 XinJing · 治愈书房 Brand CSS
+   Tone: warm/human, organic/soft, safe & professional
+   Palette: cream white base, warm neutral text, sage green accent
+   ============================================================ */
+
+:root {
+  /* --- Seed Colors --- */
+  --xj-cream: #FAF7F2;
+  --xj-cream-elevated: #FFFFFF;
+  --xj-cream-sunken: #F3EFE8;
+  --xj-sand: #E8E2D8;
+  --xj-sand-strong: #D6CFC3;
+  --xj-warm-ink: #2D2A26;
+  --xj-warm-ink-2: #6B6560;
+  --xj-warm-ink-3: #9E9890;
+  --xj-sage: #7A9E7E;
+  --xj-sage-hover: #6A8D6E;
+  --xj-sage-soft: #EEF4EF;
+  --xj-sage-line: #C4D8C6;
+  --xj-terracotta: #C08B6A;
+  --xj-terracotta-soft: #F7EDE5;
+  --xj-success: #7A9E7E;
+  --xj-success-soft: #EEF4EF;
+  --xj-warning: #C9A45C;
+  --xj-warning-soft: #FBF5E8;
+  --xj-danger: #BF7B7B;
+  --xj-danger-soft: #F8ECEC;
+  --xj-info: #7A9EAA;
+  --xj-info-soft: #EBF2F4;
+
+  /* --- Semantic Token Aliases --- */
+  --xj-background: var(--xj-cream);
+  --xj-foreground: var(--xj-warm-ink);
+  --xj-card: var(--xj-cream-elevated);
+  --xj-card-foreground: var(--xj-warm-ink);
+  --xj-popover: var(--xj-cream-elevated);
+  --xj-popover-foreground: var(--xj-warm-ink);
+  --xj-primary: var(--xj-sage);
+  --xj-primary-foreground: #FFFFFF;
+  --xj-muted: var(--xj-warm-ink-3);
+  --xj-muted-foreground: var(--xj-warm-ink-2);
+  --xj-border: var(--xj-sand);
+  --xj-input: var(--xj-sand);
+  --xj-ring: var(--xj-sage);
+  --xj-radius-sm: 6px;
+  --xj-radius-md: 12px;
+  --xj-radius-lg: 16px;
+  --xj-radius-xl: 20px;
+
+  /* --- Typography --- */
+  --xj-font-sans: "Inter", "Noto Sans SC", "PingFang SC", system-ui, -apple-system, sans-serif;
+  --xj-font-serif: "Noto Serif SC", "Songti SC", Georgia, serif;
+  --xj-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* --- Shadows (warm-tinted, low alpha) --- */
+  --xj-shadow-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
+  --xj-shadow: 0 2px 8px rgba(45, 42, 38, 0.05);
+  --xj-shadow-md: 0 4px 16px rgba(45, 42, 38, 0.06);
+  --xj-shadow-lg: 0 12px 36px rgba(45, 42, 38, 0.10);
+
+  /* --- Transitions --- */
+  --xj-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --xj-transition: 0.2s var(--xj-ease);
+}

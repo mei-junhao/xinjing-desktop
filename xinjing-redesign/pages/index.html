@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心镜 · 首页</title>
+    <style id="theme-vars">
+/* ============================================================
+   心镜 XinJing · 治愈书房 Brand CSS
+   Tone: warm/human, organic/soft, safe & professional
+   Palette: cream white base, warm neutral text, sage green accent
+   ============================================================ */
+
+:root {
+  /* --- Seed Colors --- */
+  --xj-cream: #FAF7F2;
+  --xj-cream-elevated: #FFFFFF;
+  --xj-cream-sunken: #F3EFE8;
+  --xj-sand: #E8E2D8;
+  --xj-sand-strong: #D6CFC3;
+  --xj-warm-ink: #2D2A26;
+  --xj-warm-ink-2: #6B6560;
+  --xj-warm-ink-3: #9E9890;
+  --xj-sage: #7A9E7E;
+  --xj-sage-hover: #6A8D6E;
+  --xj-sage-soft: #EEF4EF;
+  --xj-sage-line: #C4D8C6;
+  --xj-terracotta: #C08B6A;
+  --xj-terracotta-soft: #F7EDE5;
+  --xj-success: #7A9E7E;
+  --xj-success-soft: #EEF4EF;
+  --xj-warning: #C9A45C;
+  --xj-warning-soft: #FBF5E8;
+  --xj-danger: #BF7B7B;
+  --xj-danger-soft: #F8ECEC;
+  --xj-info: #7A9EAA;
+  --xj-info-soft: #EBF2F4;
+
+  /* --- Semantic Token Aliases --- */
+  --xj-background: var(--xj-cream);
+  --xj-foreground: var(--xj-warm-ink);
+  --xj-card: var(--xj-cream-elevated);
+  --xj-card-foreground: var(--xj-warm-ink);
+  --xj-popover: var(--xj-cream-elevated);
+  --xj-popover-foreground: var(--xj-warm-ink);
+  --xj-primary: var(--xj-sage);
+  --xj-primary-foreground: #FFFFFF;
+  --xj-muted: var(--xj-warm-ink-3);
+  --xj-muted-foreground: var(--xj-warm-ink-2);
+  --xj-border: var(--xj-sand);
+  --xj-input: var(--xj-sand);
+  --xj-ring: var(--xj-sage);
+  --xj-radius-sm: 6px;
+  --xj-radius-md: 12px;
+  --xj-radius-lg: 16px;
+  --xj-radius-xl: 20px;
+
+  /* --- Typography --- */
+  --xj-font-sans: "Inter", "Noto Sans SC", "PingFang SC", system-ui, -apple-system, sans-serif;
+  --xj-font-serif: "Noto Serif SC", "Songti SC", Georgia, serif;
+  --xj-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* --- Shadows (warm-tinted, low alpha) --- */
+  --xj-shadow-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
+  --xj-shadow: 0 2px 8px rgba(45, 42, 38, 0.05);
+  --xj-shadow-md: 0 4px 16px rgba(45, 42, 38, 0.06);
+  --xj-shadow-lg: 0 12px 36px rgba(45, 42, 38, 0.10);
+
+  /* --- Transitions --- */
+  --xj-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --xj-transition: 0.2s var(--xj-ease);
+}
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--xj-background);
+    --color-foreground: var(--xj-foreground);
+    --color-card: var(--xj-card);
+    --color-card-foreground: var(--xj-card-foreground);
+    --color-popover: var(--xj-popover);
+    --color-popover-foreground: var(--xj-popover-foreground);
+    --color-primary: var(--xj-primary);
+    --color-primary-foreground: var(--xj-primary-foreground);
+    --color-muted: var(--xj-muted);
+    --color-muted-foreground: var(--xj-muted-foreground);
+    --color-border: var(--xj-border);
+    --color-input: var(--xj-input);
+    --color-ring: var(--xj-ring);
+    --radius-sm: var(--xj-radius-sm);
+    --radius-md: var(--xj-radius-md);
+    --radius-lg: var(--xj-radius-lg);
+    --radius-xl: var(--xj-radius-xl);
+  }
+  @layer base {
+    body { background: var(--xj-background); color: var(--xj-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--xj-background); }
+      .text-background { color: var(--xj-background); }
+      .border-background { border-color: var(--xj-background); }
+      .ring-background { --tw-ring-color: var(--xj-background); }
+      .bg-foreground { background-color: var(--xj-foreground); }
+      .text-foreground { color: var(--xj-foreground); }
+      .border-foreground { border-color: var(--xj-foreground); }
+      .ring-foreground { --tw-ring-color: var(--xj-foreground); }
+      .bg-card { background-color: var(--xj-card); }
+      .text-card { color: var(--xj-card); }
+      .border-card { border-color: var(--xj-card); }
+      .ring-card { --tw-ring-color: var(--xj-card); }
+      .bg-card-foreground { background-color: var(--xj-card-foreground); }
+      .text-card-foreground { color: var(--xj-card-foreground); }
+      .border-card-foreground { border-color: var(--xj-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--xj-card-foreground); }
+      .bg-popover { background-color: var(--xj-popover); }
+      .text-popover { color: var(--xj-popover); }
+      .border-popover { border-color: var(--xj-popover); }
+      .ring-popover { --tw-ring-color: var(--xj-popover); }
+      .bg-popover-foreground { background-color: var(--xj-popover-foreground); }
+      .text-popover-foreground { color: var(--xj-popover-foreground); }
+      .border-popover-foreground { border-color: var(--xj-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--xj-popover-foreground); }
+      .bg-primary { background-color: var(--xj-primary); }
+      .text-primary { color: var(--xj-primary); }
+      .border-primary { border-color: var(--xj-primary); }
+      .ring-primary { --tw-ring-color: var(--xj-primary); }
+      .bg-primary-foreground { background-color: var(--xj-primary-foreground); }
+      .text-primary-foreground { color: var(--xj-primary-foreground); }
+      .border-primary-foreground { border-color: var(--xj-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--xj-primary-foreground); }
+      .bg-muted { background-color: var(--xj-muted); }
+      .text-muted { color: var(--xj-muted); }
+      .border-muted { border-color: var(--xj-muted); }
+      .ring-muted { --tw-ring-color: var(--xj-muted); }
+      .bg-muted-foreground { background-color: var(--xj-muted-foreground); }
+      .text-muted-foreground { color: var(--xj-muted-foreground); }
+      .border-muted-foreground { border-color: var(--xj-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--xj-muted-foreground); }
+      .bg-border { background-color: var(--xj-border); }
+      .text-border { color: var(--xj-border); }
+      .border-border { border-color: var(--xj-border); }
+      .ring-border { --tw-ring-color: var(--xj-border); }
+      .bg-input { background-color: var(--xj-input); }
+      .text-input { color: var(--xj-input); }
+      .border-input { border-color: var(--xj-input); }
+      .ring-input { --tw-ring-color: var(--xj-input); }
+      .bg-ring { background-color: var(--xj-ring); }
+      .text-ring { color: var(--xj-ring); }
+      .border-ring { border-color: var(--xj-ring); }
+      .ring-ring { --tw-ring-color: var(--xj-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+    <style id="page-styles">
+      /* ---- Page-level custom tokens ---- */
+      :root { --xj-panel-w: 380px; }
+
+      /* ---- Layout shell ---- */
+      .layout { display: flex; min-height: 100vh; }
+      .layout .main { flex: 1; }
+
+      /* ---- Page container (centered, no sidebar) ---- */
+      .page {
+        max-width: 1100px; margin: 0 auto; padding: 40px 44px 48px;
+        display: flex; flex-direction: column; gap: 28px;
+        transition: margin-right .3s cubic-bezier(.4,0,.2,1);
+        min-height: 100vh;
+      }
+      .page.panel-open { margin-right: var(--xj-panel-w); }
+
+      /* ---- Topbar ---- */
+      .topbar { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+      .topbar h1 { font-family: var(--xj-font-serif); font-size: 30px; font-weight: 600; letter-spacing: -.01em; margin: 0; color: var(--xj-warm-ink); }
+      .topbar .date { font-size: 13.5px; color: var(--xj-warm-ink-3); margin-bottom: 4px; }
+      .topbar .spacer { flex: 1; }
+      .topbar .xj-toggle {
+        display: flex; align-items: center; gap: 8px; padding: 10px 18px;
+        border: 1px solid var(--xj-sand); border-radius: 999px;
+        background: var(--xj-cream-elevated); cursor: pointer;
+        font-size: 13px; font-family: var(--xj-font-sans); color: var(--xj-warm-ink-2);
+        transition: all .2s;
+      }
+      .topbar .xj-toggle:hover { border-color: var(--xj-sage); color: var(--xj-sage); }
+      .topbar .xj-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--xj-sage); animation: pulse 2s infinite; }
+      @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+      .topbar .xj-new-client {
+        border: 2px solid var(--xj-sage); border-radius: 12px; padding: 10px 20px;
+        font: 600 13px var(--xj-font-sans); cursor: pointer;
+        background: var(--xj-cream-elevated); color: var(--xj-sage);
+        display: flex; align-items: center; gap: 6px; transition: all .2s;
+      }
+      .topbar .xj-new-client:hover { background: var(--xj-sage); color: var(--xj-primary-foreground); }
+
+      /* ---- KPI Hero Grid ---- */
+      .hero-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      .kv-card {
+        background: var(--xj-cream-elevated); border: 1px solid var(--xj-sand);
+        border-radius: 14px; padding: 22px 24px; text-align: center;
+      }
+      .kv-card .kv-num { font-family: var(--xj-font-serif); font-size: 34px; font-weight: 700; color: var(--xj-warm-ink); }
+      .kv-card .kv-label { font-size: 11.5px; color: var(--xj-warm-ink-3); letter-spacing: .04em; margin-top: 6px; }
+      .kv-card .kv-sub { font-size: 11px; color: var(--xj-warm-ink-3); margin-top: 4px; }
+      .kv-card.accent .kv-num { color: var(--xj-sage); }
+      .kv-card.warn .kv-num { color: var(--xj-terracotta); }
+
+      /* ---- Module Grid ---- */
+      .modules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+      .mod {
+        background: var(--xj-cream-elevated); border: 1px solid var(--xj-sand);
+        border-radius: 14px; padding: 26px 24px 20px; cursor: pointer;
+        transition: all .2s; display: flex; flex-direction: column; gap: 10px;
+        text-decoration: none; color: inherit;
+      }
+      .mod:hover { border-color: var(--xj-sage); transform: translateY(-2px); box-shadow: 0 4px 18px rgba(122, 158, 126, .10); }
+      .mod .m-icon {
+        width: 36px; height: 36px; border-radius: 10px; background: var(--xj-sage-soft);
+        color: var(--xj-sage); display: grid; place-items: center;
+      }
+      .mod .m-icon svg { width: 20px; height: 20px; }
+      .mod .m-title { font-weight: 600; font-size: 15px; color: var(--xj-warm-ink); }
+      .mod .m-desc { font-size: 12.5px; color: var(--xj-warm-ink-3); line-height: 1.5; }
+      .mod .m-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; background: var(--xj-sage-soft); color: var(--xj-sage); width: fit-content; font-family: var(--xj-font-sans); }
+
+      /* ---- Bottom Row ---- */
+      .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .recent {
+        background: var(--xj-cream-elevated); border: 1px solid var(--xj-sand);
+        border-radius: 14px; padding: 20px 22px;
+      }
+      .recent h3 { font-family: var(--xj-font-serif); font-size: 15px; margin: 0 0 14px; color: var(--xj-warm-ink); }
+      .ritem { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--xj-sand); font-family: var(--xj-font-sans); }
+      .ritem:last-child { border: none; }
+      .rav { width: 32px; height: 32px; border-radius: 50%; background: var(--xj-sage-soft); color: var(--xj-sage); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; font-family: var(--xj-font-serif); }
+      .ritem .info { flex: 1; }
+      .ritem .nm { font-weight: 600; font-size: 13.5px; color: var(--xj-warm-ink); }
+      .ritem .mt { font-size: 11.5px; color: var(--xj-warm-ink-3); }
+      .ritem .tag { font-size: 10.5px; padding: 2px 8px; border-radius: 5px; background: var(--xj-sage-soft); color: var(--xj-sage); white-space: nowrap; }
+
+      /* ---- 小镜 Panel (right slide-out) ---- */
+      .xj-panel {
+        position: fixed; right: 0; top: 0; width: var(--xj-panel-w); height: 100vh;
+        background: var(--xj-cream-elevated); border-left: 1px solid var(--xj-sand);
+        display: flex; flex-direction: column; z-index: 100;
+        transform: translateX(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+        will-change: transform;
+      }
+      .xj-panel.open { transform: none; }
+      .xj-head { padding: 20px 22px; border-bottom: 1px solid var(--xj-sand); }
+      .xj-name { font-family: var(--xj-font-serif); font-size: 18px; font-weight: 600; color: var(--xj-sage); }
+      .xj-greet { font-size: 13px; color: var(--xj-warm-ink-2); margin-top: 6px; line-height: 1.7; font-family: var(--xj-font-sans); }
+      .xj-body { flex: 1; overflow-y: auto; padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; font-family: var(--xj-font-sans); }
+      .xj-msg { font-size: 13px; line-height: 1.7; padding: 10px 14px; border-radius: 12px; max-width: 92%; }
+      .xj-msg.ai { background: var(--xj-sage-soft); color: var(--xj-warm-ink); align-self: flex-start; border-bottom-left-radius: 4px; }
+      .xj-input-row { display: flex; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--xj-sand); }
+      .xj-input-row input { flex: 1; border: 1px solid var(--xj-sand); border-radius: 10px; padding: 10px 14px; font: 13px var(--xj-font-sans); outline: none; background: var(--xj-cream); color: var(--xj-warm-ink); }
+      .xj-input-row input:focus { border-color: var(--xj-sage); }
+      .xj-input-row button { background: var(--xj-sage); color: var(--xj-primary-foreground); border: none; border-radius: 10px; padding: 10px 20px; font: 600 13px var(--xj-font-sans); cursor: pointer; }
+      .xj-input-row button:hover { background: var(--xj-sage-hover); }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+<div class="layout">
+  <div id="sidebar-mount"></div>
+  <main class="main">
+    <div class="page" id="main-page">
+
+      <!-- ===== TOPBAR ===== -->
+      <div class="topbar">
+        <div>
+          <h1>心镜</h1>
+          <div class="date">2026年7月14日 · 星期二</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="xj-toggle" id="xj-toggle-btn">
+          <span class="xj-dot"></span> 小镜
+        </button>
+        <button class="xj-new-client" data-dom-id="cta-consult-notes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+          新建来访
+        </button>
+      </div>
+
+      <!-- ===== KPI STATS (3 columns) ===== -->
+      <div class="hero-grid">
+        <div class="kv-card accent">
+          <div class="kv-num">3 节</div>
+          <div class="kv-label">今日咨询</div>
+          <div class="kv-sub">已完成 2 节</div>
+        </div>
+        <div class="kv-card">
+          <div class="kv-num">¥8,400</div>
+          <div class="kv-label">本月收入</div>
+          <div class="kv-sub">已收 ¥6,200 · 待收 ¥2,200</div>
+        </div>
+        <div class="kv-card warn">
+          <div class="kv-num">2</div>
+          <div class="kv-label">待撰报告</div>
+          <div class="kv-sub"></div>
+        </div>
+      </div>
+
+      <!-- ===== MODULE GRID (3 columns, 10 modules) ===== -->
+      <div class="modules">
+
+        <!-- 1. 咨询记录 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+          </div>
+          <div class="m-title">咨询记录</div>
+          <div class="m-desc">快速记录整理，APA 结构化提示，AI 辅助逐字稿</div>
+          <div class="m-tag">常用</div>
+        </a>
+
+        <!-- 2. 逐字稿整理 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+          </div>
+          <div class="m-title">逐字稿整理</div>
+          <div class="m-desc">AI 辅助校对，双栏对比修正，错误记忆库自动学习</div>
+        </a>
+
+        <!-- 3. 撰写报告 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <div class="m-title">撰写报告</div>
+          <div class="m-desc">呈报督导师的完整案例报告，跨节整合，导出 Word</div>
+          <div class="m-tag">AI 生成</div>
+        </a>
+
+        <!-- 4. AI 督导 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 0-5 5c0 1.1.4 2.2 1 3L7 14h10l-1-4c.6-.8 1-1.9 1-3a5 5 0 0 0-5-5z"/><path d="M9 14v3a3 3 0 0 0 6 0v-3"/><path d="M10 21h4"/></svg>
+          </div>
+          <div class="m-title">AI 督导</div>
+          <div class="m-desc">三栏研究台，整体印象/深化分析/临床材料，会话历史</div>
+        </a>
+
+        <!-- 5. 真人督导 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M16.6 13.4A5.4 5.4 0 0 1 20.4 19"/></svg>
+          </div>
+          <div class="m-title">真人督导</div>
+          <div class="m-desc">记录督导过程，上传逐字稿，案例报告，AI 分析</div>
+        </a>
+
+        <!-- 6. 文档中心 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2 2h4a2 2 0 0 1 2 2v1"/><path d="M20.5 12H11l-1.5 6h11.5l1.5-1.5V13.5a1.5 1.5 0 0 0-1.5-1.5z"/></svg>
+          </div>
+          <div class="m-title">文档中心</div>
+          <div class="m-desc">来访者材料归档，按类型查阅，成长轨迹追踪</div>
+        </a>
+
+        <!-- 7. 账单 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5h15a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H3z"/><path d="M3 7.5V5.5a2 2 0 0 1 2-2h11"/><circle cx="17" cy="13" r="1.3"/></svg>
+          </div>
+          <div class="m-title">账单</div>
+          <div class="m-desc">收入统计，月结，预付费，对账导出，月历视图</div>
+        </a>
+
+        <!-- 8. 大师对话 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </div>
+          <div class="m-title">大师对话</div>
+          <div class="m-desc">与 11 位思想者对话，多大师圆桌研讨</div>
+        </a>
+
+        <!-- 9. 我的资料库 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg>
+          </div>
+          <div class="m-title">我的资料库</div>
+          <div class="m-desc">导入课程讲义与文献，被动注入 AI 对话，随时检索</div>
+          <div class="m-tag">3 份 · 1.2万字</div>
+        </a>
+
+        <!-- 10. 设置 -->
+        <a class="mod" href="#">
+          <div class="m-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          <div class="m-title">设置</div>
+          <div class="m-desc">API 配置，备份恢复，激活管理</div>
+        </a>
+
+      </div>
+
+      <!-- ===== BOTTOM ROW ===== -->
+      <div class="bottom-row">
+        <div class="recent">
+          <h3>最近咨询记录</h3>
+          <div class="ritem">
+            <div class="rav">林</div>
+            <div class="info">
+              <div class="nm">林小雨 · 第8节</div>
+              <div class="mt">07-14 · ¥500</div>
+            </div>
+            <div class="tag">SOAP</div>
+          </div>
+          <div class="ritem">
+            <div class="rav">陈</div>
+            <div class="info">
+              <div class="nm">陈明远 · 第3节</div>
+              <div class="mt">07-13</div>
+            </div>
+            <div class="tag">DAP · 反思</div>
+          </div>
+          <div class="ritem">
+            <div class="rav">张</div>
+            <div class="info">
+              <div class="nm">张语桐 · 第15节</div>
+              <div class="mt">07-12 · ¥400</div>
+            </div>
+          </div>
+        </div>
+        <div class="recent">
+          <h3>待办</h3>
+          <div class="ritem">
+            <div class="rav" style="font-size:18px;font-weight:400">·</div>
+            <div class="info">
+              <div class="nm">整理逐字稿：林小雨 第8节</div>
+              <div class="mt">07-14</div>
+            </div>
+          </div>
+          <div class="ritem">
+            <div class="rav" style="font-size:18px;font-weight:400">·</div>
+            <div class="info">
+              <div class="nm">整理逐字稿：陈明远 第3节</div>
+              <div class="mt">07-13</div>
+            </div>
+          </div>
+          <div class="ritem">
+            <div class="rav" style="font-size:18px;font-weight:400">·</div>
+            <div class="info">
+              <div class="nm">催收：张语桐</div>
+              <div class="mt">2 节未付</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ===== XIAOJING SLIDE-OUT PANEL ===== -->
+<div class="xj-panel" id="xj-panel">
+  <div class="xj-head">
+    <div class="xj-name">小镜</div>
+    <div class="xj-greet">你好，梅。<br>今天完成了 2 节咨询，共 3 节。</div>
+  </div>
+  <div class="xj-body" id="xj-body">
+    <div class="xj-msg ai">2 份逐字稿尚未整理为报告，可以去「逐字稿整理」页面处理。</div>
+    <div class="xj-msg ai" style="margin-top:4px">
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+        <button style="border:1px solid var(--xj-sand);border-radius:6px;padding:4px 10px;font:10px var(--xj-font-sans);cursor:pointer;background:transparent;color:var(--xj-warm-ink-2)">逐字稿整理</button>
+        <button style="border:1px solid var(--xj-sand);border-radius:6px;padding:4px 10px;font:10px var(--xj-font-sans);cursor:pointer;background:transparent;color:var(--xj-warm-ink-2)">AI 督导</button>
+        <button style="border:1px solid var(--xj-sand);border-radius:6px;padding:4px 10px;font:10px var(--xj-font-sans);cursor:pointer;background:transparent;color:var(--xj-warm-ink-2)">账单</button>
+      </div>
+    </div>
+  </div>
+  <div class="xj-input-row">
+    <input placeholder="对小镜说…">
+    <button>发送</button>
+  </div>
+</div>
+
+<script>
+  (function() {
+    var toggleBtn = document.getElementById('xj-toggle-btn');
+    var panel = document.getElementById('xj-panel');
+    var page = document.getElementById('main-page');
+    toggleBtn.addEventListener('click', function() {
+      panel.classList.toggle('open');
+      page.classList.toggle('panel-open');
+    });
+  })();
+</script>
+</body>
+</html>
