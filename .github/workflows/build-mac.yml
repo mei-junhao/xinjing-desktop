@@ -75,12 +75,14 @@ jobs:
         run: node scripts/postbuild.js
 
       - name: Install coscli
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARCH=$(uname -m)
           if [ "$ARCH" = "arm64" ]; then A="darwin-arm64"; else A="darwin-amd64"; fi
-          VER=$(curl -s https://api.github.com/repos/tencentyun/coscli/releases/latest \
-                | grep -o '"tag_name": *"[^"]*"' | head -1 \
-                | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+          # 用 gh（已认证）取最新版本，避免 api.github.com 未认证限流导致 VER 为空
+          VER=$(gh api repos/tencentyun/coscli/releases/latest --jq '.tag_name' 2>/dev/null || true)
+          [ -n "$VER" ] || VER="v1.0.8"
           echo "coscli version: $VER  arch: $A"
           URL="https://github.com/tencentyun/coscli/releases/download/${VER}/coscli-${VER}-${A}"
           echo "downloading $URL"
