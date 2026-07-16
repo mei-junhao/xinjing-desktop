@@ -67,5 +67,9 @@ homepage-*.html
 billing-redesign.html
 *-demo*.html
 
+# Tauri 构建产物（Rust target/ 体积巨大，绝不入库；曾误提交致 6GB 推送失败）
+xinjing-tauri/src-tauri/target/
+xinjing-tauri/target/
+
 # 设计文档 / 交接文档 / 技术方案 .md（不入库，仅本地参考）
 XinJing-*.md
