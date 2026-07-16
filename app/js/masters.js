@@ -734,7 +734,7 @@
   function applyAiLock() {
     var lock = $('ai-lock'), input = $('msg-input'), sendBtn = $('send-btn');
     if (!lock) return;
-    if (App.aiUnlocked()) {
+    if (App.featureGate('ai-masters')) {
       lock.classList.add('hidden');
       input.disabled = !currentConv; sendBtn.disabled = !currentConv;
     } else {
@@ -743,7 +743,12 @@
     }
   }
   App.onLicenseStateChange(function () { try { applyAiLock(); } catch (e) {} });
-  function openActivation() { if (window.__XJ_API__ && window.__XJ_API__.openActivation) window.__XJ_API__.openActivation(); }
+  function openActivation(event) {
+    if (window.__XJ_API__ && window.__XJ_API__.openActivation) {
+      if (event) event.preventDefault();
+      window.__XJ_API__.openActivation();
+    }
+  }
   window.openActivation = openActivation;
 
   // "已保存" 闪烁提示
@@ -759,6 +764,8 @@
     title: '大师对话',
     noSidebar: true,
     onReady: function () {
+      var planBtn = $('btn-view-masters-plan');
+      if (planBtn) planBtn.addEventListener('click', openActivation);
       loadConvs();
       renderMasterList();
       renderChat();

@@ -1228,7 +1228,8 @@ test('S8 统一小镜面板接管全局加载链并保留撤销接口', function
   assert.ok(/const XinJingChat\s*=/.test(S_XINJING_CHAT), 'xinjing-chat.js 缺 XinJingChat 实现');
   assert.ok(/window\.XinJingChat\s*=\s*api/.test(S_XINJING_CHAT), 'xinjing-chat.js 未暴露 XinJingChat');
   assert.ok(/sessionIds/.test(S_XINJING_CHAT), 'xinjing-chat.js 未消费可撤销 sessionIds');
-  assert.ok(/'js\/xinjing-chat\.js'/.test(S_APP), 'app.js 未注入统一小镜模块');
+  assert.ok(/js\/xinjing-chat\.js/.test(T_INDEX_HTML), '首页未静态加载统一小镜模块');
+  assert.ok(T_INDEX_HTML.indexOf('js/xinjing-chat.js') < T_INDEX_HTML.indexOf('js/app.js'), '统一小镜模块必须早于 app.js');
   assert.ok(/XinJingChat\.build/.test(S_APP), 'app.js 未通过 XinJingChat 初始化面板');
 });
 
@@ -1281,12 +1282,15 @@ test('T9 agent-tools.js 含内存映射 supervisionSessions / masterConvs', func
   assert.ok(T_TOOLS.indexOf('masterConvs') !== -1, '缺 masterConvs 映射');
 });
 
-test('T10 app.js 注入链含 5 宿主全局文件', function () {
-  assert.ok(S_APP.indexOf('js/prompts.builtin.js') !== -1, '缺 prompts.builtin.js 注入');
-  assert.ok(S_APP.indexOf('js/supervisors.js') !== -1, '缺 supervisors.js 注入');
-  assert.ok(S_APP.indexOf('js/supervision-core.js') !== -1, '缺 supervision-core.js 注入');
-  assert.ok(S_APP.indexOf('js/masters-data.js') !== -1, '缺 masters-data.js 注入');
-  assert.ok(S_APP.indexOf('js/masters-core.js') !== -1, '缺 masters-core.js 注入');
+test('T10 专业页静态加载自身宿主模块', function () {
+  const supervisionHtml = fs.readFileSync(path.join(APP_DIR, 'supervision.html'), 'utf8');
+  const mastersHtml = fs.readFileSync(path.join(APP_DIR, 'masters.html'), 'utf8');
+  ['js/prompts.builtin.js', 'js/supervisors.js', 'js/supervision-core.js'].forEach(function (src) {
+    assert.ok(supervisionHtml.includes(src), '督导页缺 ' + src);
+  });
+  ['js/prompts.builtin.js', 'js/masters-data.js', 'js/knowledge.builtins.js', 'js/masters-core.js'].forEach(function (src) {
+    assert.ok(mastersHtml.includes(src), '大师页缺 ' + src);
+  });
 });
 
 test('T11 agent-core.js 将督导与大师收口到专业页面', function () {
@@ -1808,11 +1812,11 @@ test('v3.3.0-8 dashboard.js 注入 PersonaPreamble + 替换硬编码问候（v3.
   assert.ok(!/下午好，梅。/.test(target), 'xiaojing-panel.js 仍含硬编码"下午好，梅。"');
 });
 
-test('v3.3.0-9 app.js 全局注入列表含 memory.js + persona-preamble.js', function () {
-  assert.ok(/js\/memory\.js/.test(APP_330), 'app.js 注入列表缺 memory.js');
-  assert.ok(/js\/persona-preamble\.js/.test(APP_330), 'app.js 注入列表缺 persona-preamble.js');
-  assert.ok(/typeof Memory.*undefined/.test(APP_330), 'app.js guards 缺 Memory 守卫');
-  assert.ok(/typeof PersonaPreamble.*undefined/.test(APP_330), 'app.js guards 缺 PersonaPreamble 守卫');
+test('v3.3.0-9 首页静态加载 memory.js + persona-preamble.js', function () {
+  assert.ok(/js\/memory\.js/.test(INDEX_330), '首页缺 memory.js');
+  assert.ok(/js\/persona-preamble\.js/.test(INDEX_330), '首页缺 persona-preamble.js');
+  assert.ok(INDEX_330.indexOf('js/memory.js') < INDEX_330.indexOf('js/app.js'), 'memory.js 必须早于 app.js');
+  assert.ok(INDEX_330.indexOf('js/persona-preamble.js') < INDEX_330.indexOf('js/app.js'), 'persona-preamble.js 必须早于 app.js');
 });
 
 test('v3.3.0-10 store.js 暴露 _get/_put 供 Memory 使用', function () {
@@ -1931,7 +1935,8 @@ test('v3.4.0-5 agent.css 已删除 FAB 样式', function () {
 test('v3.4.0-6 masters.html 锁层已弱化', function () {
   const mh = fs.readFileSync(path.join(APPDIR_340, 'masters.html'), 'utf-8');
   assert.ok(!/AI 对话为付费功能/.test(mh), 'masters.html 仍含旧锁层文案');
-  assert.ok(/AI 大师对话需要激活/.test(mh), 'masters.html 缺新弱化锁层文案');
+  assert.ok(/大师会诊是会员功能/.test(mh), 'masters.html 缺会员预览文案');
+  assert.ok(/href="activation\.html"/.test(mh), 'masters.html 方案入口不可降级跳转');
 });
 
 // ============================================================
@@ -1999,8 +2004,9 @@ test('v3.5.0-7 settings 页 UI + window 挂载 + onReady 接线', function () {
   assert.ok(/loadUserDocUI\(\)/.test(SETTINGSJS_350), 'settings.js onReady 未调用 loadUserDocUI');
 });
 
-test('v3.5.0-8 app.js 全局脚本补 knowledge.builtins.js（收口双路径 Knowledge 全局）', function () {
-  assert.ok(/'js\/knowledge\.builtins\.js'/.test(APPJS_350), 'app.js 全局脚本缺 knowledge.builtins.js');
+test('v3.5.0-8 大师页静态加载 knowledge.builtins.js', function () {
+  const mastersHtml = fs.readFileSync(path.join(APPDIR_350, 'masters.html'), 'utf8');
+  assert.ok(/js\/knowledge\.builtins\.js/.test(mastersHtml), '大师页缺 knowledge.builtins.js');
 });
 
 test('v3.5.0-9 隐私：readUserDocs 仅本地 fs，无出网', function () {
@@ -2131,12 +2137,12 @@ test('v3.5.0-UI-18 knowledge.html 自绘标题栏 + 概览画廊结构', functio
 //   3) 标题栏不再 sticky 遮挡内容（app-shell 布局）
 //   4) 三栏/阅读/TOC 给阅读栏最多空间（不再均分）
 // ============================================================
-test('v3.5.1-UI-1 main.js 文件数上限提高且溢出显式统计', function () {
+test('v3.5.1-UI-1 main.js 文件数上限分档且溢出显式统计', function () {
   assert.ok(/KB_FILE_LIMIT\s*=\s*3000/.test(MAIN_350), 'KB_FILE_LIMIT 未提高到 3000');
   assert.ok(/walkUserDoc[\s\S]*?return\s*\{\s*entries:.*total/.test(MAIN_350), 'walkUserDoc 未返回 {entries,total}（溢出统计需要）');
   assert.ok(/truncated:\s*total\s*>\s*files\.length/.test(MAIN_350), 'readUserDocMeta 未返回 truncated 标志');
   assert.ok(/totalFound:\s*total/.test(MAIN_350), 'readUserDocMeta 未返回 totalFound');
-  assert.ok(/limit:\s*KB_FILE_LIMIT/.test(MAIN_350), 'readUserDocMeta 未透出 limit');
+  assert.ok(/limit:\s*Number\.isFinite\(fileLimit\)\s*\?\s*fileLimit\s*:\s*null/.test(MAIN_350), 'readUserDocMeta 未透出分档 limit');
 });
 test('v3.5.1-UI-2 main.js 摘要清洗去 base64/data URI/长 URL', function () {
   assert.ok(/function cleanSummary/.test(MAIN_350), 'main.js 缺 cleanSummary');
@@ -2673,6 +2679,91 @@ test('v3.8-15 模型升级文案不再虚构完全执行能力', function () {
   surfaces.forEach(function (source, index) {
     assert.ok(!/完全体/.test(source), '界面 ' + index + ' 仍含夸大能力的“完全体”文案');
   });
+});
+
+// ============================================================
+// v4.0.0 — 三档会员、01/04/05 设计语言与全路由接入
+// ============================================================
+const V400_ENTITLEMENTS = require(path.join(APP_DIR, 'js', 'entitlements.js'));
+const V400_UI = fs.readFileSync(path.join(APP_DIR, 'css', 'xj-ui-system.css'), 'utf8');
+const V400_ACTIVATION = fs.readFileSync(path.join(APP_DIR, 'activation.html'), 'utf8');
+const V400_SETTINGS = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf8');
+
+test('v4.0.0-1 三档权益按 feature key 分级且未知 key 默认拒绝', function () {
+  const free = { activated: false, mode: 'limited', tier: 'free', aiUnlocked: false };
+  const pro = { activated: true, mode: 'full', tier: 'pro', aiUnlocked: true };
+  const full = { activated: true, mode: 'full', tier: 'full', aiUnlocked: true };
+  const custom = { activated: true, mode: 'full', tier: 'custom', aiUnlocked: true };
+  const trial = { activated: false, mode: 'trial', tier: 'custom', aiUnlocked: true };
+  ['ai-mindmap', 'ai-masters', 'transcript-guide', 'ai-growth'].forEach(function (key) {
+    assert.strictEqual(V400_ENTITLEMENTS.canUse(key, free), false, key + ' 不应向免费版开放');
+    assert.strictEqual(V400_ENTITLEMENTS.canUse(key, pro), true, key + ' 应向会员开放');
+    assert.strictEqual(V400_ENTITLEMENTS.canUse(key, full), true, key + ' 应向旧 full 授权开放');
+    assert.strictEqual(V400_ENTITLEMENTS.canUse(key, custom), true, key + ' 应向旗舰开放');
+    assert.strictEqual(V400_ENTITLEMENTS.canUse(key, trial), true, key + ' 应在 AI 试用中开放');
+  });
+  assert.strictEqual(V400_ENTITLEMENTS.canUse('rag-rerank', pro), false, 'Rerank 不应向会员开放');
+  assert.strictEqual(V400_ENTITLEMENTS.canUse('rag-rerank', custom), true, 'Rerank 应向旗舰开放');
+  assert.strictEqual(V400_ENTITLEMENTS.canUse('not-registered', custom), false, '未知 key 必须默认拒绝');
+});
+
+test('v4.0.0-2 RAG 文档、检索与上下文策略符合三档对比', function () {
+  const free = V400_ENTITLEMENTS.ragPolicy('free');
+  const pro = V400_ENTITLEMENTS.ragPolicy('pro');
+  const custom = V400_ENTITLEMENTS.ragPolicy('custom');
+  assert.deepStrictEqual([free.documentLimit, free.method, free.contextTokens, free.recall], [100, 'keyword', 2000, 5]);
+  assert.deepStrictEqual([pro.documentLimit, pro.method, pro.contextTokens, pro.recall], [500, 'vector', 4000, 20]);
+  assert.strictEqual(custom.documentLimit, Infinity);
+  assert.deepStrictEqual([custom.method, custom.contextTokens, custom.recall, custom.finalResults], ['vector-rerank', 16000, 20, 5]);
+});
+
+test('v4.0.0-3 01 默认、04 安静剧场、05 夜间观测由共享 token 实现', function () {
+  assert.ok(/\[data-skin="clinical"\]/.test(V400_UI), '缺少 01 clinical');
+  assert.ok(/\[data-skin="theatre"\]/.test(V400_UI), '缺少 04 theatre');
+  assert.ok(/\[data-skin="observatory"\]/.test(V400_UI), '缺少 05 observatory');
+  assert.ok(/premium-skins/.test(V38_APP), 'App 未门控会员皮肤');
+  assert.ok(!/data-skin-name="calm"|data-skin-name="editorial"|data-skin-name="xinjing"/.test(V400_SETTINGS), '设置页仍暴露旧皮肤');
+});
+
+test('v4.0.0-4 22 个页面全部接入统一 UI，业务页静态加载权益模块', function () {
+  const pages = fs.readdirSync(APP_DIR).filter(function (name) { return name.endsWith('.html'); });
+  const runtime = ['js/store.js', 'js/entitlements.js', 'js/ai.js', 'js/agent-tools.js', 'js/agent-core.js', 'js/page-hints.js', 'js/icon-system.js', 'js/xinjing-chat.js', 'js/app.js'];
+  assert.strictEqual(pages.length, 22, 'HTML 路由数量发生非预期变化');
+  pages.forEach(function (name) {
+    const html = fs.readFileSync(path.join(APP_DIR, name), 'utf8');
+    assert.ok(/xj-ui-system\.css/.test(html) || /js\/app\.js/.test(html), name + ' 未接入统一 UI');
+    if (/js\/app\.js/.test(html)) {
+      let last = -1;
+      runtime.forEach(function (src) {
+        assert.strictEqual(html.split(src).length - 1, 1, name + ' 必须且只能加载一次 ' + src);
+        const current = html.indexOf(src);
+        assert.ok(current > last, name + ' 共享运行时顺序错误：' + src);
+        last = current;
+      });
+      assert.ok(!/js\/license\.js/.test(html), name + ' 引用了不存在的旧 license.js');
+    }
+  });
+  assert.ok(!/function injectGlobalScripts/.test(V38_APP), 'app.js 不应再动态注入共享脚本');
+});
+
+test('v4.0.0-5 激活页有完整三档对比，设置页有当前方案与三皮肤入口', function () {
+  ['三档会员对比', '100 篇', '500 篇', '16,000', '向量 + Rerank', '多大师会诊'].forEach(function (text) {
+    assert.ok(V400_ACTIVATION.includes(text), '激活页对比缺少：' + text);
+  });
+  assert.ok(/id="membership-plan-name"/.test(V400_SETTINGS) && /id="btn-view-plans"/.test(V400_SETTINGS), '设置页缺少会员摘要或对比入口');
+  ['clinical', 'theatre', 'observatory'].forEach(function (skin) {
+    assert.ok(V400_SETTINGS.includes('data-skin-name="' + skin + '"'), '设置页缺少皮肤 ' + skin);
+  });
+});
+
+test('v4.0.0-6 主进程自行计算 RAG tier，免费版不再限制临床记录数量', function () {
+  const storeSource = fs.readFileSync(path.join(APP_DIR, 'js', 'store.js'), 'utf8');
+  assert.ok(/const policy = entitlements\.ragPolicy\(state\)/.test(V38_MAIN), 'RAG 未从主进程授权状态计算策略');
+  assert.ok(!/const tier = String\(args\.tier/.test(V38_MAIN), 'RAG 仍信任渲染页传入 tier');
+  assert.ok(!/仅可管理前 5 位来访者与 50 条督导记录/.test(fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8')), '免费版仍限制临床记录数量');
+  assert.ok(!/LICENSE_CAP_CLIENT|LICENSE_CAP_SUPERVISION|受限模式下最多保存/.test(storeSource), 'Store 仍限制免费版临床数据数量');
+  assert.ok(/function licenseGuard\(\) \{\}/.test(storeSource), 'Store 未保留无门槛兼容守卫');
+  assert.ok(/function licenseMode\(\)/.test(storeSource), 'Store 导出了未定义的 licenseMode');
 });
 
 // ============================================================

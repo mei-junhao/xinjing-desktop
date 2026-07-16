@@ -12,7 +12,7 @@ App.initPage({
 
     // 版本号 — 统一走构建期注入的 version.generated.js（preload 桥接）
     function setVersion() {
-      var ver = '3.0.0';
+      var ver = '4.0.0';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
           ver = window.__XJ_API__.getVersion() || ver;
@@ -684,6 +684,44 @@ App.initPage({
       '<div style="font-size:13px;color:var(--muted);font-family:var(--sans)">' + expText + '</div>';
   }
 
+  function renderMembershipSummary() {
+    const state = App.getLicenseState ? App.getLicenseState() : {};
+    const tier = (typeof XJEntitlements !== 'undefined') ? XJEntitlements.effectiveTier(state) : 'free';
+    const name = document.getElementById('membership-plan-name');
+    const detail = document.getElementById('membership-plan-detail');
+    const badge = document.getElementById('membership-plan-badge');
+    if (name) name.textContent = state.mode === 'trial' && state.aiUnlocked ? '旗舰试用' : ((typeof XJEntitlements !== 'undefined') ? XJEntitlements.tierLabel(tier) : '免费版');
+    if (detail) {
+      if (tier === 'custom') detail.textContent = '16K 上下文、向量 + Rerank 精排与全部会员临床能力';
+      else if (tier === 'pro' || tier === 'full') detail.textContent = 'AI 临床工具、4K 向量检索、大师会诊与会员皮肤';
+      else detail.textContent = '手工执业工作流与 2K 关键词资料检索';
+    }
+    if (badge) badge.innerHTML = App.membershipBadge();
+  }
+
+  function initSkinSelector() {
+    const buttons = Array.from(document.querySelectorAll('[data-skin-name]'));
+    function sync() {
+      const active = App.Theme.getSkin();
+      buttons.forEach(function (button) {
+        const skin = button.getAttribute('data-skin-name');
+        const locked = skin !== 'clinical' && !App.canUse('premium-skins');
+        button.classList.toggle('active', skin === active);
+        button.setAttribute('aria-pressed', String(skin === active));
+        button.toggleAttribute('data-locked', locked);
+        button.title = locked ? '升级会员后可使用此设计语言' : '';
+      });
+    }
+    buttons.forEach(function (button) {
+      button.addEventListener('click', function () {
+        const skin = button.getAttribute('data-skin-name');
+        if (App.Theme.setSkin(skin)) sync();
+        else App.openPlans();
+      });
+    });
+    sync();
+  }
+
   // 云激活：调 __XJ_API__.cloudActivate（preload → main xj:cloud-activate → cloud-verify.js POST 云端 Worker）
   async function cloudActivate() {
     const input = document.getElementById('cloud-code-input');
@@ -975,6 +1013,11 @@ App.initPage({
 
     loadConfig();
     bindConnectDrawer();
+    var planButton = document.getElementById('btn-view-plans');
+    if (planButton) planButton.addEventListener('click', App.openPlans);
+    initSkinSelector();
+    renderMembershipSummary();
+    App.onLicenseStateChange(renderMembershipSummary);
     updateTierStatus();
     // ===== 账号：称呼 / 执业取向 编辑（此前按钮无处理函数，点击无效）=====
     function loadProfile() {

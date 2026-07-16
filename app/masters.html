@@ -86,11 +86,11 @@
             <textarea id="msg-input" placeholder="继续追问，输入 @大师 可指定发言" disabled rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229){event.preventDefault();sendMessage()}" aria-label="消息"></textarea>
             <button class="send-btn" id="send-btn" type="submit" disabled title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
           </form>
-          <div class="lock-overlay hidden" id="ai-lock" style="display:none">
+          <div class="lock-overlay hidden" id="ai-lock">
             <div class="lock-icon"><i data-lucide="lock-keyhole"></i></div>
-            <strong>AI 大师对话需要激活</strong>
-            <span>试用期内可使用。授权过期后，请到设置完成激活。</span>
-            <button class="masters-primary-btn" type="button" onclick="openActivation()">去激活</button>
+            <strong>大师会诊是会员功能</strong>
+            <span>会员可使用单大师深度对话与多大师会诊；旗舰在此基础上获得更深的资料检索。</span>
+            <a class="masters-primary-btn" id="btn-view-masters-plan" href="activation.html">查看方案</a>
           </div>
         </section>
 
@@ -125,15 +125,11 @@
     </div>
   </div>
 
-  <script src="js/store.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/agent-tools.js"></script>
-  <script src="js/agent-core.js"></script>
-  <script src="js/xinjing-chat.js"></script>
-  <script src="js/ai.js"></script>
+  <script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
   <script src="js/prompts.builtin.js"></script>
   <script src="js/masters-data.js"></script>
   <script src="js/knowledge.builtins.js"></script>
+  <script src="js/masters-core.js"></script>
   <script src="js/masters.js"></script>
 </body>
 </html>

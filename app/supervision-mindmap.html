@@ -60,17 +60,17 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 
 <div class="preview-bar" id="preview-bar" style="display:none">
   <span>🔒</span>
-  <span>旗舰版预览模式 · 这是 <b>AI 督导思维导图</b> 旗舰增值功能，升级 <span class="xj-tier-badge custom" style="display:inline">旗舰版</span> 后从方案 C 三栏自动生成可视化导图</span>
+  <span>会员预览模式 · <b>AI 督导思维导图</b> 可将督导观点自动组织为可视化导图，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后使用</span>
   <span class="sp"></span>
   <span style="font:11px var(--sans);color:var(--ink-3)">三栏研究台 → <a href="supervision.html" style="color:var(--accent)">返回</a></span>
 </div>
 
 <div class="sup-top">
   <button class="back" onclick="location.href='supervision.html'">← 返回三栏研究台</button>
-  <h2>AI 督导思维导图 <span class="sub">· 旗舰版D</span></h2>
+  <h2>AI 督导思维导图 <span class="sub">· 会员</span></h2>
   <span class="sp"></span>
   <select id="sel-client" onchange="loadHistory()"><option value="">选择来访者…</option></select>
-  <span id="tier-badge" class="xj-tier-badge custom" style="display:none">旗舰版</span>
+  <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span>
 </div>
 
 <div class="sup-body">
@@ -97,7 +97,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
     <div class="sr-head">📊 导图面板</div>
     <div class="sr-body" id="panel-body">
       <div class="xj-locked-area" id="panel-locked" style="min-height:200px">
-        <div class="xj-lock-overlay">🔒 旗舰版功能 · 点击节点查看</div>
+        <div class="xj-lock-overlay">会员功能 · 升级后查看节点详情</div>
         <div class="sr-stat"><span>导图层级</span><b>-</b></div>
         <div class="sr-stat"><span>节点总数</span><b>-</b></div>
         <div class="sr-divider"></div>
@@ -114,12 +114,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 
 </div>
 
-<script src="js/store.js"></script>
-<script src="js/app.js"></script>
-<script src="js/agent-tools.js"></script>
-<script src="js/agent-core.js"></script>
-<script src="js/xinjing-chat.js"></script>
-<script src="js/ai.js"></script>
+<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script>
 App.initPage({ title: '督导 · 思维导图', noSidebar: true, onReady: function () {
   'use strict';

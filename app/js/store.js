@@ -301,25 +301,23 @@ const Store = (() => {
     };
   }
 
-  // ============================================================
-  // 授权限制闸门（仅 Electron 桌面「受限模式」生效；web/演示版无 window.__XJ__ 自动放行）
-  // 受限模式：来访者最多 5 个、督导记录最多 50 条；超出部分仅可读（新建/编辑/删除均拦截）
-  // ============================================================
-  const LICENSE_CAP_CLIENT = 5;
-  const LICENSE_CAP_SUPERVISION = 50;
+  // Manual clinical data remains available in every product tier.
+  // Keep the compatibility hook at call sites so future policy changes stay centralized.
+  function licenseGuard() {}
 
+  // Preserve the public compatibility API without using the license state to
+  // restrict manual clinical data. Entitlements are enforced at feature edges.
   function licenseMode() {
     try {
       if (typeof window !== 'undefined' && window.App && typeof window.App.getLicenseState === 'function') {
         const state = window.App.getLicenseState();
-        if (state && state.mode === 'limited') return 'limited';
-        return 'free';
+        if (state && state.mode) return String(state.mode);
       }
-      if (typeof window !== 'undefined' && window.__XJ__ && window.__XJ__.mode === 'limited') {
-        return 'limited';
+      if (typeof window !== 'undefined' && window.__XJ__ && window.__XJ__.mode) {
+        return String(window.__XJ__.mode);
       }
     } catch (e) {}
-    return 'free'; // full / trial / web 版
+    return 'free';
   }
 
   // AI 助手（含 AI 督导）是否解锁：优先读 App 的权威缓存，避免 preload 快照未同步
@@ -333,33 +331,6 @@ const Store = (() => {
       }
     } catch (e) {}
     return true; // 非桌面环境（web/演示）默认放开
-  }
-
-  function licenseRank(arr, id) {
-    const sorted = arr.slice().sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
-    return sorted.findIndex((x) => x.id === id);
-  }
-
-  function licenseGuard(kind, id) {
-    if (licenseMode() !== 'limited') return; // 完整/试用/web 版一律放行
-    const isClient = kind === 'client';
-    const cap = isClient ? LICENSE_CAP_CLIENT : LICENSE_CAP_SUPERVISION;
-    const label = isClient ? '来访者' : '督导记录';
-    if (id == null) {
-      // 新建：达到上限即拦截
-      const arr = isClient ? cache.clients : cache.supervisions;
-      if (arr.length >= cap) {
-        throw new Error(`试用期已结束，受限模式下最多保存 ${cap} 个${label}。请输入激活码解锁完整功能。`);
-      }
-    } else {
-      // 编辑/删除：仅前 N 个（按创建时间排序）可管理，其余只读
-      const arr = isClient ? cache.clients : cache.supervisions;
-      const rank = licenseRank(arr, id);
-      if (rank === -1) return; // 找不到（理论上不发生），交由后续逻辑处理
-      if (rank >= cap) {
-        throw new Error(`试用期已结束，受限模式下仅可管理前 ${cap} 个${label}（其余为只读）。请输入激活码解锁完整功能。`);
-      }
-    }
   }
 
   // ============================================================

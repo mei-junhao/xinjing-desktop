@@ -42,7 +42,12 @@
 <div class="set-page">
   <div class="set-top"><button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回</button><h2>设置</h2></div>
 
-  <div class="about"><div class="logo">心镜</div><div class="ver" id="ver-text">v3.0.0</div></div>
+  <div class="about"><div class="logo">心镜</div><div class="ver" id="ver-text">v4.0.0</div></div>
+
+  <div class="group" id="membership-group"><div class="group-head"><span class="icon"><i data-lucide="badge-check"></i></span>会员方案</div><div class="group-body">
+    <div class="row"><div class="lbl"><div class="t" id="membership-plan-name">正在读取方案</div><div class="d" id="membership-plan-detail">免费、会员、旗舰按临床工作与资料库能力分档</div></div><span id="membership-plan-badge"></span></div>
+    <div class="row"><div class="lbl"><div class="t">方案对比</div><div class="d">查看 AI 督导、思维导图、大师会诊、成长轨迹与 RAG 差异</div></div><button class="btn pri" id="btn-view-plans">查看三档权益</button></div>
+  </div></div>
 
   <div class="group"><div class="group-head"><span class="icon"><i data-lucide="user-round"></i></span>账号</div><div class="group-body">
     <div class="row"><div class="lbl"><div class="t">称呼</div><div class="d" id="account-name-display">未设置</div></div><button class="btn" id="btn-edit-name">编辑</button></div>
@@ -82,23 +87,18 @@
   <div class="group"><div class="group-head"><span class="icon"><i data-lucide="palette"></i></span>外观</div><div class="group-body">
     <div class="row"><div class="lbl"><div class="t">深色模式</div><div class="d">切换浅色/深色主题</div></div><div class="toggle" id="theme-toggle" onclick="toggleTheme()"></div></div>
     <div class="row"><div class="lbl"><div class="t">设计语言</div><div class="d">切换应用配色方案</div></div>
-  <div class="skin-selector">
-    <button class="skin-btn" data-skin-name="clinical" onclick="switchSkin('clinical')">临床工作台</button>
-    <button class="skin-btn" data-skin-name="calm" onclick="switchSkin('calm')">静谧留白</button>
-    <button class="skin-btn" data-skin-name="editorial" onclick="switchSkin('editorial')">暖棕编辑</button>
-    <button class="skin-btn" data-skin-name="xinjing" onclick="switchSkin('xinjing')">暖色治愈</button>
+  <div class="skin-selector" id="skin-selector">
+    <button class="xj-skin-option" type="button" data-skin-name="clinical"><span class="xj-skin-swatch clinical"></span><span><b>01 澄明临床</b><small>默认 · 清晰、克制、适合日常执业</small></span><span class="xj-tier-badge">免费</span></button>
+    <button class="xj-skin-option" type="button" data-skin-name="theatre"><span class="xj-skin-swatch theatre"></span><span><b>04 安静剧场</b><small>暖灰与酒红 · 适合叙事整理</small></span><span class="xj-tier-badge pro">会员</span></button>
+    <button class="xj-skin-option" type="button" data-skin-name="observatory"><span class="xj-skin-swatch observatory"></span><span><b>05 夜间观测</b><small>原生深色 · 适合夜间督导</small></span><span class="xj-tier-badge pro">会员</span></button>
   </div>
 </div>
 <style>
-.skin-selector{display:flex;gap:6px;flex-wrap:wrap}
-.skin-btn{border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--radius-sm);padding:6px 14px;font-size:13px;cursor:pointer;font-family:var(--sans);color:var(--text-secondary);transition:.18s}
-.skin-btn:hover{border-color:var(--accent);color:var(--accent)}
-.skin-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.skin-selector{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%}
+.xj-skin-option span:nth-child(2){display:flex;min-width:0;flex-direction:column;gap:2px}
+.xj-skin-option b{font-size:13px}.xj-skin-option small{font-size:12px;color:var(--ink-3);line-height:1.4}
+@media(max-width:1100px){.skin-selector{grid-template-columns:1fr}}
 </style>
-<script>
-(function(){var s=App.Theme.getSkin();document.querySelectorAll('.skin-btn').forEach(function(b){if(b.getAttribute('data-skin-name')===s)b.classList.add('active')})})();
-function switchSkin(name){App.Theme.setSkin(name);document.querySelectorAll('.skin-btn').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-skin-name')===name)})}
-</script>
   </div></div>
 
   <div class="group"><div class="group-head"><span class="icon"><i data-lucide="compass"></i></span>帮助与引导</div><div class="group-body">
@@ -110,7 +110,7 @@ function switchSkin(name){App.Theme.setSkin(name);document.querySelectorAll('.sk
   </div></div>
 
   <div class="group"><div class="group-head"><span class="icon"><i data-lucide="info"></i></span>关于</div><div class="group-body">
-    <div class="row"><div class="lbl"><div class="t">版本</div><div class="d">心镜 XinJing Desktop</div></div><span class="badge ok" id="about-version">v3.0.0</span></div>
+    <div class="row"><div class="lbl"><div class="t">版本</div><div class="d">心镜 XinJing Desktop</div></div><span class="badge ok" id="about-version">v4.0.0</span></div>
     <div class="row"><div class="lbl"><div class="t">激活状态</div><div class="d" id="license-status">查询中…</div></div></div>
     <div class="row"><div class="lbl"><div class="t">意见反馈</div><div class="d">提交建议或报告问题</div></div><button class="btn" onclick="location.href='feedback.html'">前往反馈</button></div>
   </div>
@@ -118,10 +118,7 @@ function switchSkin(name){App.Theme.setSkin(name);document.querySelectorAll('.sk
   </div>
 </div>
 </main></div>
-<script src="js/store.js"></script><script src="js/memory.js"></script><script src="js/persona-preamble.js"></script><script src="js/app.js"></script>
-<script src="js/agent-tools.js"></script>
-<script src="js/agent-core.js"></script>
-<script src="js/xinjing-chat.js"></script><script src="js/onboarding.js"></script><script src="js/settings.js"></script>
+<script src="js/store.js"></script><script src="js/memory.js"></script><script src="js/persona-preamble.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/onboarding.js"></script><script src="js/settings.js"></script>
 
 <!-- connect-drawer（对话式 AI 接入引导） -->
 <div class="xj-connect-drawer" id="connect-drawer">

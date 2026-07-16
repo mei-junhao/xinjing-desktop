@@ -19,57 +19,16 @@
     style.href = 'css/workbench.css';
     document.head.appendChild(style);
   }
+  if (!document.querySelector('link[href="css/xj-ui-system.css"]')) {
+    var systemStyle = document.createElement('link');
+    systemStyle.rel = 'stylesheet';
+    systemStyle.href = 'css/xj-ui-system.css';
+    document.head.appendChild(systemStyle);
+  }
 })();
 
-(function injectGlobalScripts() {
-  const list = [
-    'js/ai.js',
-    'js/prompts.builtin.js',
-    'js/supervisors.js',
-    'js/supervision-core.js',
-    'js/masters-data.js',
-    'js/knowledge.builtins.js',
-    'js/masters-core.js',
-    'js/agent-core.js',
-    'js/agent-tools.js',
-    'js/agent-shell.js',
-    'js/memory.js',
-    'js/persona-preamble.js',
-    'js/client-modal.js',
-    'js/xinjing-chat.js',
-    'js/page-hints.js',
-    'js/icon-system.js'
-  ];
-  list.forEach(function (src) {
-    // 双重守卫：typeof 检测全局是否已声明（防重复加载 const SyntaxError）
-    // + querySelector 检测 <script> 标签是否已显式加载
-    // 注意：typeof 对未声明的顶层 const/let 在 Script scope 安全返回 'undefined'
-    var guards = {
-      'js/ai.js': function () { return typeof AI !== 'undefined'; },
-      'js/prompts.builtin.js': function () { return typeof PromptsBuiltin !== 'undefined'; },
-      'js/supervisors.js': function () { return typeof Supervisors !== 'undefined'; },
-      'js/supervision-core.js': function () { return typeof SupervisionCore !== 'undefined'; },
-      'js/masters-data.js': function () { return typeof MASTERS !== 'undefined'; },
-      'js/knowledge.builtins.js': function () { return typeof Knowledge !== 'undefined'; },
-      'js/masters-core.js': function () { return typeof MastersCore !== 'undefined'; },
-      'js/agent-core.js': function () { return typeof AgentCore !== 'undefined'; },
-      'js/agent-tools.js': function () { return typeof AgentTools !== 'undefined'; },
-      'js/agent-shell.js': function () { return typeof AgentShell !== 'undefined'; },
-      'js/memory.js': function () { return typeof Memory !== 'undefined'; },
-      'js/persona-preamble.js': function () { return typeof PersonaPreamble !== 'undefined'; },
-      'js/client-modal.js': function () { return typeof ClientModal !== 'undefined'; },
-      'js/xinjing-chat.js': function () { return typeof XinJingChat !== 'undefined'; },
-      'js/page-hints.js': function () { return typeof PageHints !== 'undefined'; },
-      'js/icon-system.js': function () { return typeof IconSystem !== 'undefined'; }
-    };
-    if (guards[src] && guards[src]()) return;
-    if (document.querySelector('script[src="' + src + '"]')) return;
-    var s = document.createElement('script');
-    s.src = src;
-    s.async = false;
-    document.head.appendChild(s);
-  });
-})();
+// Shared runtime scripts are loaded statically before app.js on every business page.
+// Deterministic ordering prevents duplicate top-level const declarations and race conditions.
 
 const App = (() => {
   'use strict';
@@ -81,21 +40,34 @@ const App = (() => {
       const dark = t === 'dark' || (t === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.classList.toggle('dark', !!dark);
     } catch (e) { /* localStorage 不可用时忽略 */ }
-    // 皮肤引导：读取 localStorage 里的皮肤偏好，默认 calm（v1.2.0 静谧留白）
+    // 旧皮肤值统一迁移到 01；新系统只允许 01/04/05 三个稳定标识。
     try {
       const storedSkin = localStorage.getItem('xj_skin');
-      const skin = (!storedSkin || storedSkin === 'calm' || storedSkin === 'xinjing') ? 'clinical' : storedSkin;
-      if (skin === 'clinical') localStorage.setItem('xj_skin', skin);
+      const allowed = ['clinical', 'theatre', 'observatory'];
+      const legacySkin = storedSkin === 'calm' || storedSkin === 'xinjing' || storedSkin === 'editorial';
+      const skin = !legacySkin && allowed.indexOf(storedSkin) !== -1 ? storedSkin : 'clinical';
+      localStorage.setItem('xj_skin', skin);
       document.documentElement.setAttribute('data-skin', skin);
-    } catch (e) { document.documentElement.setAttribute('data-skin', 'calm'); }
+    } catch (e) { document.documentElement.setAttribute('data-skin', 'clinical'); }
   })();
 
     // 皮肤管理（正交于 .dark 明暗切换）：skin=配色族，dark=明暗
   const Theme = {
-    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'clinical'; } catch (e) { return 'clinical'; } },
+    getSkin: function () {
+      try {
+        var skin = localStorage.getItem('xj_skin') || 'clinical';
+        return ['clinical', 'theatre', 'observatory'].indexOf(skin) !== -1 ? skin : 'clinical';
+      } catch (e) { return 'clinical'; }
+    },
     setSkin: function (name) {
+      if (['clinical', 'theatre', 'observatory'].indexOf(name) === -1) name = 'clinical';
+      if (name !== 'clinical' && !canUse('premium-skins')) {
+        showToast('安静剧场与夜间观测为会员皮肤，可在方案对比中查看权益。', 'warning');
+        return false;
+      }
       try { localStorage.setItem('xj_skin', name); } catch (e) {}
       document.documentElement.setAttribute('data-skin', name);
+      return true;
     },
   };
 
@@ -107,6 +79,10 @@ const App = (() => {
 
   function updateLicenseState(state) {
     if (state && typeof state === 'object') licenseStateCache = state;
+    if (!canUse('premium-skins') && Theme.getSkin() !== 'clinical') {
+      try { localStorage.setItem('xj_skin', 'clinical'); } catch (e) {}
+      document.documentElement.setAttribute('data-skin', 'clinical');
+    }
     applyTierMark();
     licenseStateCallbacks.forEach((cb) => { try { cb(licenseStateCache); } catch (e) {} });
   }
@@ -138,26 +114,36 @@ const App = (() => {
     return tier === 'custom';
   }
 
-  function featureGate(kind) {
-    if (isPro()) return true;
-    if (isTrial() && aiUnlocked()) {
-      return true; // 试用期用户默认拥有全部权限（含旗舰功能）
+  function canUse(kind) {
+    if (typeof XJEntitlements === 'undefined' || !XJEntitlements.canUse) {
+      console.warn('[App] Entitlements module is not ready:', kind);
+      return false;
     }
-    return false;
+    return XJEntitlements.canUse(kind, licenseStateCache);
+  }
+
+  function featureGate(kind) {
+    return canUse(kind);
   }
 
   function lockBadge(kind) {
-    if (featureGate(kind)) return '';
-    if (isTrial()) return '<span class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>会员</span>';
-    return '<span class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>已过期</span>';
+    if (canUse(kind)) return '';
+    var minimum = (typeof XJEntitlements !== 'undefined' && XJEntitlements.minimumTier) ? XJEntitlements.minimumTier(kind) : 'pro';
+    var label = minimum === 'custom' ? '旗舰' : '会员';
+    return '<span class="xj-lock-badge" title="升级' + label + '解锁"><i data-lucide="lock-keyhole"></i>' + label + '</span>';
   }
 
   function membershipBadge() {
     var tier = (licenseStateCache && licenseStateCache.tier) || 'free';
+    if (isTrial() && aiUnlocked()) return '<span class="xj-tier-badge custom">旗舰试用</span>';
     if (tier === 'custom') return '<span class="xj-tier-badge custom">旗舰版</span>';
     if (tier === 'pro' || tier === 'full') return '<span class="xj-tier-badge pro">会员</span>';
-    if (isTrial()) return '<span class="xj-tier-badge custom">旗舰版试用</span>';
-    return '';
+    return '<span class="xj-tier-badge">免费版</span>';
+  }
+
+  function openPlans() {
+    if (window.__XJ_API__ && typeof window.__XJ_API__.openActivation === 'function') window.__XJ_API__.openActivation();
+    else location.href = 'activation.html';
   }
 
   function onLicenseStateChange(cb) {
@@ -234,14 +220,20 @@ const App = (() => {
     const path = location.pathname.split('/').pop() || 'index.html';
     const map = {
       'index.html': 'dashboard',
+      'chat-home.html': 'dashboard',
       'consult-notes.html': 'consultations',
       'transcript.html': 'transcript',
+      'transcript-guide.html': 'transcript',
       'report-writing.html': 'report',
       'session-calendar.html': 'session-calendar',
       'supervision.html': 'supervision',
+      'supervision-mindmap.html': 'supervision',
       'real-supervision.html': 'real-supervision',
+      'real-supervision-ai.html': 'real-supervision',
       'doc-center.html': 'doc-center',
+      'doc-growth.html': 'doc-center',
       'billing-shell.html': 'billing',
+      'billing-calendar.html': 'billing',
       'masters.html': 'masters',
       'knowledge.html': 'knowledge',
       'settings.html': 'settings',
@@ -919,6 +911,24 @@ const App = (() => {
         if (window.__xjOpenCmd) window.__xjOpenCmd();
       }
     });
+    document.addEventListener('click', function (e) {
+      const link = e.target.closest('a[href]');
+      if (!link) return;
+      const page = (link.getAttribute('href') || '').split('?')[0];
+      const gates = {
+        'transcript-guide.html': 'transcript-guide',
+        'supervision-mindmap.html': 'ai-mindmap',
+        'real-supervision-ai.html': 'real-sup-ai',
+        'doc-growth.html': 'ai-growth',
+        'billing-calendar.html': 'billing-calendar',
+        'masters.html': 'ai-masters',
+      };
+      const feature = gates[page];
+      if (!feature || canUse(feature)) return;
+      e.preventDefault();
+      showToast('此功能需会员及以上方案，正在打开三档权益对比。', 'warning');
+      setTimeout(openPlans, 180);
+    }, true);
   }
   setupGlobalChrome();
   applyPageIdentity();
@@ -959,9 +969,11 @@ const App = (() => {
     isTrial,
     isPro,
     isCustom,
+    canUse,
     featureGate,
     lockBadge,
     membershipBadge,
+    openPlans,
     Theme,
   };
 })();

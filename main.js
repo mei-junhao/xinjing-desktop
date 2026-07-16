@@ -14,6 +14,7 @@ const {
 } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const license = require('./license-core');
+const entitlements = require('./app/js/entitlements');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -1027,10 +1028,10 @@ app.whenReady().then(async () => {
 function openActivationWindow() {
   if (activationWindow) { activationWindow.focus(); return; }
   activationWindow = new BrowserWindow({
-    width: 520,
-    height: 620,
-    minWidth: 420,
-    minHeight: 540,
+    width: 960,
+    height: 760,
+    minWidth: 700,
+    minHeight: 620,
     parent: mainWindow || undefined,
     show: true,
     center: true,
@@ -1281,6 +1282,10 @@ function buildTree(files) {
 // 不再静默截断。真实课程资料通常远小于此值；设较高上限避免正常资料被漏接。
 const KB_FILE_LIMIT = 3000;
 
+function currentRagPolicy() {
+  return entitlements.ragPolicy(licenseState || computeState());
+}
+
 // 异步递归遍历（深度≤maxDepth、处理文件≤maxFiles；total 统计全部匹配文件用于溢出提示），
 // 逐文件 setImmediate 让出
 async function walkUserDoc(root, maxDepth = 4, maxFiles = KB_FILE_LIMIT) {
@@ -1347,11 +1352,13 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
   const cfg = readUserDocConfig();
   if (!cfg.folder) return { ok: false, reason: 'no-folder' };
   const root = cfg.folder;
+  const policy = currentRagPolicy();
+  const fileLimit = policy.documentLimit;
   let entries, total;
-  try { const r = await walkUserDoc(root, 4, KB_FILE_LIMIT); entries = r.entries; total = r.total; }
+  try { const r = await walkUserDoc(root, 4, fileLimit); entries = r.entries; total = r.total; }
   catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
   if (!entries.length) {
-    return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], truncated: false, totalFound: total, limit: KB_FILE_LIMIT, stats: { fileCount: 0, totalFound: total, truncated: false, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
+    return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], truncated: false, totalFound: total, limit: Number.isFinite(fileLimit) ? fileLimit : null, stats: { fileCount: 0, totalFound: total, truncated: false, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
   }
   const files = [], docs = [], catMap = new Map();
   let totalChars = 0, totalBytes = 0, mdCount = 0, txtCount = 0, docCount = 0;
@@ -1378,7 +1385,7 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
   const categories = [...catMap.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   return {
     ok: true, folder: root, files, tree, categories, keywords,
-    truncated: total > files.length, totalFound: total, limit: KB_FILE_LIMIT,
+    truncated: total > files.length, totalFound: total, limit: Number.isFinite(fileLimit) ? fileLimit : null,
     stats: { fileCount: files.length, totalFound: total, truncated: total > files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0, mdCount, txtCount, docCount },
   };
 });
@@ -1452,8 +1459,9 @@ ipcMain.handle('xj:searchUserDocs', async (e, args) => {
   const cfg = readUserDocConfig();
   if (!cfg.folder) return { ok: false, reason: 'no-folder' };
   const root = cfg.folder;
+  const policy = currentRagPolicy();
   let entries;
-  try { const r = await walkUserDoc(root, 4, KB_FILE_LIMIT); entries = r.entries; }
+  try { const r = await walkUserDoc(root, 4, policy.documentLimit); entries = r.entries; }
   catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
   const q = query.toLowerCase();
   const hits = [];
@@ -1518,6 +1526,8 @@ ipcMain.handle('xj:ragIndexStatus', async () => {
 });
 
 ipcMain.handle('xj:ragIndex', async () => {
+  const policy = currentRagPolicy();
+  if (policy.method === 'keyword') return { ok: false, error: 'membership-required' };
   const ri = ensureRagIndex();
   if (!ri) return { ok: false, error: 'rag-module-unavailable' };
   const cfg = readUserDocConfig();
@@ -1525,7 +1535,7 @@ ipcMain.handle('xj:ragIndex', async () => {
   const root = cfg.folder;
   let entries;
   try {
-    const r = await walkUserDoc(root, 4, KB_FILE_LIMIT);
+    const r = await walkUserDoc(root, 4, policy.documentLimit);
     entries = r.entries;
   } catch (e) {
     return { ok: false, error: 'read-dir-failed: ' + e.message };
@@ -1549,8 +1559,11 @@ ipcMain.handle('xj:ragCancel', async () => {
 ipcMain.handle('xj:ragSearch', async (e, args) => {
   args = args || {};
   const query = String(args.query || '').trim();
-  const topK = Math.min(50, Math.max(1, args.topK || 20));
-  const tier = String(args.tier || 'pro');
+  const state = licenseState || computeState();
+  const policy = entitlements.ragPolicy(state);
+  const tier = entitlements.effectiveTier(state);
+  if (policy.method === 'keyword') return { ok: false, reason: 'membership-required', results: [] };
+  const topK = Math.min(policy.recall, Math.max(1, args.topK || policy.recall));
   if (!query) return { ok: true, results: [] };
   const ri = ensureRagIndex();
   if (!ri) return { ok: false, reason: 'rag-module-unavailable', results: [] };

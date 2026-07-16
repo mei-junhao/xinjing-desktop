@@ -19,7 +19,10 @@
 
   function _currentTier() {
     try {
-      if (window.__XJ__ && window.__XJ__.tier) return window.__XJ__.tier;
+      if (typeof XJEntitlements !== 'undefined' && typeof App !== 'undefined') {
+        return XJEntitlements.effectiveTier(App.getLicenseState());
+      }
+      if (window.__XJ__ && window.__XJ__.activated && window.__XJ__.tier) return window.__XJ__.tier;
     } catch (e) {}
     return 'free';
   }

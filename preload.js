@@ -101,13 +101,10 @@ try {
     if (state.mode === 'full') return;
 
     injectStyles();
-    if (state.mode === 'limited') injectWatermark();
     injectBanner(state);
     if (state.mode === 'limited') {
-      injectPageNotice();
       lockExportPrint();
     }
-    if (state.mode !== 'full') injectSettingsPanel(state);
   });
 
   // 独立的监听器：注入 Agent 浮窗资源（所有模式，已激活用户也能用）
@@ -176,10 +173,8 @@ try {
     removeLockIfFull();
     if (state.mode === 'full') return;
     injectStyles();
-    if (state.mode === 'limited') injectWatermark();
     injectBanner(state);
-    if (state.mode === 'limited') { injectPageNotice(); lockExportPrint(); }
-    if (state.mode !== 'full') injectSettingsPanel(state);
+    if (state.mode === 'limited') lockExportPrint();
   }
 
   function injectStyles() {
@@ -194,14 +189,6 @@ try {
     #xj-banner button{background:#fff;color:#9c5a3c;border:0;border-radius:999px;
       padding:6px 16px;font-weight:700;cursor:pointer;}
     #xj-banner.limited button{color:#a33327;}
-    #xj-watermark{position:fixed;inset:0;z-index:2147483645;pointer-events:none;
-      opacity:.07;background-image:repeating-linear-gradient(-30deg,
-        transparent 0 120px, rgba(156,90,60,.9) 120px 360px);
-      background-size:auto;}
-    #xj-watermark::after{content:"心镜 XinJing · 未激活";position:absolute;inset:0;
-      display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:40px;
-      transform:rotate(-18deg);font:800 38px/1.1 "PingFang SC","Microsoft YaHei",sans-serif;
-      color:rgba(156,90,60,.9);letter-spacing:6px;white-space:pre;}
     #xj-notice{margin:0 0 14px;padding:12px 16px;border-radius:12px;
       background:#fbf1e6;color:#9c5a3c;border:1px solid #e7c9b0;
       font:600 13px/1.55 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;}
@@ -226,7 +213,7 @@ try {
     if (state.expired) {
       txt = '激活码已过期：完整功能已锁定（含 AI 助手），请向开发者索取续费激活码 · 输入激活码解锁';
     } else if (state.mode === 'limited') {
-      txt = '受限模式：仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印，AI 助手锁定 · 输入激活码解锁';
+      txt = '免费版：手工执业工作流可继续使用；AI 临床能力、无水印导出与高级检索需升级会员';
     } else if (state.aiTrialActive) {
       txt = `未激活 · AI 助手 / AI 督导 限时免费试用剩余 ${state.aiTrialDaysLeft} 天 · 现在激活可叠加剩余免费天数并长期解锁`;
     } else {
@@ -242,12 +229,6 @@ try {
     document.body.style.paddingTop = '42px';
   }
 
-  function injectWatermark() {
-    const wm = document.createElement('div');
-    wm.id = 'xj-watermark';
-    document.body.appendChild(wm);
-  }
-
   function lockExportPrint() {
     if (lockClickHandler) return; // 已加锁，避免重复绑定
     const isBlocked = (el) => {
@@ -261,7 +242,7 @@ try {
         if (isBlocked(el)) {
           e.preventDefault();
           e.stopPropagation();
-          alert('当前为受限模式，激活后可导出/打印。');
+          alert('免费版不含无水印导出与打印，请升级会员后使用。');
           return;
         }
         el = el.parentElement;
@@ -270,24 +251,8 @@ try {
     document.addEventListener('click', lockClickHandler, true);
     origPrint = window.print;
     window.print = function () {
-      alert('当前为受限模式，激活后可打印。');
+      alert('免费版不含无水印打印，请升级会员后使用。');
     };
-  }
-
-  // 受限模式：在来访者 / 督导页面注入醒目的上限提示条
-  function injectPageNotice() {
-    const p = location.pathname;
-    let msg = '';
-    if (p.includes('clients')) {
-      msg = '受限模式提醒：试用期已结束，仅可管理前 5 位来访者，超出部分只读（不可编辑或删除）。输入激活码解锁无限制。';
-    } else if (p.includes('supervision')) {
-      msg = '受限模式提醒：试用期已结束，仅可管理前 50 条督导记录，超出部分只读。输入激活码解锁无限制。';
-    }
-    if (!msg) return;
-    const box = document.createElement('div');
-    box.id = 'xj-notice';
-    box.textContent = msg;
-    mountInto(box);
   }
 
   // 设置页：注入授权状态面板（试用 / 受限均显示，完整模式不显示）
@@ -305,8 +270,8 @@ try {
       title = '激活码已过期';
       detail = '完整功能（含 AI 助手）已锁定。请向开发者索取续费激活码后重新激活。';
     } else if (state.mode === 'limited') {
-      title = '受限模式（未激活）';
-      detail = '仅可管理前 5 位来访者与 50 条督导记录（超出只读），禁止导出/打印，AI 助手锁定。';
+      title = '免费版';
+      detail = '手工执业工作流可继续使用；AI 临床能力、无水印导出与高级资料检索需升级会员。';
     } else if (state.aiTrialActive) {
       title = `未激活 · AI 免费试用中（剩余 ${state.aiTrialDaysLeft} 天）`;
       detail = `安装后 ${state.aiTrialDays} 天内 AI 助手 / AI 督导免费无限制使用。现在激活可把剩余 ${state.aiTrialDaysLeft} 天叠加到激活码有效期，并长期解锁全部功能。`;
