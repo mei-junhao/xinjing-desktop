@@ -42,12 +42,21 @@
 .step-foot .prev{border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}
 .step-foot .next{background:var(--accent);color:#fff;border:none}
 .step-foot .ai-btn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:9px}
-/* 节次选择条（步骤1之前显示） */
-.sess-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--bg-sunken,#EDF0F7);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
-.sess-bar .lbl{font-size:11px;color:var(--ink-3);font-weight:600}
-.sess-chip{display:flex;align-items:center;gap:5px;padding:4px 10px 4px 4px;border:1px solid var(--border);border-radius:999px;font-size:12px;cursor:pointer;background:var(--paper,#fff);font-family:var(--sans)}
-.sess-chip input{margin:0}
-.sess-chip.checked{border-color:var(--accent);background:var(--accent-soft)}
+/* 基于节次：下拉菜单（默认收起，不占视觉空间） */
+.sess-dd{position:relative}
+.sess-dd-btn{border:1px solid var(--border);background:var(--paper,#fff);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
+.sess-dd-btn.has-sel{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.sess-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:50;min-width:280px;max-height:360px;overflow:auto;background:var(--paper,#fff);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 28px rgba(40,44,72,.14);padding:10px}
+.sess-menu-actions{display:flex;align-items:center;gap:8px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.sess-menu-actions button{border:1px solid var(--border);background:var(--paper,#fff);border-radius:6px;padding:4px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
+.sess-menu-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.sess-only{font-size:11px;color:var(--ink-3);display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto}
+.sess-list{display:flex;flex-direction:column;gap:2px}
+.sess-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--sans)}
+.sess-item:hover{background:var(--bg-sunken,#EDF0F7)}
+.sess-item input{margin:0}
+.sess-item .tag{font-size:10px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 5px;margin-left:auto}
+.sess-empty{padding:14px 8px;font-size:12px;color:var(--ink-3);text-align:center}
 </style>
 </head>
 <body>
@@ -58,14 +67,22 @@
   <h2>撰写报告</h2>
   <span class="sp"></span>
   <select id="rpt-client" onchange="loadClientSessions()"><option value="">选择来访者…</option></select>
+  <div class="sess-dd" id="sess-dd" style="display:none">
+    <button class="sess-dd-btn" onclick="toggleSessMenu()">基于节次 ▾</button>
+    <div class="sess-menu" id="sess-menu" style="display:none">
+      <div class="sess-menu-actions">
+        <button onclick="sessSelectAll(true)">全选</button>
+        <button onclick="sessSelectAll(false)">全不选</button>
+        <label class="sess-only"><input type="checkbox" id="sess-only-has" onchange="renderSessMenu()"> 仅显示有逐字稿/记录</label>
+      </div>
+      <div id="sessions-list" class="sess-list"></div>
+    </div>
+  </div>
+  <button id="btn-upload-transcript" onclick="document.getElementById('rpt-transcript-file').click()">上传逐字稿</button>
+  <input type="file" id="rpt-transcript-file" accept=".txt,.md,.doc,.docx" style="display:none" onchange="onReportTranscriptUpload(event)">
   <button id="btn-upload-tpl" onclick="document.getElementById('tpl-file').click()">上传模板</button>
   <input type="file" id="tpl-file" accept=".txt,.md,.docx,.html" style="display:none" onchange="onTemplateUpload(event)">
   <button class="btn-p" onclick="exportWord()">导出 Word</button>
-</div>
-
-<div class="sess-bar" id="sess-bar" style="display:none">
-  <span class="lbl">基于节次：</span>
-  <div id="sessions-strip" style="display:flex;gap:6px;flex-wrap:wrap"></div>
 </div>
 
 <div class="steps" id="steps-nav"></div>

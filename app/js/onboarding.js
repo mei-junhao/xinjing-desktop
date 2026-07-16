@@ -31,7 +31,7 @@
   function injectStyle() {
     if (document.getElementById(STYLE_ID)) return;
     var css = [
-      '.xjob-mask{position:fixed;inset:0;z-index:9000;pointer-events:auto}',
+      '.xjob-mask{position:fixed;inset:0;z-index:9000;pointer-events:auto;cursor:pointer}',
       '.xjob-hole{position:fixed;z-index:9001;border-radius:14px;box-shadow:0 0 0 9999px rgba(20,18,16,.58);',
         'transition:all .28s cubic-bezier(.4,0,.2,1);pointer-events:none;',
         'outline:2px solid var(--accent,#8b93c7);outline-offset:3px}',
@@ -116,7 +116,8 @@
     var full = document.createElement('div'); full.className = 'xjob-full';
     var hole = document.createElement('div'); hole.className = 'xjob-hole'; hole.style.display = 'none';
     var pop = document.createElement('div'); pop.className = 'xjob-pop';
-    // 点蒙层空白处不关闭（防误触丢失进度），仅按钮可操作
+    // 允许点蒙层任意处退出导览（防止误操作导致的卡死；进度可重看）
+    mask.addEventListener('click', function () { try { endTour(false); } catch (e) {} });
     mask.appendChild(full);
     document.body.appendChild(mask);
     document.body.appendChild(hole);
@@ -124,7 +125,7 @@
     return { mask: mask, full: full, hole: hole, pop: pop };
   }
 
-  function positionStep() {
+  function measureAndPlace() {
     if (!tourEls) return;
     var step = TOUR_STEPS[tourIdx];
     var target = step.sel ? q(step.sel) : null;
@@ -140,31 +141,51 @@
       return;
     }
 
-    // 高亮目标：先滚入视野
-    try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-    // 用 rAF 等滚动到位后再量一次
+    // 量位置前先确保元素在可视区内（用 instant 避免 smooth 异步导致量到旧坐标）
+    try { target.scrollIntoView({ behavior: 'auto', block: 'center' }); } catch (e) {}
+    // 双 rAF 确保布局已落定（auto 滚动同步，但保险起见再等一帧）
     requestAnimationFrame(function () {
-      var r = target.getBoundingClientRect();
-      var pad = 6;
-      full.style.display = 'none';
-      hole.style.display = 'block';
-      hole.style.left = Math.max(4, r.left - pad) + 'px';
-      hole.style.top = Math.max(4, r.top - pad) + 'px';
-      hole.style.width = (r.width + pad * 2) + 'px';
-      hole.style.height = (r.height + pad * 2) + 'px';
+      requestAnimationFrame(function () {
+        if (!tourEls) return;
+        var r = target.getBoundingClientRect();
+        // 目标飞出视口（如被某容器 overflow 裁剪）时改用居中卡片，避免挖洞错位
+        if (r.width === 0 && r.height === 0) {
+          full.style.display = 'block';
+          hole.style.display = 'none';
+          pop.style.left = Math.round((vw - pop.offsetWidth) / 2) + 'px';
+          pop.style.top = Math.round((vh - pop.offsetHeight) / 2) + 'px';
+          return;
+        }
+        var pad = 6;
+        full.style.display = 'none';
+        hole.style.display = 'block';
+        hole.style.left = Math.max(4, r.left - pad) + 'px';
+        hole.style.top = Math.max(4, r.top - pad) + 'px';
+        hole.style.width = (r.width + pad * 2) + 'px';
+        hole.style.height = (r.height + pad * 2) + 'px';
 
-      // 气泡放在目标下方，放不下则放上方
-      var pw = pop.offsetWidth || 340, ph = pop.offsetHeight || 180;
-      var left = r.left + r.width / 2 - pw / 2;
-      left = Math.max(12, Math.min(left, vw - pw - 12));
-      var top;
-      if (r.bottom + 14 + ph < vh) top = r.bottom + 14;
-      else if (r.top - 14 - ph > 0) top = r.top - 14 - ph;
-      else top = Math.max(12, (vh - ph) / 2);
-      pop.style.left = Math.round(left) + 'px';
-      pop.style.top = Math.round(top) + 'px';
+        // 气泡放在目标下方，放不下则放上方，再不行居中
+        var pw = pop.offsetWidth || 340, ph = pop.offsetHeight || 180;
+        var left = r.left + r.width / 2 - pw / 2;
+        left = Math.max(12, Math.min(left, vw - pw - 12));
+        var top;
+        if (r.bottom + 14 + ph < vh) top = r.bottom + 14;
+        else if (r.top - 14 - ph > 0) top = r.top - 14 - ph;
+        else top = Math.max(12, (vh - ph) / 2);
+        pop.style.left = Math.round(left) + 'px';
+        pop.style.top = Math.round(top) + 'px';
+      });
     });
   }
+
+  // 滚动/缩放时重新定位（用 passive 监听 + 节流，避免气泡抖动）
+  var reflowRaf = null;
+  function scheduleReflow() {
+    if (reflowRaf) cancelAnimationFrame(reflowRaf);
+    reflowRaf = requestAnimationFrame(function () { reflowRaf = null; measureAndPlace(); });
+  }
+
+  function positionStep() { measureAndPlace(); }
 
   function renderStep() {
     if (!tourEls) return;
@@ -202,32 +223,59 @@
       if (tourEls) endTour(false);
       tourIdx = 0;
       tourEls = buildTourDom();
-      reflowBound = function () { positionStep(); };
+      reflowBound = function () { scheduleReflow(); };
       window.addEventListener('resize', reflowBound);
+      window.addEventListener('scroll', reflowBound, true);
       renderStep();
     } catch (e) { console.warn('[Onboarding] 导览启动失败', e); }
   }
 
+  // 强制清理所有导览 DOM（防止任何异常导致全屏蒙层残留、页面卡死无法点击）
+  function forceCleanup() {
+    try {
+      ['xjob-mask', 'xjob-full', 'xjob-hole', 'xjob-pop'].forEach(function (cls) {
+        var nodes = document.querySelectorAll('.' + cls);
+        nodes.forEach(function (n) { if (n && n.parentNode) n.parentNode.removeChild(n); });
+      });
+      tourEls = null;
+    } catch (e) {}
+  }
+
   function endTour(markDone) {
     try {
-      if (reflowBound) { window.removeEventListener('resize', reflowBound); reflowBound = null; }
+      if (reflowBound) {
+        window.removeEventListener('resize', reflowBound);
+        window.removeEventListener('scroll', reflowBound, true);
+        reflowBound = null;
+      }
       if (tourEls) {
-        [tourEls.mask, tourEls.hole, tourEls.pop].forEach(function (n) { if (n && n.parentNode) n.parentNode.removeChild(n); });
+        [tourEls.mask, tourEls.hole, tourEls.full, tourEls.pop].forEach(function (n) { if (n && n.parentNode) n.parentNode.removeChild(n); });
         tourEls = null;
       }
+      // 兜底：无论上面是否成功，再扫一遍残留节点，杜绝蒙层卡死
+      forceCleanup();
       if (markDone) {
         lsSet(LS_TOUR, '1');
         renderChecklist(); // 导览结束后立即刷新清单
       }
-    } catch (e) {}
+    } catch (e) {
+      // 即使异常也要尽力清理，避免整页不可点击
+      forceCleanup();
+    }
   }
 
   // 首启判定：仅当从未看过导览时自动开跑
   function maybeStartTour() {
     try {
+      // 兜底：无论历史是否残留蒙层，先清一次，确保页面可点击
+      forceCleanup();
       if (lsGet(LS_TOUR) === '1') return;
       // 稍等首页动画/侧栏注入完成再开
-      setTimeout(startTour, 550);
+      setTimeout(function () {
+        // 第二次兜底（防止首屏期间注入侧栏时被遮挡残留）
+        forceCleanup();
+        startTour();
+      }, 550);
     } catch (e) {}
   }
 

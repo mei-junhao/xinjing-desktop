@@ -43,6 +43,44 @@
     document.getElementById('tp-input').placeholder = '粘贴逐字稿文本（每行一个对话轮次，如 "T: 你好" 或 "P: 我今天感觉……"）…';
   };
 
+  // 一键上传文件（txt / md / docx）→ 解析后填入输入框
+  window.triggerTranscriptFile = function () {
+    var el = document.getElementById('tp-file');
+    if (el) el.click();
+  };
+
+  window.onTranscriptFile = function (event) {
+    var file = event.target && event.target.files && event.target.files[0];
+    if (event.target) event.target.value = ''; // 允许重复选同一文件
+    if (!file) return;
+    var name = file.name || '';
+    var ext = name.split('.').pop().toLowerCase();
+    if (ext === 'docx') {
+      if (typeof mammoth === 'undefined') { App.showToast('解析组件未就绪，请重试或改用 txt/md', 'error'); return; }
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        mammoth.extractRawText({ arrayBuffer: e.target.result }).then(function (res) {
+          fillTranscriptText(res.value || '');
+        }).catch(function () { App.showToast('docx 解析失败', 'error'); });
+      };
+      reader.onerror = function () { App.showToast('文件读取失败', 'error'); };
+      reader.readAsArrayBuffer(file);
+    } else {
+      var r2 = new FileReader();
+      r2.onload = function (e) { fillTranscriptText(e.target.result || ''); };
+      r2.onerror = function () { App.showToast('文件读取失败', 'error'); };
+      r2.readAsText(file, 'utf-8');
+    }
+  };
+
+  function fillTranscriptText(text) {
+    var ta = document.getElementById('tp-input');
+    if (!ta) return;
+    ta.value = text;
+    ta.focus();
+    App.showToast('已导入文本，点击「导入」开始整理', 'success');
+  }
+
   window.processInput = function () {
     var raw = document.getElementById('tp-input').value.trim();
     if (!raw) { App.showToast('请先粘贴文本', 'warning'); return; }

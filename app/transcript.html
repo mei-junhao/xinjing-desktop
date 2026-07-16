@@ -61,7 +61,9 @@
   <span class="sp"></span>
   <select id="tp-client" onchange="loadClient()"><option value="">选择来访者…</option></select>
   <button class="tch-btn" onclick="loadRawText()">📂 导入文本</button>
+  <button class="tch-btn" onclick="triggerTranscriptFile()">📁 上传文件</button>
   <button class="tch-btn" onclick="goToNotes()">📝 去咨询记录</button>
+  <input type="file" id="tp-file" accept=".txt,.md,.markdown,.docx" style="display:none" onchange="onTranscriptFile(event)">
 </div>
 
 <div class="tp-body">
@@ -123,6 +125,7 @@
 <script src="js/app.js"></script>
 <script src="js/xiaojing-panel.js"></script>
 <script src="js/ai.js"></script>
+<script src="vendor/mammoth.browser.min.js"></script>
 <script src="js/transcript.js"></script>
 
 <script>

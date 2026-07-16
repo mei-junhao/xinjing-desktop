@@ -100,7 +100,7 @@ const XiaojingPanel = (() => {
             '<button id="xj3-send">发送</button>' +
           '</div>' +
         '</div>' +
-        '<button class="xj3-fab" id="xj3-fab" title="小镜">' +
+        '<button class="xj3-fab docked" id="xj3-fab" title="小镜">' +
           '<span class="xj3-fab-icon">小</span>' +
           '<span class="xj3-fab-dot" id="xj3-fab-dot"></span>' +
         '</button>' +
@@ -122,8 +122,11 @@ const XiaojingPanel = (() => {
         'cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.15);pointer-events:auto;' +
         'will-change:transform,opacity;transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .2s ease;' +
         'display:flex;align-items:center;justify-content:center}' +
-      '.xj3-fab:hover{transform:scale(1.06)}' +
-      '.xj3-fab:active{transform:scale(.95)}' +
+      // 默认吸附在右侧：仅露出约 10px 边缘，不遮挡输入区；hover 或打开时滑出完整
+      '.xj3-fab.docked{transform:translateX(42px)}' +
+      '.xj3-fab:hover{transform:translateX(0) scale(1.06)}' +
+      '.xj3-fab:active{transform:translateX(0) scale(.95)}' +
+      '.xj-panel-v3.open .xj3-fab{transform:translateX(-360px) scale(0);opacity:0;pointer-events:none}' +
       '.xj3-fab-icon{line-height:1}' +
       '.xj3-fab-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;' +
         'background:var(--danger,#ff5252);border:2px solid var(--accent);display:none}' +
@@ -369,10 +372,12 @@ const XiaojingPanel = (() => {
     isOpen = !isOpen;
     if (isOpen) {
       panelEl.classList.add('open');
+      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.remove('docked'); }
       clearNewHint();
       setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
     } else {
       panelEl.classList.remove('open');
+      if (panelEl) { var f2 = panelEl.querySelector('#xj3-fab'); if (f2) f2.classList.add('docked'); }
     }
   }
 
@@ -381,6 +386,7 @@ const XiaojingPanel = (() => {
     if (!isOpen) {
       isOpen = true;
       panelEl.classList.add('open');
+      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.remove('docked'); }
       clearNewHint();
       setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
     }
@@ -390,6 +396,7 @@ const XiaojingPanel = (() => {
     if (isOpen && panelEl) {
       isOpen = false;
       panelEl.classList.remove('open');
+      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.add('docked'); }
     }
   }
 

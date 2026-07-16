@@ -77,9 +77,9 @@ const App = (() => {
     } catch (e) { document.documentElement.setAttribute('data-skin', 'calm'); }
   })();
 
-  // 皮肤管理（正交于 .dark 明暗切换）：skin=配色族，dark=明暗
+    // 皮肤管理（正交于 .dark 明暗切换）：skin=配色族，dark=明暗
   const Theme = {
-    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'xinjing'; } catch (e) { return 'calm'; } },
+    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'calm'; } catch (e) { return 'calm'; } },
     setSkin: function (name) {
       try { localStorage.setItem('xj_skin', name); } catch (e) {}
       document.documentElement.setAttribute('data-skin', name);
@@ -168,11 +168,15 @@ const App = (() => {
   const NAV_ITEMS = [
     { key: 'dashboard', label: '首页', icon: 'home', href: 'index.html' },
     { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consult-notes.html' },
+    { key: 'transcript', label: '逐字稿整理', icon: 'transcript', href: 'transcript.html' },
+    { key: 'report', label: '撰写报告', icon: 'report', href: 'report-writing.html' },
     { key: 'session-calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html' },
-    { key: 'supervision', label: '督导', icon: 'cap', href: 'supervision.html' },
+    { key: 'supervision', label: 'AI 督导', icon: 'cap', href: 'supervision.html' },
+    { key: 'real-supervision', label: '真人督导', icon: 'real', href: 'real-supervision.html' },
+    { key: 'doc-center', label: '文档中心', icon: 'docCenter', href: 'doc-center.html' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html' },
-    { key: 'knowledge', label: '知识库', icon: 'doc', href: 'knowledge.html' },
+    { key: 'knowledge', label: '我的资料库', icon: 'doc', href: 'knowledge.html' },
     { key: 'settings', label: '设置', icon: 'gear', href: 'settings.html' },
     { key: 'feedback', label: '意见建议', icon: 'chat', href: 'feedback.html' },
   ];
@@ -193,6 +197,10 @@ const App = (() => {
     spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/></svg>',
     box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5 12 4l8 3.5v9L12 20l-8-3.5z"/><path d="M4 7.5 12 11l8-3.5M12 11v9"/></svg>',
     download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M8 11l4 3 4-3"/><path d="M5 19h14"/></svg>',
+    transcript: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg>',
+    report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg>',
+    real: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></svg>',
+    docCenter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"/><path d="M8 4h8v3H8z"/><path d="M8 12h8M8 16h5"/></svg>',
   };
 
   function svgIcon(name) {
@@ -203,13 +211,18 @@ const App = (() => {
     const path = location.pathname.split('/').pop() || 'index.html';
     const map = {
       'index.html': 'dashboard',
+      'consult-notes.html': 'consultations',
+      'transcript.html': 'transcript',
+      'report-writing.html': 'report',
+      'session-calendar.html': 'session-calendar',
       'supervision.html': 'supervision',
+      'real-supervision.html': 'real-supervision',
+      'doc-center.html': 'doc-center',
       'billing-shell.html': 'billing',
       'masters.html': 'masters',
       'knowledge.html': 'knowledge',
       'settings.html': 'settings',
       'feedback.html': 'feedback',
-      'consult-notes.html': 'consultations',
     };
     return map[path] || 'dashboard';
   }

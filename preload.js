@@ -65,7 +65,7 @@ try {
   console.error('[XJ] exposeInMainWorld __XJ_API__ FAILED:', (e && e.message) || e);
 }
 
-const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false, aiTrialActive: false, aiTrialDaysLeft: 0, aiTrialDays: 30, expired: false, expiresAt: 0 };
+const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false, aiTrialActive: false, aiTrialDaysLeft: 0, aiTrialDays: 60, expired: false, expiresAt: 0 };
 try {
   contextBridge.exposeInMainWorld('__XJ__', stateRef);
 } catch (e) {
