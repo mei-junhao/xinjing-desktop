@@ -1,11 +1,22 @@
 /* ============================================================
- * 心镜 XinJing — 小镜面板（v4.0.0）
- * 接入 AgentCore 工具调用 + 多轮对话记忆 + 语音输入
- * 设计原则：动画只走 transform + opacity，避免布局重排卡顿
+ * 心镜 XinJing — 统一对话面板（v4.0.0）
+ * 整合 AgentShell + XiaojingPanel 全部能力
+ *   - 侧滑面板 + FAB 悬浮球（XiaojingPanel 风格 UI）
+ *   - AgentCore function-calling 完整工具链
+ *   - 档位横幅 / 授权门控 / 撤销 / 导航卡 / API 配置对话
+ *   - 语音输入 / 页面上下文 / 快捷操作 / 每日提醒
+ *   - 统一跨页多轮对话记忆
+ *
+ * 兼容旧 API：
+ *   window.AgentOpen() / AgentSend() / AgentClose() / AgentUndo
+ *   window.XiaojingPanel.* / window.toggleXiaojing
+ *
+ * 推荐新 API：
+ *   window.XinJingChat.open() / close() / send(text) / undo()
  * ============================================================ */
 'use strict';
 
-const XiaojingPanel = (() => {
+const XinJingChat = (() => {
   var panelEl = null;
   var bodyEl = null;
   var inputEl = null;
@@ -15,7 +26,7 @@ const XiaojingPanel = (() => {
   var busy = false;
 
   var messages = [];
-  var MEM_KEY = 'xj_xiaojing_messages_v1';
+  var MEM_KEY = 'xj_xinjing_chat_v1';
   var MEM_MAX = 30;
 
   var lastWriteAction = null;
@@ -30,13 +41,14 @@ const XiaojingPanel = (() => {
 
   function money(n) { return '¥' + Number(n || 0).toLocaleString('zh-CN'); }
 
-  function escapeHtml(s) {
+  function esc(s) {
     if (typeof App !== 'undefined' && App.escapeHtml) return App.escapeHtml(s);
     return String(s || '').replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
 
+  // ---------- 记忆 ----------
   function saveMemory() {
     try {
       var chat = messages.filter(function (m) { return m.role !== 'system'; });
@@ -57,7 +69,7 @@ const XiaojingPanel = (() => {
             else if (chat[i].role === 'assistant') appendAiMsgRaw(chat[i].content);
           }
           var note = document.createElement('div');
-          note.style.cssText = 'font-size:11px;color:var(--ink-3);text-align:center;margin:4px 0';
+          note.className = 'xj3-msg system';
           note.textContent = '↩ 已恢复跨页对话记忆（' + chat.length + ' 条）';
           if (bodyEl) bodyEl.appendChild(note);
         }
@@ -74,6 +86,7 @@ const XiaojingPanel = (() => {
     }
   }
 
+  // ---------- 本地快速查询 ----------
   function queryLocal(text) {
     var q = text.toLowerCase();
     var clients, sessions;
@@ -93,13 +106,13 @@ const XiaojingPanel = (() => {
           results.push(c.name + '：' + unpaid.length + '节未付，共' + money(total));
         }
       });
-      if (results.length) return { type: 'text', content: '📊 欠费明细：\n' + results.join('\n') };
-      return { type: 'text', content: '✅ 目前没有来访者有欠费。' };
+      if (results.length) return { content: '📊 欠费明细：\n' + results.join('\n') };
+      return { content: '✅ 目前没有来访者有欠费。' };
     }
 
     if (q.indexOf('来访者') >= 0 || q.indexOf('客户') >= 0 || q.indexOf('人数') >= 0) {
       var active = clients.filter(function (c) { return c.status !== 'ended'; });
-      return { type: 'text', content: '👥 共有 ' + clients.length + ' 位来访者（活跃 ' + active.length + ' 位）。' };
+      return { content: '👥 共有 ' + clients.length + ' 位来访者（活跃 ' + active.length + ' 位）。' };
     }
 
     if ((q.indexOf('收入') >= 0 || q.indexOf('本月') >= 0) && q.indexOf('收') >= 0) {
@@ -112,13 +125,13 @@ const XiaojingPanel = (() => {
           if (s.billing.paid) paid += s.billing.fee;
         }
       });
-      return { type: 'text', content: '💰 本月收入：' + money(total) + '（已收 ' + money(paid) + '，待收 ' + money(total - paid) + '）' };
+      return { content: '💰 本月收入：' + money(total) + '（已收 ' + money(paid) + '，待收 ' + money(total - paid) + '）' };
     }
 
     if (q.indexOf('今天') >= 0 || q.indexOf('今日') >= 0) {
       var today = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
       var todayS = sessions.filter(function (s) { return s.date === today; });
-      return { type: 'text', content: '📅 今天有 ' + todayS.length + ' 节咨询。' + (todayS.length ? todayS.map(function (s) {
+      return { content: '📅 今天有 ' + todayS.length + ' 节咨询。' + (todayS.length ? todayS.map(function (s) {
         var c = Store.getClient(s.clientId);
         return '  · ' + (c ? c.name : '?') + ' 第' + (s.sessionNumber || '?') + '节' + (s.billing && s.billing.fee ? ' ¥' + s.billing.fee : '');
       }).join('\n') : '') };
@@ -127,6 +140,81 @@ const XiaojingPanel = (() => {
     return null;
   }
 
+  // ---------- 档位 / 授权 ----------
+  function tierInfo() {
+    try {
+      if (typeof AI !== 'undefined' && AI.getTier) return AI.getTier();
+    } catch (e) { /* ignore */ }
+    return 'builtin';
+  }
+
+  function isUnlocked() {
+    try {
+      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') return App.aiUnlocked();
+    } catch (e) { /* ignore */ }
+    return true;
+  }
+
+  function refreshLock() {
+    if (!panelEl) return;
+    var unlocked = isUnlocked();
+    var inputRow = panelEl.querySelector('.xj3-input-row');
+    var lockBanner = panelEl.querySelector('.xj3-lock-banner');
+    if (unlocked) {
+      if (lockBanner) lockBanner.remove();
+      if (inputRow) inputRow.style.display = '';
+      refreshTierUI();
+    } else {
+      var tierBanner = panelEl.querySelector('.xj3-tier-banner');
+      if (tierBanner) tierBanner.remove();
+      if (inputRow) inputRow.style.display = 'none';
+      if (!lockBanner && bodyEl) {
+        lockBanner = document.createElement('div');
+        lockBanner.className = 'xj3-lock-banner';
+        lockBanner.innerHTML = '<div class="xj3-lock-inner">⚠ 小镜需激活后才能使用 AI 对话。<br><button class="xj3-activate-btn">输入激活码</button></div>';
+        bodyEl.insertBefore(lockBanner, bodyEl.firstChild);
+        lockBanner.querySelector('.xj3-activate-btn').addEventListener('click', function () {
+          if (window.__XJ_API__ && typeof window.__XJ_API__.openActivation === 'function') {
+            window.__XJ_API__.openActivation();
+          }
+        });
+      }
+    }
+  }
+
+  function refreshTierUI() {
+    if (!panelEl || !bodyEl) return;
+    var tier = tierInfo();
+    var banner = panelEl.querySelector('.xj3-tier-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'xj3-tier-banner';
+      bodyEl.insertBefore(banner, bodyEl.firstChild);
+    }
+    banner.className = 'xj3-tier-banner ' + (tier === 'user' ? 'tier-user' : 'tier-builtin');
+    if (tier === 'user') {
+      banner.textContent = '⚡ 已接入你的高性能模型（完全体）';
+    } else {
+      banner.innerHTML = '🌱 免费试用 · <span class="xj3-quota-name">v4-flash</span>（额度用尽降级基础模型）' +
+        '<span class="xj3-quota-pct"></span>';
+    }
+    updateQuotaBadge();
+  }
+
+  function updateQuotaBadge() {
+    if (!panelEl) return;
+    var pctEl = panelEl.querySelector('.xj3-quota-pct');
+    var qEl = panelEl.querySelector('.xj3-quota-name');
+    if (!pctEl && !qEl) return;
+    var tier = 'builtin';
+    try { if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier(); } catch (e) {}
+    if (tier === 'user') return;
+    var q = (typeof AI !== 'undefined' && AI.getQuota) ? AI.getQuota() : null;
+    if (pctEl) pctEl.textContent = (q && q.percent != null) ? ('剩余 ' + q.percent + '%') : '';
+    if (qEl) qEl.textContent = (q && q.tier === 'basic') ? '基础模型（已降级）' : 'v4-flash';
+  }
+
+  // ---------- UI 构建 ----------
   function buildPanelHtml() {
     return '<div class="xj-panel-v3" id="xj-panel-v3">' +
         '<div class="xj3-overlay" id="xj3-overlay"></div>' +
@@ -137,7 +225,10 @@ const XiaojingPanel = (() => {
               '<div class="xj3-name">小镜 <span class="xj3-badge">AI 助手</span></div>' +
               '<div class="xj3-sub" id="xj3-sub">工作台助手</div>' +
             '</div>' +
-            '<button class="xj3-close" id="xj3-close" title="收起">×</button>' +
+            '<div style="display:flex;gap:2px;align-items:center">' +
+              '<button class="xj3-undo" title="撤销" style="border:none;background:transparent;color:var(--ink-3);font-size:14px;cursor:pointer;padding:4px 8px;border-radius:6px">↶</button>' +
+              '<button class="xj3-close" id="xj3-close" title="收起">×</button>' +
+            '</div>' +
           '</div>' +
           '<div class="xj3-body" id="xj3-body"></div>' +
           '<div class="xj3-input-row">' +
@@ -153,9 +244,7 @@ const XiaojingPanel = (() => {
       '</div>';
   }
 
-  function build() {
-    if (panelEl) return panelEl;
-
+  function injectStyles() {
     var style = document.createElement('style');
     style.textContent = '' +
       '.xj-panel-v3{position:fixed;top:0;right:0;width:0;height:100vh;z-index:9999;pointer-events:none}' +
@@ -182,7 +271,6 @@ const XiaojingPanel = (() => {
         'will-change:transform;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);' +
         'box-shadow:-4px 0 24px rgba(0,0,0,.08)}' +
       '.xj-panel-v3.open .xj3-drawer{transform:translateX(0)}' +
-      '.xj-panel-v3.open .xj3-fab{transform:translateX(-360px) scale(0);opacity:0;pointer-events:none}' +
       '.xj3-head{display:flex;align-items:center;gap:10px;padding:14px 16px;' +
         'border-bottom:1px solid var(--border);flex-shrink:0}' +
       '.xj3-avatar{width:40px;height:40px;border-radius:50%;background:var(--accent-soft);' +
@@ -193,15 +281,24 @@ const XiaojingPanel = (() => {
       '.xj3-badge{font-size:9px;padding:1px 6px;border-radius:999px;background:var(--accent-soft);' +
         'color:var(--accent);font-weight:500;margin-left:6px;vertical-align:middle}' +
       '.xj3-sub{font-size:11px;color:var(--ink-3);margin-top:2px}' +
-      '.xj3-close{border:none;background:none;font-size:22px;color:var(--ink-3);cursor:pointer;' +
+      '.xj3-close,.xj3-undo{border:none;background:none;font-size:20px;color:var(--ink-3);cursor:pointer;' +
         'padding:4px 8px;border-radius:6px;line-height:1}' +
-      '.xj3-close:hover{background:var(--bg);color:var(--ink)}' +
+      '.xj3-close:hover,.xj3-undo:hover{background:var(--bg);color:var(--ink)}' +
       '.xj3-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}' +
       '.xj3-msg{max-width:88%;padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.7;word-break:break-word}' +
       '.xj3-msg.ai{background:var(--accent-soft);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}' +
       '.xj3-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}' +
       '.xj3-msg.typing{opacity:.6;font-style:italic}' +
       '.xj3-msg.system{background:transparent;color:var(--ink-3);font-size:11px;align-self:center;padding:4px 8px}' +
+      '.xj3-msg.progress{background:transparent;color:var(--ink-3);font-size:11px;align-self:flex-start;padding:2px 4px}' +
+      '.xj3-tier-banner{font-size:11px;padding:8px 12px;border-radius:8px;margin-bottom:4px;text-align:center}' +
+      '.xj3-tier-banner.tier-user{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}' +
+      '.xj3-tier-banner.tier-builtin{background:var(--bg);color:var(--ink-2);border:1px solid var(--border)}' +
+      '.xj3-tier-banner .xj3-quota-pct{float:right;opacity:.85}' +
+      '.xj3-lock-banner{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;margin-bottom:8px}' +
+      '.xj3-lock-inner{font-size:12px;color:var(--ink-2)}' +
+      '.xj3-activate-btn{margin-top:8px;padding:6px 14px;border:1px solid var(--accent);border-radius:8px;' +
+        'background:var(--accent);color:#fff;font:500 12px var(--sans);cursor:pointer}' +
       '.xj3-hint-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:2px}' +
       '.xj3-hint-card .h-title{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}' +
       '.xj3-hint-card ul{margin:0;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.9}' +
@@ -231,15 +328,25 @@ const XiaojingPanel = (() => {
       '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
       '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
       '.xj3-confirm-actions .xj3-ok{background:var(--accent);color:#fff;border-color:var(--accent)}' +
-      '.xj3-progress{font-size:11px;color:var(--ink-3);padding:4px 8px;align-self:flex-start}' +
       '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
         'padding:10px 12px;margin:2px 0;align-self:stretch}' +
       '.xj3-followup-head{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px}' +
-      '.xj3-followup-item{font-size:12px;color:var(--ink-2);line-height:1.8;padding-left:12px;position:relative}' +
+      '.xj3-followup-item{font-size:12px;color:var(--ink-2);line-height:1.8;padding-left:12px;position:relative;cursor:pointer}' +
       '.xj3-followup-item:before{content:"•";position:absolute;left:0;color:var(--accent)}' +
+      '.xj3-followup-item:hover{color:var(--accent)}' +
+      '.xj3-nav-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch}' +
+      '.xj3-nav-head{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px}' +
+      '.xj3-nav-reason{font-size:11px;color:var(--ink-3);margin-bottom:8px}' +
+      '.xj3-nav-go{padding:6px 14px;border-radius:8px;border:1px solid var(--accent);' +
+        'background:var(--accent);color:#fff;font:500 12px var(--sans);cursor:pointer}' +
       '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}';
     document.head.appendChild(style);
+  }
 
+  function build() {
+    if (panelEl) return panelEl;
+    injectStyles();
     panelEl = document.createElement('div');
     panelEl.innerHTML = buildPanelHtml();
     document.body.appendChild(panelEl);
@@ -252,6 +359,7 @@ const XiaojingPanel = (() => {
     panelEl.querySelector('#xj3-fab').addEventListener('click', toggle);
     panelEl.querySelector('#xj3-close').addEventListener('click', toggle);
     panelEl.querySelector('#xj3-overlay').addEventListener('click', toggle);
+    panelEl.querySelector('.xj3-undo').addEventListener('click', undoLastWrite);
     inputEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') send();
     });
@@ -272,13 +380,38 @@ const XiaojingPanel = (() => {
     });
 
     ensureSystemPrompt();
+    refreshLock();
     renderGreeting();
     restoreMemory();
+
+    try {
+      if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+        window.__XJ_API__.onLicenseState(function () { refreshLock(); });
+      }
+    } catch (e) { /* ignore */ }
+    try {
+      if (typeof AI !== 'undefined' && AI.onQuotaChange) {
+        AI.onQuotaChange(function () { updateQuotaBadge(); });
+      }
+    } catch (e) { /* ignore */ }
+
+    dailyCheck();
     return panelEl;
   }
 
+  // ---------- 欢迎语 ----------
   function renderGreeting() {
     if (!bodyEl) return;
+    var hasMemory = false;
+    try {
+      var saved = localStorage.getItem(MEM_KEY);
+      if (saved) {
+        var chat = JSON.parse(saved);
+        hasMemory = Array.isArray(chat) && chat.length > 0;
+      }
+    } catch (e) {}
+    if (hasMemory) return;
+
     var profile = (typeof Memory !== 'undefined' && Memory.getProfile) ? Memory.getProfile() : {};
     var userName = (profile && profile.name) || '梅';
 
@@ -289,43 +422,32 @@ const XiaojingPanel = (() => {
       }
     } catch (e) { /* ignore */ }
 
-    var hasMemory = false;
-    try {
-      var saved = localStorage.getItem(MEM_KEY);
-      if (saved) {
-        var chat = JSON.parse(saved);
-        hasMemory = Array.isArray(chat) && chat.length > 0;
-      }
-    } catch (e) {}
-
-    if (hasMemory) return;
-
     var html = '';
-    html += '<div class="xj3-msg ai">你好，' + escapeHtml(userName) + '。<br>' +
+    html += '<div class="xj3-msg ai">你好，' + esc(userName) + '。<br>' +
       '我是小镜，你的工作台助手。有什么可以帮你的？</div>';
 
     if (hintList.length) {
       html += '<div class="xj3-hint-card" id="xj3-hint-list"><div class="h-title">📌 今日提醒</div><ul>';
       hintList.forEach(function (h) {
-        html += '<li data-hint="' + escapeHtml(h) + '">' + escapeHtml(h) + '</li>';
+        html += '<li data-hint="' + esc(h) + '">' + esc(h) + '</li>';
       });
       html += '</ul></div>';
     }
 
     var pageCtx = getPageContext();
     if (pageCtx && pageCtx.capabilities && pageCtx.capabilities.length) {
-      html += '<div class="xj3-hint-card"><div class="h-title">💡 ' + escapeHtml(pageCtx.title || '本页功能') + '</div><ul>';
+      html += '<div class="xj3-hint-card"><div class="h-title">💡 ' + esc(pageCtx.title || '本页功能') + '</div><ul>';
       pageCtx.capabilities.forEach(function (c) {
-        html += '<li>' + escapeHtml(c) + '</li>';
+        html += '<li>' + esc(c) + '</li>';
       });
       html += '</ul></div>';
     }
 
     html += '<div class="xj3-quick-actions">' +
-      '<button onclick="XiaojingPanel.quickQuery(\'今天有几节咨询\')">今日安排</button>' +
-      '<button onclick="XiaojingPanel.quickQuery(\'谁欠费\')">欠费查询</button>' +
-      '<button onclick="XiaojingPanel.quickQuery(\'本月收入\')">本月收入</button>' +
-      '<button onclick="XiaojingPanel.quickQuery(\'有多少来访者\')">来访者</button>' +
+      '<button onclick="XinJingChat.quickQuery(\'今天有几节咨询\')">今日安排</button>' +
+      '<button onclick="XinJingChat.quickQuery(\'谁欠费\')">欠费查询</button>' +
+      '<button onclick="XinJingChat.quickQuery(\'本月收入\')">本月收入</button>' +
+      '<button onclick="XinJingChat.quickQuery(\'有多少来访者\')">来访者</button>' +
       '</div>';
 
     bodyEl.innerHTML = html;
@@ -337,6 +459,7 @@ const XiaojingPanel = (() => {
     return null;
   }
 
+  // ---------- 消息渲染 ----------
   function appendUserMsg(text) {
     appendUserMsgRaw(text);
     messages.push({ role: 'user', content: text });
@@ -359,7 +482,7 @@ const XiaojingPanel = (() => {
     if (!bodyEl) return null;
     var div = document.createElement('div');
     div.className = 'xj3-msg ai' + (isTyping ? ' typing' : '');
-    div.innerHTML = escapeHtml(text || '').replace(/\n/g, '<br>');
+    div.innerHTML = esc(text || '').replace(/\n/g, '<br>');
     bodyEl.appendChild(div);
     bodyEl.scrollTop = bodyEl.scrollHeight;
     return div;
@@ -368,7 +491,7 @@ const XiaojingPanel = (() => {
   function updateAiMsg(div, text) {
     if (!div) return;
     div.classList.remove('typing');
-    div.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
+    div.innerHTML = esc(text).replace(/\n/g, '<br>');
     if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight;
   }
 
@@ -384,13 +507,14 @@ const XiaojingPanel = (() => {
   function appendProgress(text) {
     if (!bodyEl) return;
     var div = document.createElement('div');
-    div.className = 'xj3-progress';
+    div.className = 'xj3-msg progress';
     div.textContent = text;
     bodyEl.appendChild(div);
     bodyEl.scrollTop = bodyEl.scrollHeight;
     return div;
   }
 
+  // ---------- System Prompt ----------
   function buildSystemPrompt() {
     var preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
     var ctx = '';
@@ -428,6 +552,7 @@ const XiaojingPanel = (() => {
     return (preamble ? preamble + '\n\n' : '') + XIAOJING_IDENTITY + '\n\n' + ctx;
   }
 
+  // ---------- 确认卡 ----------
   function requestConfirm(toolCall, args) {
     return new Promise(function (resolve) {
       if (!bodyEl) { resolve({ ok: false }); return; }
@@ -437,10 +562,10 @@ const XiaojingPanel = (() => {
       var previewHtml = '';
       try {
         previewHtml = renderConfirmPreview(toolName, args);
-      } catch (e) { previewHtml = '<div style="font-size:12px;color:var(--ink-3)">参数：' + escapeHtml(JSON.stringify(args)) + '</div>'; }
+      } catch (e) { previewHtml = '<div style="font-size:12px;color:var(--ink-3)">参数：' + esc(JSON.stringify(args)) + '</div>'; }
       card.innerHTML =
         '<div class="xj3-confirm-title">⚠ 即将执行写入操作</div>' +
-        '<div class="xj3-confirm-tool">工具：' + escapeHtml(toolName) + '</div>' +
+        '<div class="xj3-confirm-tool">工具：' + esc(toolName) + '</div>' +
         '<div class="xj3-confirm-preview">' + previewHtml + '</div>' +
         '<div class="xj3-confirm-actions">' +
           '<button class="xj3-cancel">取消</button>' +
@@ -460,28 +585,39 @@ const XiaojingPanel = (() => {
   }
 
   function renderConfirmPreview(toolName, args) {
-    if (toolName === 'billing_add_record' && Array.isArray(args.records)) {
+    var tn = toolName.replace(/_/g, '.');
+    if ((toolName === 'billing_add_record' || tn === 'billing.add_record') && Array.isArray(args.records)) {
       var rows = args.records.map(function (r, i) {
         return '<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">' +
-          (i + 1) + '. 来访者：<b>' + escapeHtml(r.clientName || r.clientId || '') + '</b> ' +
-          '日期：<b>' + escapeHtml(r.date || '') + '</b> ' +
-          '费用：<b>¥' + escapeHtml(String(r.fee || 0)) + '</b> ' +
-          (r.settleType ? escapeHtml(r.settleType) + '·' : '') +
+          (i + 1) + '. 来访者：<b>' + esc(r.clientName || r.clientId || '') + '</b> ' +
+          '日期：<b>' + esc(r.date || '') + '</b> ' +
+          '费用：<b>¥' + esc(String(r.fee || 0)) + '</b> ' +
+          (r.settleType ? esc(r.settleType) + '·' : '') +
           (r.paid ? '已收' : '未收') +
         '</div>';
       }).join('');
       return rows;
     }
-    if (toolName === 'billing_monthly_settle') {
-      return '<div style="font-size:12px">来访者：<b>' + escapeHtml(args.clientName || args.clientId || '') + '</b> 月份：<b>' + escapeHtml(args.month || '') + '</b> 金额：<b>¥' + escapeHtml(String(args.amount || 0)) + '</b></div>';
+    if (toolName === 'billing_monthly_settle' || tn === 'billing.monthly_settle') {
+      return '<div style="font-size:12px">来访者：<b>' + esc(args.clientName || args.clientId || '') + '</b> 月份：<b>' + esc(args.month || '') + '</b> 金额：<b>¥' + esc(String(args.amount || 0)) + '</b></div>';
     }
-    if (toolName === 'client_update') {
+    if (toolName === 'client_update' || tn === 'client.update') {
       var keys = Object.keys(args.patch || {}).join(', ');
-      return '<div style="font-size:12px">来访者 ID：<b>' + escapeHtml(args.clientId || '') + '</b><br>修改字段：<b>' + escapeHtml(keys) + '</b></div>';
+      return '<div style="font-size:12px">来访者 ID：<b>' + esc(args.clientId || '') + '</b><br>修改字段：<b>' + esc(keys) + '</b></div>';
     }
-    return '<div style="font-size:12px;color:var(--ink-3)">参数：' + escapeHtml(JSON.stringify(args)) + '</div>';
+    if (toolName === 'supervision_start' || tn === 'supervision.start') {
+      var modeName = args.supervisorName === 'cangjie' ? '仓颉版' : '女娲版';
+      var materialPreview = String(args.material || '').slice(0, 200) + (String(args.material || '').length > 200 ? '…' : '');
+      return '<div style="font-size:12px">' +
+        '督导师：<b>' + esc(modeName) + '</b><br>' +
+        '来访者：<b>' + esc(args.clientName || args.clientId || '') + '</b><br>' +
+        '材料预览：<span style="font-size:11px;color:var(--ink-3)">' + esc(materialPreview) + '</span>' +
+      '</div>';
+    }
+    return '<div style="font-size:12px;color:var(--ink-3)">参数：' + esc(JSON.stringify(args)) + '</div>';
   }
 
+  // ---------- 跟进卡 / 导航卡 ----------
   function renderFollowupCard(items) {
     if (!bodyEl || !Array.isArray(items) || !items.length) return;
     var wrap = document.createElement('div');
@@ -500,10 +636,55 @@ const XiaojingPanel = (() => {
     bodyEl.scrollTop = bodyEl.scrollHeight;
   }
 
+  function renderNavCard(card) {
+    if (!bodyEl || !card) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'xj3-nav-card';
+    var reason = card.reason ? ('<div class="xj3-nav-reason">' + esc(card.reason) + '</div>') : '';
+    wrap.innerHTML =
+      '<div class="xj3-nav-head">💡 建议前往「' + esc(card.label || '') + '」</div>' +
+      reason +
+      '<button class="xj3-nav-go">' + esc(card.label || '去看看') + ' →</button>';
+    wrap.querySelector('.xj3-nav-go').addEventListener('click', function () {
+      if (card.href) location.href = card.href;
+    });
+    bodyEl.appendChild(wrap);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function toast(msg, type) {
+    if (typeof App !== 'undefined' && typeof App.showToast === 'function') {
+      App.showToast(msg, type || 'success');
+    }
+  }
+
+  // ---------- 撤销 ----------
   function recordWriteAction(toolName, args, result) {
     lastWriteAction = { toolName: toolName, args: args, result: result, ts: Date.now() };
   }
 
+  function undoLastWrite() {
+    if (!lastWriteAction) {
+      toast('没有可撤销的操作', 'info');
+      return;
+    }
+    var w = lastWriteAction;
+    if ((w.toolName === 'billing.add_record' || w.toolName === 'billing_add_record') && w.result && w.result.sessionIds) {
+      try {
+        w.result.sessionIds.forEach(function (sid) {
+          if (typeof Store !== 'undefined' && Store.deleteSession) Store.deleteSession(sid);
+        });
+        toast('已撤销 ' + w.result.sessionIds.length + ' 条记账记录', 'success');
+        lastWriteAction = null;
+      } catch (e) {
+        toast('撤销失败：' + (e.message || ''), 'error');
+      }
+    } else {
+      toast('该操作不支持撤销', 'info');
+    }
+  }
+
+  // ---------- 发送 ----------
   async function send() {
     if (busy) return;
     if (!inputEl) return;
@@ -511,6 +692,7 @@ const XiaojingPanel = (() => {
     if (!text) return;
     inputEl.value = '';
     build();
+    refreshLock();
     appendUserMsg(text);
 
     var local = queryLocal(text);
@@ -520,11 +702,7 @@ const XiaojingPanel = (() => {
       return;
     }
 
-    var unlocked = true;
-    try {
-      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') unlocked = App.aiUnlocked();
-    } catch (e) { /* ignore */ }
-    if (!unlocked) {
+    if (!isUnlocked()) {
       appendAiMsg('小镜需激活后才能使用 AI 对话。请先在设置中配置 AI 密钥。');
       saveMemory();
       return;
@@ -542,8 +720,22 @@ const XiaojingPanel = (() => {
           updateAiMsg(typingDiv, '');
           if (status === 'executing') appendProgress('正在执行：' + name + '…');
           else if (status === 'done') {
+            if (data && data.switchedTo === 'user') {
+              refreshTierUI();
+              toast('已切换到你的高性能模型，我现在是完全体，可以做更多事', 'success');
+              return;
+            }
+            if (data && data.switchedTo === 'builtin' && data.testError) {
+              refreshTierUI();
+              toast('接入测试未通过：' + data.testError + '，已降级到内置模型', 'error');
+              return;
+            }
+            if (data && data.switchedTo === 'partial') {
+              appendProgress(data.message || '已记录部分配置');
+              return;
+            }
             if (data && data.card && data.card.kind === 'navigate_hint') {
-              appendFollowupCard([data.card.label || '去看看']);
+              renderNavCard(data.card);
               return;
             }
             if (data) {
@@ -608,6 +800,7 @@ const XiaojingPanel = (() => {
     send();
   }
 
+  // ---------- 语音输入 ----------
   var voiceRecognition = null;
   var isRecording = false;
 
@@ -655,17 +848,20 @@ const XiaojingPanel = (() => {
     }
   }
 
+  // ---------- 开关 ----------
   function toggle() {
     build();
     isOpen = !isOpen;
     if (isOpen) {
       panelEl.classList.add('open');
-      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.remove('docked'); }
+      var f = panelEl.querySelector('#xj3-fab');
+      if (f) f.classList.remove('docked');
       clearNewHint();
       setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
     } else {
       panelEl.classList.remove('open');
-      if (panelEl) { var f2 = panelEl.querySelector('#xj3-fab'); if (f2) f2.classList.add('docked'); }
+      var f2 = panelEl.querySelector('#xj3-fab');
+      if (f2) f2.classList.add('docked');
     }
   }
 
@@ -674,7 +870,8 @@ const XiaojingPanel = (() => {
     if (!isOpen) {
       isOpen = true;
       panelEl.classList.add('open');
-      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.remove('docked'); }
+      var f = panelEl.querySelector('#xj3-fab');
+      if (f) f.classList.remove('docked');
       clearNewHint();
       setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
     }
@@ -684,7 +881,8 @@ const XiaojingPanel = (() => {
     if (isOpen && panelEl) {
       isOpen = false;
       panelEl.classList.remove('open');
-      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.add('docked'); }
+      var f = panelEl.querySelector('#xj3-fab');
+      if (f) f.classList.add('docked');
     }
   }
 
@@ -712,20 +910,70 @@ const XiaojingPanel = (() => {
     renderGreeting();
   }
 
-  if (typeof window !== 'undefined') {
-    window.XiaojingPanel = {
-      build: build, toggle: toggle, open: open, close: close,
-      send: send, quickQuery: quickQuery, askHint: askHint,
-      showNewHint: showNewHint, clearNewHint: clearNewHint,
-      updateSub: updateSub, refresh: refresh
-    };
-    window.toggleXiaojing = toggle;
+  // ---------- 每日检查 ----------
+  function dailyCheck() {
+    try {
+      if (location.pathname.indexOf('index.html') < 0 && location.pathname.indexOf('dashboard') < 0 && location.pathname !== '/') return;
+      var today = new Date().toISOString().slice(0, 10);
+      var lastCheck = localStorage.getItem('xj_daily_check');
+      if (lastCheck === today) return;
+      localStorage.setItem('xj_daily_check', today);
+
+      var sessions = [];
+      try { if (typeof Store !== 'undefined') sessions = Store.getSessions(); } catch (e) {}
+      var pending = sessions.filter(function (s) {
+        var fee = (s.billing && s.billing.fee) || 0;
+        return fee > 0 && !(s.billing && s.billing.paid);
+      });
+
+      var stale = [];
+      try {
+        if (typeof Store !== 'undefined') {
+          var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+          var now = Date.now();
+          clients.forEach(function (c) {
+            var cs = sessions.filter(function (s) { return s.clientId === c.id; });
+            cs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+            if (cs.length > 0 && cs[0].date) {
+              var daysAgo = Math.floor((now - new Date(cs[0].date).getTime()) / 86400000);
+              if (daysAgo > 30) stale.push(c.name + '（' + daysAgo + '天未会谈）');
+            }
+          });
+        }
+      } catch (e) {}
+
+      if (pending.length > 0 || stale.length > 0) {
+        var msg = '';
+        if (pending.length > 0) msg += '📋 ' + pending.length + ' 笔未收款 ';
+        if (stale.length > 0) msg += '⏰ ' + stale.length + ' 位来访者待跟进';
+        try {
+          if (typeof App !== 'undefined' && App.showToast) App.showToast(msg.trim(), 'info');
+        } catch (e) {}
+      }
+    } catch (e) {}
   }
 
-  return {
+  // ---------- 导出 ----------
+  var api = {
     build: build, toggle: toggle, open: open, close: close,
     send: send, quickQuery: quickQuery, askHint: askHint,
     showNewHint: showNewHint, clearNewHint: clearNewHint,
-    updateSub: updateSub, refresh: refresh
+    updateSub: updateSub, refresh: refresh, undo: undoLastWrite
   };
+
+  if (typeof window !== 'undefined') {
+    window.XinJingChat = api;
+    window.XiaojingPanel = api;
+    window.toggleXiaojing = toggle;
+    window.AgentOpen = open;
+    window.AgentClose = close;
+    window.AgentSend = function (text) {
+      build();
+      if (!isOpen) open();
+      if (text) quickQuery(text);
+    };
+    window.AgentUndo = undoLastWrite;
+  }
+
+  return api;
 })();

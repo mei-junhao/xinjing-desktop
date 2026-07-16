@@ -9,7 +9,9 @@
   let busy = false;
   let recognition = null;
   let isRecording = false;
-  const MEM_KEY = 'xj_chat_home_messages';
+  let lastWriteAction = null;
+
+  const MEM_KEY = 'xj_xinjing_chat_v1';
   const MEM_MAX = 50;
 
   function el(tag, className, html) {
@@ -17,6 +19,13 @@
     if (className) e.className = className;
     if (html !== undefined) e.innerHTML = html;
     return e;
+  }
+
+  function esc(s) {
+    if (typeof App !== 'undefined' && App.escapeHtml) return App.escapeHtml(s);
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
   }
 
   function saveMemory() {
@@ -37,6 +46,7 @@
             messages.push(m);
             renderMsg(m.role, m.content);
           });
+          renderSystem('↩ 已恢复跨页对话记忆（' + chat.length + ' 条）');
         }
       }
     } catch (e) {}
@@ -44,9 +54,10 @@
 
   function renderMsg(role, content) {
     if (!msgsEl) return;
-    const msgEl = el('div', 'chat-msg ' + role);
+    const displayRole = role === 'assistant' ? 'assistant' : role;
+    const msgEl = el('div', 'chat-msg ' + displayRole);
     const avatar = el('div', 'avatar', role === 'user' ? '我' : '心');
-    const bubble = el('div', 'bubble', App.escapeHtml ? App.escapeHtml(content || '') : (content || ''));
+    const bubble = el('div', 'bubble', esc(content || ''));
     msgEl.appendChild(avatar);
     msgEl.appendChild(bubble);
     msgsEl.appendChild(msgEl);
@@ -84,6 +95,44 @@
     renderSystem('⏳ ' + (msg || '执行中...'));
   }
 
+  function renderFollowupCard(items) {
+    if (!msgsEl || !Array.isArray(items) || !items.length) return;
+    const msgEl = el('div', 'chat-msg assistant');
+    const avatar = el('div', 'avatar', '心');
+    const bubble = el('div', 'bubble');
+    bubble.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--ink-3);margin-bottom:6px">💡 跟进提示</div>' +
+      items.map(function (t) {
+        return '<div class="followup-item" style="font-size:13px;padding:4px 0;cursor:pointer;color:var(--ink-2)">• ' + esc(t) + '</div>';
+      }).join('');
+    msgEl.appendChild(avatar);
+    msgEl.appendChild(bubble);
+    msgsEl.appendChild(msgEl);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+    bubble.querySelectorAll('.followup-item').forEach(function (item) {
+      item.addEventListener('click', function () {
+        if (inputEl) { inputEl.value = item.textContent.replace(/^[•\s]+/, ''); sendMsg(); }
+      });
+    });
+  }
+
+  function renderNavCard(card) {
+    if (!msgsEl || !card) return;
+    const msgEl = el('div', 'chat-msg assistant');
+    const avatar = el('div', 'avatar', '心');
+    const bubble = el('div', 'bubble');
+    const reason = card.reason ? ('<div style="font-size:12px;color:var(--ink-3);margin-bottom:8px">' + esc(card.reason) + '</div>') : '';
+    bubble.innerHTML = '<div style="font-weight:600;margin-bottom:4px">💡 建议前往「' + esc(card.label || '') + '」</div>' +
+      reason +
+      '<button class="nav-go-btn" style="margin-top:8px;padding:6px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;cursor:pointer">去看看 →</button>';
+    msgEl.appendChild(avatar);
+    msgEl.appendChild(bubble);
+    msgsEl.appendChild(msgEl);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+    bubble.querySelector('.nav-go-btn').addEventListener('click', function () {
+      if (card.href) location.href = card.href;
+    });
+  }
+
   function renderWelcome() {
     if (!msgsEl) return;
     const welcome = el('div', 'welcome-card');
@@ -99,23 +148,17 @@
         });
         const hasPending = pending.length > 0;
         quickBtns = `
-          <button class="quick-btn" onclick="sendQuick('帮我记录今天的咨询')">📝 记录咨询</button>
-          <button class="quick-btn" onclick="sendQuick('查看这个月的收入')">💰 收入统计</button>
-          <button class="quick-btn" onclick="sendQuick('查看未收款')">💵 ${hasPending ? pending.length + '笔未收' : '未收款'}</button>
-          <button class="quick-btn" onclick="sendQuick('我有个案例需要督导')">🎯 AI督导</button>
-          <button class="quick-btn" onclick="sendQuick('帮张明记一笔账')">📋 快速记账</button>
-        `;
-      } else {
-        quickBtns = `
-          <button class="quick-btn" onclick="sendQuick('帮我记录今天的咨询')">📝 记录咨询</button>
-          <button class="quick-btn" onclick="sendQuick('查看这个月的收入')">💰 收入统计</button>
-          <button class="quick-btn" onclick="sendQuick('我有个案例需要督导')">🎯 AI督导</button>
+          <button class="quick-btn" data-text="帮我记录今天的咨询">📝 记录咨询</button>
+          <button class="quick-btn" data-text="查看这个月的收入">💰 收入统计</button>
+          <button class="quick-btn" data-text="查看未收款">💵 ${hasPending ? pending.length + '笔未收' : '未收款'}</button>
+          <button class="quick-btn" data-text="我有个案例需要督导">🎯 AI督导</button>
+          <button class="quick-btn" data-text="帮张明记一笔账">📋 快速记账</button>
         `;
       }
     } catch (e) {
       quickBtns = `
-        <button class="quick-btn" onclick="sendQuick('帮我记录今天的咨询')">📝 记录咨询</button>
-        <button class="quick-btn" onclick="sendQuick('查看这个月的收入')">💰 收入统计</button>
+        <button class="quick-btn" data-text="帮我记录今天的咨询">📝 记录咨询</button>
+        <button class="quick-btn" data-text="查看这个月的收入">💰 收入统计</button>
       `;
     }
 
@@ -125,6 +168,12 @@
       <div class="quick-actions">${quickBtns}</div>
     `;
     msgsEl.appendChild(welcome);
+    welcome.querySelectorAll('.quick-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var text = btn.getAttribute('data-text');
+        if (text) { inputEl.value = text; sendMsg(); }
+      });
+    });
   }
 
   function renderTierBanner() {
@@ -145,7 +194,7 @@
   function requestConfirm(toolCall, args) {
     return new Promise(function (resolve) {
       if (!msgsEl) { resolve({ ok: false }); return; }
-      const card = el('div', 'chat-msg assistant');
+      const msgEl = el('div', 'chat-msg assistant');
       const avatar = el('div', 'avatar', '心');
       const bubble = el('div', 'bubble');
       const toolName = (toolCall && toolCall.function && toolCall.function.name) || '';
@@ -153,53 +202,87 @@
       try {
         previewHtml = renderConfirmPreview(toolName, args);
       } catch (e) {
-        previewHtml = '<div style="font-size:12px;color:#8a8a9e">参数：' + App.escapeHtml(JSON.stringify(args)) + '</div>';
+        previewHtml = '<div style="font-size:12px;color:#8a8a9e">参数：' + esc(JSON.stringify(args)) + '</div>';
       }
       bubble.innerHTML =
         '<div style="font-weight:600;margin-bottom:8px">⚠ 即将执行写入操作</div>' +
-        '<div style="font-size:12px;color:#8a8a9e;margin-bottom:8px">工具：' + App.escapeHtml(toolName) + '</div>' +
+        '<div style="font-size:12px;color:#8a8a9e;margin-bottom:8px">工具：' + esc(toolName) + '</div>' +
         previewHtml +
         '<div style="display:flex;gap:8px;margin-top:12px">' +
-          '<button class="btn pri" style="font-size:12px;padding:6px 14px" onclick="this.closest(\'.chat-msg\').remove();resolve({ok:true})">确认执行</button>' +
-          '<button class="btn" style="font-size:12px;padding:6px 14px" onclick="this.closest(\'.chat-msg\').remove();resolve({ok:false})">取消</button>' +
+          '<button class="confirm-ok" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer">确认执行</button>' +
+          '<button class="confirm-cancel" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--paper);color:var(--ink-2);cursor:pointer">取消</button>' +
         '</div>';
-      card.appendChild(avatar);
-      card.appendChild(bubble);
-      msgsEl.appendChild(card);
+      msgEl.appendChild(avatar);
+      msgEl.appendChild(bubble);
+      msgsEl.appendChild(msgEl);
       msgsEl.scrollTop = msgsEl.scrollHeight;
+      bubble.querySelector('.confirm-ok').addEventListener('click', function () {
+        msgEl.remove();
+        resolve({ ok: true });
+      });
+      bubble.querySelector('.confirm-cancel').addEventListener('click', function () {
+        msgEl.remove();
+        resolve({ ok: false });
+      });
     });
   }
 
   function renderConfirmPreview(toolName, args) {
-    if (toolName === 'billing.add_record' && Array.isArray(args.records)) {
+    var tn = toolName.replace(/_/g, '.');
+    if ((toolName === 'billing_add_record' || tn === 'billing.add_record') && Array.isArray(args.records)) {
       const rows = args.records.map(function (r, i) {
         return '<div style="font-size:13px;margin:4px 0">' +
-          (i + 1) + '. 来访者：<b>' + App.escapeHtml(r.clientName || r.clientId || '') + '</b> ' +
-          '日期：<b>' + App.escapeHtml(r.date || '') + '</b> ' +
-          '费用：<b>¥' + App.escapeHtml(String(r.fee || 0)) + '</b> ' +
-          (r.settleType ? App.escapeHtml(r.settleType) + '·' : '') +
+          (i + 1) + '. 来访者：<b>' + esc(r.clientName || r.clientId || '') + '</b> ' +
+          '日期：<b>' + esc(r.date || '') + '</b> ' +
+          '费用：<b>¥' + esc(String(r.fee || 0)) + '</b> ' +
+          (r.settleType ? esc(r.settleType) + '·' : '') +
           (r.paid ? '已收' : '未收') +
         '</div>';
       }).join('');
       return rows;
     }
-    if (toolName === 'billing.monthly_settle') {
-      return '<div style="font-size:13px">来访者：<b>' + App.escapeHtml(args.clientName || args.clientId || '') + '</b> 月份：<b>' + App.escapeHtml(args.month || '') + '</b> 金额：<b>¥' + App.escapeHtml(String(args.amount || 0)) + '</b></div>';
+    if (toolName === 'billing_monthly_settle' || tn === 'billing.monthly_settle') {
+      return '<div style="font-size:13px">来访者：<b>' + esc(args.clientName || args.clientId || '') + '</b> 月份：<b>' + esc(args.month || '') + '</b> 金额：<b>¥' + esc(String(args.amount || 0)) + '</b></div>';
     }
-    if (toolName === 'client.update') {
+    if (toolName === 'client_update' || tn === 'client.update') {
       const keys = Object.keys(args.patch || {}).join(', ');
-      return '<div style="font-size:13px">来访者 ID：<b>' + App.escapeHtml(args.clientId || '') + '</b><br>修改字段：<b>' + App.escapeHtml(keys) + '</b></div>';
+      return '<div style="font-size:13px">来访者 ID：<b>' + esc(args.clientId || '') + '</b><br>修改字段：<b>' + esc(keys) + '</b></div>';
     }
-    if (toolName === 'supervision.start') {
-      const modeName = args.supervisorName === 'cangjie' ? '仓颉版' : '女神版';
+    if (toolName === 'supervision_start' || tn === 'supervision.start') {
+      const modeName = args.supervisorName === 'cangjie' ? '仓颉版' : '女娲版';
       const materialPreview = String(args.material || '').slice(0, 200) + (String(args.material || '').length > 200 ? '…' : '');
       return '<div style="font-size:13px">' +
-        '督导模式：<b>' + App.escapeHtml(modeName) + '</b><br>' +
-        '来访者：<b>' + App.escapeHtml(args.clientName || args.clientId || '') + '</b><br>' +
-        '材料预览：<span style="font-size:12px;color:#8a8a9e">' + App.escapeHtml(materialPreview) + '</span>' +
+        '督导模式：<b>' + esc(modeName) + '</b><br>' +
+        '来访者：<b>' + esc(args.clientName || args.clientId || '') + '</b><br>' +
+        '材料预览：<span style="font-size:12px;color:#8a8a9e">' + esc(materialPreview) + '</span>' +
       '</div>';
     }
-    return '<div style="font-size:12px;color:#8a8a9e">参数：' + App.escapeHtml(JSON.stringify(args)) + '</div>';
+    return '<div style="font-size:12px;color:#8a8a9e">参数：' + esc(JSON.stringify(args)) + '</div>';
+  }
+
+  function recordWriteAction(toolName, args, result) {
+    lastWriteAction = { toolName: toolName, args: args, result: result, ts: Date.now() };
+  }
+
+  function undoLastWrite() {
+    if (!lastWriteAction) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('没有可撤销的操作', 'info');
+      return;
+    }
+    var w = lastWriteAction;
+    if ((w.toolName === 'billing.add_record' || w.toolName === 'billing_add_record') && w.result && w.result.sessionIds) {
+      try {
+        w.result.sessionIds.forEach(function (sid) {
+          if (typeof Store !== 'undefined' && Store.deleteSession) Store.deleteSession(sid);
+        });
+        if (typeof App !== 'undefined' && App.showToast) App.showToast('已撤销 ' + w.result.sessionIds.length + ' 条记账记录', 'success');
+        lastWriteAction = null;
+      } catch (e) {
+        if (typeof App !== 'undefined' && App.showToast) App.showToast('撤销失败：' + (e.message || ''), 'error');
+      }
+    } else {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('该操作不支持撤销', 'info');
+    }
   }
 
   async function sendMsg() {
@@ -209,7 +292,7 @@
       if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') unlocked = App.aiUnlocked();
     } catch (e) {}
     if (!unlocked) {
-      renderSystem('⚠ Agent 为付费功能，请先激活');
+      renderSystem('⚠ 小镜需激活后才能使用 AI 对话。请先在设置中配置 AI 密钥。');
       return;
     }
     if (!inputEl) return;
@@ -222,47 +305,67 @@
     busy = true;
     const typingEl = renderTyping();
     try {
-      if (messages.length === 1 || messages[0].role !== 'system') {
+      if (messages.length === 0 || messages[0].role !== 'system') {
         messages.unshift({ role: 'system', content: '' });
-        try {
-          if (typeof AgentCore !== 'undefined' && AgentCore.buildSystemPrompt) {
-            messages[0].content = AgentCore.buildSystemPrompt();
-          }
-        } catch (e) {}
       }
-      const result = await AgentCore.runRound(messages, requestConfirm, function (name, status, data) {
-        clearTyping();
-        if (status === 'executing') renderProgress('正在执行：' + name + '…');
-        else if (status === 'done') {
-          if (data && data.switchedTo === 'user') {
-            renderSystem('✅ 已切换到你的高性能模型，我现在是完全体');
-            return;
-          }
-          if (data && data.switchedTo === 'builtin' && data.testError) {
-            renderSystem('⚠ 接入测试未通过：' + data.testError + '，已降级到内置模型');
-            return;
-          }
-          if (data && data.card && data.card.kind === 'navigate_hint') {
-            renderSystem('💡 建议前往「' + App.escapeHtml(data.card.label) + '」页面完成此操作');
-            return;
-          }
-          if (data) {
-            const summary = data.added !== undefined ? ('✓ 已新增 ' + data.added + ' 条记录' + (data.skipped ? '，跳过 ' + data.skipped + ' 条' : ''))
-              : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
-              : '✓ 已完成');
-            renderProgress(summary);
-          }
+      try {
+        if (typeof AgentCore !== 'undefined' && AgentCore.buildSystemPrompt) {
+          messages[0].content = AgentCore.buildSystemPrompt();
         }
-      });
-      clearTyping();
-      if (result.error) {
-        renderMsg('system', '⚠ ' + result.error);
-      } else if (result.reply) {
-        renderMsg('assistant', result.reply);
+      } catch (e) {}
+
+      if (typeof AgentCore !== 'undefined' && typeof AgentCore.runRound === 'function' && typeof AgentTools !== 'undefined') {
+        const result = await AgentCore.runRound(messages, requestConfirm, function (name, status, data) {
+          clearTyping();
+          if (status === 'executing') renderProgress('正在执行：' + name + '…');
+          else if (status === 'done') {
+            if (data && data.switchedTo === 'user') {
+              renderSystem('✅ 已切换到你的高性能模型，我现在是完全体');
+              return;
+            }
+            if (data && data.switchedTo === 'builtin' && data.testError) {
+              renderSystem('⚠ 接入测试未通过：' + data.testError + '，已降级到内置模型');
+              return;
+            }
+            if (data && data.switchedTo === 'partial') {
+              renderProgress(data.message || '已记录部分配置');
+              return;
+            }
+            if (data && data.card && data.card.kind === 'navigate_hint') {
+              renderNavCard(data.card);
+              return;
+            }
+            if (data) {
+              const summary = data.added !== undefined ? ('✓ 已新增 ' + data.added + ' 条记录' + (data.skipped ? '，跳过 ' + data.skipped + ' 条' : ''))
+                : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
+                : '✓ 已完成');
+              renderProgress(summary);
+              if (data.added !== undefined && data.sessionIds) {
+                recordWriteAction(name, {}, data);
+              }
+            }
+          }
+        }, function (evt) {
+          if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
+            renderFollowupCard(evt.items);
+          }
+        });
+        clearTyping();
+        if (result.error) {
+          renderMsg('assistant', '⚠ ' + result.error);
+          messages.push({ role: 'assistant', content: '⚠ ' + result.error });
+        } else if (result.reply) {
+          renderMsg('assistant', result.reply);
+          messages.push({ role: 'assistant', content: result.reply });
+        }
+      } else {
+        clearTyping();
+        renderSystem('⚠ Agent 模块未就绪，请重启应用。');
       }
     } catch (e) {
       clearTyping();
-      renderMsg('system', '⚠ 执行异常：' + (e.message || '未知错误'));
+      renderMsg('assistant', '⚠ 执行异常：' + (e.message || '未知错误'));
+      messages.push({ role: 'assistant', content: '⚠ 执行异常：' + (e.message || '未知错误') });
     }
     busy = false;
     saveMemory();
@@ -314,6 +417,7 @@
       }
     }
   }
+  window.toggleVoice = toggleVoice;
 
   window.switchToExpert = function () {
     location.href = 'index.html';
@@ -326,6 +430,8 @@
       }
     } catch (e) {}
   };
+
+  window.undoLastWrite = undoLastWrite;
 
   function init() {
     msgsEl = document.getElementById('chat-msgs');
@@ -345,6 +451,9 @@
         this.style.height = Math.min(160, this.scrollHeight) + 'px';
       });
     }
+    if (sendBtn) {
+      sendBtn.addEventListener('click', sendMsg);
+    }
 
     renderTierBanner();
     renderWelcome();
@@ -353,10 +462,12 @@
     try {
       if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
         window.__XJ_API__.onLicenseState(function () {
-          msgsEl.innerHTML = '';
-          renderTierBanner();
-          renderWelcome();
-          restoreMemory();
+          if (msgsEl) {
+            msgsEl.innerHTML = '';
+            renderTierBanner();
+            renderWelcome();
+            restoreMemory();
+          }
         });
       }
     } catch (e) {}
