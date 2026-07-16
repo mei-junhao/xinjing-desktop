@@ -6,9 +6,13 @@
 //   - macOS  ：校验/修正 latest-mac.yml（确保引用 ASCII 命名的 zip 更新包），供自动更新使用。
 //   - Linux  ：本仓库暂不支持，直接退出。
 //
-// 说明：GitHub Releases 资产名对中文等 Unicode 前缀支持不稳定，而自动更新要求
-//       latest*.yml 中引用的文件名必须与实际上传资产名逐字节一致，否则客户端下载 404。
-//       因此发布资产统一用 ASCII 文件名；中文品牌保留在 Release 标题与安装器界面。
+// 健壮性说明（2026-07-16 修复）：
+//   electron-builder 在 Windows 上偶尔会因 safe-delete 超时在 nsis 之后、portable 之前中断，
+//   导致 portable exe / latest.yml / blockmap 未写出。为让自动更新在"nsis exe 已生成但其余
+//   产物缺失"的情况下仍可用，本脚本：
+//     - latest.yml 缺失时从 nsis exe 兜底生成（sha512 + size + releaseDate）；
+//     - portable 缺失时仅告警、跳过 portable 自动更新，不 process.exit(1)；
+//     - nsis / portable blockmap 缺失时用 app-builder 补生成（失败则退化为全量下载）。
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -50,8 +54,7 @@ if (PLATFORM === 'win32') {
     process.exit(1);
   }
   if (!portableExe) {
-    console.error('未找到 portable 绿色版 exe（dist 中除 setup 外的 exe）。dist 内容：', entries);
-    process.exit(1);
+    console.warn('未找到 portable 绿色版 exe（dist 中除 setup 外的 exe），将跳过 portable 自动更新。dist 内容：', entries);
   }
 
   function renameIf(srcBase, dstBase) {
@@ -66,9 +69,9 @@ if (PLATFORM === 'win32') {
   }
 
   const finalNsis = renameIf(nsisExe, nsisName);
-  const finalPortable = renameIf(portableExe, portableName);
+  const finalPortable = portableExe ? renameIf(portableExe, portableName) : null;
   renameIf(`${nsisExe}.blockmap`, `${nsisName}.blockmap`);
-  renameIf(`${portableExe}.blockmap`, `${portableName}.blockmap`);
+  if (portableExe) renameIf(`${portableExe}.blockmap`, `${portableName}.blockmap`);
 
   const latestYml = path.join(dist, 'latest.yml');
   if (fs.existsSync(latestYml) && nsisExe) {
@@ -76,6 +79,29 @@ if (PLATFORM === 'win32') {
     c = c.split(nsisExe).join(nsisName);
     fs.writeFileSync(latestYml, c);
     console.log('patched latest.yml path ->', nsisName);
+  } else if (!fs.existsSync(latestYml) && finalNsis) {
+    // electron-builder 可能因构建中断未写出 latest.yml；这里从 nsis exe 兜底生成
+    const p = path.join(dist, finalNsis);
+    if (fs.existsSync(p)) {
+      const buf = fs.readFileSync(p);
+      const hash = sha512(buf);
+      const yml = [
+        `version: ${version}`,
+        'files:',
+        `  - url: ${finalNsis}`,
+        `    sha512: ${hash}`,
+        `    size: ${buf.length}`,
+        `path: ${finalNsis}`,
+        `sha512: ${hash}`,
+        `releaseDate: ${new Date().toISOString()}`,
+        '',
+      ].join('\n');
+      fs.writeFileSync(latestYml, yml);
+      console.log('generated latest.yml for', finalNsis);
+    } else {
+      console.error('latest.yml 缺失且 nsis exe 不存在，无法生成更新元数据');
+      process.exit(1);
+    }
   }
 
   if (finalPortable) {
@@ -98,22 +124,29 @@ if (PLATFORM === 'win32') {
   }
 
   (async () => {
-    if (finalPortable) {
-      const input = path.join(dist, finalPortable);
-      const blockmapFile = path.join(dist, `${finalPortable}.blockmap`);
+    async function genBlockmap(srcBase) {
+      if (!srcBase) return;
+      const input = path.join(dist, srcBase);
+      const blockmapFile = path.join(dist, srcBase + '.blockmap');
+      if (fs.existsSync(blockmapFile)) {
+        console.log('blockmap already exists ->', path.basename(blockmapFile));
+        return;
+      }
       try {
         const { executeAppBuilder } = require('builder-util');
         await executeAppBuilder(['blockmap', '--input', input, '--output', blockmapFile]);
         if (fs.existsSync(blockmapFile)) {
-          console.log('generated portable blockmap ->', path.basename(blockmapFile));
+          console.log('generated blockmap ->', path.basename(blockmapFile));
         } else {
-          console.warn('portable blockmap 未生成（app-builder 无输出），将退化为全量下载');
+          console.warn('blockmap 未生成（app-builder 无输出），将退化为全量下载: ', srcBase);
         }
       } catch (e) {
-        console.warn('portable blockmap 生成失败，将退化为全量下载：', e && e.message);
+        console.warn('blockmap 生成失败，将退化为全量下载: ', srcBase, e && e.message);
       }
     }
-    console.log('postbuild (win) done. nsis =', finalNsis, '| portable =', finalPortable);
+    await genBlockmap(finalNsis);
+    await genBlockmap(finalPortable);
+    console.log('postbuild (win) done. nsis =', finalNsis, '| portable =', finalPortable || '(skipped)');
   })();
 }
 
@@ -147,9 +180,6 @@ else if (PLATFORM === 'darwin') {
     process.exit(1);
   }
 
-  // latest-mac.yml 由 electron-builder 生成，引用 zip 更新包。
-  // 由于 artifactName 已为 ASCII，通常无需改；这里做一次防御性修正，
-  // 把其中可能残留的默认（含中文 productName）文件名替换为 ASCII 名。
   const latestMac = path.join(dist, 'latest-mac.yml');
   if (fs.existsSync(latestMac)) {
     let c = fs.readFileSync(latestMac, 'utf8');
