@@ -200,6 +200,11 @@ const BACKUP_IGNORED_TOP_LEVEL = new Set([
   'Shared Dictionary'
 ]);
 
+// v3.8.2 智能增量备份参数
+const BACKUP_MAX_SNAPSHOTS = 7;                       // 历史快照最多保留份数（超出删最旧）
+const BACKUP_SNAPSHOT_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 历史快照最小间隔：1 天
+const BACKUP_LATEST_DIR = '最新';                     // 固定增量目录名（滚动镜像，磁盘恒定≈单份）
+
 function copyUserDataBackup(src, dest) {
   fs.cpSync(src, dest, {
     recursive: true,
@@ -211,22 +216,145 @@ function copyUserDataBackup(src, dest) {
   });
 }
 
-// 导出当前用户数据到「文档/心镜备份」+ 用户自定义多位置（多份容灾），用于退出/常驻时备份
+// v3.8.2 文件级「近似指纹」：size + 前 1MB sha256（避免读大文件全文，又快又稳）
+function backupFileQuickHash(p) {
+  try {
+    const st = fs.statSync(p);
+    if (!st.isFile()) return null;
+    const h = crypto.createHash('sha256');
+    h.update(String(st.size));
+    const fd = fs.openSync(p, 'r');
+    const buf = Buffer.alloc(Math.min(1024 * 1024, st.size));
+    const n = fs.readSync(fd, buf, 0, buf.length, 0);
+    h.update(buf.subarray(0, n));
+    fs.closeSync(fd);
+    return h.digest('hex');
+  } catch (e) { return null; }
+}
+
+// v3.8.2 文件级差异复制（rsync 式增量）：把 src 镜像同步到 dest。
+// 仅复制变化的文件、删除 src 已不存在的文件；未变化的文件直接跳过。
+// 返回 { changed, copied, removed }。磁盘占用恒定≈单份，杜绝整目录复制导致的数 GB 冗余。
+function syncBackupDir(src, dest) {
+  const ignored = (rel) => BACKUP_IGNORED_TOP_LEVEL.has(rel.split(path.sep)[0]);
+  const srcFiles = new Map(); // rel -> full
+  (function walk(d) {
+    let entries;
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+    for (const e of entries) {
+      const full = path.join(d, e.name);
+      const rel = path.relative(src, full);
+      if (!rel || ignored(rel)) continue;
+      if (e.isDirectory()) walk(full);
+      else if (e.isFile()) srcFiles.set(rel, full);
+    }
+  })(src);
+
+  const destFiles = new Set();
+  (function walk(d) {
+    let entries;
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+    for (const e of entries) {
+      const full = path.join(d, e.name);
+      const rel = path.relative(dest, full);
+      if (!rel || ignored(rel)) continue;
+      if (e.isDirectory()) walk(full);
+      else if (e.isFile()) destFiles.add(rel);
+    }
+  })(dest);
+
+  let changed = false, copied = 0, removed = 0;
+  for (const [rel, full] of srcFiles) {
+    const destFull = path.join(dest, rel);
+    let needCopy = true;
+    if (destFiles.has(rel)) {
+      try {
+        const dst = fs.statSync(destFull);
+        if (dst.size === fs.statSync(full).size) {
+          const a = backupFileQuickHash(full), b = backupFileQuickHash(destFull);
+          if (a && b && a === b) needCopy = false; // 内容相同，跳过
+        }
+      } catch (e) { needCopy = true; }
+    }
+    if (needCopy) {
+      try {
+        fs.mkdirSync(path.dirname(destFull), { recursive: true });
+        fs.copyFileSync(full, destFull);
+        copied++; changed = true;
+      } catch (e) { console.error('[backup] copy failed', rel, (e && e.message) || e); }
+    }
+    destFiles.delete(rel);
+  }
+  for (const rel of destFiles) {
+    const destFull = path.join(dest, rel);
+    try {
+      const st = fs.statSync(destFull);
+      if (st.isDirectory()) fs.rmSync(destFull, { recursive: true, force: true });
+      else fs.unlinkSync(destFull);
+      removed++; changed = true;
+    } catch (e) { /* ignore */ }
+  }
+  return { changed, copied, removed };
+}
+
+// v3.8.2 智能增量备份：每位置维护固定「最新」目录（文件级差异复制，磁盘恒定≈单份），
+// 仅当数据确有变化且距上次快照≥1天时才复制一份带时间戳历史快照（最多保留 7 份），
+// 彻底消除「每次整目录复制导致数GB 相同内容冗余备份」。
 function exportBackup() {
   try {
     const src = userDataDir();                       // AppData\Local\XinJing（含 IndexedDB/激活/日记）
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const cfg = loadBackupConfig();
     const targets = [];
+    const now = Date.now();
+
+    // 处理单个备份位置（默认位置 / 自定义多位置共用）
+    function doLocation(rootDir) {
+      try {
+        fs.mkdirSync(rootDir, { recursive: true });
+        const latest = path.join(rootDir, BACKUP_LATEST_DIR);   // 固定增量目录
+        const res = syncBackupDir(src, latest);                 // 文件级差异同步（仅写变化）
+        targets.push(latest);
+
+        // 该位置备份元数据（上次快照时间等）
+        const metaPath = path.join(rootDir, '.xj-backup-meta.json');
+        let meta = {};
+        try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) || {}; } catch (e) {}
+
+        const due = !meta.lastSnapshot || (now - meta.lastSnapshot) >= BACKUP_SNAPSHOT_MIN_INTERVAL_MS;
+        if (res.changed && due) {
+          // 数据确有变化且距上次快照≥1天：复制「最新」整份为带时间戳历史快照
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          const snap = path.join(rootDir, 'XinJing-' + ts);
+          try {
+            copyUserDataBackup(latest, snap);
+            meta.lastSnapshot = now;
+            meta.lastSnapshotName = 'XinJing-' + ts;
+            meta.lastChange = now;
+            fs.writeFileSync(metaPath, JSON.stringify(meta));
+            targets.push(snap);
+          } catch (e) { console.error('[backup] 快照失败:', (e && e.message) || e); }
+        } else if (res.changed) {
+          // 有变化但未到快照间隔：仅记变更时间，不新增快照
+          meta.lastChange = now;
+          try { fs.writeFileSync(metaPath, JSON.stringify(meta)); } catch (e) {}
+        }
+
+        // 清理超量历史快照（仅删 XinJing- 前缀，不动「最新」与元数据文件）
+        let snaps = [];
+        try {
+          snaps = fs.readdirSync(rootDir).filter((n) => /^XinJing-\d{4}-\d{2}-\d{2}T/.test(n)).sort();
+        } catch (e) {}
+        while (snaps.length > BACKUP_MAX_SNAPSHOTS) {
+          const old = snaps.shift();
+          try { fs.rmSync(path.join(rootDir, old), { recursive: true, force: true }); console.log('[backup] 清理过期快照', old); }
+          catch (e) {}
+        }
+      } catch (e) { console.error('[backup] 位置失败:', rootDir, (e && e.message) || e); }
+    }
 
     // 1) 默认位置：文档\心镜备份（与安装目录隔离）
-    try {
-      const docs = app.getPath('documents');
-      const def = path.join(docs, '心镜备份', 'XinJing-' + ts);
-      fs.mkdirSync(path.dirname(def), { recursive: true });
-      copyUserDataBackup(src, def);
-      targets.push(def);
-    } catch (e) { console.error('[backup] 默认位置失败:', (e && e.message) || e); }
+    try { doLocation(path.join(app.getPath('documents'), '心镜备份')); }
+    catch (e) { console.error('[backup] 默认位置失败:', (e && e.message) || e); }
 
     // 2) 自定义多位置（多份容灾）
     (cfg.locations || []).forEach((loc) => {
@@ -236,19 +364,21 @@ function exportBackup() {
         let st;
         try { st = fs.statSync(loc); } catch (e) { console.warn('[backup] 跳过无效备份位置（不存在）:', loc); return; }
         if (!st.isDirectory()) { console.warn('[backup] 跳过无效备份位置（非目录）:', loc); return; }
-        const d = path.join(loc, 'XinJing-' + ts);
-        fs.mkdirSync(path.dirname(d), { recursive: true });
-        copyUserDataBackup(src, d);
-        targets.push(d);
+        doLocation(loc);
       } catch (e) { console.error('[backup] 自定义位置失败:', loc, (e && e.message) || e); }
     });
 
-    console.log('[backup] exported ->', targets.join(' | '));
+    console.log('[backup] synced ->', targets.join(' | '));
+
+    // 记录自动备份元数据（供设置页/排障读取；不依赖渲染进程）
+    try {
+      fs.writeFileSync(path.join(src, 'backup-meta.json'), JSON.stringify({ lastAutoBackup: new Date().toISOString(), time: now }));
+    } catch (e) {}
 
     // 3) 邮件提醒（mailto 兜底；真正的 SMTP 自动发送需 nodemailer + 邮箱 SMTP 凭据，见说明）
     if (cfg.emailEnabled && cfg.email) {
       try {
-        const body = encodeURIComponent('心镜数据已自动备份（' + ts + '）：\n' + targets.join('\n'));
+        const body = encodeURIComponent('心镜数据已自动备份（增量）：\n' + targets.join('\n'));
         shell.openExternal('mailto:' + cfg.email + '?subject=' + encodeURIComponent('心镜自动备份通知') + '&body=' + body);
       } catch (e) { console.error('[backup] 邮件提醒失败:', (e && e.message) || e); }
     }
