@@ -193,7 +193,7 @@ const XinJingChat = (() => {
     }
     banner.className = 'xj3-tier-banner ' + (tier === 'user' ? 'tier-user' : 'tier-builtin');
     if (tier === 'user') {
-      banner.textContent = '⚡ 已接入你的高性能模型（完全体）';
+      banner.textContent = '已接入高性能模型 · 操作边界不变';
     } else {
       banner.innerHTML = '🌱 免费试用 · <span class="xj3-quota-name">v4-flash</span>（额度用尽降级基础模型）' +
         '<span class="xj3-quota-pct"></span>';
@@ -875,7 +875,7 @@ const XinJingChat = (() => {
           else if (status === 'done') {
             if (data && data.switchedTo === 'user') {
               refreshTierUI();
-              toast('已切换到你的高性能模型，我现在是完全体，可以做更多事', 'success');
+              toast('已切换到高性能模型，理解与表达质量已提升', 'success');
               return;
             }
             if (data && data.switchedTo === 'builtin' && data.testError) {

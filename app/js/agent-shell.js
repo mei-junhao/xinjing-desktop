@@ -190,7 +190,7 @@
     }
     banner.className = 'xj-agent-tier ' + (tier === 'user' ? 'tier-user' : 'tier-builtin');
     if (tier === 'user') {
-      banner.textContent = '⚡ 已接入你的高性能模型（完全体）';
+      banner.textContent = '已接入高性能模型 · 操作边界不变';
     } else {
       banner.innerHTML = '🌱 免费试用 · <span id="xj-agent-quota">v4-flash</span>（额度用尽降级基础模型）'
         + '<span id="xj-agent-quota-pct" style="float:right;opacity:.85"></span>';
@@ -205,7 +205,7 @@
       messagesEl.insertBefore(welcome, messagesEl.firstChild);
     }
     welcome.innerHTML = tier === 'user'
-      ? '你已接入高性能模型，我现在是完全体，可以做更多事。可以帮你记账、月结、查统计、改来访者信息。'
+      ? '高性能模型已接入，理解与表达质量更好。小镜可执行查询和轻量事务，复杂工作进入对应页面。'
       : '我是内置低性能免费模型，只能完成普通任务（记账 / 月结 / 查统计 / 改来访者信息）。接入你的高性能模型后我能做更多。比如：<br>「帮张明记 4 月 10 号会谈 300 块次结没付」<br>「张明这个月收了多少」<br>「把张明的电话改成 138xxxx」';
   }
 
@@ -399,10 +399,10 @@
         clearTyping();
         if (status === 'executing') renderProgress('正在执行：' + name + '…');
         else if (status === 'done') {
-          // 配置 API 成功：自动切换到用户模型，刷新档位 UI + 完全体提示
+          // 配置 API 成功：自动切换到用户模型，刷新模型质量提示。
           if (data && data.switchedTo === 'user') {
             refreshTierUI();
-            toast('已切换到你的高性能模型，我现在是完全体，可以做更多事', 'success');
+            toast('已切换到高性能模型，理解与表达质量已提升', 'success');
             return;
           }
           // 配置 API 测试失败：如实降级到内置模型，并说明原因

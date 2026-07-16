@@ -19,6 +19,12 @@
   const WINDOW = 20;
   const TOOL_RESULT_MAX = 4000;
   const READ_RESULT_MAX = 20000; // 读/洞察类工具结果较大，用更高上限避免半截 JSON（v1.6.0 B1 修复）
+  const REDIRECT_ONLY_TOOLS = new Set([
+    'supervision.start',
+    'supervision.ask',
+    'masters.open',
+    'masters.message'
+  ]);
 
   // ---------- 宿主全局守卫 ----------
   function getAI() {
@@ -198,7 +204,11 @@
   async function runRound(messages, onConfirm, onProgress, onEvent) {
     const AI = getAI();
     const tools = getTools();
-    const toolSchemas = tools.TOOL_SCHEMAS;
+    // 深度临床工作依赖专用页面的材料、历史和状态机。小镜只获得跳转工具，
+    // 不把这些兼容性 handler 暴露给模型，避免低能力模型误执行后声称完成。
+    const toolSchemas = tools.TOOL_SCHEMAS.filter(function (schema) {
+      return !REDIRECT_ONLY_TOOLS.has(schema.function.name);
+    });
     const registry = tools.TOOL_REGISTRY;
 
     // 线格式消毒：DeepSeek / OpenAI 兼容端点要求工具名匹配 ^[A-Za-z0-9_-]{1,64}$
@@ -389,7 +399,9 @@
     try { tools = getTools(); } catch (e) { /* 未注入时降级 */ }
     let toolList = '';
     if (tools && tools.TOOL_REGISTRY) {
-      toolList = Object.keys(tools.TOOL_REGISTRY).map(function (k) {
+      toolList = Object.keys(tools.TOOL_REGISTRY).filter(function (k) {
+        return !REDIRECT_ONLY_TOOLS.has(k);
+      }).map(function (k) {
         const t = tools.TOOL_REGISTRY[k];
         const desc = (t.schema && t.schema.function && t.schema.function.description) || '';
         return '- ' + k + '：' + desc;
@@ -409,15 +421,15 @@
 
     return [
       (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '',
-      '你是心镜 XinJing 的工作助手。你可以通过工具帮用户完成：记账录入 / 月结 / 统计查询 / 改来访者信息 / 查询来访者与会谈数据 / 业务洞察 / 启动 AI 督导（女娲版或仓颉版）/ 督导追问 / 开启大师对话 / 向大师发消息 / API 接口配置。',
+      '你是心镜 XinJing 的轻量工作助手。你可以可靠完成：统计与业务数据查询、简单记账、月结、白名单内的来访者信息修改、资料检索和 API 接口配置。',
       '规则：',
       '1. 你只能调用提供的工具，不要凭空编造数据。',
-      '2. 写操作（记账/月结/改信息/督导启动）执行前会向用户确认，你只需发起 tool_call，不要在回复里假装已执行。',
+      '2. 写操作（记账/月结/改信息）执行前会向用户确认，你只需发起 tool_call，不要在回复里假装已执行。',
       '3. 如果用户请求含多条记录，用 records 数组一次性提交，不要分多次调用。',
       '4. 查不到来访者时先问用户是否新建，不要自行假设。',
       '5. 金额日期等字段严格按 schema 填，不要省略 required 字段。',
       '6. 你不生成诊断、不替代临床判断、不替代真人督导。',
-      '7. 督导与大师对话涉及深度临床分析，请提醒用户：Agent 浮窗是便捷入口，完整界面请在对应页面使用。',
+      '7. 咨询记录、逐字稿、报告、督导、大师对话、日历排期、文档中心和资料库都必须调用 navigate_to，交给对应专业页面；不要声称已在聊天中完成。',
       '8. 配置 API 接口时，如果用户只说了服务商名（如 DeepSeek 或 硅基流动）和密钥，从 agent.configure_api 的 provider 参数填预设名即可——handler 会自动查出 baseUrl 和默认 model。不要让用户手动找 baseUrl 和 model 名。若用户说出未在预设列表的服务商，选 other 并问用户要 baseUrl 和 model 名。',
       '9. 涉及「谁 / 几次 / 多久 / 欠费 / 最久」等事实问题，必须先调用 client.query / session.query / supervision.query / stats.overview / client.insight 查询真实数据，再基于返回回答，严禁凭记忆编造。例：想知道工作最久的来访，调 stats.overview（看 longestClient）或 client.query（默认按 tenure 降序）。',
       '10. 调用查询工具拿到结果后，用一次文字回复直接回答用户即可，不要再调用同一查询工具；同一查询工具连续调用两次即视为已获取足够信息，必须停止调用工具。',
@@ -425,13 +437,13 @@
       '可用工具：',
       toolList || '（未注入工具）',
       clientList,
-      // 档位提示：内置低性能模型提醒只能做普通任务；用户高性能模型提示已是完全体
+      // 档位提示：模型档位只影响理解与表达质量，不扩大可执行操作边界。
       (function () {
         try {
           if (typeof AI !== 'undefined' && AI.getTier) {
             return AI.getTier() === 'builtin'
-              ? '\n\n[档位] 你运行在免费试用档（经官方韩国代理，每机器码 ¥5 / 30 天额度）。额度内使用高性能模型 DeepSeek-V4-Flash，可完成记账 / 月结 / 查统计 / 改来访者信息 / 配 API 等任务；额度用尽或过期会自动降级到内置基础模型（Qwen3.5-4B，低性能，仅普通任务）。若用户需要持续高性能或更长额度，引导其购买会员或增量包恢复使用。若用户接入自己的高性能模型 key（支持 DeepSeek / 硅基流动 / OpenAI / 月之暗面 Kimi / 智谱 / 通义千问 / 豆包，只需说服务商名 + API Key 即可自动配好），你将升级为完全体。注意：若用户接入的模型不支持 function-calling（如 o1/o2/o3/o4 或 reasoning 模型），Agent 会主动提示其换用支持的模型，而非静默失效。'
-              : '\n\n[档位] 你已接入用户的高性能模型，是完全体，可以完成更复杂的任务。';
+              ? '\n\n[档位] 你运行在免费试用档（经官方韩国代理，每机器码 ¥5 / 30 天额度）。额度内使用高性能模型 DeepSeek-V4-Flash，可完成记账 / 月结 / 查统计 / 改来访者信息 / 配 API 等任务；额度用尽或过期会自动降级到内置基础模型（Qwen3.5-4B，低性能，仅普通任务）。若用户需要持续高性能或更长额度，引导其购买会员或增量包恢复使用。用户接入自己的高性能模型 key 后，理解与表达质量会提升，但可执行操作仍以已提供工具为准。注意：若用户接入的模型不支持 function-calling（如 o1/o2/o3/o4 或 reasoning 模型），Agent 会主动提示其换用支持的模型，而非静默失效。'
+              : '\n\n[档位] 你已接入用户的高性能模型，可获得更好的理解与表达质量；可执行操作的边界不变，复杂工作仍进入专业页面。';
           }
         } catch (e) { /* ignore */ }
         return '';

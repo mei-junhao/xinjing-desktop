@@ -851,15 +851,16 @@ test('I1 builtin 档位 → 系统提示含内置低性能提醒', function () {
   assert.ok(prompt.indexOf('普通任务') !== -1, '应含"普通任务"');
 });
 
-// I2. user 档位 → 系统提示含「完全体」
+// I2. user 档位 → 提升理解质量，但不扩大执行边界
 resetStore();
-test('I2 user 档位 → 系统提示含完全体', function () {
+test('I2 user 档位 → 系统提示保持专业页面边界', function () {
   const App = { aiUnlocked: () => true };
   const AI = { getTier: () => 'user' };
   const t = loadAgentTools(Store);
   const c = loadAgentCore(Store, AI, t, App);
   const prompt = c.buildSystemPrompt();
-  assert.ok(prompt.indexOf('完全体') !== -1, '应含"完全体"');
+  assert.ok(prompt.indexOf('更好的理解与表达质量') !== -1, '应说明高性能模型的真实收益');
+  assert.ok(prompt.indexOf('可执行操作的边界不变') !== -1, '不得因模型升级夸大执行能力');
 });
 
 // ============================================================
@@ -1288,9 +1289,9 @@ test('T10 app.js 注入链含 5 宿主全局文件', function () {
   assert.ok(S_APP.indexOf('js/masters-core.js') !== -1, '缺 masters-core.js 注入');
 });
 
-test('T11 agent-core.js buildSystemPrompt 含督导与大师描述', function () {
-  assert.ok(T_CORE.indexOf('启动 AI 督导') !== -1, '缺督导描述');
-  assert.ok(T_CORE.indexOf('开启大师对话') !== -1, '缺大师描述');
+test('T11 agent-core.js 将督导与大师收口到专业页面', function () {
+  assert.ok(T_CORE.indexOf('督导、大师对话') !== -1, '缺督导与大师边界描述');
+  assert.ok(T_CORE.indexOf('必须调用 navigate_to') !== -1, '复杂临床工作未强制跳转');
 });
 
 test('T12 agent-shell.js renderConfirmPreview 含 supervision.start 预览', function () {
@@ -2550,6 +2551,10 @@ const V38_MAIN = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
 const V38_INSTALLER = fs.readFileSync(path.join(__dirname, '..', 'build', 'installer.nsh'), 'utf8');
 const V38_PACKAGE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 const V38_PACKAGE_LOCK = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package-lock.json'), 'utf8'));
+const V38_CHAT_HOME_HTML = fs.readFileSync(path.join(APP_DIR, 'chat-home.html'), 'utf8');
+const V38_CHAT_HOME_JS = fs.readFileSync(path.join(APP_DIR, 'js', 'chat-home.js'), 'utf8');
+const V38_AGENT_CORE = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-core.js'), 'utf8');
+const V38_AGENT_TOOLS = fs.readFileSync(path.join(APP_DIR, 'js', 'agent-tools.js'), 'utf8');
 
 test('v3.8-1 临床工作台令牌提供完整的浅色、深色和低动效语义', function () {
   assert.ok(/\[data-skin="clinical"\]/.test(V38_WORKBENCH), '缺少 clinical 皮肤');
@@ -2631,6 +2636,43 @@ test('v3.8-12 退出备份排除可再生缓存但保留业务数据目录', fun
   assert.ok(/function copyUserDataBackup\(src, dest\)/.test(V38_MAIN), '缺少统一备份复制器');
   assert.ok(/filter:\s*\(entry\)/.test(V38_MAIN), '备份复制未使用目录过滤器');
   assert.ok(!/BACKUP_IGNORED_TOP_LEVEL[\s\S]{0,200}'IndexedDB'/.test(V38_MAIN), '业务 IndexedDB 被错误排除');
+});
+
+test('v3.8-13 对话模式复杂工作确定性跳转，不再虚构代办能力', function () {
+  assert.ok(/const WORKFLOW_ROUTES = \[/.test(V38_CHAT_HOME_JS), '缺少确定性工作流路由');
+  ['consult-notes.html', 'billing-shell.html', 'supervision.html', 'transcript.html', 'report-writing.html', 'session-calendar.html', 'knowledge.html'].forEach(function (href) {
+    assert.ok(V38_CHAT_HOME_JS.includes("href: '" + href + "'"), '缺少专业页面路由 ' + href);
+  });
+  assert.ok(/const workflowRoute = workflowRouteForText\(text\)/.test(V38_CHAT_HOME_JS), '自然语言发送前未拦截复杂工作');
+  assert.ok(/data-route="consultations"/.test(V38_CHAT_HOME_JS) && !/data-text="帮我记录今天的咨询"/.test(V38_CHAT_HOME_JS), '快捷入口仍依赖模型代办');
+  assert.ok(!/帮你完成各种工作/.test(V38_CHAT_HOME_JS), '欢迎语仍夸大能力');
+  assert.ok(/问小镜工作概况/.test(V38_CHAT_HOME_HTML), '输入提示未反映真实能力边界');
+});
+
+test('v3.8-14 深度临床工具不暴露给小镜，跳转卡返回契约与 UI 对齐', function () {
+  ['supervision.start', 'supervision.ask', 'masters.open', 'masters.message'].forEach(function (name) {
+    assert.ok(V38_AGENT_CORE.includes("'" + name + "'"), '缺少仅跳转工具边界 ' + name);
+  });
+  assert.ok(/!REDIRECT_ONLY_TOOLS\.has\(schema\.function\.name\)/.test(V38_AGENT_CORE), '深度工具仍会发给小镜模型');
+  assert.ok(/都必须调用 navigate_to/.test(V38_AGENT_CORE), '系统提示未强制专业页面跳转');
+  assert.ok(/data:\s*\{ card: card \}/.test(V38_AGENT_TOOLS), 'navigate_to 返回值仍无法被 UI 渲染');
+  ['realSupervision', 'transcript', 'reports', 'calendar', 'documents', 'knowledge', 'settings'].forEach(function (target) {
+    assert.ok(new RegExp(target + ':').test(V38_AGENT_TOOLS), 'navigate_to 缺少目标 ' + target);
+  });
+});
+
+test('v3.8-15 模型升级文案不再虚构完全执行能力', function () {
+  const surfaces = [
+    V38_AGENT_CORE,
+    V38_AGENT_TOOLS,
+    V38_CHAT_HOME_JS,
+    fs.readFileSync(path.join(APP_DIR, 'js', 'agent-shell.js'), 'utf8'),
+    fs.readFileSync(path.join(APP_DIR, 'js', 'xinjing-chat.js'), 'utf8'),
+    fs.readFileSync(path.join(APP_DIR, 'js', 'settings.js'), 'utf8')
+  ];
+  surfaces.forEach(function (source, index) {
+    assert.ok(!/完全体/.test(source), '界面 ' + index + ' 仍含夸大能力的“完全体”文案');
+  });
 });
 
 // ============================================================

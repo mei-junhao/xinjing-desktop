@@ -146,7 +146,7 @@ App.initPage({
       if (api.apiKey && api.verified !== true) unverified = true;
     } catch (e) { /* ignore */ }
     if (tier === 'user' && cfg) {
-      el.innerHTML = '⚡ <b>你的高性能模型</b> · ' + App.escapeHtml(cfg.model) + '（已验证，完全体）';
+      el.innerHTML = '<b>高性能模型</b> · ' + App.escapeHtml(cfg.model) + '（已验证，理解质量提升）';
     } else if (unverified) {
       el.innerHTML = '🌱 <b>内置免费模型</b> · 你填的密钥<b>未验证</b>，点「接入高性能 AI」重新验证';
     } else {
@@ -942,7 +942,7 @@ App.initPage({
     Store.saveSettings({ apiConfig: toSave });
     updateTierStatus();
     if (test.ok) {
-      cdMsg('ai', '✅ <b>接入成功，已验证可用</b>！你现在是完全体，可以做复杂分析。点下面的「试用 Agent 对话」马上开聊吧。');
+      cdMsg('ai', '<b>接入成功，已验证可用</b>。模型理解与表达质量已提升；小镜的可执行操作仍以现有工具为准。');
       cdChips([
         { label: '🤖 试用 Agent 对话', onClick: cdOpenAgent },
         { label: '关闭', onClick: closeConnectDrawer },

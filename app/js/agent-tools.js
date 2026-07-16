@@ -757,7 +757,7 @@
           provider: providerLabel,
           model: model,
           verified: true,
-          message: '接入成功并已验证可用（' + providerLabel + ' · ' + model + '）。你现在是完全体。'
+          message: '接入成功并已验证可用（' + providerLabel + ' · ' + model + '）。理解与表达质量已提升，操作边界不变。'
         },
       });
     } else {
@@ -785,8 +785,15 @@
     consultations:{ label: '咨询记录', href: 'consult-notes.html' },
     clients:      { label: '来访者',   href: 'consult-notes.html' },
     supervision:  { label: '督导',     href: 'supervision.html' },
+    realSupervision: { label: '真人督导', href: 'real-supervision.html' },
     billing:      { label: '记账',     href: 'billing-shell.html' },
-    masters:      { label: '大师对话', href: 'masters.html' }
+    masters:      { label: '大师对话', href: 'masters.html' },
+    transcript:   { label: '逐字稿',   href: 'transcript.html' },
+    reports:      { label: '报告撰写', href: 'report-writing.html' },
+    calendar:     { label: '咨询日历', href: 'session-calendar.html' },
+    documents:    { label: '文档中心', href: 'doc-center.html' },
+    knowledge:    { label: '资料库',   href: 'knowledge.html' },
+    settings:     { label: '设置',     href: 'settings.html' }
   };
   const SCHEMA_NAVIGATE_TO = {
     type: 'function',
@@ -807,16 +814,18 @@
     const target = args && args.target;
     const m = NAV_TARGETS[target];
     if (!m) return { ok: false, error: 'unknown target: ' + target };
+    const card = {
+      kind: 'navigate_hint',
+      target: target,
+      label: m.label,
+      href: m.href,
+      reason: (args && args.reason) || '',
+      hint: m.label + '页面：可执行更专业的操作'
+    };
     return sanitizeResult({
       ok: true,
-      card: {
-        kind: 'navigate_hint',
-        target: target,
-        label: m.label,
-        href: m.href,
-        reason: (args && args.reason) || '',
-        hint: m.label + '页面：可执行更专业的操作'
-      },
+      card: card,
+      data: { card: card },
       summary: '建议跳转到「' + m.label + '」：' + ((args && args.reason) || '')
     });
   }

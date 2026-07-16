@@ -13,6 +13,28 @@
 
   const MEM_KEY = 'xj_xinjing_chat_v1';
   const MEM_MAX = 50;
+  const WORKFLOW_ROUTES = [
+    { key: 'realSupervision', label: '真人督导', href: 'real-supervision.html', pattern: /真人督导|督导录音|督导转写/ },
+    { key: 'supervision', label: 'AI 督导', href: 'supervision.html', pattern: /督导|案例分析|个案分析/ },
+    { key: 'transcript', label: '逐字稿', href: 'transcript.html', pattern: /逐字稿|录音整理|转写/ },
+    { key: 'reports', label: '报告撰写', href: 'report-writing.html', pattern: /报告|SOAP|DAP|APA/ },
+    { key: 'masters', label: '大师对话', href: 'masters.html', pattern: /大师对话|多大师|圆桌|温尼科特|弗洛伊德|荣格|拉康/ },
+    { key: 'calendar', label: '咨询日历', href: 'session-calendar.html', pattern: /日历|排期|预约|安排下次|日程/ },
+    { key: 'knowledge', label: '资料库', href: 'knowledge.html', pattern: /资料库|知识库|检索资料/ },
+    { key: 'documents', label: '文档中心', href: 'doc-center.html', pattern: /文档中心|个案档案|临床材料|时间线/ },
+    { key: 'settings', label: '设置', href: 'settings.html', pattern: /设置|API\s*密钥|接口配置|模型配置/ },
+    { key: 'billing', label: '账务', href: 'billing-shell.html', pattern: /记账|账单|月结|收款|未收款|欠费|收入统计|查看.*收入/ },
+    { key: 'consultations', label: '咨询记录', href: 'consult-notes.html', pattern: /咨询记录|会谈记录|记录.*咨询|记录.*会谈|补.*记录/ },
+    { key: 'clients', label: '来访者', href: 'consult-notes.html', pattern: /新建来访者|管理来访者|编辑来访者|修改来访者资料/ }
+  ];
+
+  function workflowRouteForText(text) {
+    return WORKFLOW_ROUTES.find(function (route) { return route.pattern.test(text || ''); }) || null;
+  }
+
+  function workflowRouteForKey(key) {
+    return WORKFLOW_ROUTES.find(function (route) { return route.key === key; }) || null;
+  }
 
   function el(tag, className, html) {
     const e = document.createElement(tag);
@@ -149,31 +171,31 @@
         });
         const hasPending = pending.length > 0;
         quickBtns = `
-          <button class="quick-btn" data-text="帮我记录今天的咨询"><i data-lucide="notebook-pen"></i>记录咨询</button>
-          <button class="quick-btn" data-text="查看这个月的收入"><i data-lucide="chart-no-axes-column-increasing"></i>收入统计</button>
-          <button class="quick-btn" data-text="查看未收款"><i data-lucide="circle-dollar-sign"></i>${hasPending ? pending.length + '笔未收' : '未收款'}</button>
-          <button class="quick-btn" data-text="我有个案例需要督导"><i data-lucide="brain-circuit"></i>AI督导</button>
-          <button class="quick-btn" data-text="帮张明记一笔账"><i data-lucide="wallet-cards"></i>快速记账</button>
+          <button class="quick-btn" data-route="consultations"><i data-lucide="notebook-pen"></i>记录咨询</button>
+          <button class="quick-btn" data-route="billing"><i data-lucide="chart-no-axes-column-increasing"></i>账务统计</button>
+          <button class="quick-btn" data-route="billing"><i data-lucide="circle-dollar-sign"></i>${hasPending ? pending.length + '笔未收' : '未收款'}</button>
+          <button class="quick-btn" data-route="supervision"><i data-lucide="brain-circuit"></i>AI督导</button>
+          <button class="quick-btn" data-route="calendar"><i data-lucide="calendar-days"></i>咨询日历</button>
         `;
       }
     } catch (e) {
       quickBtns = `
-        <button class="quick-btn" data-text="帮我记录今天的咨询"><i data-lucide="notebook-pen"></i>记录咨询</button>
-        <button class="quick-btn" data-text="查看这个月的收入"><i data-lucide="chart-no-axes-column-increasing"></i>收入统计</button>
+        <button class="quick-btn" data-route="consultations"><i data-lucide="notebook-pen"></i>记录咨询</button>
+        <button class="quick-btn" data-route="billing"><i data-lucide="chart-no-axes-column-increasing"></i>账务统计</button>
       `;
     }
 
     welcome.innerHTML = `
       <div class="title">👋 你好，今天是 ${today}</div>
-      <div class="desc">我是心镜，你的智能心理咨询助理。你可以直接用自然语言让我帮你完成各种工作：记录咨询、管理来访者、查看统计、AI督导等等。</div>
+      <div class="desc">我是小镜，可以查询工作数据并回答问题。记录、账务、督导等完整工作会进入对应的专业页面。</div>
       <div class="quick-actions">${quickBtns}</div>
     `;
     msgsEl.appendChild(welcome);
     if (window.IconSystem) window.IconSystem.render(welcome);
     welcome.querySelectorAll('.quick-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var text = btn.getAttribute('data-text');
-        if (text) { inputEl.value = text; sendMsg(); }
+        var route = workflowRouteForKey(btn.getAttribute('data-route'));
+        if (route) location.href = route.href;
       });
     });
   }
@@ -190,12 +212,12 @@
       tier = window.__XJ__.tier || 'free';
       unlocked = !!window.__XJ__.aiUnlocked;
     }
-    // 已激活 / 处于试用期 → 显示「完全体」
+    // 授权状态只决定 AI 对话是否可用，不扩大页面操作边界。
     const banner = el('div', 'tier-banner ' + (unlocked ? 'pro' : tier));
     if (unlocked || tier === 'full' || tier === 'pro' || tier === 'custom') {
-      banner.textContent = '⚡ 已激活 · AI 全功能可用';
+      banner.textContent = 'AI 对话可用 · 复杂工作进入专业页面';
     } else {
-      banner.textContent = '🌱 免费试用模式 · 可用基础功能（记账 / 统计 / 督导）';
+      banner.textContent = '免费试用模式 · 页面导航无需 AI';
     }
     msgsEl.appendChild(banner);
   }
@@ -320,15 +342,34 @@
 
   async function sendMsg() {
     if (busy) return;
-    // 第一次发送前确保授权状态已拉取
-    await refreshAuthState();
-    if (!isUnlocked()) {
-      renderSystem('⚠ 小镜需激活后才能使用 AI 对话。请先在设置中配置 AI 密钥。');
-      return;
-    }
     if (!inputEl) return;
     const text = (inputEl.value || '').trim();
     if (!text) return;
+    const workflowRoute = workflowRouteForText(text);
+    if (workflowRoute) {
+      inputEl.value = '';
+      inputEl.style.height = '';
+      renderMsg('user', text);
+      messages.push({ role: 'user', content: text });
+      const reply = '这项工作需要完整表单和上下文，我带你去「' + workflowRoute.label + '」。';
+      renderMsg('assistant', reply);
+      messages.push({ role: 'assistant', content: reply });
+      renderNavCard({
+        kind: 'navigate_hint',
+        target: workflowRoute.key,
+        label: workflowRoute.label,
+        href: workflowRoute.href,
+        reason: '在专业页面中操作更完整，也能核对保存结果。'
+      });
+      saveMemory();
+      return;
+    }
+    // 只有真正需要模型回答时才检查授权；工作流导航始终可用。
+    await refreshAuthState();
+    if (!isUnlocked()) {
+      renderSystem('小镜对话需激活；记录、账务、督导等功能可直接从上方入口打开。');
+      return;
+    }
     inputEl.value = '';
     inputEl.style.height = '';
     renderMsg('user', text);
@@ -351,7 +392,7 @@
           if (status === 'executing') renderProgress('正在执行：' + name + '…');
           else if (status === 'done') {
             if (data && data.switchedTo === 'user') {
-              renderSystem('✅ 已切换到你的高性能模型，我现在是完全体');
+              renderSystem('已切换到高性能模型，理解与表达质量已提升');
               return;
             }
             if (data && data.switchedTo === 'builtin' && data.testError) {
