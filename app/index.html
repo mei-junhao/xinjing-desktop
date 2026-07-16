@@ -88,6 +88,12 @@
 .kv-card.accent .kv-num{color:var(--accent)}
 .kv-card.warn .kv-num{color:var(--danger)}
 
+/* ---------- 工作日程 ---------- */
+.work-schedule{background:var(--paper-2,var(--bg-elevated,#fff));border:1px solid var(--border);border-radius:var(--r-card,14px);padding:18px 20px;margin:18px 0;animation:fadeUp .45s ease both .16s}
+.work-schedule-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.work-schedule-head h3{font-family:var(--serif);font-size:15px;margin:0;color:var(--text)}.work-schedule-head .sp{flex:1}
+.schedule-week{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}.schedule-day{min-width:58px;border:1px solid var(--border);border-radius:7px;padding:6px 7px;text-align:center;color:var(--ink-3);font-size:11px;background:var(--bg)}.schedule-day.has-session{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.today-session{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)}.today-session:first-of-type{border-top:none}.today-session-time{width:46px;font-weight:600;font-size:12px;color:var(--accent)}.today-session-info{flex:1;min-width:0}.today-session-name{font-size:13px;font-weight:600}.today-session-meta{font-size:11px;color:var(--ink-3);margin-top:2px}.today-session-actions{display:flex;gap:6px;flex-shrink:0}.schedule-empty{padding:14px 0;color:var(--ink-3);font-size:13px;text-align:center}
+
 /* ---------- 模块网格 ---------- */
 .modules{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .mod{
@@ -198,8 +204,8 @@
     <div><h1>心镜</h1><div class="date" id="wel-date"></div></div>
     <div class="spacer"></div>
     <button class="xj-toggle" id="xj-toggle-btn" onclick="toggleXiaojing()"><span class="xj-dot"></span> 小镜</button>
-    <button class="xj-chat-link" onclick="location.href='chat-home.html'" title="切换到对话模式">💬 对话模式</button>
-    <button class="xj-new-client" onclick="if(typeof ClientModal!=='undefined')ClientModal.show(function(c){if(typeof App!=='undefined')App.showToast('已新增来访者「'+c.name+'」','success');})" style="border:2px solid var(--accent);border-radius:12px;padding:10px 20px;font:600 13px var(--sans);cursor:pointer;background:var(--paper-2,#fff);color:var(--accent);display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(139,147,199,.15);transition:all .2s">👤＋ 新建来访</button>
+    <button class="xj-chat-link" onclick="location.href='chat-home.html'"><i data-lucide="message-square-text"></i>对话模式</button>
+    <button class="xj-new-client" onclick="if(typeof ClientModal!=='undefined')ClientModal.show(function(c){if(typeof App!=='undefined')App.showToast('已新增来访者「'+c.name+'」','success');})"><i data-lucide="user-round-plus"></i>新建来访者</button>
   </div>
 
   <!-- 英雄统计区 -->
@@ -221,40 +227,52 @@
     </div>
   </div>
 
+  <section class="work-schedule" aria-label="工作日程">
+    <div class="work-schedule-head"><h3>工作日程</h3><span class="sp"></span><button class="back" onclick="location.href='session-calendar.html'">查看日历</button><button class="back" onclick="location.href='session-calendar.html'">新建会谈</button></div>
+    <div class="schedule-week" id="week-schedule"></div>
+    <div id="today-schedule"></div>
+  </section>
+
   <!-- 新手任务清单（由 onboarding.js 渲染，完成/关闭后自动收起） -->
   <div id="ob-checklist"></div>
 
   <!-- 模块网格 -->
   <div class="modules">
     <a class="mod" href="consult-notes.html">
-      <div class="m-icon">&#x1F4CB;</div>
+      <div class="m-icon"><i data-lucide="notebook-pen"></i></div>
       <div class="m-title">咨询记录</div>
       <div class="m-desc">快速记录整理，APA 结构化提示</div>
       <div class="m-tag">常用</div>
     </a>
     <a class="mod" href="supervision.html">
-      <div class="m-icon">&#x1F9E0;</div>
+      <div class="m-icon"><i data-lucide="brain-circuit"></i></div>
       <div class="m-title">AI 督导</div>
       <div class="m-desc">三栏研究台，整体印象与深化分析</div>
     </a>
     <a class="mod" href="masters.html">
-      <div class="m-icon">&#x1F5E3;</div>
+      <div class="m-icon"><i data-lucide="messages-square"></i></div>
       <div class="m-title">学派对话</div>
       <div class="m-desc">与 11 位思想者对话，理论研讨</div>
     </a>
     <a class="mod" href="billing-shell.html">
-      <div class="m-icon">&#x1F4B0;</div>
+      <div class="m-icon"><i data-lucide="wallet-cards"></i></div>
       <div class="m-title">账单</div>
       <div class="m-desc">收入统计，月结，对账导出</div>
     </a>
     <a class="mod" href="knowledge.html">
-      <div class="m-icon">&#x1F4D6;</div>
+      <div class="m-icon"><i data-lucide="library-big"></i></div>
       <div class="m-title">资料库</div>
       <div class="m-desc">导入讲义文献，AI 检索</div>
       <div class="m-tag" id="kb-mod-count">未设置</div>
     </a>
+    <a class="mod" href="session-calendar.html">
+      <div class="m-icon"><i data-lucide="calendar-days"></i></div>
+      <div class="m-title">咨询日历</div>
+      <div class="m-desc">查看今日与本周会谈，直接开始记录</div>
+      <div class="m-tag">常用</div>
+    </a>
     <button class="mod" onclick="toggleMoreModules()" id="more-mod-btn">
-      <div class="m-icon">&#x22EF;</div>
+      <div class="m-icon"><i data-lucide="ellipsis"></i></div>
       <div class="m-title">更多功能</div>
       <div class="m-desc">逐字稿、报告、真人督导、文档中心、日历、设置...</div>
     </button>
@@ -263,33 +281,28 @@
   <!-- 更多模块（默认隐藏） -->
   <div class="modules" id="more-modules" style="display:none">
     <a class="mod" href="transcript.html">
-      <div class="m-icon">&#x1F4DD;</div>
+      <div class="m-icon"><i data-lucide="audio-lines"></i></div>
       <div class="m-title">逐字稿整理</div>
       <div class="m-desc">AI 辅助校对，双栏对比修正</div>
     </a>
     <a class="mod" href="report-writing.html">
-      <div class="m-icon">&#x1F4C4;</div>
+      <div class="m-icon"><i data-lucide="file-text"></i></div>
       <div class="m-title">撰写报告</div>
       <div class="m-desc">完整案例报告，跨节整合，导出 Word</div>
-      <div class="m-tag" style="background:var(--success);color:#fff">会员 · AI 生成</div>
+      <div class="m-tag" style="background:var(--success);color:#fff">AI 生成</div>
     </a>
     <a class="mod" href="real-supervision.html">
-      <div class="m-icon">&#x1F468&#x200D&#x2695&#xFE0F;</div>
+      <div class="m-icon"><i data-lucide="handshake"></i></div>
       <div class="m-title">真人督导</div>
       <div class="m-desc">记录督导过程，上传逐字稿</div>
     </a>
     <a class="mod" href="doc-center.html">
-      <div class="m-icon">&#x1F4DA;</div>
+      <div class="m-icon"><i data-lucide="folder-kanban"></i></div>
       <div class="m-title">文档中心</div>
       <div class="m-desc">来访者材料归档，成长轨迹追踪</div>
     </a>
-    <a class="mod" href="session-calendar.html">
-      <div class="m-icon">&#x1F4C5;</div>
-      <div class="m-title">咨询日历</div>
-      <div class="m-desc">月视图看所有会谈，点击直达会话</div>
-    </a>
     <a class="mod" href="settings.html">
-      <div class="m-icon">&#x2699;</div>
+      <div class="m-icon"><i data-lucide="settings-2"></i></div>
       <div class="m-title">设置</div>
       <div class="m-desc">API 配置，备份恢复，激活管理</div>
     </a>
@@ -303,8 +316,6 @@
 </div>
 </main></div>
 
-<button class="xj-float-btn" id="xj-float-btn" onclick="toggleXiaojing()" title="小镜助手">🧠</button>
-
 <script>
 function toggleMoreModules() {
   const more = document.getElementById('more-modules');
@@ -313,8 +324,9 @@ function toggleMoreModules() {
   const isHidden = more.style.display === 'none';
   more.style.display = isHidden ? '' : 'none';
   btn.innerHTML = isHidden
-    ? '<div class="m-icon">&#x2212;</div><div class="m-title">收起</div><div class="m-desc">隐藏更多功能</div>'
-    : '<div class="m-icon">&#x22EF;</div><div class="m-title">更多功能</div><div class="m-desc">逐字稿、报告、真人督导、文档中心、日历、设置...</div>';
+    ? '<div class="m-icon"><i data-lucide="minus"></i></div><div class="m-title">收起</div><div class="m-desc">隐藏更多功能</div>'
+    : '<div class="m-icon"><i data-lucide="ellipsis"></i></div><div class="m-title">更多功能</div><div class="m-desc">逐字稿、报告、真人督导、文档中心、日历、设置...</div>';
+  if (window.IconSystem) window.IconSystem.render(btn);
 }
 </script>
 

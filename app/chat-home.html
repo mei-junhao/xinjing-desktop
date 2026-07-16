@@ -78,14 +78,14 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
   <div class="chat-container">
     <div class="chat-header">
       <div class="logo">
-        <div class="logo-icon">心</div>
+        <img class="logo-icon" src="vendor/xinjing-mark.png" alt="心镜">
         <div>
           <div class="logo-title">心镜</div>
           <div class="logo-sub">对话模式</div>
         </div>
       </div>
       <div class="actions">
-        <button class="btn" onclick="switchToExpert()">专家模式</button>
+        <button class="btn" onclick="switchToExpert()"><i data-lucide="layout-dashboard"></i>工作台</button>
         <button class="btn pri" onclick="openActivation()">激活专业版</button>
       </div>
     </div>
@@ -95,9 +95,9 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
     <div class="chat-input-row">
       <div class="chat-input-area">
         <textarea class="chat-input" id="chat-input" placeholder="对心镜说点什么...&#10;&#10;试试：&#10;• 帮我记录今天的咨询&#10;• 查看这个月的收入&#10;• 我有个案例需要督导" rows="1"></textarea>
-        <button class="voice-btn" id="voice-btn" title="语音输入" onclick="toggleVoice()">🎤</button>
+        <button class="voice-btn" id="voice-btn" aria-label="语音输入" onclick="toggleVoice()"><i data-lucide="mic"></i></button>
       </div>
-      <button class="chat-send" id="chat-send" onclick="sendMsg()">→</button>
+      <button class="chat-send" id="chat-send" aria-label="发送" onclick="sendMsg()"><i data-lucide="arrow-up"></i></button>
     </div>
   </div>
 

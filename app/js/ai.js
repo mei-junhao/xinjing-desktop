@@ -293,6 +293,7 @@ const AI = (() => {
 
   // 单层直连：根据传入的 config 直连大模型（OpenAI 兼容 /chat/completions）。
   async function callDirect(config, messages, options) {
+    options = options || {};
     const baseUrl = (config.baseUrl || 'https://api.openai.com').replace(/\/$/, '');
     const url = baseUrl + '/chat/completions';
     const model = config.model || 'Qwen/Qwen3.5-4B';
@@ -307,9 +308,11 @@ const AI = (() => {
     const body = {
       model,
       messages: safeMessages,
-      temperature: (options && options.temperature != null) ? options.temperature : 0.3,
-      max_tokens: (options && options.maxTokens != null) ? options.maxTokens : (config.maxTokens || 4000),
+      temperature: options.temperature != null ? options.temperature : 0.3,
+      max_tokens: options.maxTokens != null ? options.maxTokens : (config.maxTokens || 4000),
     };
+    const streaming = typeof options.onDelta === 'function';
+    if (streaming) body.stream = true;
     // Qwen3 系列为「思考模型」，禁用思考可降低延迟、避免 reasoning 占用 token、
     // 并确保 function-calling 稳定输出 tool_calls。该参数为 SiliconFlow 专属，
     // 其它 OpenAI 兼容端点会忽略未知字段，不影响用户模型。
@@ -332,7 +335,22 @@ const AI = (() => {
       const mc = await getMachineCode();
       if (mc) headers['X-Machine-Id'] = mc;
     }
-    let resp = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+    let resp;
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(body),
+        signal: options.signal,
+      });
+    } catch (e) {
+      if (e && (e.name === 'AbortError' || options.signal && options.signal.aborted)) {
+        const abortErr = new Error('已取消生成');
+        abortErr.code = 'ABORT_ERR';
+        throw abortErr;
+      }
+      throw e;
+    }
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
@@ -349,7 +367,9 @@ const AI = (() => {
         delete body.tools;
         delete body.tool_choice;
         try {
-          const resp2 = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+          const resp2 = await fetch(url, {
+            method: 'POST', headers: headers, body: JSON.stringify(body), signal: options.signal,
+          });
           updateQuotaFromHeaders(resp2.headers);
           if (resp2.ok) {
             const data2 = await resp2.json().catch(() => null);
@@ -361,6 +381,61 @@ const AI = (() => {
     }
     // 读取代理回传的额度/档位响应头，实时更新 UI
     updateQuotaFromHeaders(resp.headers);
+
+    // 单大师使用 OpenAI 兼容 SSE；若端点忽略 stream 或没有 ReadableStream，兼容整包 JSON。
+    const contentType = resp.headers && typeof resp.headers.get === 'function'
+      ? (resp.headers.get('content-type') || '') : '';
+    if (streaming && resp.body && typeof resp.body.getReader === 'function'
+      && (!contentType || /text\/event-stream/i.test(contentType))) {
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let content = '';
+      let received = false;
+      const consume = function (line) {
+        if (!line || line.indexOf('data:') !== 0) return false;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') return payload === '[DONE]';
+        let packet;
+        try { packet = JSON.parse(payload); } catch (e) { return false; }
+        const delta = packet && packet.choices && packet.choices[0] && packet.choices[0].delta;
+        const piece = delta && typeof delta.content === 'string' ? delta.content : '';
+        if (piece) {
+          received = true;
+          content += piece;
+          options.onDelta(piece, content);
+        }
+        return false;
+      };
+      try {
+        while (true) {
+          if (options.signal && options.signal.aborted) {
+            const abortErr = new Error('已取消生成');
+            abortErr.code = 'ABORT_ERR';
+            abortErr.partial = received;
+            abortErr.partialContent = content;
+            throw abortErr;
+          }
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          buffer += decoder.decode(chunk.value, { stream: true });
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (consume(line)) break;
+          }
+        }
+        buffer += decoder.decode();
+        if (buffer) consume(buffer);
+      } catch (e) {
+        if (e && e.code === 'ABORT_ERR') throw e;
+        const streamErr = new Error(e && e.message ? e.message : '流式响应读取失败');
+        streamErr.partial = received;
+        streamErr.partialContent = content;
+        throw streamErr;
+      }
+      return { content: content };
+    }
 
     const data = await resp.json().catch(() => null);
     // 防御：非 JSON 响应（如网关 HTML 错误页）或缺少 choices 时给出清晰错误，
@@ -378,6 +453,7 @@ const AI = (() => {
   // 统一入口：取生效配置直连大模型；出错返回 { error }。
   // 真降级（A2 修复）：用户模型调用失败时回退到内置免费模型，而非直接抛错。
   async function callWithFallback(messages, options) {
+    options = options || {};
     const config = getActiveConfig();
     try {
       const message = await callDirect(config, messages, options);
@@ -387,6 +463,15 @@ const AI = (() => {
         tier: config.label,
       };
     } catch (e) {
+      // 首 token 已经交给 UI 后不可重放，否则用户会看到重复回答。
+      if (e && (e.partial || e.code === 'ABORT_ERR')) {
+        return {
+          error: e.message || '生成已中断',
+          code: e.code,
+          interrupted: e.code === 'ABORT_ERR',
+          partialContent: e.partialContent || '',
+        };
+      }
       // 仅当当前确实用的是用户模型（非试用代理）才降级，避免无意义自递归
       if (config.isUser && config.apiKey) {
         try {
@@ -473,7 +558,12 @@ ${transcript}
 
     callWithFallback(messages).then((res) => {
       if (res.error) {
-        callback({ error: res.error });
+        callback({
+          error: res.error,
+          code: res.code,
+          interrupted: res.interrupted,
+          partialContent: res.partialContent,
+        });
         return;
       }
       callback(parseSoap(res.content));
@@ -509,7 +599,13 @@ ${transcript}
         callback({ error: res.error });
         return;
       }
-      callback({ content: res.content, tier: res.tier, tool_calls: res.tool_calls });
+      callback({
+        content: res.content,
+        tier: res.tier,
+        tool_calls: res.tool_calls,
+        interrupted: res.interrupted,
+        partialContent: res.partialContent,
+      });
     });
   }
 

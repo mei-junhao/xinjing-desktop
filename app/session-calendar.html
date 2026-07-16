@@ -166,7 +166,7 @@
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="sc-page">
 <div class="sc-top">
-  <button class="back" onclick="location.href='index.html'">← 返回首页</button>
+  <button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回首页</button>
   <h2>咨询日历</h2>
   <span class="sp"></span>
   <div class="view-switch">
@@ -175,15 +175,15 @@
     <button id="vw-day" onclick="SessionCal.setView('day')">日</button>
   </div>
   <div class="month-nav">
-    <button onclick="SessionCal.prev()" title="上一个">‹</button>
+    <button onclick="SessionCal.prev()" title="上一个" aria-label="上一个"><i data-lucide="chevron-left"></i></button>
     <span class="current" id="period-label"></span>
-    <button onclick="SessionCal.next()" title="下一个">›</button>
+    <button onclick="SessionCal.next()" title="下一个" aria-label="下一个"><i data-lucide="chevron-right"></i></button>
   </div>
-  <button class="btn-today" onclick="SessionCal.today()">今天</button>
+  <button class="btn-today" onclick="SessionCal.today()"><i data-lucide="calendar-check"></i>今天</button>
   <select id="sc-filter-client" onchange="SessionCal.render()" title="按来访者筛选">
     <option value="">全部来访者</option>
   </select>
-  <button class="btn-new" onclick="SessionCal.openNewSession()">＋ 新建会话</button>
+  <button class="btn-new" onclick="SessionCal.openNewSession()"><i data-lucide="plus"></i>新建会话</button>
 </div>
 <div class="sc-body" id="sc-body"></div>
 </div>

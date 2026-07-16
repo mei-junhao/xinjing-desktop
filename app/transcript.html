@@ -56,13 +56,13 @@
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="tp-page">
 <div class="tp-top">
-  <button class="back" onclick="location.href='index.html'">← 返回</button>
+  <button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回</button>
   <h2>逐字稿整理</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="transcript-guide.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> 对话引导 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
   <span class="sp"></span>
   <select id="tp-client" onchange="loadClient()"><option value="">选择来访者…</option></select>
-  <button class="tch-btn" onclick="loadRawText()">📂 导入文本</button>
-  <button class="tch-btn" onclick="triggerTranscriptFile()">📁 上传文件</button>
-  <button class="tch-btn" onclick="goToNotes()">📝 去咨询记录</button>
+  <button class="tch-btn" onclick="loadRawText()"><i data-lucide="clipboard-paste"></i>导入文本</button>
+  <button class="tch-btn" onclick="triggerTranscriptFile()"><i data-lucide="upload"></i>上传文件</button>
+  <button class="tch-btn" onclick="goToNotes()"><i data-lucide="notebook-pen"></i>去咨询记录</button>
   <input type="file" id="tp-file" accept=".txt,.md,.markdown,.docx" style="display:none" onchange="onTranscriptFile(event)">
 </div>
 
@@ -70,10 +70,10 @@
   <!-- 左栏：原文 -->
   <div class="tp-col tp-col-left">
     <div class="tp-col-head">
-      <span class="tch">📄 原文</span>
+      <span class="tch"><i data-lucide="file-text"></i>原文</span>
       <span class="tch-badge">原始稿</span>
       <span class="sp"></span>
-      <button class="tch-btn" onclick="detectErrors()">🔍 检测错误</button>
+      <button class="tch-btn" onclick="detectErrors()"><i data-lucide="scan-search"></i>检测错误</button>
     </div>
     <div class="tp-col-body" id="original-text">
       <div style="padding:32px;text-align:center;color:var(--ink-3);font-size:13px;line-height:2">
@@ -86,11 +86,11 @@
   <!-- 右栏：修正稿 -->
   <div class="tp-col">
     <div class="tp-col-head">
-      <span class="tch">✅ 修正稿</span>
+      <span class="tch"><i data-lucide="badge-check"></i>修正稿</span>
       <span class="tch-badge" id="fixed-badge">0 处修正</span>
       <span class="sp"></span>
-      <button class="tch-btn" onclick="saveTranscript()">💾 保存</button>
-      <button class="tch-btn" onclick="exportTranscript()">导出</button>
+      <button class="tch-btn" onclick="saveTranscript()"><i data-lucide="save"></i>保存</button>
+      <button class="tch-btn" onclick="exportTranscript()"><i data-lucide="download"></i>导出</button>
     </div>
     <div class="tp-col-body" id="fixed-text">
       <div style="padding:32px;text-align:center;color:var(--ink-3);font-size:13px;line-height:2">

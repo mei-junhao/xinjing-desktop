@@ -123,7 +123,7 @@
     const reason = card.reason ? ('<div style="font-size:12px;color:var(--ink-3);margin-bottom:8px">' + esc(card.reason) + '</div>') : '';
     bubble.innerHTML = '<div style="font-weight:600;margin-bottom:4px">💡 建议前往「' + esc(card.label || '') + '」</div>' +
       reason +
-      '<button class="nav-go-btn" style="margin-top:8px;padding:6px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;cursor:pointer">去看看 →</button>';
+      '<button class="nav-go-btn" style="margin-top:8px;padding:6px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:12px;cursor:pointer">打开 <i data-lucide="arrow-right"></i></button>';
     msgEl.appendChild(avatar);
     msgEl.appendChild(bubble);
     msgsEl.appendChild(msgEl);
@@ -131,6 +131,7 @@
     bubble.querySelector('.nav-go-btn').addEventListener('click', function () {
       if (card.href) location.href = card.href;
     });
+    if (window.IconSystem) window.IconSystem.render(msgEl);
   }
 
   function renderWelcome() {
@@ -148,17 +149,17 @@
         });
         const hasPending = pending.length > 0;
         quickBtns = `
-          <button class="quick-btn" data-text="帮我记录今天的咨询">📝 记录咨询</button>
-          <button class="quick-btn" data-text="查看这个月的收入">💰 收入统计</button>
-          <button class="quick-btn" data-text="查看未收款">💵 ${hasPending ? pending.length + '笔未收' : '未收款'}</button>
-          <button class="quick-btn" data-text="我有个案例需要督导">🎯 AI督导</button>
-          <button class="quick-btn" data-text="帮张明记一笔账">📋 快速记账</button>
+          <button class="quick-btn" data-text="帮我记录今天的咨询"><i data-lucide="notebook-pen"></i>记录咨询</button>
+          <button class="quick-btn" data-text="查看这个月的收入"><i data-lucide="chart-no-axes-column-increasing"></i>收入统计</button>
+          <button class="quick-btn" data-text="查看未收款"><i data-lucide="circle-dollar-sign"></i>${hasPending ? pending.length + '笔未收' : '未收款'}</button>
+          <button class="quick-btn" data-text="我有个案例需要督导"><i data-lucide="brain-circuit"></i>AI督导</button>
+          <button class="quick-btn" data-text="帮张明记一笔账"><i data-lucide="wallet-cards"></i>快速记账</button>
         `;
       }
     } catch (e) {
       quickBtns = `
-        <button class="quick-btn" data-text="帮我记录今天的咨询">📝 记录咨询</button>
-        <button class="quick-btn" data-text="查看这个月的收入">💰 收入统计</button>
+        <button class="quick-btn" data-text="帮我记录今天的咨询"><i data-lucide="notebook-pen"></i>记录咨询</button>
+        <button class="quick-btn" data-text="查看这个月的收入"><i data-lucide="chart-no-axes-column-increasing"></i>收入统计</button>
       `;
     }
 
@@ -168,6 +169,7 @@
       <div class="quick-actions">${quickBtns}</div>
     `;
     msgsEl.appendChild(welcome);
+    if (window.IconSystem) window.IconSystem.render(welcome);
     welcome.querySelectorAll('.quick-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var text = btn.getAttribute('data-text');
@@ -178,13 +180,20 @@
 
   function renderTierBanner() {
     if (!msgsEl) return;
-    let tier = 'free';
-    try {
-      if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier();
-    } catch (e) {}
-    const banner = el('div', 'tier-banner ' + tier);
-    if (tier === 'user') {
-      banner.textContent = '⚡ 已接入你的高性能模型（完全体）';
+    // 用 IPC 授权状态判断，不用 AI.getTier（那是模型档位，不是会员档位）
+    var tier = 'free';
+    var unlocked = false;
+    if (authState) {
+      tier = authState.tier || 'free';
+      unlocked = !!authState.aiUnlocked;
+    } else if (window.__XJ__) {
+      tier = window.__XJ__.tier || 'free';
+      unlocked = !!window.__XJ__.aiUnlocked;
+    }
+    // 已激活 / 处于试用期 → 显示「完全体」
+    const banner = el('div', 'tier-banner ' + (unlocked ? 'pro' : tier));
+    if (unlocked || tier === 'full' || tier === 'pro' || tier === 'custom') {
+      banner.textContent = '⚡ 已激活 · AI 全功能可用';
     } else {
       banner.textContent = '🌱 免费试用模式 · 可用基础功能（记账 / 统计 / 督导）';
     }
@@ -285,19 +294,22 @@
     }
   }
 
+  let authState = null; // 缓存 IPC 拉取的授权状态
+
   async function refreshAuthState() {
     try {
       if (window.__XJ_API__ && typeof window.__XJ_API__.getState === 'function') {
         const s = await window.__XJ_API__.getState();
-        if (s && typeof s === 'object' && window.__XJ__ && typeof window.__XJ__ === 'object') {
-          Object.assign(window.__XJ__, s);
-        }
+        if (s && typeof s === 'object') authState = s;
       }
     } catch (e) {}
   }
 
   function isUnlocked() {
-    // 优先从 window.__XJ__ 读（preload 桥接的实时快照），其次从 App 缓存
+    // 优先从 IPC 拉取的 authState 读，其次从 preload 桥接的只读快照读
+    if (authState && typeof authState.aiUnlocked === 'boolean') return !!authState.aiUnlocked;
+    if (authState && authState.mode === 'full') return true;
+    // 回退：preload 桥接的只读引用（可能尚未被 DOMContentLoaded 回调更新）
     if (window.__XJ__ && typeof window.__XJ__.aiUnlocked === 'boolean') return !!window.__XJ__.aiUnlocked;
     if (window.__XJ__ && window.__XJ__.mode === 'full') return true;
     try {

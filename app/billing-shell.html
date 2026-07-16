@@ -317,8 +317,8 @@
     <main class="main">
       <!-- 工作区顶栏：统计卡 + 操作按钮 -->
       <div class="topbar" style="margin-top:0">
-        <button class="btn-back" onclick="location.href='index.html'" title="返回" style="margin-right:4px;flex-shrink:0;background:transparent;border:none;cursor:pointer;color:var(--ink-2);font:13px var(--sans);padding:4px 8px;border-radius:6px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="vertical-align:middle" width="18" height="18"><path d="M15 5l-7 7 7 7"/></svg>
+        <button class="btn-back" onclick="location.href='index.html'" aria-label="返回工作台" style="margin-right:4px;flex-shrink:0;background:transparent;border:none;cursor:pointer;color:var(--ink-2);font:13px var(--sans);padding:4px 8px;border-radius:6px">
+          <i data-lucide="chevron-left"></i>
         </button>
         <div class="brand">记账 <small>与心镜共用同一份数据</small></div>
         <div class="cards" id="billing-stats">
@@ -327,11 +327,11 @@
           <div class="card owe"><b id="stat-m-balance">¥0</b><span>本月欠费</span><div class="sub" id="stat-t-balance-sub">净收入 ¥0</div></div>
         </div>
         <div class="actions">
-          <button class="primary" onclick="toggleAddForm()">+ 记一笔</button>
-          <button onclick="toggleSettleForm()">月结</button>
-          <button onclick="openImport()">导入数据</button>
-          <button class="ai" onclick="toggleAiDock()">🤖 AI 记账</button>
-          <button onclick="location.href='billing-calendar.html'" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)">📅 月历</button>
+          <button class="primary" onclick="toggleAddForm()"><i data-lucide="plus"></i>记一笔</button>
+          <button onclick="toggleSettleForm()"><i data-lucide="calendar-check"></i>月结</button>
+          <button onclick="openImport()"><i data-lucide="file-up"></i>导入数据</button>
+          <button class="ai" onclick="toggleAiDock()"><i data-lucide="sparkles"></i>AI 记账</button>
+          <button onclick="location.href='billing-calendar.html'" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)"><i data-lucide="calendar-days"></i>月历</button>
           <button class="danger-btn" onclick="confirmClearData()" style="background:transparent;border:1px solid var(--danger);color:var(--danger);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;margin-left:8px">清除数据</button>
         </div>
       </div>
@@ -843,6 +843,19 @@
   // ====== v3.4.2 记一笔模态框（统一入口，含来访者选择 + 日历 + 多日） ======
   var addModalDates = [];
 
+  // 节数 > 1 时日期按天递增（按 YYYY-MM-DD 解析，避免时区偏移）
+  function billAddDays(dateStr, n) {
+    if (!dateStr || !n) return dateStr;
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+    if (!m) return dateStr;
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    d.setDate(d.getDate() + n);
+    var y = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, '0');
+    var dy = String(d.getDate()).padStart(2, '0');
+    return y + '-' + mo + '-' + dy;
+  }
+
   function toggleAddForm() {
     var cid = bCurClient ? bCurClient.id : (binCurClient ? binCurClient.id : '');
     openAddModal(cid);
@@ -931,7 +944,7 @@
         var nextNo = Store.nextSessionNumber(cid);
         for (var i = 0; i < snum; i++) {
           Store.createSession({
-            clientId: cid, date: date, sessionNumber: nextNo + i, durationMinutes: 0,
+            clientId: cid, date: billAddDays(date, i), sessionNumber: nextNo + i, durationMinutes: 0,
             billing: { fee: fee, paid: paid, source: 'manual', billingMode: mode },
             notes: '来源：手动记账｜¥' + fee + '｜' + (paid ? '已缴' : '未缴')
           });
@@ -1193,6 +1206,10 @@
     // 初始化新双栏记账视图（v3.1.0）
     if (typeof initDualBillingShell === 'function') {
       initDualBillingShell();
+    }
+    var deepLinkClientId = new URLSearchParams(location.search).get('clientId');
+    if (deepLinkClientId && Store.getClients().some(function (c) { return c.id === deepLinkClientId; })) {
+      window.selectIncomeClient(deepLinkClientId);
     }
   })();
 
@@ -1875,7 +1892,7 @@
     var nextNo = Store.nextSessionNumber(binCurClient.id);
     for (var i = 0; i < snum; i++) {
       Store.createSession({
-        clientId: binCurClient.id, date: date, sessionNumber: nextNo + i, durationMinutes: 0,
+        clientId: binCurClient.id, date: billAddDays(date, i), sessionNumber: nextNo + i, durationMinutes: 0,
         billing: { fee: fee, paid: paid, source: 'manual', billingMode: (binCurClient.billing && binCurClient.billing.billingMode) || 'per-session' },
         notes: ['来源：手动记账', '￥' + fee, paid ? '已缴' : '未缴'].join('｜')
       });

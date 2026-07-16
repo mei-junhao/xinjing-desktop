@@ -56,7 +56,8 @@
   function renderDocs() {
     var box = document.getElementById('doc-content');
     if (!currentClientId) {
-      box.innerHTML = '<div class="empty-state"><span class="big">📂</span>选择左侧来访者查看文档</div>';
+      box.innerHTML = '<div class="empty-state"><span class="big">' + App.svgIcon('folder-open') + '</span>选择左侧来访者查看文档</div>';
+      if (window.IconSystem) window.IconSystem.render(box);
       return;
     }
     var client = Store.getClient(currentClientId);
@@ -66,10 +67,12 @@
       renderTrajectory(box, client);
       return;
     }
+    if (currentTab === 'timeline') {
+      renderTimeline(box, client);
+      return;
+    }
 
-    var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-    var seenDc = {};
-    sessions = sessions.filter(function (s) { if (seenDc[s.id]) return false; seenDc[s.id] = 1; return true; });
+    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     var supervisions = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(currentClientId) : []) || [];
     var docs = [];
 
@@ -109,12 +112,12 @@
       return;
     }
 
-    var icons = { transcript: '📄', report: '📝', supervision: '🧠' };
+    var icons = { transcript: 'file-text', report: 'clipboard-pen-line', supervision: 'brain-circuit' };
     var tags = { transcript: '逐字稿', report: '咨询记录', supervision: '督导' };
 
     box.innerHTML = docs.map(function (d) {
       return '<div class="doc-card" onclick="openDoc(\'' + d.type + '\',\'' + d.id + '\')">' +
-        '<div class="dc-icon">' + (icons[d.type] || '📄') + '</div>' +
+        '<div class="dc-icon">' + App.svgIcon(icons[d.type] || 'file-text') + '</div>' +
         '<div class="dc-body">' +
         '<div class="dc-title">' + App.escapeHtml(d.title) + '</div>' +
         '<div class="dc-meta">' + App.formatDate(d.date) + ' <span class="tag">' + (tags[d.type] || d.type) + '</span></div>' +
@@ -123,17 +126,104 @@
     }).join('');
 
     // 底部成长轨迹入口
-    box.innerHTML += '<div style="text-align:center;padding:8px"><button class="back" style="border:1px solid var(--border);padding:8px 20px;border-radius:8px;font-size:12px;cursor:pointer;color:var(--ink-2)" onclick="switchDocTab(\'trajectory\')">📈 查看 ' + App.escapeHtml(client.name) + ' 的成长轨迹</button></div>';
+    box.innerHTML += '<div style="text-align:center;padding:8px"><button class="back" onclick="switchDocTab(\'trajectory\')">' + App.svgIcon('chart-no-axes-combined') + '查看 ' + App.escapeHtml(client.name) + ' 的成长轨迹</button></div>';
+    if (window.IconSystem) window.IconSystem.render(box);
   }
 
+  function hasClinicalNote(session) {
+    var soap = session.soap || {};
+    var dap = session.dap || {};
+    return !!(
+      String(session.notes || session.reflection || session.summary || '').trim() ||
+      String(soap.subjective || soap.objective || soap.assessment || soap.plan || '').trim() ||
+      String(dap.data || dap.assessment || dap.plan || '').trim()
+    );
+  }
+
+  function timelineButton(label, target, value) {
+    return '<button type="button" onclick="openTimelineTarget(\'' + target + '\',decodeURIComponent(\'' + encodeURIComponent(String(value || '')) + '\'))">' + App.escapeHtml(label) + '</button>';
+  }
+
+  function renderTimeline(box, client) {
+    var today = new Date().toISOString().slice(0, 10);
+    var sessions = Store.getSessionsByClient(currentClientId).slice();
+    var seen = {};
+    sessions = sessions.filter(function (s) { if (!s.id || seen[s.id]) return false; seen[s.id] = true; return true; });
+    var supervisions = Store.getSupervisionsByClient ? Store.getSupervisionsByClient(currentClientId) : [];
+    var futureSessions = sessions.filter(function (s) { return s.date && s.date >= today; })
+      .sort(function (a, b) { return ((a.date || '') + (a.startTime || '')).localeCompare((b.date || '') + (b.startTime || '')); });
+    var pendingNotes = sessions.filter(function (s) { return s.date && s.date <= today && !hasClinicalNote(s); })
+      .sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var unpaidSessions = sessions.filter(function (s) {
+      return Store.isBillableSession && Store.isBillableSession(s) && !(s.billing || {}).paid;
+    }).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var payments = ((client.billing && client.billing.monthlyPayments) || []).slice();
+    var html = '<div class="trajectory"><div class="tj-head"><span class="tj-title">🕒 ' + App.escapeHtml(client.name) + ' 的个案时间线</span><span class="tj-badge">只读聚合</span></div>';
+    html += '<div class="timeline-summary">';
+    html += '<div class="summary-block"><h3>下一次会谈</h3>';
+    if (futureSessions.length) {
+      html += futureSessions.slice(0, 3).map(function (s) {
+        return '<div class="summary-item">第' + App.escapeHtml(String(s.sessionNumber || '?')) + '节 · ' + App.escapeHtml(App.formatDate(s.date)) + (s.startTime ? ' ' + App.escapeHtml(s.startTime) : '') +
+          '<div class="timeline-actions">' + timelineButton('开始记录', 'notes', s.id) + timelineButton('查看日历', 'calendar', s.date) + '</div></div>';
+      }).join('');
+    } else {
+      html += '<div class="summary-item">尚未安排下一次会谈<div class="timeline-actions">' + timelineButton('安排会谈', 'calendar', today) + '</div></div>';
+    }
+    html += '</div>';
+    html += '<div class="summary-block"><h3>待完成事项</h3>';
+    var pending = [];
+    pendingNotes.slice(0, 3).forEach(function (s) { pending.push({ label: '补充第' + (s.sessionNumber || '?') + '节记录', target: 'notes', value: s.id }); });
+    unpaidSessions.slice(0, 3).forEach(function (s) { pending.push({ label: '核对第' + (s.sessionNumber || '?') + '节收款', target: 'billing', value: currentClientId }); });
+    if (pending.length) {
+      html += pending.map(function (item) { return '<div class="summary-item">' + App.escapeHtml(item.label) + '<div class="timeline-actions">' + timelineButton('处理', item.target, item.value) + '</div></div>'; }).join('');
+    } else {
+      html += '<div class="summary-item">暂无待完成事项</div>';
+    }
+    html += '</div></div>';
+
+    var events = [];
+    sessions.filter(function (s) { return !s.date || s.date < today; }).forEach(function (s) {
+      var details = [];
+      if (hasClinicalNote(s)) details.push('已记录');
+      else details.push('待补记录');
+      if (s.transcript && s.transcript.trim()) details.push('含逐字稿');
+      if (Store.isBillableSession && Store.isBillableSession(s)) details.push((s.billing || {}).paid ? '已收款' : '待收款');
+      events.push({ date: s.date || s.createdAt || '', tag: '会谈', title: '第' + (s.sessionNumber || '?') + '节会谈', text: details.join(' · '), target: 'notes', value: s.id });
+    });
+    payments.forEach(function (payment) {
+      if (!payment || !payment.month) return;
+      events.push({ date: payment.month + '-01', tag: '月结', title: payment.month + ' 月结', text: '已记录 ¥' + Number(payment.amount || 0).toLocaleString(), target: 'billing', value: currentClientId });
+    });
+    supervisions.forEach(function (supervision) {
+      var content = String(supervision.summary || supervision.conclusion || supervision.content || '').trim();
+      events.push({ date: supervision.date || supervision.createdAt || '', tag: '督导', title: supervision.reportTitle || '督导记录', text: content ? content.slice(0, 100) : '督导材料已保存', target: 'supervision', value: supervision.sessionId || ((supervision.sessionIds || [])[0]) || '' });
+    });
+    events.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    html += '<div class="tj-head" style="margin-top:8px"><span class="tj-title">历史事件</span></div>';
+    if (!events.length) {
+      html += '<div class="empty-state" style="padding:20px">暂无历史事件</div>';
+    } else {
+      events.forEach(function (event) {
+        html += '<div class="tj-item"><div class="tj-date">' + App.escapeHtml(App.formatDate(event.date)) + '</div><div class="tj-text"><b>' + App.escapeHtml(event.title) + '</b><br>' + App.escapeHtml(event.text) + '<div class="timeline-actions">' + timelineButton('查看详情', event.target, event.value) + '</div></div><span class="tj-tag">' + App.escapeHtml(event.tag) + '</span></div>';
+      });
+    }
+    box.innerHTML = html + '</div>';
+  }
+
+  window.openTimelineTarget = function (target, value) {
+    var clientId = encodeURIComponent(currentClientId || '');
+    if (target === 'notes') location.href = 'consult-notes.html?clientId=' + clientId + '&sessionId=' + encodeURIComponent(value || '') + '&mode=quick';
+    else if (target === 'billing') location.href = 'billing-shell.html?clientId=' + clientId;
+    else if (target === 'supervision') location.href = 'supervision.html?clientId=' + clientId + (value ? '&sessionId=' + encodeURIComponent(value) : '');
+    else if (target === 'calendar') location.href = 'session-calendar.html?date=' + encodeURIComponent(value || '');
+  };
+
   function renderTrajectory(box, client) {
-    var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-    var seenDc2 = {};
-    sessions = sessions.filter(function (s) { if (seenDc2[s.id]) return false; seenDc2[s.id] = 1; return true; });
+    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     var supervisions = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(currentClientId) : []) || [];
 
     var html = '<div class="trajectory">';
-    html += '<div class="tj-head"><span class="tj-title">📈 ' + App.escapeHtml(client.name) + ' 的成长轨迹</span><span class="tj-badge">AI 生成</span></div>';
+    html += '<div class="tj-head"><span class="tj-title">' + App.svgIcon('chart-no-axes-combined') + App.escapeHtml(client.name) + ' 的成长轨迹</span><span class="tj-badge">AI 生成</span></div>';
 
     var items = [];
     sessions.forEach(function (s) {
@@ -160,19 +250,19 @@
     // 会员功能：AI生成洞察（featureGate 硬门控 + 实际 AI 调用）
     if (typeof App !== 'undefined' && typeof App.featureGate === 'function' && !App.featureGate('ai-growth')) {
       html += '<div class="trajectory" style="margin-top:12px">';
-      html += '<div class="tj-head"><span class="tj-title">🤖 AI 成长洞察</span>' + App.lockBadge('ai-growth') + '</div>';
+      html += '<div class="tj-head"><span class="tj-title">' + App.svgIcon('sparkles') + 'AI 成长洞察</span>' + App.lockBadge('ai-growth') + '</div>';
       html += '<div class="xj-locked-area"><div style="text-align:center;padding:24px;color:var(--ink-3);font-size:12px">升级会员后，AI 将自动分析所有材料，生成来访者的成长轨迹、核心议题变化与治疗进展洞察</div></div>';
       html += '</div>';
     } else {
       html += '<div class="trajectory" style="margin-top:12px">';
-      html += '<div class="tj-head"><span class="tj-title">🤖 AI 成长洞察</span><span class="tj-badge">已解锁</span></div>';
+      html += '<div class="tj-head"><span class="tj-title">' + App.svgIcon('sparkles') + 'AI 成长洞察</span><span class="tj-badge">已解锁</span></div>';
       html += '<div id="ai-trajectory-output" style="padding:16px"><button class="btn btn-primary" onclick="generateAiTrajectory()">生成成长洞察</button></div>';
       html += '</div>';
     }
     window.generateAiTrajectory = function () {
       var out = document.getElementById('ai-trajectory-output');
       if (out) out.innerHTML = '<div style="text-align:center;padding:20px;color:var(--ink-3)">AI 分析中…</div>';
-      var sessions = Store.getSessionsByClient(currentClientId);
+      var sessions = Store.getSessionsForPicker(currentClientId);
       var sups = Store.getSupervisionsByClient(currentClientId) || [];
       var ctx = sessions.map(function (s) { return '第' + (s.sessionNumber || '?') + '节(' + (s.date || '?') + '): ' + ((s.soap && s.soap.assessment) || s.summary || '').slice(0, 200); }).join('\n');
       ctx += '\n督导: ' + sups.map(function (sv) { return (sv.date || '?') + ': ' + (sv.conclusion || sv.content || '').slice(0, 200); }).join('\n');
@@ -193,15 +283,21 @@
     };
 
     box.innerHTML = html;
+    if (window.IconSystem) window.IconSystem.render(box);
   }
 
   window.openDoc = function (type, id) {
     if (type === 'transcript' || type === 'report') {
-      location.href = 'consult-notes.html?session=' + id;
+      location.href = 'consult-notes.html?clientId=' + encodeURIComponent(currentClientId || '') + '&sessionId=' + encodeURIComponent(id) + '&mode=quick';
     } else if (type === 'supervision') {
       location.href = 'real-supervision.html?id=' + id;
     }
   };
 
+  try {
+    var initialClientId = new URLSearchParams(location.search).get('clientId');
+    if (initialClientId && Store.getClient(initialClientId)) currentClientId = initialClientId;
+  } catch (e) {}
   renderClientList();
+  if (currentClientId) renderDocs();
 })();

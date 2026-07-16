@@ -51,14 +51,22 @@
 .trajectory .tj-item .tj-date{font-size:11px;color:var(--ink-3);min-width:80px}
 .trajectory .tj-item .tj-text{font-size:13px;line-height:1.7;color:var(--ink)}
 .trajectory .tj-item .tj-tag{font-size:10px;padding:1px 6px;border-radius:3px;background:var(--accent-soft);color:var(--accent);margin-left:8px}
+.timeline-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}
+.timeline-summary .summary-block{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:14px}
+.timeline-summary h3{font:600 13px var(--sans);margin:0 0 8px}
+.timeline-summary .summary-item{font-size:12px;line-height:1.6;padding:6px 0;border-top:1px solid var(--border)}
+.timeline-summary .summary-item:first-of-type{border-top:0}
+.timeline-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.timeline-actions button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:5px;padding:3px 7px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
+.timeline-actions button:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 </head>
 <body>
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="dc-page">
 <div class="dc-top">
-  <button class="back" onclick="location.href='index.html'">← 返回</button>
-  <h2>文档中心</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="doc-growth.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> 成长轨迹 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
+  <button class="back" onclick="location.href='index.html'"><i data-lucide="chevron-left"></i>返回工作台</button>
+  <h2>文档中心</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="doc-growth.html" class="xj-premium-btn"><i data-lucide="chart-no-axes-combined"></i>成长轨迹</a>
   <span class="sp"></span>
   <input type="text" id="dc-search" placeholder="搜索文档…" oninput="filterDocs()">
   <select id="dc-client-select" onchange="onClientSelect(this.value)"><option value="">手动选择来访者…</option></select>
@@ -67,20 +75,21 @@
 <div class="dc-body">
   <!-- 左栏：来访者列表 -->
   <div class="dc-left">
-    <div class="dl-head">👥 来访者</div>
+    <div class="dl-head"><i data-lucide="users-round"></i>来访者</div>
     <div class="dl-list" id="client-list"></div>
   </div>
   <!-- 右栏：文档内容 -->
   <div class="dc-right">
     <div class="dr-tabs" id="doc-tabs">
-      <div class="dr-tab active" data-tab="all" onclick="switchDocTab('all')">📋 全部</div>
-      <div class="dr-tab" data-tab="transcript" onclick="switchDocTab('transcript')">📄 逐字稿</div>
-      <div class="dr-tab" data-tab="report" onclick="switchDocTab('report')">📝 报告</div>
-      <div class="dr-tab" data-tab="supervision" onclick="switchDocTab('supervision')">🧠 督导</div>
-      <div class="dr-tab" data-tab="trajectory" onclick="switchDocTab('trajectory')">📈 成长轨迹</div>
+      <div class="dr-tab active" data-tab="all" onclick="switchDocTab('all')"><i data-lucide="files"></i>全部</div>
+      <div class="dr-tab" data-tab="transcript" onclick="switchDocTab('transcript')"><i data-lucide="audio-lines"></i>逐字稿</div>
+      <div class="dr-tab" data-tab="report" onclick="switchDocTab('report')"><i data-lucide="file-text"></i>报告</div>
+      <div class="dr-tab" data-tab="supervision" onclick="switchDocTab('supervision')"><i data-lucide="brain-circuit"></i>督导</div>
+      <div class="dr-tab" data-tab="trajectory" onclick="switchDocTab('trajectory')"><i data-lucide="chart-no-axes-combined"></i>成长轨迹</div>
+      <div class="dr-tab" data-tab="timeline" onclick="switchDocTab('timeline')"><i data-lucide="history"></i>时间线</div>
     </div>
     <div class="dr-content" id="doc-content">
-      <div class="empty-state"><span class="big">📂</span>选择左侧来访者查看文档</div>
+      <div class="empty-state"><span class="big"><i data-lucide="folder-open"></i></span>选择左侧来访者查看文档</div>
     </div>
   </div>
 </div>

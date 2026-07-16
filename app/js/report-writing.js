@@ -44,7 +44,7 @@
   window.renderSessMenu = function () {
     var list = document.getElementById('sessions-list');
     if (!list || !currentClientId) return;
-    var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) {
+    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) {
       return (b.date || '').localeCompare(a.date || '');
     });
     var onlyHas = document.getElementById('sess-only-has') && document.getElementById('sess-only-has').checked;

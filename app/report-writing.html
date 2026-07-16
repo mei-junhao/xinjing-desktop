@@ -63,7 +63,7 @@
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="rpt-page">
 <div class="rpt-top">
-  <button class="back" onclick="location.href='index.html'">← 返回</button>
+  <button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回</button>
   <h2>撰写报告</h2>
   <span class="sp"></span>
   <select id="rpt-client" onchange="loadClientSessions()"><option value="">选择来访者…</option></select>
@@ -78,11 +78,11 @@
       <div id="sessions-list" class="sess-list"></div>
     </div>
   </div>
-  <button id="btn-upload-transcript" onclick="document.getElementById('rpt-transcript-file').click()">上传逐字稿</button>
+  <button id="btn-upload-transcript" onclick="document.getElementById('rpt-transcript-file').click()"><i data-lucide="upload"></i>上传逐字稿</button>
   <input type="file" id="rpt-transcript-file" accept=".txt,.md,.doc,.docx" style="display:none" onchange="onReportTranscriptUpload(event)">
-  <button id="btn-upload-tpl" onclick="document.getElementById('tpl-file').click()">上传模板</button>
+  <button id="btn-upload-tpl" onclick="document.getElementById('tpl-file').click()"><i data-lucide="file-up"></i>上传模板</button>
   <input type="file" id="tpl-file" accept=".txt,.md,.docx,.html" style="display:none" onchange="onTemplateUpload(event)">
-  <button class="btn-p" onclick="exportWord()">导出 Word</button>
+  <button class="btn-p" onclick="exportWord()"><i data-lucide="file-down"></i>导出 Word</button>
 </div>
 
 <div class="steps" id="steps-nav"></div>
@@ -95,7 +95,7 @@
 
 <div class="step-foot">
   <button class="prev" id="btn-prev" onclick="prevStep()" style="display:none">← 上一步</button>
-  <button class="ai-btn" id="btn-ai-step" onclick="aiFillCurrent()" style="display:none">AI 填写本步 ✨</button>
+  <button class="ai-btn" id="btn-ai-step" onclick="aiFillCurrent()" style="display:none"><i data-lucide="sparkles"></i>AI 填写本步</button>
   <span class="sp"></span>
   <span class="info" id="step-info"></span>
   <div id="btn-report-actions" style="display:none;gap:12px">

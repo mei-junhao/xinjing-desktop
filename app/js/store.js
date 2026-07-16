@@ -187,7 +187,7 @@ const Store = (() => {
     cache.sessions = Array.isArray(sessions) ? sessions : [];
     cache.supervisions = Array.isArray(supervisions) ? supervisions : [];
     cache.supervisorIdentities = Array.isArray(supervisorIdentities) ? supervisorIdentities : [];
-    cache.masterConversations = Array.isArray(masterConversations) ? masterConversations : [];
+    cache.masterConversations = Array.isArray(masterConversations) ? masterConversations.map(normalizeMasterConversation) : [];
     cache.expenses = Array.isArray(expenses) ? expenses : [];
     cache.settings =
       settings && typeof settings === 'object'
@@ -257,6 +257,28 @@ const Store = (() => {
   }
   function nowISO() {
     return new Date().toISOString();
+  }
+
+  // 大师会话 schema v2：旧记录惰性补齐，不改写消息正文，保证跨版本可继续使用。
+  function normalizeMasterConversation(conv) {
+    if (!conv || typeof conv !== 'object') return conv;
+    const createdAt = conv.createdAt || nowISO();
+    const messages = Array.isArray(conv.messages) ? conv.messages.map((message) => {
+      const item = Object.assign({}, message || {});
+      if (!item.id) item.id = genId('msg');
+      if (!item.createdAt) item.createdAt = item.ts ? new Date(item.ts).toISOString() : createdAt;
+      if (item.status === 'streaming') item.status = 'interrupted';
+      if (!item.status) item.status = 'complete';
+      return item;
+    }) : [];
+    return Object.assign({}, conv, {
+      schemaVersion: 2,
+      mode: conv.mode === 'roundtable' ? 'round' : (conv.mode || '1v1'),
+      messages,
+      settings: Object.assign({ temperature: 60, detail: 50, locale: 'zh-CN' }, conv.settings || {}),
+      createdAt,
+      updatedAt: conv.updatedAt || createdAt,
+    });
   }
 
   // 计算会话是否含有各类报告（用于工作台/报告中心标记）
@@ -418,6 +440,42 @@ const Store = (() => {
       .filter((s) => s.clientId === clientId)
       .sort((a, b) => (a.sessionNumber || 0) - (b.sessionNumber || 0));
   }
+  // 判断会话是否含有任何实质内容（供选会话列表过滤空壳幽灵用）
+  function sessionHasMaterial(s) {
+    if (!s) return false;
+    const f = computeSessionFlags(s);
+    if (f.hasTranscript || f.hasSoap || f.hasDap || f.hasReflection || f.hasSummary) return true;
+    if (isBillableSession(s)) return true; // 账务会谈（含 fee=0 免费咨询）算有内容
+    if (s.startTime || s.endTime || (Number(s.durationMinutes) > 0)) return true; // 日历排期节次
+    return false;
+  }
+  // 供各「选会话历史」列表使用的干净列表（纯读取，不修改/删除底层数据）：
+  //   1) 过滤孤儿（来访者已删）  2) 按 id 去重  3) 按 日期+节次 去重（留内容最丰富）
+  //   4) 折叠同日空壳幽灵：同一天已有「有材料」的会话时，丢弃当天所有「无材料」的会话
+  // 目的：修复「第1节 6-30（空壳）」与「第25节 6-30（正确）」同日并存的错误显示。
+  function getSessionsForPicker(clientId) {
+    if (!getClient(clientId)) return [];
+    let list = cache.sessions.filter((s) => s.clientId === clientId);
+    // 1) 按 id 去重
+    const byId = new Map();
+    for (const s of list) if (!byId.has(s.id)) byId.set(s.id, s);
+    list = Array.from(byId.values());
+    // 2) 按 日期+节次 去重，留内容最丰富的一条
+    const byKey = new Map();
+    for (const s of list) {
+      const k = (s.date || '') + '#' + (s.sessionNumber || '');
+      const prev = byKey.get(k);
+      if (!prev || richness(s) > richness(prev)) byKey.set(k, s);
+    }
+    list = Array.from(byKey.values());
+    // 3) 折叠同日空壳幽灵
+    const datesWithMaterial = new Set();
+    for (const s of list) if (sessionHasMaterial(s)) datesWithMaterial.add(s.date || '');
+    list = list.filter((s) => sessionHasMaterial(s) || !datesWithMaterial.has(s.date || ''));
+    // 4) 按节次升序
+    list.sort((a, b) => (a.sessionNumber || 0) - (b.sessionNumber || 0));
+    return list;
+  }
   async function getSessionFull(id) {
     // 内容已完整存在于对象中，直接返回（保持 async 兼容旧调用）
     return getSession(id);
@@ -441,7 +499,7 @@ const Store = (() => {
     // 否则调用方拿到的对象缺报告标记，报告中心/工作台会误判「无逐字稿/无 SOAP」。
     return meta;
   }
-  async function createSession(data) {
+  function createSession(data) {
     // S9 修复：受限模式下，溢出（前 5 名之后）的来访者为只读，新建节次应被拦截，
     // 与 updateClient/deleteClient 的 licenseGuard 行为保持一致。
     licenseGuard('client', data.clientId);
@@ -573,6 +631,7 @@ const Store = (() => {
           supervisorName: data.supervisorName || 'AI 督导',
           clientId: data.clientId || '',
           date: (data.date || nowISO().slice(0, 10)),
+          sessionId: data.sessionId || '',
           sessionIds: data.sessionId ? [data.sessionId] : [],
           content: data.context || '',
           conclusion: data.content || '',
@@ -606,6 +665,7 @@ const Store = (() => {
   }
   function saveMasterConversation(conv) {
     if (!conv || !conv.id) return null;
+    conv = normalizeMasterConversation(conv);
     conv.updatedAt = nowISO();
     const idx = cache.masterConversations.findIndex((c) => c.id === conv.id);
     if (idx >= 0) cache.masterConversations[idx] = conv;
@@ -1193,7 +1253,7 @@ const Store = (() => {
     // 来访者
     getClients, getClient, createClient, updateClient, deleteClient,
     // 会话
-    getSessions, getSession, getSessionsByClient, isBillableSession,
+    getSessions, getSession, getSessionsByClient, getSessionsForPicker, isBillableSession,
     getSessionFull, createSession, updateSessionFull, deleteSession,
     nextSessionNumber,
     // 督导
@@ -1218,7 +1278,7 @@ const Store = (() => {
     // 授权闸门
     licenseMode, aiUnlocked,
     // v3.3.0 记忆系统：暴露 KV 原语供 Memory 模块使用
-    _get: idbGet, _put: idbPut,
+    _get: idbGet, _put: idbPut, _del: idbDelete,
   };
 })();
 

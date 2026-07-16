@@ -28,6 +28,49 @@
     document.getElementById('stat-pending-reports').textContent = pendingReports;
   }
 
+  function esc(v) { return App.escapeHtml(String(v || '')); }
+
+  function noteMode(s) {
+    return (s.hasSoap || s.hasDap || s.hasSummary || s.notes || s.transcript) ? '已有记录' : '待记录';
+  }
+
+  function sessionHref(s) {
+    return 'consult-notes.html?clientId=' + encodeURIComponent(s.clientId || '') +
+      '&sessionId=' + encodeURIComponent(s.id || '') + '&mode=quick';
+  }
+
+  function renderSchedule() {
+    var today = App.todayStr();
+    var sessions = Store.getSessions().filter(function (s) { return s && s.date; });
+    var todaySessions = sessions.filter(function (s) { return s.date === today; }).sort(function (a, b) {
+      return String(a.startTime || '99:99').localeCompare(String(b.startTime || '99:99'));
+    });
+    var week = document.getElementById('week-schedule');
+    var list = document.getElementById('today-schedule');
+    if (!week || !list) return;
+    var base = new Date(today + 'T00:00:00');
+    var days = [];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(base); d.setDate(base.getDate() + i);
+      var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      var count = sessions.filter(function (s) { return s.date === key && s.status !== 'cancelled'; }).length;
+      days.push('<button class="schedule-day' + (count ? ' has-session' : '') + '" onclick="location.href=\'session-calendar.html?date=' + key + '\'" title="查看日历">' +
+        (i === 0 ? '今天' : ('周' + '日一二三四五六'.charAt(d.getDay()))) + '<br><b>' + (d.getMonth() + 1) + '/' + d.getDate() + '</b><br>' + (count ? count + ' 节' : '空闲') + '</button>');
+    }
+    week.innerHTML = days.join('');
+    if (!todaySessions.length) {
+      list.innerHTML = '<div class="schedule-empty">今天没有已安排的会谈。<a href="session-calendar.html">安排一节会谈</a></div>';
+      return;
+    }
+    list.innerHTML = todaySessions.map(function (s) {
+      var c = Store.getClient(s.clientId);
+      var name = c ? c.name : '未命名来访者';
+      return '<div class="today-session"><div class="today-session-time">' + esc((s.startTime || '待定').slice(0, 5)) + '</div>' +
+        '<div class="today-session-info"><div class="today-session-name">' + esc(name) + ' · 第' + esc(s.sessionNumber || '?') + '节</div><div class="today-session-meta">' + esc(noteMode(s)) + (s.status ? ' · ' + esc(s.status) : '') + '</div></div>' +
+        '<div class="today-session-actions"><a class="back" href="' + sessionHref(s) + '">开始记录</a></div></div>';
+    }).join('');
+  }
+
   function renderRecent() {
     var container = document.getElementById('recent-sessions');
     var sessions = Store.getRecentSessions(3);
@@ -111,6 +154,7 @@
 
   App.initPage({ title: '首页', subtitle: '', actions: '', noSidebar: true, onReady: function () {
     renderStats();
+    renderSchedule();
     renderRecent();
     renderTodo();
     renderKbTile();

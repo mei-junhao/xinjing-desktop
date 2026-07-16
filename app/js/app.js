@@ -12,6 +12,15 @@
    window.AI 未定义 → supervision-core 调 AI.send 报「AI 模块未就绪」。
    这里在 app.js（每页都加载）顶部统一注入，已显式 <script> 加载过的不再重复。
    ------------------------------------------------------------ */
+(function injectWorkbenchAssets() {
+  if (!document.querySelector('link[href="css/workbench.css"]')) {
+    var style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = 'css/workbench.css';
+    document.head.appendChild(style);
+  }
+})();
+
 (function injectGlobalScripts() {
   const list = [
     'js/ai.js',
@@ -28,7 +37,8 @@
     'js/persona-preamble.js',
     'js/client-modal.js',
     'js/xinjing-chat.js',
-    'js/page-hints.js'
+    'js/page-hints.js',
+    'js/icon-system.js'
   ];
   list.forEach(function (src) {
     // 双重守卫：typeof 检测全局是否已声明（防重复加载 const SyntaxError）
@@ -49,7 +59,8 @@
       'js/persona-preamble.js': function () { return typeof PersonaPreamble !== 'undefined'; },
       'js/client-modal.js': function () { return typeof ClientModal !== 'undefined'; },
       'js/xinjing-chat.js': function () { return typeof XinJingChat !== 'undefined'; },
-      'js/page-hints.js': function () { return typeof PageHints !== 'undefined'; }
+      'js/page-hints.js': function () { return typeof PageHints !== 'undefined'; },
+      'js/icon-system.js': function () { return typeof IconSystem !== 'undefined'; }
     };
     if (guards[src] && guards[src]()) return;
     if (document.querySelector('script[src="' + src + '"]')) return;
@@ -72,14 +83,16 @@ const App = (() => {
     } catch (e) { /* localStorage 不可用时忽略 */ }
     // 皮肤引导：读取 localStorage 里的皮肤偏好，默认 calm（v1.2.0 静谧留白）
     try {
-      const skin = localStorage.getItem('xj_skin') || 'calm';
+      const storedSkin = localStorage.getItem('xj_skin');
+      const skin = (!storedSkin || storedSkin === 'calm' || storedSkin === 'xinjing') ? 'clinical' : storedSkin;
+      if (skin === 'clinical') localStorage.setItem('xj_skin', skin);
       document.documentElement.setAttribute('data-skin', skin);
     } catch (e) { document.documentElement.setAttribute('data-skin', 'calm'); }
   })();
 
     // 皮肤管理（正交于 .dark 明暗切换）：skin=配色族，dark=明暗
   const Theme = {
-    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'calm'; } catch (e) { return 'calm'; } },
+    getSkin: function () { try { return localStorage.getItem('xj_skin') || 'clinical'; } catch (e) { return 'clinical'; } },
     setSkin: function (name) {
       try { localStorage.setItem('xj_skin', name); } catch (e) {}
       document.documentElement.setAttribute('data-skin', name);
@@ -135,8 +148,8 @@ const App = (() => {
 
   function lockBadge(kind) {
     if (featureGate(kind)) return '';
-    if (isTrial()) return '<span class="xj-lock-badge" title="激活会员后解锁">🔒 会员</span>';
-    return '<span class="xj-lock-badge" title="试用已过期，请激活">🔒 已过期</span>';
+    if (isTrial()) return '<span class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>会员</span>';
+    return '<span class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>已过期</span>';
   }
 
   function membershipBadge() {
@@ -203,8 +216,18 @@ const App = (() => {
     docCenter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"/><path d="M8 4h8v3H8z"/><path d="M8 12h8M8 16h5"/></svg>',
   };
 
+  const LUCIDE_ICONS = {
+    home: 'house', clients: 'users-round', cap: 'graduation-cap', bars: 'calendar-days',
+    wallet: 'wallet-cards', calendar: 'notebook-pen', sync: 'refresh-cw', gear: 'settings-2',
+    chat: 'message-circle', search: 'search', doc: 'library-big', spark: 'sparkles',
+    box: 'archive', download: 'download', transcript: 'audio-lines', report: 'file-text',
+    real: 'handshake', docCenter: 'folder-kanban', 'chevron-left': 'chevron-left',
+    sun: 'sun', moon: 'moon', panel: 'message-square-text', userPlus: 'user-round-plus'
+  };
+
   function svgIcon(name) {
-    return ICONS[name] || '';
+    const icon = LUCIDE_ICONS[name] || name;
+    return '<i data-lucide="' + icon + '" aria-hidden="true"></i>';
   }
 
   function getCurrentPageKey() {
@@ -227,15 +250,25 @@ const App = (() => {
     return map[path] || 'dashboard';
   }
 
+  function applyPageIdentity() {
+    if (!document.body) return;
+    document.body.setAttribute('data-xj-page', getCurrentPageKey());
+  }
+
   function renderSidebar() {
     const current = getCurrentPageKey();
-    const items = NAV_ITEMS.map((item) => {
+    const renderItem = function (item) {
       const active = item.key === current ? ' active' : '';
       return `<a class="nav-item${active}" href="${item.href}">
         <span class="icon">${svgIcon(item.icon)}</span>
         <span class="label-text">${item.label}</span>
       </a>`;
-    }).join('');
+    };
+    const clinicalKeys = ['dashboard', 'consultations', 'session-calendar', 'transcript', 'report', 'supervision', 'real-supervision'];
+    const clinical = NAV_ITEMS.filter((item) => clinicalKeys.indexOf(item.key) >= 0).map(renderItem).join('');
+    const management = NAV_ITEMS.filter((item) => clinicalKeys.indexOf(item.key) < 0).map(renderItem).join('');
+    const items = '<div class="nav-group"><div class="nav-group-label">临床工作</div>' + clinical + '</div>' +
+      '<div class="nav-group"><div class="nav-group-label">个案与管理</div>' + management + '</div>';
     // 读取折叠状态（默认展开）
     var collapsed = '';
     try { if (localStorage.getItem('xj_sidebar_collapsed') === '1') collapsed = ' collapsed'; } catch(e) {}
@@ -243,21 +276,21 @@ const App = (() => {
     return `
       <aside class="sidebar${collapsed}">
         <div class="brand">
-          <div class="mark">心</div>
+          <img class="mark" src="vendor/xinjing-mark.png" alt="心镜">
           <div class="brand-text">
             <div class="name">心镜</div>
             <div class="en">Xinjing</div>
           </div>
         </div>
-        <button class="sidebar-toggle" id="sidebar-toggle" title="收起/展开侧栏">◀</button>
+        <button class="sidebar-toggle" id="sidebar-toggle" aria-label="收起或展开侧栏">${svgIcon('chevron-left')}</button>
         <nav class="nav">${items}</nav>
         <div class="nav-spacer"></div>
         <div class="nav-footer">
           <button class="theme-toggle" id="xj-theme-toggle">
-            <span class="tt-icon">${document.documentElement.classList.contains('dark') ? '🌙' : '☀'}</span>
+            <span class="tt-icon">${svgIcon(document.documentElement.classList.contains('dark') ? 'moon' : 'sun')}</span>
             <span class="tt-label">${document.documentElement.classList.contains('dark') ? '深色模式' : '浅色模式'}</span>
           </button>
-          <div class="nav-footer-text" style="margin-top:8px;font-size:11px;color:var(--text-muted)">本地存储 · 数据不出本机</div>
+          <div class="nav-footer-text">本地存储，数据不出本机</div>
         </div>
       </aside>`;
   }
@@ -280,8 +313,8 @@ const App = (() => {
     } catch (e) {
       onClick = 'location.href="index.html";';
     }
-    return `<button class="btn-back" onclick="${onClick}" title="返回上一层" aria-label="返回上一层">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M15 5l-7 7 7 7"/></svg>
+    return `<button class="btn-back" onclick="${onClick}" aria-label="返回上一层">
+      ${svgIcon('chevron-left')}
       <span class="btn-back-label">返回</span>
     </button>`;
   }
@@ -323,10 +356,12 @@ const App = (() => {
         try { localStorage.setItem('xj_theme', isDark ? 'dark' : 'light'); } catch (e) {}
         const icon = ttBtn.querySelector('.tt-icon');
         const label = ttBtn.querySelector('.tt-label');
-        if (icon) icon.textContent = isDark ? '🌙' : '☀';
+        if (icon) icon.innerHTML = svgIcon(isDark ? 'moon' : 'sun');
         if (label) label.textContent = isDark ? '深色模式' : '浅色模式';
+        if (window.IconSystem) window.IconSystem.render(ttBtn);
       });
     }
+    if (window.IconSystem) window.IconSystem.render(document);
   }
 
   // ---------- 小镜页面上下文 ----------
@@ -423,6 +458,7 @@ const App = (() => {
   // 各页面 JS 通过 App.initPage({ title, subtitle, actions, onReady }) 接入
   async function initPage(opts) {
     opts = opts || {};
+    applyPageIdentity();
     if (opts.title) {
       injectLayout(opts.title, opts.subtitle || '', opts.actions || '', opts);
       applyTierMark(); // 侧边栏注入后按当前档位给「心」字 logo 上色（初始快照）
@@ -441,6 +477,8 @@ const App = (() => {
       }
     }
     if (typeof opts.onReady === 'function') opts.onReady();
+
+    if (window.IconSystem) window.IconSystem.render(document);
 
     // 小镜面板：页面就绪后自动构建 + 注册页面上下文 + 提示
     if (opts.noXiaojing !== true) {
@@ -863,6 +901,7 @@ const App = (() => {
     });
   }
   setupGlobalChrome();
+  applyPageIdentity();
 
   return {
     NAV_ITEMS,
@@ -893,6 +932,7 @@ const App = (() => {
     enableDragDrop,
     readFileAsText,
     aiUnlocked,
+    refreshLicenseState,
     onLicenseStateChange,
     getLicenseState,
     isTrial,
@@ -910,9 +950,28 @@ if (typeof window !== 'undefined') {
 }
 
 // v3.4.0：顶栏剩余次数（未激活用户可见）
+// v3.7.2：修复已激活用户仍显示"激活会员"——build 前先拉权威授权状态，
+//         并订阅授权变化，激活后自动移除配额条。
 (function injectQuotaBar() {
-  function build() {
+  function isUnlocked() {
+    try {
+      if (typeof App === 'undefined') return false;
+      // aiUnlocked 覆盖已激活会员 + 试用期解锁；tier 为付费档同样隐藏
+      if (App.aiUnlocked && App.aiUnlocked()) return true;
+      var tier = (App.getLicenseState && App.getLicenseState().tier) || '';
+      return tier === 'pro' || tier === 'full' || tier === 'custom';
+    } catch (e) { return false; }
+  }
+
+  function removeBar() {
+    var old = document.getElementById('xj-quota-bar');
+    if (old) { old.remove(); document.body.style.paddingTop = ''; }
+  }
+
+  function render() {
     if (location.pathname.includes('activation.html')) return;
+    removeBar();
+    if (isUnlocked()) return; // 已激活/已解锁：不显示
     var bar = document.createElement('div');
     bar.id = 'xj-quota-bar';
     bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;height:24px;background:var(--accent-soft,#ECEEF9);display:flex;align-items:center;justify-content:center;font:11px var(--sans);color:var(--accent);gap:12px;border-bottom:1px solid var(--accent-line,#B5BDE0)';
@@ -926,16 +985,22 @@ if (typeof window !== 'undefined') {
     } catch (e) {
       bar.innerHTML = '试用中 · <a href="activation.html" style="color:var(--accent);text-decoration:underline">激活会员</a>';
     }
-    // 已激活用户不显示
-    try {
-      if (typeof App !== 'undefined' && App.aiUnlocked && App.aiUnlocked()) {
-        var tier = (App.getLicenseState && App.getLicenseState().tier) || '';
-        if (tier === 'pro' || tier === 'full' || tier === 'custom') return;
-      }
-    } catch (e) {}
     document.body.insertBefore(bar, document.body.firstChild);
     document.body.style.paddingTop = '24px';
   }
+
+  async function build() {
+    // 先拉取权威授权状态，避免读到 preload 初始快照（激活后不同步）导致误显
+    try {
+      if (typeof App !== 'undefined' && App.refreshLicenseState) await App.refreshLicenseState();
+    } catch (e) {}
+    render();
+    // 订阅授权变化：激活/过期后自动重绘（移除或重建配额条）
+    try {
+      if (typeof App !== 'undefined' && App.onLicenseStateChange) App.onLicenseStateChange(render);
+    } catch (e) {}
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { setTimeout(build, 100); });
   } else {

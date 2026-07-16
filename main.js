@@ -534,7 +534,8 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${PORT}/chat-home.html`);
+  // 咨询师每天先需要确认日程、待补记录与待收款；对话模式保留为工作台中的主动入口。
+  mainWindow.loadURL(`http://127.0.0.1:${PORT}/index.html`);
 
   // 顶部窗口标题始终固定为「心镜 v1.0.X」，阻止各页面 document.title 覆盖
   mainWindow.on('page-title-updated', (e) => {

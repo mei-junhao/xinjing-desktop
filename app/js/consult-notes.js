@@ -7,6 +7,86 @@
   var allClients = [];
   var autoSaveTimer = null;
   var lastSavedContent = '';
+  var contextDate = '';
+  var currentWorkflow = 'quick';
+  var restoredDraftKeys = {};
+  var suppressClientDraftRestore = false;
+
+  function draftKey() {
+    if (!currentClientId) return '';
+    return 'noteDraft:' + currentClientId + ':' + (currentSessionId || contextDate || App.todayStr()) + ':' + currentWorkflow;
+  }
+
+  function readFields() {
+    var values = {};
+    ['f1','f2','f3','f4','f5','soap-s','soap-o','soap-a','soap-p','dap-d','dap-a','dap-p','f-free'].forEach(function (id) {
+      var el = document.getElementById(id); values[id] = el ? el.value : '';
+    });
+    return values;
+  }
+
+  function applyFields(values) {
+    Object.keys(values || {}).forEach(function (id) { var el = document.getElementById(id); if (el) el.value = values[id] || ''; });
+  }
+
+  function saveDraft() {
+    var key = draftKey();
+    if (!key || !Store._put) return;
+    var content = collectCurrentContent();
+    if (!content.trim()) return;
+    Store._put(key, { version: 1, updatedAt: new Date().toISOString(), mode: currentMode, workflow: currentWorkflow, fields: readFields() }).catch(function () {});
+  }
+
+  function clearDraft() {
+    var key = draftKey();
+    if (key && Store._del) Store._del(key).catch(function () {});
+  }
+
+  function restoreDraft() {
+    var key = draftKey();
+    if (!key || !Store._get || restoredDraftKeys[key]) return;
+    restoredDraftKeys[key] = true;
+    Store._get(key).then(function (draft) {
+      if (!draft || !draft.fields) return;
+      if (!window.confirm('发现未保存的本地草稿，是否恢复？')) { return; }
+      applyFields(draft.fields);
+      if (draft.mode) setRecordMode(draft.mode, false);
+      if (draft.workflow) setWorkflow(draft.workflow, false);
+      App.showToast('已恢复本地草稿', 'success');
+    }).catch(function () {});
+  }
+
+  function updateContextLabel() {
+    var el = document.getElementById('record-context');
+    if (!el) return;
+    var c = currentClientId && Store.getClient(currentClientId);
+    if (!c) { el.textContent = '选择来访者后开始记录'; return; }
+    var suffix = currentSessionId ? ('第' + ((Store.getSession(currentSessionId) || {}).sessionNumber || '?') + '节') : (contextDate || App.todayStr());
+    el.textContent = c.name + ' · ' + suffix;
+  }
+
+  function setWorkflow(workflow, persist) {
+    currentWorkflow = workflow === 'quick' ? 'quick' : 'structured';
+    var left = document.getElementById('left-pane');
+    if (left) left.classList.toggle('quick-mode', currentWorkflow === 'quick');
+    document.querySelectorAll('#record-workflow button[data-workflow]').forEach(function (btn) { btn.classList.toggle('active', btn.dataset.workflow === currentWorkflow); });
+    if (currentWorkflow === 'quick') setRecordMode('apa', false);
+    if (persist && currentClientId) {
+      var c = Store.getClient(currentClientId);
+      Store.updateClient(currentClientId, { preferences: Object.assign({}, (c && c.preferences) || {}, { lastNoteMode: currentWorkflow === 'quick' ? 'quick' : currentMode }) });
+    }
+  }
+
+  function setRecordMode(mode, persist) {
+    if (['apa', 'soap', 'dap', 'free'].indexOf(mode) < 0) mode = 'apa';
+    currentMode = mode;
+    document.querySelectorAll('.prompt-strip .chip').forEach(function (chip) { chip.classList.toggle('active', chip.dataset.mode === currentMode); });
+    ['apa', 'soap', 'dap', 'free'].forEach(function (m) { var pane = document.getElementById('pane-' + m); if (pane) pane.style.display = m === currentMode ? '' : 'none'; });
+    if (persist && currentWorkflow === 'structured' && currentClientId) {
+      var c = Store.getClient(currentClientId);
+      Store.updateClient(currentClientId, { preferences: Object.assign({}, (c && c.preferences) || {}, { lastNoteMode: currentMode }) });
+    }
+  }
 
   function loadClients() {
     var sel = document.getElementById('sel-client');
@@ -87,11 +167,9 @@
     }
     var c = Store.getClient(currentClientId);
     addXjMsg('ai', '已选择 ' + c.name + '。可选「来访者会话」继续编辑某节次，或直接在下方新建记录；我可以帮你展开任何一条。');
-    var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) {
+    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) {
       return (b.date || '').localeCompare(a.date || '');
     });
-    var seenC = {};
-    sessions = sessions.filter(function (s) { if (seenC[s.id]) return false; seenC[s.id] = 1; return true; });
     sessSel.innerHTML = '<option value="">选择来访者会话…</option>' + sessions.map(function (s) {
       var tag = s.hasTranscript ? '（逐字稿）' : (s.hasSoap ? '（SOAP）' : (s.hasDap ? '（DAP）' : ''));
       return '<option value="' + s.id + '">第' + s.sessionNumber + '节 ' + (s.date || '') + tag + '</option>';
@@ -99,6 +177,11 @@
     sessSel.style.display = '';
     upBtn.style.display = '';
     exBtn.style.display = '';
+    var preferred = (c.preferences && c.preferences.lastNoteMode) || 'quick';
+    setWorkflow(preferred === 'quick' ? 'quick' : 'structured', false);
+    if (preferred !== 'quick') setRecordMode(preferred, false);
+    updateContextLabel();
+    if (!suppressClientDraftRestore) restoreDraft();
   };
 
   // 选择已有会话：把该节次内容载入编辑区（按记录类型匹配模式）
@@ -125,22 +208,23 @@
       else { document.getElementById('f-free').value = s.notes; target = 'free'; }
     }
     // 触发模式切换
-    var chip = document.querySelector('.prompt-strip .chip[data-mode="' + target + '"]');
-    if (chip) chip.click();
+    setWorkflow('structured', false);
+    setRecordMode(target, false);
+    updateContextLabel();
+    restoreDraft();
     if (typeof Memory !== 'undefined' && Memory.record) Memory.record('session_opened', { summary: '打开了第' + s.sessionNumber + '节记录', relatedClientId: currentClientId });
   };
 
   // 模式切换
   document.querySelectorAll('.prompt-strip .chip').forEach(function (chip) {
     chip.addEventListener('click', function () {
-      document.querySelectorAll('.prompt-strip .chip').forEach(function (x) { x.classList.remove('active'); });
-      chip.classList.add('active');
-      currentMode = chip.dataset.mode;
-      ['apa', 'soap', 'dap', 'free'].forEach(function (m) {
-        var pane = document.getElementById('pane-' + m);
-        if (pane) pane.style.display = m === currentMode ? '' : 'none';
-      });
+      setWorkflow('structured', false);
+      setRecordMode(chip.dataset.mode, true);
     });
+  });
+
+  document.querySelectorAll('#record-workflow button[data-workflow]').forEach(function (btn) {
+    btn.addEventListener('click', function () { setWorkflow(btn.dataset.workflow, true); });
   });
 
   function addXjMsg(role, text) {
@@ -206,7 +290,7 @@
     }
     var payload = {
       clientId: currentClientId,
-      date: App.todayStr(),
+      date: contextDate || App.todayStr(),
       durationMinutes: 0,
       type: 'individual',
       recordKind: 'clinical',
@@ -224,7 +308,13 @@
       // 更新已选会话（保留其原 sessionNumber/date 等）
       var existing = Store.getSession(currentSessionId);
       if (existing) {
-        Store.updateSessionFull(Object.assign({}, existing, payload, { id: currentSessionId }));
+        Store.updateSessionFull(Object.assign({}, existing, payload, {
+          id: currentSessionId,
+          date: existing.date || payload.date,
+          startTime: existing.startTime || '',
+          endTime: existing.endTime || '',
+          durationMinutes: existing.durationMinutes || payload.durationMinutes
+        }));
       }
     } else {
       // 修复：保存后锁定到新创建的会话，避免连续点击「保存」反复生成重复节次
@@ -234,11 +324,9 @@
       // 直接刷新会话下拉（不触发 onClientChange，以免重复刷 AI 消息），并选中新建节次
       var sessSel2 = document.getElementById('sel-session');
       if (sessSel2 && newId) {
-        var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) {
+        var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) {
           return (b.date || '').localeCompare(a.date || '');
         });
-        var seenS = {};
-        sessions = sessions.filter(function (s) { if (seenS[s.id]) return false; seenS[s.id] = 1; return true; });
         sessSel2.innerHTML = '<option value="">选择来访者会话…</option>' + sessions.map(function (s) {
           var tag = s.hasTranscript ? '（逐字稿）' : (s.hasSoap ? '（SOAP）' : (s.hasDap ? '（DAP）' : ''));
           return '<option value="' + s.id + '">第' + s.sessionNumber + '节 ' + (s.date || '') + tag + '</option>';
@@ -246,7 +334,19 @@
         sessSel2.value = newId;
       }
     }
-    if (!silent) App.showToast('已保存', 'success');
+    clearDraft();
+    updateContextLabel();
+    if (!silent) {
+      var saved = currentSessionId ? Store.getSession(currentSessionId) : null;
+      var client = Store.getClient(currentClientId);
+      var complete = document.getElementById('note-complete');
+      var text = document.getElementById('note-complete-text');
+      if (complete && text && saved && client) {
+        text.textContent = '已保存到：' + client.name + ' · 第' + saved.sessionNumber + '节 · ' + (saved.date || App.todayStr());
+        complete.classList.add('show');
+      }
+      App.showToast('已保存', 'success');
+    }
     if (typeof Memory !== 'undefined' && Memory.record) Memory.record('session_saved', { summary: '保存了咨询记录', relatedClientId: currentClientId });
     return true;
   };
@@ -461,11 +561,36 @@
   };
 
   // ---------- 离开 / 跳转：自动保存 ----------
-  function autoSaveSilent() { try { saveNotes(true); } catch (e) {} }
+  function autoSaveSilent() { try { saveDraft(); } catch (e) {} }
   window.leavePage = function () { autoSaveSilent(); location.href = 'index.html'; };
   window.finishAndGoReport = function () {
-    saveNotes(true); // 自动保存（不弹 toast）
-    location.href = 'report-writing.html';
+    if (saveNotes(false)) location.href = 'report-writing.html?clientId=' + encodeURIComponent(currentClientId || '') + '&sessionId=' + encodeURIComponent(currentSessionId || '');
+  };
+
+  window.scheduleNextSession = function () {
+    if (!currentClientId) return;
+    location.href = 'session-calendar.html?clientId=' + encodeURIComponent(currentClientId) + '&new=1';
+  };
+  window.openCurrentBilling = function () {
+    if (!currentClientId) return;
+    location.href = 'billing-shell.html?clientId=' + encodeURIComponent(currentClientId);
+  };
+  window.openCurrentSupervision = function () {
+    if (!currentClientId) return;
+    location.href = 'supervision.html?clientId=' + encodeURIComponent(currentClientId) + '&sessionId=' + encodeURIComponent(currentSessionId || '');
+  };
+  window.generateNoteSummary = function () {
+    var data = collectCurrent();
+    if (!currentSessionId || !data || !data.notes) { App.showToast('请先保存含内容的咨询记录', 'warning'); return; }
+    if (!App.featureGate('ai-notes') || typeof AI === 'undefined' || !AI.send) { App.showToast('生成摘要需激活 AI 功能', 'warning'); return; }
+    App.showToast('正在生成会谈摘要…', 'info');
+    AI.send([{ role: 'system', content: '你是心理咨询记录助手。基于输入记录生成一段简洁、非诊断性的会谈摘要，只陈述已有材料，不补充事实。' }, { role: 'user', content: data.notes }], function (res) {
+      if (!res || res.error || !res.content) { App.showToast('生成摘要失败，请重试', 'error'); return; }
+      var s = Store.getSession(currentSessionId);
+      if (!s) return;
+      Store.updateSessionFull(Object.assign({}, s, { summary: String(res.content).trim() }));
+      App.showToast('会谈摘要已保存', 'success');
+    });
   };
 
   App.initPage({ title: '咨询记录', subtitle: '', actions: '', noSidebar: true, onReady: function () {
@@ -473,11 +598,15 @@
     // 支持从咨询日历跳转：?client=ID&session=ID 自动预选来访者与会话
     try {
       var params = new URLSearchParams(location.search);
-      var pClient = params.get('client');
-      var pSession = params.get('session');
+      var pClient = params.get('clientId') || params.get('client');
+      var pSession = params.get('sessionId') || params.get('session');
+      contextDate = params.get('date') || '';
+      var requestedMode = params.get('mode');
       if (pClient) {
+        suppressClientDraftRestore = !!pSession;
         var sel = document.getElementById('sel-client');
         if (sel) { sel.value = pClient; onClientChange(); }
+        suppressClientDraftRestore = false;
         var c = allClients.find(function (x) { return x.id === pClient; });
         var search = document.getElementById('client-search');
         if (search && c) search.value = c.name;
@@ -485,6 +614,7 @@
           var ss = document.getElementById('sel-session');
           if (ss) { ss.value = pSession; onSessionChange(); }
         }
+        if (requestedMode === 'quick') setWorkflow('quick', false);
       }
     } catch (e) {}
     // 离开页面（关闭/刷新）自动保存当前草稿
@@ -498,7 +628,7 @@
           try {
             var current = collectCurrentContent();
             if (current !== lastSavedContent && current.trim()) {
-              saveNotes(true);
+              saveDraft();
               lastSavedContent = current;
             }
           } catch (e) {}

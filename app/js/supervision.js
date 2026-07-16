@@ -12,6 +12,8 @@ App.initPage({
     var messages = [];
     var busy = false;
     var currentClientId = null;
+    var currentSessionId = '';
+    var latestSupervision = null;
     var draftKey = 'xj_sup_v31_draft';
     var chatKey = 'xj_sup_v31_chat';
 
@@ -44,21 +46,38 @@ App.initPage({
       custOpt.style.color = 'var(--ink-3)';
       orientSel.appendChild(custOpt);
     }
-    orientSel.value = curOrient;
+    function setOrientation(orientationId, persistPreference) {
+      if (orientationId === '__custom__') {
+        alert('自定义督导功能请联系开发者定制。');
+        return;
+      }
+      if (!orientationId || !orientSel.querySelector('option[value="' + orientationId + '"]')) return;
+      orientSel.value = orientationId;
+      curOrient = orientationId;
+      curOrientName = orientSel.options[orientSel.selectedIndex].textContent;
+      updateBadge();
+      var desc = orientSel.options[orientSel.selectedIndex].getAttribute('data-desc');
+      if (orientDesc) {
+        orientDesc.textContent = desc || '';
+        orientDesc.style.display = desc ? '' : 'none';
+      }
+      if (persistPreference && currentClientId) {
+        var client = Store.getClient(currentClientId);
+        if (client) {
+          Store.updateClient(currentClientId, {
+            preferences: Object.assign({}, client.preferences || {}, { lastSupervisionOrientation: curOrient })
+          });
+        }
+      }
+    }
+    setOrientation(curOrient, false);
     orientSel.addEventListener('change', function () {
       if (this.value === '__custom__') {
         alert('自定义督导功能请联系开发者定制。');
         this.value = curOrient;
         return;
       }
-      curOrient = this.value;
-      curOrientName = this.options[this.selectedIndex].textContent;
-      updateBadge();
-      var desc = this.options[this.selectedIndex].getAttribute('data-desc');
-      if (orientDesc) {
-        orientDesc.textContent = desc || '';
-        orientDesc.style.display = desc ? '' : 'none';
-      }
+      setOrientation(this.value, true);
     });
     function updateBadge() {
       document.getElementById('sup-badge').textContent = curOrientName;
@@ -75,15 +94,28 @@ App.initPage({
     // 来访者选择 → 加载会话历史
     window.onClientChange = function () {
       var cid = selClient.value;
-      if (!cid) { currentClientId = null; renderSessionHistory([]); return; }
+      var continueButton = document.getElementById('continue-supervision');
+      if (!cid) {
+        currentClientId = null;
+        currentSessionId = '';
+        latestSupervision = null;
+        if (continueButton) continueButton.style.display = 'none';
+        renderSessionHistory([]);
+        return;
+      }
       currentClientId = cid;
-      var sessions = Store.getSessionsByClient(cid).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-      var seenSup = {};
-      sessions = sessions.filter(function (s) { if (seenSup[s.id]) return false; seenSup[s.id] = 1; return true; });
+      var client = Store.getClient(cid);
+      var preferences = (client && client.preferences) || {};
+      if (preferences.lastSupervisionOrientation) setOrientation(preferences.lastSupervisionOrientation, false);
+      var supervisions = Store.getSupervisionsByClient ? Store.getSupervisionsByClient(cid) : [];
+      latestSupervision = supervisions.length ? supervisions[supervisions.length - 1] : null;
+      if (continueButton) continueButton.style.display = latestSupervision ? '' : 'none';
+      var sessions = Store.getSessionsForPicker(cid).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
       renderSessionHistory(sessions);
       // 自动载入最近一次会话的逐字稿
       if (sessions.length && sessions[0].transcript) {
         materialTA.value = sessions[0].transcript;
+        currentSessionId = sessions[0].id;
         addMsg('ai', '已自动载入 ' + Store.getClient(cid).name + ' 第' + sessions[0].sessionNumber + '节的逐字稿。点「生成整体印象」开始督导。');
       } else {
         addMsg('ai', '已选择 ' + Store.getClient(cid).name + '。该来访者暂无逐字稿，请在材料区手动书写。');
@@ -116,6 +148,7 @@ App.initPage({
     window.loadSessionTranscript = function (sessionId) {
       var s = Store.getSession(sessionId);
       if (!s) return;
+      currentSessionId = s.id;
       materialTA.value = s.transcript || '';
       if (s.soap) materialTA.value += '\n\n--- SOAP ---\nS: ' + (s.soap.subjective||'') + '\nO: ' + (s.soap.objective||'') + '\nA: ' + (s.soap.assessment||'') + '\nP: ' + (s.soap.plan||'');
       addMsg('ai', '已载入第' + (s.sessionNumber || '?') + '节逐字稿。');
@@ -125,10 +158,22 @@ App.initPage({
       if (active) active.classList.add('active');
     };
 
+    window.continueLastSupervision = function () {
+      if (!latestSupervision) return;
+      var context = String(latestSupervision.context || latestSupervision.content || '').trim();
+      if (context) {
+        materialTA.value = context;
+        try { localStorage.setItem(draftKey, context); } catch (e) {}
+      }
+      currentSessionId = latestSupervision.sessionId || ((latestSupervision.sessionIds || [])[0]) || currentSessionId;
+      addMsg('ai', '已恢复上次督导的材料和流派。你可以补充本次材料后再开始分析。');
+      switchTab('material');
+    };
+
     window.loadTranscript = function () {
       var cid = selClient.value;
       if (!cid) { App.showToast('请先选择来访者', 'warning'); return; }
-      var sessions = Store.getSessionsByClient(cid).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+      var sessions = Store.getSessionsForPicker(cid).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
       if (!sessions.length) { App.showToast('该来访者无会话记录', 'warning'); return; }
       var html = sessions.map(function (s, i) {
         return '<label style="display:block;padding:8px;cursor:pointer"><input type="radio" name="sup-sess" value="' + s.id + '"' + (i === 0 ? ' checked' : '') + '> 第' + s.sessionNumber + '节 · ' + App.formatDate(s.date) + (s.transcript ? ' (有逐字稿)' : ' (无逐字稿)') + '</label>';
@@ -303,7 +348,8 @@ App.initPage({
         Store.saveAiSupervision({
           supervisorName: modeName,
           clientId: currentClientId || '',
-          sessionId: '',
+          sessionId: currentSessionId,
+          sessionIds: currentSessionId ? [currentSessionId] : [],
           context: materialTA.value.trim(),
           content: full,
         });
@@ -353,18 +399,22 @@ App.initPage({
     // 从「撰写报告」跳转而来：选择来访者并预填案例报告
     try {
       var qs = new URLSearchParams(location.search);
-      var autoClient = qs.get('client');
+      var autoClient = qs.get('clientId') || qs.get('client');
+      var autoSession = qs.get('sessionId') || qs.get('session');
       var autoReport = qs.get('autoloadreport') === '1';
-      if (autoClient && autoReport) {
+      if (autoClient) {
         selClient.value = autoClient;
         if (selClient.value === autoClient) {
           window.onClientChange();
-          var draft = localStorage.getItem('xj_report_draft_' + autoClient);
-          if (draft) {
-            materialTA.value = draft;
-            try { localStorage.setItem(draftKey, draft); } catch (e) {}
-            addMsg('ai', '已载入从「撰写报告」带过来的案例报告。点「生成整体印象」或直接在右侧对话窗深入督导。');
-            switchTab('material');
+          if (autoSession) window.loadSessionTranscript(autoSession);
+          if (autoReport) {
+            var draft = localStorage.getItem('xj_report_draft_' + autoClient);
+            if (draft) {
+              materialTA.value = draft;
+              try { localStorage.setItem(draftKey, draft); } catch (e) {}
+              addMsg('ai', '已载入从「撰写报告」带过来的案例报告。点「生成整体印象」或直接在右侧对话窗深入督导。');
+              switchTab('material');
+            }
           }
         }
       }

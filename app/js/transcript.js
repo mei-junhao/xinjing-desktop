@@ -264,7 +264,7 @@
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     if (!lines.length) { App.showToast('无内容可保存', 'warning'); return; }
     var text = lines.map(function (l) { return (l.speaker ? l.speaker + ': ' : '') + l.text; }).join('\n');
-    var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     if (sessions.length) {
       Store.updateSessionFull(sessions[0].id, { transcript: text });
       App.showToast('已保存到最近一次会话的逐字稿', 'success');

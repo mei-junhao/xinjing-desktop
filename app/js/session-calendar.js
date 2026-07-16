@@ -68,6 +68,18 @@
     return fmtDate(n);
   }
   function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function addMonths(d, n) { var r = new Date(d); var day = r.getDate(); r.setMonth(r.getMonth() + n); if (r.getDate() < day) r.setDate(0); return r; }
+  // 按重复规则计算第 i 次（i 从 0 起）的日期字符串
+  function occurrenceDate(baseStr, rule, i) {
+    var base = parseDate(baseStr);
+    if (!base) return baseStr;
+    var d = base;
+    if (rule === 'weekly') d = addDays(base, 7 * i);
+    else if (rule === 'biweekly') d = addDays(base, 14 * i);
+    else if (rule === 'monthly') d = addMonths(base, i);
+    return fmtDate(d);
+  }
+  function genSeriesId() { return 'ser_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
   function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
   function weekStart(d) {
     var r = new Date(d);
@@ -125,6 +137,8 @@
   function getSessions() {
     if (typeof Store === 'undefined' || !Store.getSessions) return [];
     var list = Store.getSessions();
+    // 过滤孤儿会话（来访者已删，仍残留 session）——避免日历出现大量「（已删除）」
+    list = list.filter(function (s) { return Store.getClient && Store.getClient(s.clientId); });
     if (state.filterClientId) list = list.filter(function (s) { return s.clientId === state.filterClientId; });
     return list;
   }
@@ -435,7 +449,7 @@
     // 关闭弹窗
     var ov = document.querySelector('.sc-modal-overlay');
     if (ov) ov.remove();
-    location.href = 'consult-notes.html?client=' + encodeURIComponent(s.clientId) + '&session=' + encodeURIComponent(s.id);
+    location.href = 'consult-notes.html?clientId=' + encodeURIComponent(s.clientId) + '&sessionId=' + encodeURIComponent(s.id) + '&mode=quick';
   }
 
   // 设置状态
@@ -453,14 +467,65 @@
     render();
   }
 
-  // 删除会话
+  // 删除会话——重复系列提供三选项（本次 / 本次及之后 / 全部系列），单节直接删
   function removeSession(sessionId) {
-    if (!confirm('确认删除这节会话？此操作不可撤销。')) return;
-    Store.deleteSession(sessionId);
-    toast('已删除会话', 'success');
-    var ov = document.querySelector('.sc-modal-overlay');
-    if (ov) ov.remove();
-    render();
+    var s = Store.getSession(sessionId);
+    if (!s) return;
+    var closeAndRender = function () {
+      var ov = document.querySelector('.sc-modal-overlay');
+      if (ov) ov.remove();
+      render();
+    };
+    // 非重复系列：单节删除
+    if (!s.seriesId) {
+      if (!confirm('确认删除这节会话？此操作不可撤销。')) return;
+      Store.deleteSession(sessionId);
+      toast('已删除会话', 'success');
+      closeAndRender();
+      return;
+    }
+    // 重复系列：弹出三选项
+    var overlay = document.createElement('div');
+    overlay.className = 'sc-modal-overlay';
+    overlay.innerHTML = '<div class="sc-modal" style="position:relative;max-width:400px">' +
+      '<button class="sm-close" onclick="this.closest(\'.sc-modal-overlay\').remove()">×</button>' +
+      '<h3>删除重复预约</h3>' +
+      '<div class="sm-sub">这是一个重复预约系列，请选择删除范围。</div>' +
+      '<div class="sf-actions" style="flex-direction:column;gap:8px;margin-top:16px">' +
+      '<button class="save" id="del-one" style="width:100%">仅删除本次</button>' +
+      '<button class="save" id="del-after" style="width:100%">删除本次及之后</button>' +
+      '<button class="danger" id="del-all" style="width:100%">删除全部系列</button>' +
+      '<button class="cancel" onclick="this.closest(\'.sc-modal-overlay\').remove()" style="width:100%">取消</button>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function () { overlay.classList.add('show'); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+    function seriesSessions() {
+      return Store.getSessions().filter(function (x) { return x.seriesId === s.seriesId; });
+    }
+    document.getElementById('del-one').addEventListener('click', function () {
+      Store.deleteSession(sessionId);
+      toast('已删除本次会话', 'success');
+      overlay.remove();
+      closeAndRender();
+    });
+    document.getElementById('del-after').addEventListener('click', function () {
+      var n = 0;
+      seriesSessions().forEach(function (x) {
+        if ((x.date || '') >= (s.date || '')) { Store.deleteSession(x.id); n++; }
+      });
+      toast('已删除本次及之后共 ' + n + ' 节', 'success');
+      overlay.remove();
+      closeAndRender();
+    });
+    document.getElementById('del-all').addEventListener('click', function () {
+      var n = 0;
+      seriesSessions().forEach(function (x) { Store.deleteSession(x.id); n++; });
+      toast('已删除整个系列共 ' + n + ' 节', 'success');
+      overlay.remove();
+      closeAndRender();
+    });
   }
 
   // ---------- 新建/编辑会话表单 ----------
@@ -508,6 +573,16 @@
       '<div class="sf-row"><label>状态</label><select id="sf-status">' +
       Object.keys(STATUS_CFG).map(function (k) { return '<option value="' + k + '"' + (k === initStatus ? ' selected' : '') + '>' + STATUS_CFG[k].label + '</option>'; }).join('') +
       '</select></div>' +
+      (editing ? '' :
+        '<div class="sf-2col">' +
+        '<div class="sf-row"><label>重复</label><select id="sf-repeat">' +
+        '<option value="none">不重复</option>' +
+        '<option value="weekly">每周</option>' +
+        '<option value="biweekly">每两周</option>' +
+        '<option value="monthly">每月</option>' +
+        '</select></div>' +
+        '<div class="sf-row"><label>重复次数（含本次）</label><input type="number" id="sf-repeat-count" value="8" min="1" max="52"></div>' +
+        '</div>') +
       '<div id="sf-conflict"></div>' +
       '<div class="sf-actions">' +
       '<button class="cancel" onclick="this.closest(\'.sc-modal-overlay\').remove()">取消</button>' +
@@ -585,18 +660,36 @@
         Store.saveSession(editing);
         toast('已保存修改', 'success');
       } else {
-        // 新建
-        var newSession = Store.createSession({
-          clientId: clientId,
-          date: dateVal,
-          startTime: startVal,
-          endTime: endVal,
-          durationMinutes: dur,
-          type: typeVal,
-          status: statusVal,
-          isConfirmed: (statusVal === 'confirmed' || statusVal === 'completed'),
-        });
-        toast('已新建第' + newSession.sessionNumber + '节会话', 'success');
+        // 新建（支持按周/双周/月重复）
+        var repEl = document.getElementById('sf-repeat');
+        var rule = repEl ? repEl.value : 'none';
+        var countEl = document.getElementById('sf-repeat-count');
+        var count = rule === 'none' ? 1 : Math.max(1, Math.min(52, parseInt(countEl && countEl.value, 10) || 1));
+        var seriesId = count > 1 ? genSeriesId() : null;
+        var created = 0, skipped = 0;
+        for (var i = 0; i < count; i++) {
+          var occDate = occurrenceDate(dateVal, rule, i);
+          // 每次时段冲突检测：冲突则跳过该次（不中断整个系列）
+          if (detectConflicts(occDate, sMin, eMin, null).length > 0) { skipped++; continue; }
+          var payload = {
+            clientId: clientId,
+            date: occDate,
+            startTime: startVal,
+            endTime: endVal,
+            durationMinutes: dur,
+            type: typeVal,
+            status: statusVal,
+            isConfirmed: (statusVal === 'confirmed' || statusVal === 'completed'),
+          };
+          if (seriesId) { payload.seriesId = seriesId; payload.recurrence = rule; }
+          Store.createSession(payload);
+          created++;
+        }
+        if (count > 1) {
+          toast('已创建 ' + created + ' 节' + (skipped ? '（跳过 ' + skipped + ' 节时间冲突）' : ''), 'success');
+        } else {
+          toast('已新建会话', 'success');
+        }
       }
       overlay.classList.remove('show');
       setTimeout(function () { overlay.remove(); render(); }, 200);
@@ -641,7 +734,18 @@
         });
       }
     }
+    try {
+      var params = new URLSearchParams(location.search);
+      var date = params.get('date');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date || '')) state.cursor = new Date(date + 'T00:00:00');
+      var requestedClientId = params.get('clientId');
+      if (requestedClientId && Store.getClient(requestedClientId)) state.filterClientId = requestedClientId;
+      var shouldCreate = params.get('new') === '1';
+    } catch (e) {}
     render();
+    try {
+      if (shouldCreate) setTimeout(function () { openNewSession(null, null); }, 0);
+    } catch (e) {}
   }
 
   // 确保 Store 数据已从 IndexedDB 载入内存后再初始化

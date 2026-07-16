@@ -52,17 +52,17 @@
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="rs-page">
 <div class="rs-top">
-  <button class="back" onclick="location.href='index.html'">← 返回</button>
+  <button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回</button>
   <h2>真人督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="real-supervision-ai.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> AI 分析 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
   <span class="sp"></span>
   <select id="rs-client" onchange="loadClientRecords()"><option value="">选择来访者…</option></select>
-  <button class="back" style="border:1px solid var(--border);padding:5px 12px;border-radius:8px" onclick="startNewRecord()">+ 新记录</button>
+  <button class="back" style="border:1px solid var(--border);padding:5px 12px;border-radius:8px" onclick="startNewRecord()"><i data-lucide="plus"></i>新记录</button>
 </div>
 
 <div class="rs-body">
   <!-- 左栏：历史记录 -->
   <div class="rs-left">
-    <div class="rl-head">📋 督导记录</div>
+    <div class="rl-head"><i data-lucide="clipboard-list"></i>督导记录</div>
     <div class="rl-list" id="rs-history">
       <div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">暂无记录，点击"新记录"开始</div>
     </div>
@@ -71,9 +71,9 @@
   <!-- 右栏：编辑区 -->
   <div class="rs-right">
     <div class="rr-tabs">
-      <div class="rr-tab active" data-tab="record" onclick="switchRSTab('record')">📝 记录</div>
-      <div class="rr-tab" data-tab="transcript" onclick="switchRSTab('transcript')">📄 逐字稿</div>
-      <div class="rr-tab" data-tab="report" onclick="switchRSTab('report')">📋 案例报告</div>
+      <div class="rr-tab active" data-tab="record" onclick="switchRSTab('record')"><i data-lucide="notebook-pen"></i>记录</div>
+      <div class="rr-tab" data-tab="transcript" onclick="switchRSTab('transcript')"><i data-lucide="file-text"></i>逐字稿</div>
+      <div class="rr-tab" data-tab="report" onclick="switchRSTab('report')"><i data-lucide="clipboard-list"></i>案例报告</div>
     </div>
     <div class="rr-content" id="rs-content">
       <!-- 记录 Tab -->
