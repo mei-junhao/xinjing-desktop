@@ -132,8 +132,10 @@
           <textarea class="material-input" id="sup-material" placeholder="粘贴逐字稿或书写案例材料……"></textarea>
           <div class="m-tools">
             <button onclick="loadTranscript()">📂 载入逐字稿</button>
+            <button onclick="document.getElementById('sup-report-file').click()">📁 上传报告</button>
             <button onclick="document.getElementById('sup-material').value=''">清空</button>
             <button onclick="document.getElementById('mat-panel').classList.toggle('open')">展开材料</button>
+            <input type="file" id="sup-report-file" accept=".doc,.docx,.html,.htm,.txt,.md" style="display:none" onchange="onReportFileUpload(event)">
           </div>
         </div>
       </div>
@@ -168,6 +170,7 @@
 <script src="js/supervisors.js"></script>
 <script src="js/supervision-core.js"></script>
 <script src="js/supervision.js"></script>
+<script src="vendor/mammoth.browser.min.js"></script>
 
 <script>
 (function(){

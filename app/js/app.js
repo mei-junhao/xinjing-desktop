@@ -609,6 +609,85 @@ const App = (() => {
     URL.revokeObjectURL(url);
   }
 
+  // ---------- Word 导出（真 .doc，MHTML 包装，无第三方库） ----------
+  function wordDocShell(title, bodyHtml) {
+    return '<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+      'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
+      'xmlns="http://www.w3.org/TR/REC-html40"><head>' +
+      '<meta charset="UTF-8">' +
+      '<xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml>' +
+      '<style>body{font-family:"Microsoft YaHei","SimSun",sans-serif;padding:32px;max-width:760px;line-height:1.9;color:#222}' +
+      'h1,h2,h3{font-family:"Microsoft YaHei",serif;color:#5B639A;line-height:1.4}' +
+      'h1{font-size:22px;border-bottom:2px solid #8B93C7;padding-bottom:8px}' +
+      'h2{font-size:18px;margin-top:24px}h3{font-size:15px}' +
+      'ul,ol{margin:8px 0 8px 24px}li{margin:4px 0}' +
+      'strong{color:#333}table{border-collapse:collapse;width:100%;margin:10px 0}' +
+      'td,th{border:1px solid #BBB;padding:6px 10px;font-size:13px}' +
+      'pre{background:#F4F5FA;padding:12px;border-radius:6px;white-space:pre-wrap;font-family:Consolas,monospace;font-size:13px}' +
+      'p{margin:8px 0}</style></head><body>' + bodyHtml + '</body></html>';
+  }
+
+  function exportWordDoc(filename, bodyHtml) {
+    var html = wordDocShell(filename, bodyHtml || '');
+    downloadFile(filename, html, 'application/msword');
+  }
+
+  // 轻量 Markdown → Word 友好 HTML（# / ## / ###、**粗体** / *斜体* / 列表 / 表格）
+  function mdToWordHtml(md) {
+    if (!md) return '';
+    var lines = String(md).replace(/\r\n/g, '\n').split('\n');
+    var html = [];
+    var listType = null; // 'ul' | 'ol'
+    function closeList() {
+      if (listType) { html.push('</' + listType + '>'); listType = null; }
+    }
+    function inline(s) {
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, '<code>$1</code>');
+    }
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var trimmed = line.trim();
+      var m;
+      if (/^\|/.test(trimmed) && /\|/.test(trimmed)) {
+        // 表格行
+        closeList();
+        var cells = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|').map(function (c) { return c.trim(); });
+        if (/^[-: ]+\|/.test(trimmed) || cells.every(function (c) { return /^[-: ]+$/.test(c); })) {
+          // 分隔行，跳过
+          continue;
+        }
+        if (html[html.length - 1] !== '<table>') html.push('<table>');
+        html.push('<tr>' + cells.map(function (c) { return '<td>' + inline(c) + '</td>'; }).join('') + '</tr>');
+        continue;
+      }
+      if (html[html.length - 1] === '<table>') { html.push('</table>'); }
+      if (m = trimmed.match(/^#\s+(.*)$/)) {
+        closeList(); html.push('<h1>' + inline(m[1]) + '</h1>');
+      } else if (m = trimmed.match(/^##\s+(.*)$/)) {
+        closeList(); html.push('<h2>' + inline(m[1]) + '</h2>');
+      } else if (m = trimmed.match(/^###\s+(.*)$/)) {
+        closeList(); html.push('<h3>' + inline(m[1]) + '</h3>');
+      } else if (m = trimmed.match(/^[-*]\s+(.*)$/)) {
+        if (listType !== 'ul') { closeList(); html.push('<ul>'); listType = 'ul'; }
+        html.push('<li>' + inline(m[1]) + '</li>');
+      } else if (m = trimmed.match(/^\d+\.\s+(.*)$/)) {
+        if (listType !== 'ol') { closeList(); html.push('<ol>'); listType = 'ol'; }
+        html.push('<li>' + inline(m[1]) + '</li>');
+      } else if (trimmed === '') {
+        closeList();
+      } else {
+        closeList(); html.push('<p>' + inline(line) + '</p>');
+      }
+    }
+    closeList();
+    if (html[html.length - 1] === '<table>') html.push('</table>');
+    return html.join('');
+  }
+
   function enableDragDrop(textareaOrSelector, opts) {
     var el = typeof textareaOrSelector === 'string' ? document.querySelector(textareaOrSelector) : textareaOrSelector;
     if (!el) return;
@@ -799,6 +878,8 @@ const App = (() => {
     bindModalClose,
     confirmDialog,
     downloadFile,
+    exportWordDoc,
+    mdToWordHtml,
     enableDragDrop,
     readFileAsText,
     aiUnlocked,

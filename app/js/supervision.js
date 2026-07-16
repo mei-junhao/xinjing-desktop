@@ -307,14 +307,61 @@ App.initPage({
     };
 
     window.exportSup = function () {
-      var html = '<html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:32px;max-width:700px;line-height:2}h2{color:#8B93C7}</style></head><body>';
-      html += '<h2>AI 督导记录</h2>';
+      var body = '<h2>AI 督导记录</h2>';
       messages.forEach(function (m) {
-        html += '<p><b>' + (m.role === 'user' ? '我' : '小镜') + '：</b>' + m.content.replace(/\n/g, '<br>') + '</p>';
+        body += '<p><strong>' + (m.role === 'user' ? '我' : '小镜') + '：</strong>' + App.escapeHtml(m.content).replace(/\n/g, '<br>') + '</p>';
       });
-      html += '</body></html>';
-      App.downloadFile('督导记录_' + App.todayStr() + '.html', html, 'text/html');
-      App.showToast('已导出', 'success');
+      App.exportWordDoc('督导记录_' + App.todayStr() + '.doc', body);
+      App.showToast('已导出 Word 文档', 'success');
     };
+
+    // 手动上传案例报告 → 载入材料区
+    window.onReportFileUpload = function (event) {
+      var file = event.target.files[0];
+      if (!file) return;
+      var name = file.name.toLowerCase();
+      App.showToast('正在读取报告…', 'info');
+      var onText = function (text) {
+        var cur = materialTA.value.trim();
+        materialTA.value = (cur ? cur + '\n\n' : '') + '【上传的案例报告：' + file.name + '】\n' + text;
+        try { localStorage.setItem(draftKey, materialTA.value); } catch (e) {}
+        App.showToast('案例报告已载入材料区', 'success');
+        switchTab('material');
+      };
+      var reader = new FileReader();
+      if (name.endsWith('.docx')) {
+        if (typeof mammoth !== 'undefined') {
+          reader.onload = function (ev) {
+            mammoth.extractRawText({ arrayBuffer: ev.target.result }).then(function (r) { onText(r.value); })
+              .catch(function () { App.showToast('docx 解析失败', 'error'); });
+          };
+          reader.readAsArrayBuffer(file);
+        } else { App.showToast('docx 解析库未加载', 'warning'); }
+      } else {
+        reader.onload = function (ev) { onText(ev.target.result); };
+        reader.readAsText(file, 'UTF-8');
+      }
+      event.target.value = '';
+    };
+
+    // 从「撰写报告」跳转而来：选择来访者并预填案例报告
+    try {
+      var qs = new URLSearchParams(location.search);
+      var autoClient = qs.get('client');
+      var autoReport = qs.get('autoloadreport') === '1';
+      if (autoClient && autoReport) {
+        selClient.value = autoClient;
+        if (selClient.value === autoClient) {
+          window.onClientChange();
+          var draft = localStorage.getItem('xj_report_draft_' + autoClient);
+          if (draft) {
+            materialTA.value = draft;
+            try { localStorage.setItem(draftKey, draft); } catch (e) {}
+            addMsg('ai', '已载入从「撰写报告」带过来的案例报告。点「生成整体印象」或直接在右侧对话窗深入督导。');
+            switchTab('material');
+          }
+        }
+      }
+    } catch (e) {}
   },
 });

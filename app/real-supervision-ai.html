@@ -223,7 +223,7 @@ App.initPage({ title: '真人督导 · AI分析', noSidebar: true, onReady: func
 
   window.exportReport = function () {
     var text = document.getElementById('qa-body').innerText + '\n\n' + document.getElementById('insight-body').innerText;
-    App.downloadFile('督导分析报告_' + App.todayStr() + '.txt', text, 'text/plain');
+    App.exportWordDoc('督导分析报告_' + App.todayStr() + '.doc', '<pre>' + App.escapeHtml(text) + '</pre>');
   };
 }});
 </script>

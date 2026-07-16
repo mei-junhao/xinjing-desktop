@@ -136,16 +136,38 @@
     // 渲染 textarea
     var body = document.getElementById('step-body');
     var val = stepData[i] || '';
-    body.innerHTML = '<textarea id="step-ta" placeholder="' + App.escapeHtml(sec.hint || '请填写…') + '" oninput="stepData[' + i + ']=this.value">' + App.escapeHtml(val) + '</textarea>'
+    body.innerHTML = '<textarea id="step-ta" placeholder="' + App.escapeHtml(sec.hint || '请填写…') + '" oninput="onStepInput(this,' + i + ')">' + App.escapeHtml(val) + '</textarea>'
       + '<div class="ai-suggest" id="ai-suggest"><div class="label">AI 建议</div><div id="ai-suggest-content"></div><button class="accept" onclick="acceptAISuggest()">采用此段</button></div>';
     // 按钮状态
     document.getElementById('btn-prev').style.display = i > 0 ? '' : 'none';
-    document.getElementById('btn-next').style.display = i < secs.length - 1 ? '' : 'none';
-    document.getElementById('btn-next').textContent = i < secs.length - 1 ? '下一步 →' : '完成';
     document.getElementById('btn-ai-step').style.display = currentClientId ? '' : 'none';
     document.getElementById('step-info').textContent = '步骤 ' + (i + 1) + '/' + secs.length;
+    refreshFoot();
     renderStepsNav();
   };
+
+  // textarea 输入：同步 stepData，并在最后一步实时刷新「完成/保存」按钮
+  window.onStepInput = function (ta, i) {
+    stepData[i] = ta.value;
+    if (i === getSections().length - 1) refreshFoot();
+  };
+
+  // 根据「是否为最后一步 + 是否全部填写」决定底栏按钮
+  function refreshFoot() {
+    var secs = getSections();
+    var isLast = currentStep === secs.length - 1;
+    var allFilled = secs.every(function (sec, idx) { return (stepData[idx] || '').trim(); });
+    var nextBtn = document.getElementById('btn-next');
+    var actions = document.getElementById('btn-report-actions');
+    if (isLast && allFilled) {
+      nextBtn.style.display = 'none';
+      actions.style.display = '';
+    } else {
+      nextBtn.style.display = '';
+      nextBtn.textContent = isLast ? '完成' : '下一步 →';
+      actions.style.display = 'none';
+    }
+  }
 
   window.prevStep = function () { if (currentStep > 0) goToStep(currentStep - 1); };
   window.nextStep = function () {
@@ -155,10 +177,10 @@
       var html = '<div style="text-align:center;padding:10px 0;line-height:2">' +
         '<div style="font-size:36px;margin-bottom:10px">✅</div>' +
         '<div style="font-size:15px;font-weight:600;margin-bottom:6px">报告已完成</div>' +
-        '<div style="font-size:12px;color:var(--ink-3);margin-bottom:16px">你可以导出报告，也可以带着报告去 AI 督导深化分析</div>' +
+        '<div style="font-size:12px;color:var(--ink-3);margin-bottom:16px">你可以保存为 Word 文档，也可以带着报告去 AI 督导深化分析</div>' +
         '<div style="display:flex;gap:10px;justify-content:center">' +
-        '<button onclick="exportWord();App.closeDialog()" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:10px 20px;cursor:pointer;font:13px var(--sans)">📤 导出报告</button>' +
-        '<button onclick="location.href=\'supervision.html\'" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font:600 13px var(--sans)">🧠 去 AI 督导</button>' +
+        '<button onclick="onSaveReport();App.closeDialog()" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:10px 20px;cursor:pointer;font:13px var(--sans)">💾 保存 Word</button>' +
+        '<button onclick="onStartSupervision()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font:600 13px var(--sans)">🧠 开始 AI 督导</button>' +
         '</div></div>';
       App.confirmDialog(html, function () {});
     }
@@ -291,19 +313,46 @@
     renderStepsNav(); goToStep(0);
   }
 
-  // 导出 Word
+  // 导出 Word（真 .doc）
   window.exportWord = function () {
     var secs = getSections();
-    var html = '<html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:32px;max-width:700px;line-height:2}h2{font-family:serif;color:#8B93C7}</style></head><body>';
+    var body = '<h1>案例报告</h1>';
+    var client = currentClientId ? Store.getClient(currentClientId) : null;
+    if (client) body += '<p><strong>来访者：</strong>' + App.escapeHtml(client.name) + '（化名）</p>';
     secs.forEach(function (sec, i) {
       var val = stepData[i] || '';
-      if (val.trim()) html += '<h2>' + (i + 1) + '. ' + App.escapeHtml(sec.title) + '</h2><p>' + val.replace(/\n/g, '<br>') + '</p>';
+      if (val.trim()) {
+        body += '<h2>' + (i + 1) + '. ' + App.escapeHtml(sec.title) + '</h2>';
+        body += '<p>' + App.escapeHtml(val).replace(/\n/g, '<br>') + '</p>';
+      }
     });
-    html += '</body></html>';
-    var client = Store.getClient(currentClientId);
-    var fname = (client ? client.name : 'report') + '_案例报告.html';
-    App.downloadFile(fname, html, 'text/html');
-    App.showToast('已导出 Word 兼容 HTML', 'success');
+    var fname = (client ? client.name : 'report') + '_案例报告.doc';
+    App.exportWordDoc(fname, body);
+    return fname;
+  };
+
+  // 保存：导出为本地 Word 文档
+  window.onSaveReport = function () {
+    var f = exportWord();
+    App.showToast('报告已保存为 Word 文档：' + f, 'success');
+  };
+
+  // 开始 AI 督导：先保存 Word，再携带报告跳转督导页
+  window.onStartSupervision = function () {
+    exportWord();
+    // 暂存报告纯文本，供督导页预填材料区
+    try {
+      var secs = getSections();
+      var reportText = '【案例报告】\n';
+      var client = currentClientId ? Store.getClient(currentClientId) : null;
+      if (client) reportText += '来访者：' + client.name + '（化名）\n\n';
+      secs.forEach(function (sec, i) {
+        var val = stepData[i] || '';
+        reportText += (i + 1) + '. ' + sec.title + '\n' + val + '\n\n';
+      });
+      if (currentClientId) localStorage.setItem('xj_report_draft_' + currentClientId, reportText);
+    } catch (e) {}
+    location.href = 'supervision.html?client=' + encodeURIComponent(currentClientId || '') + '&autoloadreport=1';
   };
 
   App.initPage({ title: '撰写报告', subtitle: '', actions: '', noSidebar: true, onReady: function () {

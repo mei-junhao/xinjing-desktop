@@ -286,8 +286,8 @@
       report += '\n';
     }
     report += '【修正后全文】\n\n' + text;
-    App.downloadFile('逐字稿_' + App.todayStr() + '.txt', report, 'text/plain');
-    App.showToast('已导出', 'success');
+    App.exportWordDoc('逐字稿_' + App.todayStr() + '.doc', '<pre>' + App.escapeHtml(report) + '</pre>');
+    App.showToast('已导出 Word 文档', 'success');
   };
 
   window.goToNotes = function () {

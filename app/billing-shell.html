@@ -767,7 +767,7 @@
       + '<div class="formline">'
       + '<div class="fg"><label>来访者</label><select id="bill-client" onchange="renderBillPreview()">' + opts + '</select></div>'
       + '<div class="fg"><label>月份</label><input type="month" id="bill-month" value="' + ym + '" onchange="renderBillPreview()"></div>'
-      + '<div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="exportInvoice()">导出 HTML 账单</button></div>'
+      + '<div style="display:flex;align-items:flex-end"><button class="btn btn-primary" onclick="exportInvoice()">导出 Word 账单</button></div>'
       + '</div><div id="bill-preview"></div></div>';
     renderBillPreview();
   }
@@ -814,9 +814,9 @@
     const c = Store.getClients().find(function (x) { return x.id === cid; });
     if (!c) return;
     const html = document.querySelector('.invoice') ? document.querySelector('.invoice').outerHTML : '';
-    const fname = c.name + '_' + month + '_账单.html';
-    App.downloadFile(fname, '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + App.escapeHtml(fname) + '</title><style>body{font-family:sans-serif;padding:24px}.invoice{max-width:560px;border:1px solid #ccc;padding:24px;border-radius:14px}.tl{display:flex;justify-content:space-between}table{width:100%;border-collapse:collapse}th,td{padding:7px 10px;border-bottom:1px solid #ddd;text-align:left}</style></head><body>' + html + '</body></html>', 'text/html');
-    App.showToast('账单已导出', 'success');
+    const invoiceCss = '<style>.invoice{max-width:560px;border:1px solid #ccc;padding:24px;border-radius:14px}.tl{display:flex;justify-content:space-between}table{width:100%;border-collapse:collapse}th,td{padding:7px 10px;border-bottom:1px solid #ddd;text-align:left}.final{font-weight:700}</style>';
+    App.exportWordDoc(c.name + '_' + month + '_账单.doc', invoiceCss + html);
+    App.showToast('账单已导出 Word 文档', 'success');
   }
   window.renderBillPreview = renderBillPreview;
   window.exportInvoice = exportInvoice;

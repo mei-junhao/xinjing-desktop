@@ -483,13 +483,9 @@
         md += '**' + nm + '**：' + msg.content + '\n\n';
       }
     });
-    var blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = (currentConv.title || 'master_chat') + '_' + new Date().toISOString().slice(0, 10) + '.md';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    App.showToast('已导出为 Markdown', 'success');
+    var html = App.mdToWordHtml(md);
+    App.exportWordDoc((currentConv.title || 'master_chat') + '_' + new Date().toISOString().slice(0, 10) + '.doc', html);
+    App.showToast('已导出为 Word 文档', 'success');
   };
   // v3.4.2: 删除指定对话（从历史列表）
   window.deleteConvById = function (id, event) {

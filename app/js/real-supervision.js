@@ -208,8 +208,8 @@
   window.exportReport = function () {
     var body = document.getElementById('rs-report-body').value.trim();
     if (!body) { App.showToast('无内容可导出', 'warning'); return; }
-    App.downloadFile('案例报告_' + App.todayStr() + '.md', body, 'text/markdown');
-    App.showToast('已导出', 'success');
+    App.exportWordDoc('案例报告_' + App.todayStr() + '.doc', App.mdToWordHtml(body));
+    App.showToast('已导出 Word 文档', 'success');
   };
 
   window.switchRSTab = function (tab) {

@@ -98,6 +98,10 @@
   <button class="ai-btn" id="btn-ai-step" onclick="aiFillCurrent()" style="display:none">AI 填写本步 ✨</button>
   <span class="sp"></span>
   <span class="info" id="step-info"></span>
+  <div id="btn-report-actions" style="display:none;gap:12px">
+    <button class="next" id="btn-save-report" onclick="onSaveReport()">💾 保存 Word</button>
+    <button class="ai-btn" id="btn-start-sup" onclick="onStartSupervision()" style="background:var(--accent);color:#fff;border:none">🧠 开始 AI 督导</button>
+  </div>
   <button class="next" id="btn-next" onclick="nextStep()" style="display:none">下一步 →</button>
 </div>
 

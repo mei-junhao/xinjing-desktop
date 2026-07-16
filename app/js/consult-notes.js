@@ -327,9 +327,9 @@
       content = ids.map(function (id) { var el = document.getElementById(id); return el ? el.value : ''; }).filter(Boolean).join('\n');
     }
     if (!content.trim()) { App.showToast('当前没有可导出的内容', 'warning'); return; }
-    var html = '<html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:32px;max-width:720px;line-height:2}h1{font-family:serif;color:#8B93C7}</style></head><body><h1>' + App.escapeHtml(c.name) + ' 咨询记录（' + App.todayStr() + '）</h1><pre>' + App.escapeHtml(content) + '</pre></body></html>';
-    App.downloadFile((c.name || 'client') + '_咨询记录.html', html, 'text/html');
-    App.showToast('已导出', 'success');
+    var body = '<h1>' + App.escapeHtml(c.name) + ' 咨询记录（' + App.todayStr() + '）</h1><pre>' + App.escapeHtml(content) + '</pre>';
+    App.exportWordDoc((c.name || 'client') + '_咨询记录.doc', body);
+    App.showToast('已导出 Word 文档', 'success');
   };
 
   // ---------- 离开 / 跳转：自动保存 ----------
