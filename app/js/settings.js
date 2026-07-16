@@ -26,6 +26,7 @@ App.initPage({
       if (updateInfo) updateInfo.textContent = '当前版本 v' + ver;
     }
     setVersion();
+    updateBackupTime();
 
     // 手动检查更新（修复：此前 checkUpdate() 未定义，设置页按钮失效）
     // 后端链路：__XJ_API__.checkForUpdates() -> IPC xj:check-updates
@@ -308,8 +309,10 @@ App.initPage({
   };
 
   function updateBackupTime() {
+    const el = document.getElementById('backup-time');
     const t = Store.getSettings().backupLastTime;
-    document.getElementById('backup-time').textContent = t ? '上次备份：' + new Date(t).toLocaleString('zh-CN') : '尚未备份';
+    const txt = t ? '上次备份：' + new Date(t).toLocaleString('zh-CN') : '尚未备份';
+    if (el) el.textContent = txt;
   }
 
   // ---------- 备份设置（多位置容灾 + 邮件提醒） ----------

@@ -67,7 +67,7 @@
   </div></details>
 
   <div class="group"><div class="group-head"><span class="icon"><i data-lucide="database-backup"></i></span>数据管理</div><div class="group-body">
-    <div class="row"><div class="lbl"><div class="t">备份数据</div><div class="d">导出全部数据为 JSON 文件</div></div><button class="btn" onclick="backupData()">导出备份</button></div>
+    <div class="row"><div class="lbl"><div class="t">备份数据</div><div class="d">导出全部数据为 JSON 文件</div></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><button class="btn" onclick="backupData()">导出备份</button><span id="backup-time" style="font-size:11px;color:var(--muted)">尚未备份</span></div></div>
     <div class="row"><div class="lbl"><div class="t">恢复数据</div><div class="d">从 JSON 备份文件导入</div></div><button class="btn" onclick="document.getElementById('restore-file').click()">导入备份</button><input type="file" id="restore-file" accept=".json" style="display:none" onchange="restoreData(event)"></div>
     <div class="row"><div class="lbl"><div class="d" style="line-height:1.6">自动备份已升级为 <strong>智能增量</strong>：仅在数据变化时写入「文档\心镜备份\最新」目录（磁盘占用恒定≈单份），每天至多一份带时间戳快照、最多保留 7 份，<strong>不再产生数 GB 的相同内容冗余备份</strong>。</div></div></div>
     <div class="row"><div class="lbl"><div class="t">我的资料库</div><div class="d" id="userdoc-path">未设置</div><div class="d" id="userdoc-stats" style="margin-top:2px;color:var(--accent)"></div></div><div style="display:flex;gap:8px"><button class="btn" onclick="location.href='knowledge.html'">打开资料库</button><button class="btn" onclick="selectUserDocFolder()">选择文件夹</button></div></div>
