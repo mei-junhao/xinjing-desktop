@@ -59,9 +59,8 @@
   <button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回</button>
   <h2>逐字稿整理</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="transcript-guide.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> 对话引导 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
   <span class="sp"></span>
-  <select id="tp-client" onchange="loadClient()"><option value="">选择来访者…</option></select>
-  <button class="tch-btn" onclick="loadRawText()"><i data-lucide="clipboard-paste"></i>导入文本</button>
-  <button class="tch-btn" onclick="triggerTranscriptFile()"><i data-lucide="upload"></i>上传文件</button>
+      <select id="tp-client" onchange="loadClient()"><option value="">选择来访者…</option></select>
+      <button class="tch-btn" onclick="triggerTranscriptFile()"><i data-lucide="upload"></i>上传文件</button>
   <button class="tch-btn" onclick="goToNotes()"><i data-lucide="notebook-pen"></i>去咨询记录</button>
   <input type="file" id="tp-file" accept=".txt,.md,.markdown,.docx" style="display:none" onchange="onTranscriptFile(event)">
 </div>
@@ -78,7 +77,7 @@
     <div class="tp-col-body" id="original-text">
       <div style="padding:32px;text-align:center;color:var(--ink-3);font-size:13px;line-height:2">
         <div style="font-size:36px;margin-bottom:12px">📝</div>
-        点击「导入文本」粘贴逐字稿<br>
+        点击「上传文件」导入逐字稿<br>
         或选择来访者后载入已有记录
       </div>
     </div>

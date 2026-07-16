@@ -355,7 +355,16 @@
           <div id="cpanel-invoice" style="display:none"></div>
         </div>
         <div class="resizer" id="billing-resizer" style="display:none"></div>
-        <aside class="aidock" id="billing-aidock" style="display:none"></aside>
+        <aside class="aidock" id="billing-aidock" style="display:none">
+          <div style="display:flex;flex-direction:column;height:100%;min-height:0">
+            <div style="padding:12px 14px;border-bottom:1px solid var(--border);font:600 13px var(--sans);color:var(--accent)">🤖 AI 记账助手</div>
+            <div id="aidock-log" style="flex:1;overflow-y:auto;padding:12px 14px;font:12px/1.7 var(--sans);color:var(--ink-2)"></div>
+            <div style="display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border)">
+              <textarea id="billing-ai-input" placeholder="用自然语言描述一笔账目，如：张三 7月3日 咨询 300 已收" style="flex:1;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font:12px var(--sans);resize:none;height:42px;background:var(--bg);color:var(--text)"></textarea>
+              <button onclick="aiBookkeep()" style="border:none;background:var(--accent);color:#fff;border-radius:10px;padding:0 16px;font:600 13px var(--sans);cursor:pointer;white-space:nowrap">发送</button>
+            </div>
+          </div>
+        </aside>
 
         <!-- 三栏布局：收入 | 明细 | 支出 -->
         <div class="dual-billing state-default" id="dual-billing-shell">
@@ -425,6 +434,7 @@
         <!-- Tab 切换 -->
         <div class="import-tabs" id="importTabs">
           <button data-tab="meetings" class="active">腾讯会议</button>
+          <button data-tab="billing">账单数据</button>
         </div>
 
         <!-- Tab：腾讯会议 -->
@@ -444,6 +454,24 @@
           </div>
           <div id="meetings-list"></div>
           <div class="import-result" id="meetings-result"></div>
+        </div>
+
+        <!-- Tab：账单数据（JSON/CSV → Store 幂等导入） -->
+        <div class="import-tab-pane" data-tab="billing" style="display:none">
+          <div class="import-hint">
+            粘贴从旧版心镜导出的账单 JSON（结构 <code>{ "clients":[...], "records":[...] }</code>），或 CSV（首行含「来访者、日期、次数、单价、缴费状态、结算方式」）。<br>
+            系统自动匹配/新建来访者，并幂等写入会谈记录（不会重复导入）。
+          </div>
+          <div class="file-row">
+            <input type="file" id="billing-file" accept=".json,.csv,.txt" />
+            <button class="btn btn-outline btn-sm" onclick="BillingImport.parseFile()">解析文件</button>
+          </div>
+          <textarea id="billing-input" placeholder="或在此粘贴 JSON / CSV 内容…"></textarea>
+          <div class="file-row" style="margin-top:10px">
+            <button class="btn btn-outline btn-sm" onclick="BillingImport.parseText()">解析文本</button>
+          </div>
+          <div id="billing-preview"></div>
+          <div class="import-result" id="billing-result"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -518,7 +546,7 @@
       const fee = (s.billing && Number(s.billing.fee)) || 0;
       if (fee > 0) {
         total += fee;
-        if (s.billing && s.billing.paid) received += fee;
+        if (s.billing && s.billing.paid) received += (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : fee);
       }
     });
     if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
@@ -542,10 +570,10 @@
         const fee = (s.billing && Number(s.billing.fee)) || 0;
         if (fee <= 0) return;
         tRec += fee;
-        if (s.billing && s.billing.paid) tPaid += fee;
+        if (s.billing && s.billing.paid) tPaid += (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : fee);
         if (s.date && s.date.slice(0, 7) === ym) {
           mRec += fee;
-          if (s.billing && s.billing.paid) mPaid += fee;
+          if (s.billing && s.billing.paid) mPaid += (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : fee);
         }
       });
       clients.forEach(function (c) {
@@ -668,7 +696,7 @@
       + '<div class="stat"><b style="color:' + (agg.owe > 0 ? 'var(--danger,#B85450)' : 'inherit') + '">¥' + agg.owe.toLocaleString() + '</b><span>欠费</span></div>'
       + '<div class="stat"><b>¥' + monthPaid.toLocaleString() + '</b><span>本月</span></div>'
       + '</div></div>'
-      + '<div class="quick"><button class="primary" onclick="toggleAddForm()">+ 记一笔</button><button onclick="toggleSettleForm()">月结</button></div>'
+      + '<div class="quick"><button class="primary" onclick="toggleAddForm()">+ 记一笔</button><button onclick="toggleSettleForm()">月结</button><button onclick="showMonthlyBill()">📄 生成账单</button></div>'
       + '<div class="inout-tabs"><button class="active" onclick="inoutFilter=\'all\';renderBDetail()">全部</button><button class="in" onclick="inoutFilter=\'in\';renderBDetail()">💰 收入</button><button class="out" onclick="inoutFilter=\'out\';renderBDetail()">📤 支出</button></div>'
       + '<div class="inline-form" id="b-form-add">'
       + '<div><label>日期<span style="color:var(--muted);font-size:10px"> 可多选</span></label><input type="date" id="bf-date" value="' + App.todayStr() + '" multiple></div>'
@@ -693,7 +721,7 @@
           + '<td>' + App.escapeHtml(s.date || '') + '</td>'
           + '<td class="editable" data-field="sessionNumber" style="cursor:pointer;min-width:50px" title="点击编辑节次">第' + (s.sessionNumber || '?') + '节</td>'
           + '<td class="editable" data-field="fee" style="cursor:pointer;min-width:60px" title="点击编辑费用">¥' + sf.toLocaleString() + '</td>'
-          + '<td class="editable-paid" data-paid="' + (paid ? '1' : '0') + '" style="cursor:pointer;font-weight:600;color:' + (paid ? 'var(--success,#6E7E62)' : 'var(--danger,#B85450)') + '" title="点击切换已收/未收">' + (paid ? '已收' : '未收') + '</td>'
+          + '<td class="editable-paid" data-paid="' + (paid ? '1' : '0') + '" data-amt="' + (paid ? (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : sf) : 0) + '" style="cursor:pointer;font-weight:600;color:' + (paid ? 'var(--success,#6E7E62)' : 'var(--danger,#B85450)') + '" title="点击编辑已收金额（回车=按当前金额标记，清空=未收）">' + (paid ? '已收 ¥' + (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : sf) : '未收') + '</td>'
           + '<td><span class="tag">' + stype + '</span></td></tr>';
       }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">暂无会谈记录</td></tr>')
       + '</tbody></table>'
@@ -1007,12 +1035,89 @@
     closeBForms();
     bCurClient = Store.getClients().find(function (c) { return c.id === bCurClient.id; }) || bCurClient;
     refreshAll();
+    showMonthlyBill(month);
   }
   window.toggleAddForm = toggleAddForm;
   window.toggleSettleForm = toggleSettleForm;
   window.closeBForms = closeBForms;
   window.addRecord = addRecord;
   window.settleMonth = settleMonth;
+
+  // ====== 月结：生成精美账单页（可截图/打印发给来访）======
+  function statCard(v, label) {
+    return '<div style="flex:1;background:#fbf3ea;border:1px solid #efe2d2;border-radius:10px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:700;color:#9E5A3C">' + v + '</div><div style="font-size:11px;color:#9a8a7c;margin-top:2px">' + label + '</div></div>';
+  }
+  function showMonthlyBill(month) {
+    if (!bCurClient) { App.showToast('请先选择来访者', 'warning'); return; }
+    var ym = month || (document.getElementById('bf-month') ? document.getElementById('bf-month').value : new Date().toISOString().slice(0, 7));
+    var c = bCurClient;
+    var sessions = billableSessionsFor(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
+    sessions.sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+    var totalFee = 0, sessionPaid = 0, totalMin = 0;
+    sessions.forEach(function (s) {
+      var fee = (s.billing && Number(s.billing.fee)) || 0;
+      totalFee += fee;
+      if (s.billing && s.billing.paid) sessionPaid += (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : fee);
+      var dm = Number(s.durationMinutes) || 0;
+      if (dm <= 0 && s.startTime && s.endTime) { var ms = new Date(s.endTime) - new Date(s.startTime); if (!isNaN(ms) && ms > 0) dm = Math.round(ms / 60000); }
+      totalMin += dm;
+    });
+    var mpAmount = 0;
+    if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
+      c.billing.monthlyPayments.forEach(function (m) { if (m.month === ym) mpAmount += Number(m.amount) || 0; });
+    }
+    var received = sessionPaid + mpAmount;
+    var receivable = totalFee + mpAmount;
+    var owe = Math.max(0, receivable - received);
+    var hours = totalMin / 60;
+    var rows = sessions.map(function (s, i) {
+      var fee = (s.billing && Number(s.billing.fee)) || 0;
+      var paid = !!(s.billing && s.billing.paid);
+      var paidAmt = paid ? (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : fee) : 0;
+      var dm = Number(s.durationMinutes) || 0;
+      if (dm <= 0 && s.startTime && s.endTime) { var ms = new Date(s.endTime) - new Date(s.startTime); if (!isNaN(ms) && ms > 0) dm = Math.round(ms / 60000); }
+      return '<tr><td style="padding:8px 6px">' + (s.date || '') + '</td><td>第' + (s.sessionNumber || (i + 1)) + '节</td><td>' + (dm > 0 ? (dm / 60).toFixed(1) + ' 小时' : '—') + '</td><td>¥' + fee.toLocaleString() + '</td><td style="color:' + (paid ? '#3f7d5a' : '#b06a47') + '">' + (paid ? '已收 ¥' + paidAmt.toLocaleString() : '未收') + '</td></tr>';
+    }).join('');
+    if (!rows) rows = '<tr><td colspan="5" style="text-align:center;color:#999;padding:14px">本月暂无会谈记录</td></tr>';
+    var billHtml =
+      '<div style="max-width:520px;margin:0 auto;background:#fff;padding:32px 34px;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-family:-apple-system,\'PingFang SC\',\'Microsoft YaHei\',sans-serif;color:#3a2f28">' +
+        '<div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #9E5A3C;padding-bottom:12px;margin-bottom:18px">' +
+          '<div><div style="font-size:20px;font-weight:700;color:#9E5A3C;letter-spacing:1px">心镜 · 咨询账单</div><div style="font-size:12px;color:#9a8a7c;margin-top:4px">XinJing Psychological Counseling</div></div>' +
+          '<div style="font-size:13px;color:#6b5d52;text-align:right">账单月份<br><b style="font-size:16px">' + ym.replace('-', ' 年 ') + ' 月' + '</b></div>' +
+        '</div>' +
+        '<div style="font-size:15px;margin-bottom:4px">尊敬的 <b>' + App.escapeHtml(c.name) + '</b> 女士/先生：</div>' +
+        '<div style="font-size:13px;color:#6b5d52;margin-bottom:18px">以下是您 ' + ym.slice(0, 4) + ' 年 ' + Number(ym.slice(5)) + ' 月的咨询明细，感谢您的信任与同行。</div>' +
+        '<div style="display:flex;gap:10px;margin-bottom:18px">' +
+          statCard(sessions.length + ' 节', '本月咨询') +
+          statCard((hours > 0 ? hours.toFixed(1) + ' 小时' : '—'), '咨询时长') +
+          statCard('¥' + receivable.toLocaleString(), '应收合计') +
+          statCard('¥' + received.toLocaleString(), '已收') +
+        '</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+          '<thead><tr style="color:#9E5A3C;text-align:left;border-bottom:1px solid #e7d8c8">' +
+          '<th style="padding:8px 6px">日期</th><th>节次</th><th>时长</th><th>费用</th><th>状态</th></tr></thead>' +
+          '<tbody>' + rows + '</tbody></table>' +
+        '<div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px solid #e7d8c8;font-size:14px">' +
+          '<span>应收合计：<b>¥' + receivable.toLocaleString() + '</b></span>' +
+          '<span>已收：<b style="color:#3f7d5a">¥' + received.toLocaleString() + '</b></span>' +
+          '<span>待付：<b style="color:#b06a47">¥' + owe.toLocaleString() + '</b></span>' +
+        '</div>' +
+        '<div style="margin-top:18px;font-size:11px;color:#a89a8c;text-align:center;line-height:1.7">本账单由心镜 XinJing 自动生成 · 如有疑问请与咨询师联系<br>截图即具参考价值，正式发票请向咨询师索取</div>' +
+      '</div>';
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'bill-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,22,.55);z-index:10000;display:flex;align-items:center;justify-content:center;overflow:auto;padding:24px';
+    overlay.innerHTML =
+      '<div style="position:relative;max-height:92vh;overflow:auto">' +
+        '<button onclick="this.closest(\'.modal-overlay\').remove()" style="position:absolute;top:-6px;right:-6px;z-index:2;width:34px;height:34px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);font-size:18px;cursor:pointer;color:#6b5d52">×</button>' +
+        billHtml +
+        '<div style="text-align:center;margin-top:14px"><button onclick="window.print()" style="border:none;background:#9E5A3C;color:#fff;border-radius:8px;padding:9px 22px;font:600 13px sans-serif;cursor:pointer">打印 / 存为 PDF</button> <span style="color:#fff;font-size:12px;opacity:.85">提示：截图或打印即可发给来访</span></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  }
+  window.showMonthlyBill = showMonthlyBill;
 
   // ====== 刷新所有 ======
   function refreshAll() {
@@ -1032,16 +1137,31 @@
     if (paidCell && e.target.tagName !== 'INPUT') {
       var sid = paidCell.parentElement.getAttribute('data-sid');
       if (!sid) return;
-      var currPaid = paidCell.getAttribute('data-paid') === '1';
       var session = Store.getSession(sid);
       if (!session) return;
-      var newBilling = Object.assign({}, session.billing || {}, { paid: !currPaid });
-      Store.updateSessionFull(Object.assign({}, session, { billing: newBilling }));
-      paidCell.setAttribute('data-paid', !currPaid ? '1' : '0');
-      paidCell.textContent = !currPaid ? '已收' : '未收';
-      paidCell.style.color = !currPaid ? 'var(--success,#6E7E62)' : 'var(--danger,#B85450)';
-      refreshBillingStats();
-      renderBRail();
+      var b = session.billing || {};
+      var fee0 = Number(b.fee) || 0;
+      var isPaid = !!b.paid;
+      var suggest = isPaid ? (b.paidAmount != null ? Number(b.paidAmount) : fee0) : fee0;
+      paidCell.textContent = '¥';
+      var pin = document.createElement('input');
+      pin.type = 'number'; pin.min = '0'; pin.step = '0.01';
+      pin.value = suggest;
+      pin.style.cssText = 'width:84px;border:1px solid var(--accent);border-radius:6px;padding:3px 6px;font:13px var(--sans);text-align:center;background:var(--paper,#fff);color:var(--text)';
+      paidCell.appendChild(pin);
+      pin.focus(); pin.select();
+      function savePaid() {
+        var amt = Number(pin.value);
+        if (isNaN(amt) || amt < 0) amt = 0;
+        var nb = Object.assign({}, b, { paid: amt > 0, paidAmount: amt > 0 ? amt : 0 });
+        Store.updateSessionFull(Object.assign({}, session, { billing: nb }));
+        renderBDetail(); refreshBillingStats(); renderBRail();
+      }
+      pin.addEventListener('blur', savePaid);
+      pin.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); pin.blur(); }
+        if (ev.key === 'Escape') { renderBDetail(); }
+      });
       e.stopPropagation();
       return;
     }
@@ -1102,7 +1222,7 @@
     var ws = document.getElementById('billing-ws');
     if (dock.style.display === 'none') {
       dock.style.display = '';
-      ws.style.gridTemplateColumns = '280px 1fr 6px var(--dock-w)';
+      ws.style.gridTemplateColumns = '280px 1fr 6px 320px';
     } else {
       dock.style.display = 'none';
       ws.style.gridTemplateColumns = '280px 1fr 0 0';
@@ -1111,6 +1231,28 @@
   window.toggleAiDock = toggleAiDock;
   function focusAi() { toggleAiDock(); if (document.getElementById('billing-aidock').style.display !== 'none') document.getElementById('billing-ai-input').focus(); }
   window.focusAi = focusAi;
+
+  // ====== AI 记账：自然语言描述 → AI 结构化确认 ======
+  window.aiBookkeep = function () {
+    var ta = document.getElementById('billing-ai-input');
+    var log = document.getElementById('aidock-log');
+    if (!ta || !log) return;
+    var text = ta.value.trim();
+    if (!text) return;
+    if (typeof AI === 'undefined' || !AI.send) { App.showToast('AI 模块未就绪', 'error'); return; }
+    log.innerHTML += '<div style="margin-bottom:8px"><span style="color:var(--accent);font-weight:600">你：</span>' + App.escapeHtml(text) + '</div>';
+    ta.value = '';
+    log.scrollTop = log.scrollHeight;
+    App.showToast('AI 记账中…', 'info');
+    var sys = '你是心理咨询师的记账助手。根据用户用自然语言描述的账目，提取结构化信息并简要确认：来访者姓名、日期、节次、费用、是否已收。用简洁中文回复，不要废话。';
+    try {
+      AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+        var reply = (res && res.content) ? res.content : '（AI 无响应）';
+        log.innerHTML += '<div style="margin-bottom:10px"><span style="color:var(--success,#6E7E62);font-weight:600">AI：</span>' + App.escapeHtml(reply) + '</div>';
+        log.scrollTop = log.scrollHeight;
+      });
+    } catch (e) { log.innerHTML += '<div style="color:var(--danger,#B85450)">AI 调用出错：' + App.escapeHtml(e.message || e) + '</div>'; }
+  };
 
   // ====== 清除数据（仅账单，不删督导/对话/设置）======
   window.confirmClearData = function () {
@@ -1215,12 +1357,12 @@
 
   // ── 打开导入 modal ──
   function openImport() {
-    document.getElementById('billing-input').value = '';
-    document.getElementById('meetings-json').value = '';
-    document.getElementById('import-json').value = '';
-    document.getElementById('billing-preview').innerHTML = '';
-    document.getElementById('meetings-list').innerHTML = '';
-    ['billing-result', 'meetings-result', 'import-result'].forEach(id => document.getElementById(id).textContent = '');
+    ['billing-input', 'meetings-json', 'billing-preview', 'meetings-list'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) { if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.value = ''; else el.innerHTML = ''; }
+    });
+    ['billing-result', 'meetings-result'].forEach(function (id) { var el = document.getElementById(id); if (el) el.textContent = ''; });
+    var bf = document.getElementById('billing-file'); if (bf) bf.value = '';
     BillingImport.reset();
     MeetingsImport.reset();
     switchImportTab('billing');
@@ -1657,6 +1799,7 @@
     confirm: function () {
       let ok = false;
       if (this.currentTab === 'meetings') ok = MeetingsImport.importSelected();
+      else if (this.currentTab === 'billing') ok = BillingImport.doImport();
       if (ok) {
         // 刷新原生三栏视图，无 iframe
         refreshAll();

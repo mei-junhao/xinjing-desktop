@@ -331,10 +331,26 @@
     return fname;
   };
 
-  // 保存：导出为本地 Word 文档
+  // 保存：弹出保存对话框，写到用户选择的真实路径并如实告知
   window.onSaveReport = function () {
-    var f = exportWord();
-    App.showToast('报告已保存为 Word 文档：' + f, 'success');
+    var secs = getSections();
+    var body = '<h1>案例报告</h1>';
+    var client = currentClientId ? Store.getClient(currentClientId) : null;
+    if (client) body += '<p><strong>来访者：</strong>' + App.escapeHtml(client.name) + '（化名）</p>';
+    secs.forEach(function (sec, i) {
+      var val = stepData[i] || '';
+      if (val.trim()) {
+        body += '<h2>' + (i + 1) + '. ' + App.escapeHtml(sec.title) + '</h2>';
+        body += '<p>' + App.escapeHtml(val).replace(/\n/g, '<br>') + '</p>';
+      }
+    });
+    var fname = (client ? client.name : 'report') + '_案例报告.doc';
+    App.saveReportFile(fname, body).then(function (r) {
+      if (!r) { App.showToast('保存失败', 'error'); return; }
+      if (r.canceled) { App.showToast('已取消保存', 'info'); return; }
+      if (r.error) { App.showToast('保存失败：' + r.error, 'error'); return; }
+      App.showToast('报告已保存：' + r.path, 'success');
+    });
   };
 
   // 开始 AI 督导：先保存 Word，再携带报告跳转督导页

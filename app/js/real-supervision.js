@@ -5,13 +5,19 @@
   var records = [];
   var currentRecordId = null;
 
-  // 来访者列表
+  // 来访者列表（Store 就绪后再填充，并支持深链 ?clientId / ?client 自动关联）
   var selClient = document.getElementById('rs-client');
-  Store.getClients().forEach(function (c) {
-    var opt = document.createElement('option');
-    opt.value = c.id; opt.textContent = c.name;
-    selClient.appendChild(opt);
-  });
+  function fillClientSelect() {
+    if (!selClient) return;
+    var keep = selClient.value;
+    selClient.innerHTML = '<option value="">选择来访者…</option>';
+    Store.getClients().forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.name;
+      selClient.appendChild(opt);
+    });
+    if (keep) selClient.value = keep;
+  }
 
   function loadRecords() {
     try { records = Store.getSupervisions() || []; } catch (e) { records = []; }
@@ -220,5 +226,22 @@
   };
 
   // 初始化
-  loadRecords();
+  fillClientSelect();
+  function initRS() {
+    fillClientSelect();
+    loadRecords();
+    var params = new URLSearchParams(location.search);
+    var cid = params.get('clientId') || params.get('client');
+    if (cid && Store.getClient(cid)) {
+      selClient.value = cid;
+      currentClientId = cid;
+      loadClientRecords();
+      App.showToast('已自动关联来访者：' + (Store.getClient(cid).name || ''), 'success');
+    }
+  }
+  if (window.Store && typeof Store.hydrate === 'function') {
+    Store.hydrate().then(initRS).catch(initRS);
+  } else {
+    initRS();
+  }
 })();

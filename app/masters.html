@@ -80,13 +80,13 @@
           <div class="chat-body" id="chat-body">
             <div class="empty-state"><i data-lucide="messages-square"></i><strong>把一个临床问题带到桌面上</strong><span>先选择大师，再输入你正在思考的材料</span></div>
           </div>
-          <form class="chat-input" id="chat-composer" onsubmit="event.preventDefault(); sendMessage()">
+          <form class="chat-input" id="chat-composer" onsubmit="event.preventDefault(); sendMessage()" style="display:none">
             <button class="masters-icon-btn composer-tool" id="btn-use-docs" type="button" title="切换本次是否引用我的资料" aria-label="切换本次是否引用我的资料" aria-pressed="true"><i data-lucide="paperclip"></i></button>
             <button class="masters-icon-btn composer-tool" id="btn-mention" type="button" title="在消息中插入 @" aria-label="在消息中插入 @"><i data-lucide="at-sign"></i></button>
             <textarea id="msg-input" placeholder="继续追问，输入 @大师 可指定发言" disabled rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing&&event.keyCode!==229){event.preventDefault();sendMessage()}" aria-label="消息"></textarea>
             <button class="send-btn" id="send-btn" type="submit" disabled title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
           </form>
-          <div class="lock-overlay hidden" id="ai-lock">
+          <div class="lock-overlay hidden" id="ai-lock" style="display:none">
             <div class="lock-icon"><i data-lucide="lock-keyhole"></i></div>
             <strong>AI 大师对话需要激活</strong>
             <span>试用期内可使用。授权过期后，请到设置完成激活。</span>

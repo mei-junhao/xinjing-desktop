@@ -745,7 +745,7 @@ function createWindow() {
     const parentVisible = !!(mainWindow && mainWindow.isVisible());
     closeConfirmWin = new BrowserWindow({
       width: 360,
-      height: 252,
+      height: 300,
       parent: parentVisible ? mainWindow : undefined,
       modal: parentVisible,
       frame: false,
@@ -1578,6 +1578,23 @@ ipcMain.on('xj:closeDecision', (ev, action) => {
   } else {
     exportBackup();   // 后台常驻前导出一份数据备份（落盘到文档/心镜备份 + 自定义位置）
     if (mainWindow) mainWindow.hide();   // 后台常驻
+  }
+});
+
+// 报告/文档保存到用户选择的路径（保存对话框），返回真实路径
+ipcMain.handle('xj:saveFileAs', async (ev, opts) => {
+  const { filename, content, mime } = opts || {};
+  try {
+    if (!mainWindow) return { error: '窗口未就绪' };
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: filename || 'report.doc',
+      filters: [{ name: 'Word 文档', extensions: ['doc'] }]
+    });
+    if (canceled || !filePath) return { canceled: true };
+    fs.writeFileSync(filePath, content, 'utf-8');
+    return { canceled: false, path: filePath };
+  } catch (e) {
+    return { error: (e && e.message) || String(e) };
   }
 });
 

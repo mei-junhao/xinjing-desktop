@@ -680,6 +680,26 @@ const App = (() => {
     downloadFile(filename, html, 'application/msword');
   }
 
+  // 保存报告到用户选择的路径（经主进程保存对话框），返回真实路径
+  function saveReportFile(filename, bodyHtml) {
+    var html = wordDocShell(filename, bodyHtml || '');
+    return new Promise(function (resolve) {
+      try {
+        if (window.__XJ_API__ && typeof window.__XJ_API__.saveFileAs === 'function') {
+          window.__XJ_API__.saveFileAs({ filename: filename, content: html, mime: 'application/msword' })
+            .then(function (r) { resolve(r || { error: '无返回' }); })
+            .catch(function (e) { resolve({ error: (e && e.message) || '保存失败' }); });
+        } else {
+          downloadFile(filename, html, 'application/msword');
+          resolve({ path: '下载文件夹', filename: filename });
+        }
+      } catch (e) {
+        try { downloadFile(filename, html, 'application/msword'); } catch (_) {}
+        resolve({ path: '下载文件夹', filename: filename });
+      }
+    });
+  }
+
   // 轻量 Markdown → Word 友好 HTML（# / ## / ###、**粗体** / *斜体* / 列表 / 表格）
   function mdToWordHtml(md) {
     if (!md) return '';
@@ -928,6 +948,7 @@ const App = (() => {
     confirmDialog,
     downloadFile,
     exportWordDoc,
+    saveReportFile,
     mdToWordHtml,
     enableDragDrop,
     readFileAsText,

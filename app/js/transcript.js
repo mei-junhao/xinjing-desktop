@@ -23,24 +23,29 @@
     document.getElementById('mem-count').textContent = memRules.length + ' 条规则';
   }
 
-  // 来访者列表
+  // 来访者列表（在 Store 就绪后再填充，避免下拉为空）
   var selClient = document.getElementById('tp-client');
-  Store.getClients().forEach(function (c) {
-    var opt = document.createElement('option');
-    opt.value = c.id; opt.textContent = c.name;
-    selClient.appendChild(opt);
-  });
+  function fillClientSelect() {
+    if (!selClient) return;
+    var keep = selClient.value;
+    selClient.innerHTML = '<option value="">选择来访者…</option>';
+    Store.getClients().forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.id; opt.textContent = c.name;
+      selClient.appendChild(opt);
+    });
+    if (keep) selClient.value = keep;
+  }
+  fillClientSelect();
+  if (window.Store && typeof Store.hydrate === 'function') {
+    Store.hydrate().then(fillClientSelect).catch(function () { fillClientSelect(); });
+  }
 
   window.loadClient = function () {
     currentClientId = selClient.value || null;
     if (!currentClientId) return;
     var c = Store.getClient(currentClientId);
     App.showToast('已选择 ' + c.name, 'success');
-  };
-
-  window.loadRawText = function () {
-    document.getElementById('tp-input').focus();
-    document.getElementById('tp-input').placeholder = '粘贴逐字稿文本（每行一个对话轮次，如 "T: 你好" 或 "P: 我今天感觉……"）…';
   };
 
   // 一键上传文件（txt / md / docx）→ 解析后填入输入框

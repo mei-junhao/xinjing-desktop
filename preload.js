@@ -54,6 +54,7 @@ const api = {
     return () => ipcRenderer.removeListener('xj:ragProgress', handler);
   },
   openExternal: (url) => ipcRenderer.invoke('xj:openExternal', url),
+  saveFileAs: (opts) => ipcRenderer.invoke('xj:saveFileAs', opts),
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];
