@@ -1,6 +1,17 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, nativeImage, dialog, ipcMain, shell, safeStorage } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  Tray,
+  Menu,
+  nativeImage,
+  dialog,
+  ipcMain,
+  shell,
+  safeStorage,
+  autoUpdater: electronAutoUpdater
+} = require('electron');
 const { autoUpdater } = require('electron-updater');
 const license = require('./license-core');
 const http = require('http');
@@ -145,6 +156,29 @@ let PORT = 0;
 let activationWindow = null;
 let closeConfirmWin = null;
 let licenseState = null; // {mode, identity, daysLeft, activated, trialDays, version}
+let lastQuitBackupAt = 0;
+
+function allowAppQuit(reason) {
+  app.isQuiting = true;
+  app.quitReason = reason || 'manual';
+  if (closeConfirmWin) {
+    try { closeConfirmWin.close(); } catch (_) {}
+    closeConfirmWin = null;
+  }
+}
+
+function backupBeforeQuit() {
+  const now = Date.now();
+  // Multiple Electron/updater quit events can arrive in one shutdown sequence.
+  if (now - lastQuitBackupAt < 10000) return;
+  lastQuitBackupAt = now;
+  exportBackup();
+}
+
+function prepareAppQuit(reason) {
+  backupBeforeQuit();
+  allowAppQuit(reason);
+}
 
 // ---- 授权与试用状态 ----
 function userDataDir() { return app.getPath('userData'); }
@@ -156,6 +190,25 @@ function loadBackupConfig() {
     if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8')) || {};
   } catch (e) { /* ignore */ }
   return { locations: [], email: '', emailEnabled: false };
+}
+
+const BACKUP_IGNORED_TOP_LEVEL = new Set([
+  'Cache',
+  'Code Cache',
+  'GPUCache',
+  'DawnCache',
+  'Shared Dictionary'
+]);
+
+function copyUserDataBackup(src, dest) {
+  fs.cpSync(src, dest, {
+    recursive: true,
+    filter: (entry) => {
+      const relative = path.relative(src, entry);
+      if (!relative) return true;
+      return !BACKUP_IGNORED_TOP_LEVEL.has(relative.split(path.sep)[0]);
+    }
+  });
 }
 
 // 导出当前用户数据到「文档/心镜备份」+ 用户自定义多位置（多份容灾），用于退出/常驻时备份
@@ -171,7 +224,7 @@ function exportBackup() {
       const docs = app.getPath('documents');
       const def = path.join(docs, '心镜备份', 'XinJing-' + ts);
       fs.mkdirSync(path.dirname(def), { recursive: true });
-      fs.cpSync(src, def, { recursive: true });
+      copyUserDataBackup(src, def);
       targets.push(def);
     } catch (e) { console.error('[backup] 默认位置失败:', (e && e.message) || e); }
 
@@ -185,7 +238,7 @@ function exportBackup() {
         if (!st.isDirectory()) { console.warn('[backup] 跳过无效备份位置（非目录）:', loc); return; }
         const d = path.join(loc, 'XinJing-' + ts);
         fs.mkdirSync(path.dirname(d), { recursive: true });
-        fs.cpSync(src, d, { recursive: true });
+        copyUserDataBackup(src, d);
         targets.push(d);
       } catch (e) { console.error('[backup] 自定义位置失败:', loc, (e && e.message) || e); }
     });
@@ -612,8 +665,7 @@ function createTray() {
     {
       label: '退出',
       click: () => {
-        exportBackup();   // 托盘「退出」也是完全退出，同样先备份
-        app.isQuiting = true;
+        prepareAppQuit('tray-quit');
         app.quit();
       }
     }
@@ -695,7 +747,7 @@ function setupAutoUpdater() {
         fsMod.writeFileSync(bat, BOM + lines.join('\r\n') + '\r\n');
         const child = spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true });
         child.unref();
-        app.isQuiting = true;
+        prepareAppQuit('portable-update-install');
         app.quit();
         return true;
       } catch (e) {
@@ -723,7 +775,15 @@ function setupAutoUpdater() {
     });
   });
 
-  autoUpdater.on('update-not-available', () => { /* 已是最新，静默 */ });
+  autoUpdater.on('update-not-available', () => {
+    if (_xjChecking && mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: '检查更新',
+        message: '已是最新版本 v' + app.getVersion() + '。'
+      });
+    }
+  });
 
   autoUpdater.on('update-downloaded', () => {
     if (!mainWindow) return;
@@ -735,8 +795,18 @@ function setupAutoUpdater() {
       cancelId: 1,
       defaultId: 0
     }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall();
+      if (response === 0) {
+        // electron-updater starts NSIS before it asks Electron to quit. Finish the
+        // synchronous data backup first so the installer does not mistake that
+        // work for an application that refuses to close.
+        backupBeforeQuit();
+        autoUpdater.quitAndInstall();
+      }
     });
+  });
+
+  electronAutoUpdater.on('before-quit-for-update', () => {
+    prepareAppQuit('auto-update-install');
   });
 
   autoUpdater.on('error', (err) => {
@@ -765,17 +835,12 @@ function checkForUpdatesManual() {
 let _xjChecking = false;
 function checkForUpdatesFromRenderer() {
   if (_xjChecking) return;
-  if (!autoUpdater || typeof autoUpdater.checkForUpdates !== 'function') {
+  if (!app.isPackaged || !autoUpdater || typeof autoUpdater.checkForUpdates !== 'function') {
     if (mainWindow) dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '当前环境不支持自动更新（开发模式）。' });
     return;
   }
   _xjChecking = true;
   autoUpdater.checkForUpdates()
-    .then((res) => {
-      if (!res && mainWindow) {
-        dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '已是最新版本 v' + app.getVersion() + '。' });
-      }
-    })
     .catch(() => {
       if (mainWindow) dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '暂时无法连接更新服务器，请检查网络后重试。' });
     })
@@ -1377,11 +1442,11 @@ ipcMain.on('xj:closeDecision', (ev, action) => {
     // 取消退出：仅关闭确认窗，主窗口保持原样打开，不隐藏、不退
     return;
   }
-  exportBackup();   // 完全退出 / 后台常驻 都先导出一份数据备份（落盘到文档/心镜备份 + 自定义位置）
   if (action === 'quit') {
-    app.isQuiting = true;
+    prepareAppQuit('confirm-quit');
     app.quit();
   } else {
+    exportBackup();   // 后台常驻前导出一份数据备份（落盘到文档/心镜备份 + 自定义位置）
     if (mainWindow) mainWindow.hide();   // 后台常驻
   }
 });
@@ -1472,9 +1537,11 @@ ipcMain.handle('xj:cloud-activate', async (e, code) => {
   return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, source: 'cloud' };
 });
 
-ipcMain.handle('xj:openExternal', (e, url) => {
+ipcMain.handle('xj:openExternal', async (e, url) => {
   try {
-    shell.openExternal(url);
+    const parsed = new URL(String(url || ''));
+    if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) return false;
+    await shell.openExternal(parsed.toString());
     return true;
   } catch (err) {
     return false;
@@ -1503,9 +1570,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
-  app.isQuiting = true;
-  // 退出前强制备份用户数据（含 IndexedDB/激活/日记），避免重启/关机导致数据无挽回
-  try { exportBackup(); } catch (e) { console.error('[backup] before-quit failed:', (e && e.message) || e); }
+  prepareAppQuit(app.quitReason || 'before-quit');
   if (server) {
     try { server.close(); } catch (e) { /* ignore */ }
   }

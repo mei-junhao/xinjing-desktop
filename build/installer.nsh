@@ -9,8 +9,19 @@
 
 !macro customCheckAppRunning
   ${if} ${isUpdated}
-    # 更新模式：先给应用一点时间自行退出（自动更新时应用常常正在关闭）
-    Sleep 1500
+    # electron-updater 会先启动 NSIS，再通知 Electron 退出。数据备份或 Chromium
+    # 收尾较慢时，短暂存在进程是正常现象；最多等待 15 秒再要求人工干预。
+    StrCpy $R5 0
+    xjWaitForAppExit:
+      Sleep 1000
+      !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
+      ${if} $R0 != 0
+        Goto xjAppNotRunning
+      ${endIf}
+      IntOp $R5 $R5 + 1
+      ${if} $R5 < 15
+        Goto xjWaitForAppExit
+      ${endIf}
   ${endIf}
 
   !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
@@ -69,8 +80,12 @@
     StrCpy $R2 "$INSTDIR"
   ${endIf}
 
-  ; 安全校验：目录须像心镜安装目录（含主程序或 resources\app.asar），避免误删无关目录
-  ${if} ${FileExists} "$R2\${APP_EXECUTABLE_FILENAME}"
+  ; 只有确认目录已不存在，才允许删除卸载注册表项。否则保留注册表并交回
+  ; electron-builder 的标准卸载流程，避免“目录未删净但卸载信息先丢失”。
+  StrCpy $R4 0
+  ${ifNot} ${FileExists} "$R2\*.*"
+    StrCpy $R4 1
+  ${elseIf} ${FileExists} "$R2\${APP_EXECUTABLE_FILENAME}"
   ${orIf} ${FileExists} "$R2\resources\app.asar"
     DetailPrint `正在清理旧版本安装目录：$R2`
     ; 给刚退出进程后的外部句柄（Defender 扫描等）时间释放，最多重试 3 次
@@ -87,10 +102,17 @@
         Goto xjRmRetry
       ${endIf}
     xjRmDone:
+    ${ifNot} ${FileExists} "$R2\*.*"
+      StrCpy $R4 1
+    ${endIf}
   ${endIf}
 
-  ; 删除卸载注册表项，使 uninstallOldVersion 跳过旧卸载器（全新安装结束时会重新写回）
-  DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
+  ${if} $R4 == 1
+    ; 旧目录已清理，删除卸载项以跳过脆弱的旧卸载器；安装结束会重新写回。
+    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
+  ${else}
+    DetailPrint `旧版本目录未完全清理，保留卸载信息并回退到标准卸载流程。`
+  ${endIf}
   ClearErrors
 
   xjSelfHealDone:

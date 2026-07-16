@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="心镜多大师对话桌面端四套界面方案">
+  <title>心镜 | 多大师对话 UI 方案</title>
+  <link rel="stylesheet" href="masters-ui-options.css">
+</head>
+<body>
+  <header class="review-bar">
+    <div class="review-brand">
+      <img src="../app/vendor/xinjing-mark.png" alt="心镜">
+      <span>多大师对话</span>
+    </div>
+    <nav class="variant-switch" aria-label="界面方案">
+      <button class="active" type="button" data-version="1"><span>01</span> 网页原貌</button>
+      <button type="button" data-version="2"><span>02</span> 桌面三栏 <b>推荐</b></button>
+      <button type="button" data-version="3"><span>03</span> 圆桌剧场</button>
+      <button type="button" data-version="4"><span>04</span> 临床工作台</button>
+    </nav>
+    <div class="review-actions">
+      <button class="icon-button" type="button" data-action="toggle-density" title="切换紧凑度" aria-label="切换紧凑度"><i data-lucide="rows-3"></i></button>
+      <button class="icon-button" type="button" data-action="toggle-theme" title="切换深色模式" aria-label="切换深色模式"><i data-lucide="moon"></i></button>
+    </div>
+  </header>
+
+  <main class="preview-stage">
+    <section class="concept active" data-concept="1" aria-label="网页原貌方案">
+      <div class="v1-shell app-shell">
+        <aside class="v1-history side-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">对话历史</span>
+              <strong>圆桌记录</strong>
+            </div>
+            <button class="icon-button" type="button" title="新对话" aria-label="新对话"><i data-lucide="square-pen"></i></button>
+          </div>
+          <label class="search-field">
+            <i data-lucide="search"></i>
+            <input type="search" placeholder="搜索记录" aria-label="搜索记录">
+          </label>
+          <div class="history-list">
+            <button class="history-row active" type="button">
+              <span class="history-title">反复迟到背后的关系邀请</span>
+              <span class="history-meta">今天 17:42 · 18 条</span>
+            </button>
+            <button class="history-row" type="button">
+              <span class="history-title">抱持与设置界限</span>
+              <span class="history-meta">7月15日 · 24 条</span>
+            </button>
+            <button class="history-row" type="button">
+              <span class="history-title">沉默中的移情压力</span>
+              <span class="history-meta">7月12日 · 11 条</span>
+            </button>
+            <button class="history-row" type="button">
+              <span class="history-title">咨询师的拯救冲动</span>
+              <span class="history-meta">7月8日 · 16 条</span>
+            </button>
+          </div>
+          <div class="privacy-note"><i data-lucide="hard-drive"></i><span>本机保存</span></div>
+        </aside>
+
+        <article class="v1-web-stage">
+          <header class="web-header">
+            <button class="icon-button" type="button" title="返回" aria-label="返回"><i data-lucide="arrow-left"></i></button>
+            <div>
+              <h1>圆桌会议室</h1>
+              <p>四位大师正在讨论</p>
+            </div>
+            <button class="icon-button" type="button" title="更多设置" aria-label="更多设置"><i data-lucide="sliders-horizontal"></i></button>
+          </header>
+          <div class="web-avatar-bar" aria-label="在场大师">
+            <button class="web-avatar active" type="button"><span class="avatar av-w">温</span><small>温尼科特</small></button>
+            <button class="web-avatar active" type="button"><span class="avatar av-b">比</span><small>比昂</small></button>
+            <button class="web-avatar active" type="button"><span class="avatar av-r">罗</span><small>罗杰斯</small></button>
+            <button class="web-avatar active" type="button"><span class="avatar av-y">亚</span><small>亚隆</small></button>
+            <button class="web-avatar add-master" type="button" title="邀请大师" aria-label="邀请大师"><i data-lucide="plus"></i><small>邀请</small></button>
+          </div>
+          <div class="web-toolbar">
+            <div class="segmented compact-segmented">
+              <button class="active" type="button">全体回应</button>
+              <button type="button">仅 @ 回应</button>
+            </div>
+            <button class="text-action" type="button"><i data-lucide="file-down"></i>导出</button>
+            <button class="icon-button" type="button" title="字体大小" aria-label="字体大小"><i data-lucide="type"></i></button>
+          </div>
+          <div class="conversation-thread" data-thread>
+            <div class="topic-divider"><span>关系中的迟到</span></div>
+            <div class="message user-message">
+              <div class="bubble">来访者连续三次迟到，却在结束时强烈要求延长。我发现自己既生气又想补偿她。</div>
+            </div>
+            <div class="message master-message">
+              <span class="avatar av-w">温</span>
+              <div class="message-body"><div class="message-meta"><strong>温尼科特</strong><time>17:42</time></div><div class="bubble">也许迟到和要求延长共同构成了一次试探。她在问：当我没有按时出现，你还会为我保留位置吗？先容纳你的生气，不急着把它变成补偿。</div></div>
+            </div>
+            <div class="message master-message">
+              <span class="avatar av-b">比</span>
+              <div class="message-body"><div class="message-meta"><strong>比昂</strong><time>17:43</time></div><div class="bubble">你的愤怒可能是她无法思考的时间感，被放进了你这里。问题不是消除它，而是你能否先替这份混乱思考。</div></div>
+            </div>
+            <div class="message master-message">
+              <span class="avatar av-r">罗</span>
+              <div class="message-body"><div class="message-meta"><strong>罗杰斯</strong><time>17:43</time></div><div class="bubble">我会留意你在生气之后立刻出现的补偿冲动。此刻，你是否也担心自己的不悦会伤害关系？</div></div>
+            </div>
+          </div>
+          <form class="composer" data-composer>
+            <textarea rows="1" placeholder="继续讨论，输入 @大师 可指定发言" aria-label="消息"></textarea>
+            <button class="send-button" type="submit" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
+          </form>
+        </article>
+
+        <aside class="v1-participants side-panel">
+          <div class="panel-heading">
+            <div><span class="eyebrow">当前圆桌</span><strong>4 位大师</strong></div>
+            <button class="icon-button" type="button" title="管理成员" aria-label="管理成员"><i data-lucide="users"></i></button>
+          </div>
+          <div class="participant-list">
+            <button class="participant-row active" type="button"><span class="avatar av-w">温</span><span><strong>温尼科特</strong><small>独立学派</small></span><i data-lucide="check"></i></button>
+            <button class="participant-row active" type="button"><span class="avatar av-b">比</span><span><strong>比昂</strong><small>后克莱因学派</small></span><i data-lucide="check"></i></button>
+            <button class="participant-row active" type="button"><span class="avatar av-r">罗</span><span><strong>罗杰斯</strong><small>人本主义</small></span><i data-lucide="check"></i></button>
+            <button class="participant-row active" type="button"><span class="avatar av-y">亚</span><span><strong>亚隆</strong><small>存在主义</small></span><i data-lucide="check"></i></button>
+          </div>
+          <div class="insight-block">
+            <div class="insight-title"><i data-lucide="bookmark"></i><span>本轮焦点</span></div>
+            <p>迟到是否在测试关系能够承受多少破坏。</p>
+          </div>
+          <div class="setting-lines">
+            <label><span>回应深度</span><input type="range" min="0" max="100" value="68"></label>
+            <label><span>讨论轮次</span><select><option>2 轮</option><option>1 轮</option><option>3 轮</option></select></label>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="concept" data-concept="2" aria-label="桌面三栏方案">
+      <div class="v2-shell app-shell">
+        <aside class="v2-master-rail">
+          <div class="workspace-title">
+            <button class="icon-button" type="button" title="返回工作台" aria-label="返回工作台"><i data-lucide="panel-left"></i></button>
+            <div><h1>大师对话</h1><p>圆桌模式</p></div>
+            <button class="icon-button" type="button" title="新对话" aria-label="新对话"><i data-lucide="square-pen"></i></button>
+          </div>
+          <div class="segmented mode-switch">
+            <button type="button">一对一</button>
+            <button class="active" type="button">圆桌</button>
+          </div>
+          <label class="search-field"><i data-lucide="search"></i><input type="search" placeholder="搜索大师" aria-label="搜索大师"></label>
+          <div class="master-list">
+            <button class="master-row selected" type="button"><span class="avatar av-w">温</span><span><strong>温尼科特</strong><small>抱持与客体使用</small></span><i data-lucide="check"></i></button>
+            <button class="master-row" type="button"><span class="avatar av-l">拉</span><span><strong>拉康</strong><small>欲望与能指</small></span><i data-lucide="plus"></i></button>
+            <button class="master-row selected" type="button"><span class="avatar av-b">比</span><span><strong>比昂</strong><small>容器与思考</small></span><i data-lucide="check"></i></button>
+            <button class="master-row selected" type="button"><span class="avatar av-r">罗</span><span><strong>罗杰斯</strong><small>共情与一致</small></span><i data-lucide="check"></i></button>
+            <button class="master-row" type="button"><span class="avatar av-k">克</span><span><strong>克莱因</strong><small>投射性认同</small></span><i data-lucide="plus"></i></button>
+            <button class="master-row selected" type="button"><span class="avatar av-y">亚</span><span><strong>亚隆</strong><small>此时此地</small></span><i data-lucide="check"></i></button>
+            <button class="master-row" type="button"><span class="avatar av-f">弗</span><span><strong>弗洛伊德</strong><small>移情与阻抗</small></span><i data-lucide="plus"></i></button>
+          </div>
+          <div class="rail-footer"><span>已选 4 位</span><button type="button">清除</button></div>
+        </aside>
+
+        <article class="v2-main">
+          <header class="desktop-chat-header">
+            <div><h2>反复迟到背后的关系邀请</h2><p>今天 17:42 创建</p></div>
+            <div class="header-tools">
+              <div class="presence-stack" aria-label="参与大师"><span class="avatar av-w">温</span><span class="avatar av-b">比</span><span class="avatar av-r">罗</span><span class="avatar av-y">亚</span></div>
+              <button class="icon-button" type="button" title="导出" aria-label="导出"><i data-lucide="file-down"></i></button>
+              <button class="icon-button" type="button" title="更多" aria-label="更多"><i data-lucide="ellipsis"></i></button>
+            </div>
+          </header>
+          <div class="desktop-subbar">
+            <div class="status-copy"><i data-lucide="circle-check"></i><span>已保存到本机</span></div>
+            <div class="subbar-controls">
+              <label><span>交心</span><input type="range" min="0" max="100" value="62"><span>教学</span></label>
+              <label><span>简洁</span><input type="range" min="0" max="100" value="54"><span>详尽</span></label>
+            </div>
+          </div>
+          <div class="conversation-thread desktop-thread" data-thread>
+            <div class="topic-divider"><span>关系中的迟到</span></div>
+            <div class="message user-message wide-user"><div class="bubble">来访者连续三次迟到，却在结束时强烈要求延长。我发现自己既生气又想补偿她。</div></div>
+            <div class="message master-message"><span class="avatar av-w">温</span><div class="message-body"><div class="message-meta"><strong>温尼科特</strong><time>17:42</time></div><div class="bubble">也许迟到和要求延长共同构成了一次试探。她在问：当我没有按时出现，你还会为我保留位置吗？</div><div class="message-actions"><button type="button"><i data-lucide="quote"></i>引用</button><button type="button"><i data-lucide="bookmark"></i>保存观点</button></div></div></div>
+            <div class="message master-message"><span class="avatar av-b">比</span><div class="message-body"><div class="message-meta"><strong>比昂</strong><time>17:43</time></div><div class="bubble">你的愤怒可能是她无法思考的时间感，被放进了你这里。问题不是消除它，而是你能否先替这份混乱思考。</div><div class="message-actions"><button type="button"><i data-lucide="quote"></i>引用</button><button type="button"><i data-lucide="bookmark"></i>保存观点</button></div></div></div>
+            <div class="message master-message"><span class="avatar av-r">罗</span><div class="message-body"><div class="message-meta"><strong>罗杰斯</strong><time>17:43</time></div><div class="bubble">你在生气之后立刻出现补偿冲动。你是否担心，自己的不悦会破坏这段关系？</div></div></div>
+          </div>
+          <form class="composer desktop-composer" data-composer>
+            <div class="composer-tools">
+              <button class="icon-button" type="button" title="引用资料" aria-label="引用资料"><i data-lucide="paperclip"></i></button>
+              <button class="icon-button" type="button" title="指定大师" aria-label="指定大师"><i data-lucide="at-sign"></i></button>
+            </div>
+            <textarea rows="1" placeholder="继续讨论，输入 @大师 可指定发言" aria-label="消息"></textarea>
+            <button class="send-button" type="submit" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
+          </form>
+        </article>
+
+        <aside class="v2-history-rail">
+          <div class="rail-tabs" role="tablist">
+            <button class="active" type="button">记录</button>
+            <button type="button">观点</button>
+          </div>
+          <div class="rail-section">
+            <div class="rail-section-title"><span>今天</span><button class="icon-button" type="button" title="筛选" aria-label="筛选"><i data-lucide="list-filter"></i></button></div>
+            <button class="conversation-row active" type="button"><strong>反复迟到背后的关系邀请</strong><span>4 位大师 · 18 条</span></button>
+            <button class="conversation-row" type="button"><strong>抱持与设置界限</strong><span>3 位大师 · 24 条</span></button>
+          </div>
+          <div class="rail-section">
+            <div class="rail-section-title"><span>本周</span></div>
+            <button class="conversation-row" type="button"><strong>沉默中的移情压力</strong><span>2 位大师 · 11 条</span></button>
+            <button class="conversation-row" type="button"><strong>咨询师的拯救冲动</strong><span>4 位大师 · 16 条</span></button>
+          </div>
+          <div class="summary-panel">
+            <div class="summary-heading"><i data-lucide="sparkles"></i><span>对话摘要</span></div>
+            <p>讨论集中在关系测试、咨询师反移情，以及设置如何成为稳定容器。</p>
+            <button type="button">打开完整摘要</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="concept" data-concept="3" aria-label="圆桌剧场方案">
+      <div class="v3-shell app-shell">
+        <header class="v3-header">
+          <div class="v3-title-row">
+            <button class="icon-button" type="button" title="返回" aria-label="返回"><i data-lucide="arrow-left"></i></button>
+            <div><h1>圆桌会议室</h1><p>反复迟到背后的关系邀请</p></div>
+          </div>
+          <div class="v3-actions">
+            <span class="save-status"><i data-lucide="cloud-check"></i>已保存</span>
+            <button class="icon-button" type="button" title="分享" aria-label="分享"><i data-lucide="share-2"></i></button>
+            <button class="icon-button" type="button" title="更多" aria-label="更多"><i data-lucide="ellipsis"></i></button>
+          </div>
+        </header>
+        <div class="v3-cast">
+          <span class="cast-label">在场</span>
+          <button class="cast-member active" type="button"><span class="avatar av-w">温</span><span><strong>温尼科特</strong><small>主持</small></span></button>
+          <button class="cast-member active" type="button"><span class="avatar av-b">比</span><span><strong>比昂</strong><small>回应</small></span></button>
+          <button class="cast-member active" type="button"><span class="avatar av-r">罗</span><span><strong>罗杰斯</strong><small>回应</small></span></button>
+          <button class="cast-member active" type="button"><span class="avatar av-y">亚</span><span><strong>亚隆</strong><small>总结</small></span></button>
+          <button class="cast-add" type="button" title="邀请大师" aria-label="邀请大师"><i data-lucide="plus"></i></button>
+          <div class="cast-spacer"></div>
+          <div class="segmented"><button class="active" type="button">讨论</button><button type="button">观点图</button></div>
+        </div>
+        <div class="v3-workspace">
+          <aside class="v3-outline">
+            <span class="eyebrow">章节</span>
+            <button class="outline-row done" type="button"><span>01</span><strong>情境</strong><i data-lucide="check"></i></button>
+            <button class="outline-row active" type="button"><span>02</span><strong>关系测试</strong><i data-lucide="message-square"></i></button>
+            <button class="outline-row" type="button"><span>03</span><strong>反移情</strong><i data-lucide="circle"></i></button>
+            <button class="outline-row" type="button"><span>04</span><strong>下一步</strong><i data-lucide="circle"></i></button>
+          </aside>
+          <article class="v3-transcript">
+            <div class="transcript-intro">
+              <span>当前议题</span>
+              <h2>迟到是一种怎样的关系邀请？</h2>
+            </div>
+            <div class="conversation-thread transcript-thread" data-thread>
+              <div class="message user-message stage-user"><div class="speaker-line"><span>咨询师</span><time>17:42</time></div><div class="bubble">来访者连续三次迟到，却在结束时强烈要求延长。我发现自己既生气又想补偿她。</div></div>
+              <div class="stage-response response-w"><div class="stage-speaker"><span class="avatar av-w">温</span><strong>温尼科特</strong><small>抱持</small></div><div class="stage-copy">也许迟到和要求延长共同构成了一次试探。她在问：当我没有按时出现，你还会为我保留位置吗？</div></div>
+              <div class="stage-response response-b"><div class="stage-speaker"><span class="avatar av-b">比</span><strong>比昂</strong><small>容器</small></div><div class="stage-copy">你的愤怒可能是她无法思考的时间感，被放进了你这里。先不要驱逐这份体验。</div></div>
+              <div class="stage-response response-r"><div class="stage-speaker"><span class="avatar av-r">罗</span><strong>罗杰斯</strong><small>共情</small></div><div class="stage-copy">你在生气之后立刻出现补偿冲动。你是否担心，自己的不悦会破坏这段关系？</div></div>
+            </div>
+            <form class="composer stage-composer" data-composer>
+              <button class="icon-button" type="button" title="指定大师" aria-label="指定大师"><i data-lucide="at-sign"></i></button>
+              <textarea rows="1" placeholder="向圆桌提出下一问题" aria-label="消息"></textarea>
+              <button class="send-button" type="submit" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
+            </form>
+          </article>
+          <aside class="v3-queue">
+            <div class="queue-heading"><span class="eyebrow">发言进程</span><strong>第 1 轮</strong></div>
+            <div class="queue-list">
+              <div class="queue-row complete"><span class="avatar av-w">温</span><span><strong>温尼科特</strong><small>已回应 · 18 秒</small></span><i data-lucide="check"></i></div>
+              <div class="queue-row complete"><span class="avatar av-b">比</span><span><strong>比昂</strong><small>已回应 · 22 秒</small></span><i data-lucide="check"></i></div>
+              <div class="queue-row complete"><span class="avatar av-r">罗</span><span><strong>罗杰斯</strong><small>已回应 · 16 秒</small></span><i data-lucide="check"></i></div>
+              <div class="queue-row waiting"><span class="avatar av-y">亚</span><span><strong>亚隆</strong><small>等待总结</small></span><i data-lucide="clock-3"></i></div>
+            </div>
+            <div class="quote-block"><i data-lucide="quote"></i><p>设置不是惩罚，而是持续存在的形式。</p><span>本轮保存观点</span></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="concept" data-concept="4" aria-label="临床工作台方案">
+      <div class="v4-shell app-shell">
+        <header class="v4-header">
+          <div class="v4-title">
+            <button class="icon-button" type="button" title="返回" aria-label="返回"><i data-lucide="arrow-left"></i></button>
+            <div><h1>多大师会诊</h1><p>独立学习空间 · 未关联个案</p></div>
+          </div>
+          <div class="v4-header-actions">
+            <button class="text-action" type="button"><i data-lucide="link-2"></i>关联材料</button>
+            <button class="text-action primary-action" type="button"><i data-lucide="save"></i>保存为督导草稿</button>
+            <button class="icon-button" type="button" title="更多" aria-label="更多"><i data-lucide="ellipsis"></i></button>
+          </div>
+        </header>
+        <div class="v4-context-bar">
+          <div><span class="context-label">当前议题</span><strong>来访者迟到与咨询师补偿冲动</strong></div>
+          <div><span class="context-label">参与视角</span><div class="presence-stack"><span class="avatar av-w">温</span><span class="avatar av-b">比</span><span class="avatar av-r">罗</span><span class="avatar av-y">亚</span></div></div>
+          <div><span class="context-label">资料范围</span><strong>仅本次输入</strong></div>
+          <div><span class="context-label">状态</span><strong class="safe-label"><i data-lucide="shield-check"></i>本机保存</strong></div>
+        </div>
+        <div class="v4-workspace">
+          <aside class="v4-sources">
+            <div class="source-head"><div><span class="eyebrow">讨论材料</span><strong>上下文</strong></div><button class="icon-button" type="button" title="添加材料" aria-label="添加材料"><i data-lucide="plus"></i></button></div>
+            <div class="source-tabs"><button class="active" type="button">议题</button><button type="button">片段</button><button type="button">资料库</button></div>
+            <div class="source-block active"><span>咨询师观察</span><p>连续三次迟到，结束时要求延长；咨询师体验到生气和补偿冲动。</p></div>
+            <div class="source-block"><span>设置</span><p>每周一次，50 分钟。近期正在讨论被忽视的体验。</p></div>
+            <button class="add-source" type="button"><i data-lucide="file-plus-2"></i><span>添加会谈片段</span></button>
+            <div class="source-boundary"><i data-lucide="lock-keyhole"></i><p>未选择来访者资料。大师只读取此处内容。</p></div>
+          </aside>
+          <article class="v4-dialogue">
+            <div class="dialogue-toolbar">
+              <div class="segmented"><button class="active" type="button">对话</button><button type="button">综合</button></div>
+              <div class="toolbar-spacer"></div>
+              <label class="small-control"><span>深度</span><input type="range" min="0" max="100" value="66"></label>
+              <button class="icon-button" type="button" title="导出" aria-label="导出"><i data-lucide="file-down"></i></button>
+            </div>
+            <div class="conversation-thread clinical-thread" data-thread>
+              <div class="message user-message wide-user"><div class="bubble">如果我坚持准时结束，会不会重复她被拒绝的经验？</div></div>
+              <div class="message master-message"><span class="avatar av-w">温</span><div class="message-body"><div class="message-meta"><strong>温尼科特</strong><span class="perspective-tag">抱持</span><time>17:52</time></div><div class="bubble">准时结束未必等于拒绝。可预测的结束本身也可能是一种抱持。关键是，你能否在不延长时间的同时承认她对结束的体验。</div></div></div>
+              <div class="message master-message"><span class="avatar av-b">比</span><div class="message-body"><div class="message-meta"><strong>比昂</strong><span class="perspective-tag">容器</span><time>17:53</time></div><div class="bubble">若延长只是为了排出你的内疚，设置就失去了思考功能。先容纳“我正在拒绝她”的恐惧，再决定行动。</div></div></div>
+              <div class="message master-message"><span class="avatar av-y">亚</span><div class="message-body"><div class="message-meta"><strong>亚隆</strong><span class="perspective-tag">此时此地</span><time>17:53</time></div><div class="bubble">可以把此刻带进关系：你很想多留一会儿，也担心准时结束会让她觉得被推开。看看她如何理解你的坦诚。</div></div></div>
+            </div>
+            <form class="composer clinical-composer" data-composer>
+              <button class="icon-button" type="button" title="引用材料" aria-label="引用材料"><i data-lucide="quote"></i></button>
+              <textarea rows="1" placeholder="继续追问，或 @大师 指定回应" aria-label="消息"></textarea>
+              <button class="send-button" type="submit" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button>
+            </form>
+          </article>
+          <aside class="v4-matrix">
+            <div class="matrix-head"><div><span class="eyebrow">观点矩阵</span><strong>本轮共识</strong></div><button class="icon-button" type="button" title="固定面板" aria-label="固定面板"><i data-lucide="pin"></i></button></div>
+            <div class="consensus-block"><span>共同方向</span><p>保持时间设置，同时把结束引发的关系体验带回会谈。</p></div>
+            <div class="matrix-list">
+              <div class="matrix-row"><span class="avatar av-w">温</span><div><strong>设置也能抱持</strong><p>承认结束体验，不用延长来证明关心。</p></div><button type="button" title="保存观点" aria-label="保存观点"><i data-lucide="bookmark"></i></button></div>
+              <div class="matrix-row"><span class="avatar av-b">比</span><div><strong>先思考内疚</strong><p>区分来访者需要和咨询师排出焦虑。</p></div><button type="button" title="保存观点" aria-label="保存观点"><i data-lucide="bookmark"></i></button></div>
+              <div class="matrix-row"><span class="avatar av-y">亚</span><div><strong>带入此时此地</strong><p>把两难转化为可讨论的关系材料。</p></div><button type="button" title="保存观点" aria-label="保存观点"><i data-lucide="bookmark"></i></button></div>
+            </div>
+            <div class="next-step"><span>下一步</span><label><input type="checkbox">准时结束，并命名结束带来的感受</label><label><input type="checkbox">记录补偿冲动出现的时点</label></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../app/vendor/lucide.min.js"></script>
+  <script src="masters-ui-options.js"></script>
+</body>
+</html>

@@ -2415,6 +2415,225 @@ test('OB-9 settings.html 有「重看引导」入口且引 onboarding.js', funct
 
 
 // ============================================================
+// v3.7.0 — 咨询师工作流优化
+// ============================================================
+console.log('\n[3.7] 咨询师工作流优化');
+
+const V37_MAIN = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+const V37_INDEX = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf8');
+const V37_DASHBOARD = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf8');
+const V37_CALENDAR = fs.readFileSync(path.join(APP_DIR, 'js', 'session-calendar.js'), 'utf8');
+const V37_STORE = fs.readFileSync(path.join(APP_DIR, 'js', 'store.js'), 'utf8');
+const V37_NOTES = fs.readFileSync(path.join(APP_DIR, 'js', 'consult-notes.js'), 'utf8');
+const V37_NOTES_HTML = fs.readFileSync(path.join(APP_DIR, 'consult-notes.html'), 'utf8');
+const V37_SUPERVISION = fs.readFileSync(path.join(APP_DIR, 'js', 'supervision.js'), 'utf8');
+const V37_SUPERVISION_HTML = fs.readFileSync(path.join(APP_DIR, 'supervision.html'), 'utf8');
+const V37_DOCS = fs.readFileSync(path.join(APP_DIR, 'js', 'doc-center.js'), 'utf8');
+const V37_DOCS_HTML = fs.readFileSync(path.join(APP_DIR, 'doc-center.html'), 'utf8');
+const V37_BILLING = fs.readFileSync(path.join(APP_DIR, 'billing-shell.html'), 'utf8');
+
+test('v3.7-1 Windows 启动默认进入工作台', function () {
+  assert.ok(/mainWindow\.loadURL\(`http:\/\/127\.0\.0\.1:\$\{PORT\}\/index\.html`\)/.test(V37_MAIN), '主窗口未加载 index.html');
+});
+
+test('v3.7-2 工作台含今日和本周日程，并用会谈深链开始记录', function () {
+  assert.ok(/id="week-schedule"/.test(V37_INDEX), '缺少本周日程容器');
+  assert.ok(/id="today-schedule"/.test(V37_INDEX), '缺少今日会谈容器');
+  assert.ok(/function sessionHref\(s\)/.test(V37_DASHBOARD), '缺少会谈深链生成器');
+  assert.ok(/consult-notes\.html\?clientId=/.test(V37_DASHBOARD), '会谈深链未携带 clientId');
+  assert.ok(/&sessionId=/.test(V37_DASHBOARD) && /&mode=quick/.test(V37_DASHBOARD), '会谈深链未携带 sessionId/quick');
+});
+
+test('v3.7-3 日历支持记录深链、日期定位和预选新建', function () {
+  assert.ok(/consult-notes\.html\?clientId=/.test(V37_CALENDAR), '日历未使用新的咨询记录深链');
+  assert.ok(/&sessionId=/.test(V37_CALENDAR) && /&mode=quick/.test(V37_CALENDAR), '日历深链缺少会谈或快速模式');
+  assert.ok(/params\.get\('clientId'\)/.test(V37_CALENDAR), '日历未读取 clientId');
+  assert.ok(/params\.get\('new'\) === '1'/.test(V37_CALENDAR), '日历未支持新建参数');
+});
+
+test('v3.7-4 Store 同步创建会谈并暴露受控草稿删除原语', function () {
+  assert.ok(/function createSession\(data\)/.test(V37_STORE), 'createSession 不应返回 Promise');
+  assert.ok(!/async function createSession\(data\)/.test(V37_STORE), 'createSession 仍为 async，调用方无法立即拿到 id');
+  assert.ok(/_del:\s*idbDelete/.test(V37_STORE), 'Store 未暴露草稿删除原语');
+});
+
+test('v3.7-5 咨询记录首次默认快速记录，并以会谈维度存草稿', function () {
+  assert.ok(/var currentWorkflow = 'quick'/.test(V37_NOTES), '首次记录未默认快速模式');
+  assert.ok(/noteDraft:.*currentSessionId.*contextDate/.test(V37_NOTES), '草稿键未隔离来访者、会谈或日期');
+  assert.ok(/Store\._put\(key/.test(V37_NOTES) && /Store\._get\(key/.test(V37_NOTES) && /Store\._del\(key/.test(V37_NOTES), '草稿读写删不完整');
+  assert.ok(/data-workflow="quick" class="active"/.test(V37_NOTES_HTML), '快速记录按钮未默认激活');
+});
+
+test('v3.7-6 自动保存仅写本地草稿，不自动创建正式会谈或调用 AI', function () {
+  assert.ok(/function autoSaveSilent\(\) \{ try \{ saveDraft\(\);/.test(V37_NOTES), '离开页自动保存未改为草稿');
+  assert.ok(/saveDraft\(\);\s*lastSavedContent/.test(V37_NOTES), '输入自动保存未写草稿');
+  const saveNotesStart = V37_NOTES.indexOf('window.saveNotes = function');
+  const saveNotesEnd = V37_NOTES.indexOf('window.sendToXj');
+  const saveNotesBlock = V37_NOTES.slice(saveNotesStart, saveNotesEnd);
+  assert.ok(saveNotesStart >= 0 && saveNotesEnd > saveNotesStart, '无法定位正式保存逻辑');
+  assert.ok(!/AI\.send/.test(saveNotesBlock), '正式保存不应自动调用 AI');
+  assert.ok(/recordKind:\s*'clinical'/.test(saveNotesBlock) && /billing:\s*null/.test(saveNotesBlock), '正式临床记录未明确隔离账务');
+});
+
+test('v3.7-7 记录深链兼容新旧参数，并提供保存后的四个后续动作', function () {
+  assert.ok(/params\.get\('clientId'\) \|\| params\.get\('client'\)/.test(V37_NOTES), '未兼容 clientId/client');
+  assert.ok(/params\.get\('sessionId'\) \|\| params\.get\('session'\)/.test(V37_NOTES), '未兼容 sessionId/session');
+  assert.ok(/restoreDraft\(\);[\s\S]{0,160}Memory\.record/.test(V37_NOTES), '选择会谈后未尝试恢复其草稿');
+  ['scheduleNextSession', 'openCurrentBilling', 'generateNoteSummary', 'openCurrentSupervision'].forEach(function (name) {
+    assert.ok(new RegExp('window\\.' + name + '\\s*=').test(V37_NOTES), '缺少保存后动作 ' + name);
+  });
+});
+
+test('v3.7-8 督导会记住流派、可恢复上次材料且不会自动调用 AI', function () {
+  assert.ok(/id="continue-supervision"/.test(V37_SUPERVISION_HTML), '缺少继续上次督导入口');
+  assert.ok(/lastSupervisionOrientation/.test(V37_SUPERVISION), '督导未读写流派偏好');
+  assert.ok(/window\.continueLastSupervision/.test(V37_SUPERVISION), '缺少恢复上次督导处理器');
+  assert.ok(/latestSupervision\.context \|\| latestSupervision\.content/.test(V37_SUPERVISION), '未兼容恢复上次督导材料');
+  const continueStart = V37_SUPERVISION.indexOf('window.continueLastSupervision');
+  const continueEnd = V37_SUPERVISION.indexOf('window.loadTranscript');
+  assert.ok(!/AI\.send/.test(V37_SUPERVISION.slice(continueStart, continueEnd)), '继续上次督导不应自动调用 AI');
+});
+
+test('v3.7-9 督导深链支持来访者和会谈上下文，并保存会谈关联', function () {
+  assert.ok(/qs\.get\('clientId'\) \|\| qs\.get\('client'\)/.test(V37_SUPERVISION), '督导未兼容 clientId');
+  assert.ok(/qs\.get\('sessionId'\) \|\| qs\.get\('session'\)/.test(V37_SUPERVISION), '督导未兼容 sessionId');
+  assert.ok(/sessionIds:\s*currentSessionId \? \[currentSessionId\]/.test(V37_SUPERVISION), '保存督导未关联当前会谈');
+  assert.ok(/sessionId:\s*data\.sessionId/.test(V37_STORE), '督导存储未保留显式 sessionId');
+});
+
+test('v3.7-10 文档中心时间线从既有 Store 聚合，并使用账务判定口径', function () {
+  assert.ok(/data-tab="timeline"/.test(V37_DOCS_HTML), '缺少时间线标签');
+  assert.ok(/function renderTimeline\(box, client\)/.test(V37_DOCS), '缺少时间线渲染器');
+  assert.ok(/Store\.getSessionsByClient/.test(V37_DOCS) && /Store\.getSupervisionsByClient/.test(V37_DOCS), '时间线未聚合会谈和督导');
+  assert.ok(/Store\.isBillableSession/.test(V37_DOCS), '时间线未使用统一账务判定');
+  assert.ok(/monthlyPayments/.test(V37_DOCS), '时间线未聚合月结记录');
+});
+
+test('v3.7-11 时间线提供回到记录、账务、督导和日历的编码深链', function () {
+  assert.ok(/window\.openTimelineTarget/.test(V37_DOCS), '缺少时间线跳转处理器');
+  ['consult-notes.html\\?clientId=', 'billing-shell.html\\?clientId=', 'supervision.html\\?clientId=', 'session-calendar.html\\?date='].forEach(function (fragment) {
+    assert.ok(new RegExp(fragment).test(V37_DOCS), '时间线缺少跳转 ' + fragment);
+  });
+  assert.ok(/encodeURIComponent\(value/.test(V37_DOCS), '时间线深链未编码动态参数');
+});
+
+test('v3.7-12 账务页支持 clientId 预选，且保留财务隔离函数', function () {
+  assert.ok(/new URLSearchParams\(location\.search\)\.get\('clientId'\)/.test(V37_BILLING), '账务页未读取 clientId 深链');
+  assert.ok(/window\.selectIncomeClient\(deepLinkClientId\)/.test(V37_BILLING), '账务页未预选来访者');
+  assert.ok(/function billableSessionsFor\(clientId\)/.test(V37_BILLING), '账务隔离函数 billableSessionsFor 缺失');
+  assert.ok(/function billableSessions\(allSessions\)/.test(V37_BILLING), '账务隔离函数 billableSessions 缺失');
+});
+
+test('v3.7-13 所有应用 HTML 保留 body 和脚本入口', function () {
+  fs.readdirSync(APP_DIR).filter(function (name) { return name.endsWith('.html'); }).forEach(function (name) {
+    const html = fs.readFileSync(path.join(APP_DIR, name), 'utf8');
+    assert.ok(/<body[\s>]/i.test(html), name + ' 缺少 body');
+    assert.ok(/<script\b/i.test(html), name + ' 缺少 script');
+  });
+});
+
+// ============================================================
+// v3.8.0 - Windows clinical workbench redesign
+// ============================================================
+console.log('\n[3.8] Windows clinical workbench redesign');
+
+const V38_WORKBENCH = fs.readFileSync(path.join(APP_DIR, 'css', 'workbench.css'), 'utf8');
+const V38_APP = fs.readFileSync(path.join(APP_DIR, 'js', 'app.js'), 'utf8');
+const V38_ICON_SYSTEM = fs.readFileSync(path.join(APP_DIR, 'js', 'icon-system.js'), 'utf8');
+const V38_INDEX = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf8');
+const V38_NOTES = fs.readFileSync(path.join(APP_DIR, 'consult-notes.html'), 'utf8');
+const V38_DOCS = fs.readFileSync(path.join(APP_DIR, 'doc-center.html'), 'utf8');
+const V38_SUPERVISION = fs.readFileSync(path.join(APP_DIR, 'supervision.html'), 'utf8');
+const V38_BILLING = fs.readFileSync(path.join(APP_DIR, 'billing-shell.html'), 'utf8');
+const V38_ICON_GENERATOR = fs.readFileSync(path.join(__dirname, '..', 'generate-icon.js'), 'utf8');
+const V38_MAIN = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+const V38_INSTALLER = fs.readFileSync(path.join(__dirname, '..', 'build', 'installer.nsh'), 'utf8');
+const V38_PACKAGE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+const V38_PACKAGE_LOCK = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package-lock.json'), 'utf8'));
+
+test('v3.8-1 临床工作台令牌提供完整的浅色、深色和低动效语义', function () {
+  assert.ok(/\[data-skin="clinical"\]/.test(V38_WORKBENCH), '缺少 clinical 皮肤');
+  assert.ok(/--accent:\s*#147d70/.test(V38_WORKBENCH), '临床操作色未定义');
+  assert.ok(/\[data-skin="clinical"\]\.dark/.test(V38_WORKBENCH), '缺少 clinical 深色主题');
+  assert.ok(/prefers-reduced-motion/.test(V38_WORKBENCH), '缺少低动效支持');
+});
+
+test('v3.8-2 公共层为所有应用页注入工作台样式和页面身份', function () {
+  assert.ok(/css\/workbench\.css/.test(V38_APP), 'App 未注入工作台样式');
+  assert.ok(/function applyPageIdentity/.test(V38_APP), 'App 未设置页面身份');
+  assert.ok(/storedSkin === 'calm' \|\| storedSkin === 'xinjing'/.test(V38_APP), '旧皮肤未迁移到临床工作台');
+});
+
+test('v3.8-3 Lucide 作为离线唯一图标运行时被接入', function () {
+  assert.ok(fs.existsSync(path.join(APP_DIR, 'vendor', 'lucide.min.js')), '缺少离线 Lucide 资源');
+  assert.ok(/vendor\/lucide\.min\.js/.test(V38_ICON_SYSTEM), '图标系统未加载离线 Lucide');
+  assert.ok(/window\.lucide\.createIcons/.test(V38_ICON_SYSTEM), '图标系统未渲染 Lucide');
+  assert.ok(/data-lucide/.test(V38_APP) && /LUCIDE_ICONS/.test(V38_APP), '导航未切换到 Lucide');
+});
+
+test('v3.8-4 图标迁移只触及装饰性 UI，不改写对话和人物内容', function () {
+  assert.ok(/function replaceDecorativeEmoji/.test(V38_ICON_SYSTEM), '缺少旧 UI 图标迁移器');
+  assert.ok(/\.m-avatar, \.xj-msg, \.rmsg, \.msg, \.bubble, \.chat-msg/.test(V38_ICON_SYSTEM), '图标迁移未保护内容实体');
+  assert.ok(/emojiIcons/.test(V38_ICON_SYSTEM), '图标语义映射缺失');
+});
+
+test('v3.8-5 高频工作流页使用统一图标和主操作', function () {
+  [V38_INDEX, V38_NOTES, V38_DOCS, V38_SUPERVISION, V38_BILLING].forEach(function (source, index) {
+    assert.ok(/data-lucide/.test(source), '高频页未接入 Lucide，索引 ' + index);
+  });
+  assert.ok(/新建来访者/.test(V38_INDEX) && /开始记录|咨询记录/.test(V38_INDEX), '工作台缺少主工作入口');
+  assert.ok(/保存记录/.test(V38_NOTES) && /完成并撰写报告/.test(V38_NOTES), '记录页缺少清晰的保存与后续动作');
+});
+
+test('v3.8-6 Windows 桌面图标为可生成的镜面开口标记', function () {
+  assert.ok(/Windows desktop mark: a calm clinical mirror aperture/.test(V38_ICON_GENERATOR), '桌面图标缺少品牌设计说明');
+  assert.ok(/pngToIco/.test(V38_ICON_GENERATOR), '图标生成链路未输出 ICO');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'build', 'icon.png')), '缺少 PNG 图标');
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'build', 'icon.ico')), '缺少 ICO 图标');
+  assert.ok(fs.existsSync(path.join(APP_DIR, 'vendor', 'xinjing-mark.png')), '缺少应用内品牌标记');
+});
+
+test('v3.8-7 工作台重构不触碰账务隔离口径', function () {
+  assert.ok(/function billableSessionsFor\(clientId\)/.test(V38_BILLING), 'billableSessionsFor 被移除');
+  assert.ok(/function billableSessions\(allSessions\)/.test(V38_BILLING), 'billableSessions 被移除');
+});
+
+test('v3.8-8 自动更新先备份再启动安装器，并放行更新退出', function () {
+  assert.ok(/function backupBeforeQuit\(\)/.test(V38_MAIN), '缺少退出备份去重器');
+  assert.ok(/backupBeforeQuit\(\);\s*autoUpdater\.quitAndInstall\(\)/.test(V38_MAIN), '更新安装器仍可能在备份前启动');
+  assert.ok(/electronAutoUpdater\.on\('before-quit-for-update',[\s\S]{0,180}prepareAppQuit\('auto-update-install'\)/.test(V38_MAIN), '更新退出未监听 Electron 原生更新事件');
+  assert.ok(/app\.on\('before-quit',[\s\S]{0,180}prepareAppQuit/.test(V38_MAIN), '普通退出未复用统一退出准备');
+});
+
+test('v3.8-9 安装器等待应用正常退出，且清理失败时保留卸载信息', function () {
+  assert.ok(/\$R5 < 15/.test(V38_INSTALLER), '更新安装器未给应用足够的正常退出时间');
+  assert.ok(/\$R4 == 1[\s\S]{0,180}DeleteRegKey/.test(V38_INSTALLER), '卸载注册表删除未受清理成功状态保护');
+  assert.ok(/旧版本目录未完全清理，保留卸载信息/.test(V38_INSTALLER), '清理失败未回退标准卸载流程');
+});
+
+test('v3.8-10 手动更新反馈和外部链接边界完整', function () {
+  assert.ok(/update-not-available'[\s\S]{0,260}_xjChecking/.test(V38_MAIN), '手动检查更新仍不会提示已是最新版本');
+  assert.ok(/!app\.isPackaged/.test(V38_MAIN), '开发模式仍会误触发自动更新请求');
+  assert.ok(/\['https:', 'http:', 'mailto:'\]\.includes\(parsed\.protocol\)/.test(V38_MAIN), '外部链接未限制安全协议');
+  assert.ok(/await shell\.openExternal/.test(V38_MAIN), '外部链接异步错误未被捕获');
+});
+
+test('v3.8-11 热修复版本可被 3.8.0 客户端发现', function () {
+  assert.notStrictEqual(V38_PACKAGE.version, '3.8.0', '修复版不能继续复用已发布的 3.8.0 版本号');
+  assert.strictEqual(V38_PACKAGE_LOCK.version, V38_PACKAGE.version, 'package-lock 顶层版本未同步');
+  assert.strictEqual(V38_PACKAGE_LOCK.packages[''].version, V38_PACKAGE.version, 'package-lock 根包版本未同步');
+});
+
+test('v3.8-12 退出备份排除可再生缓存但保留业务数据目录', function () {
+  ['Cache', 'Code Cache', 'GPUCache', 'DawnCache', 'Shared Dictionary'].forEach(function (name) {
+    assert.ok(V38_MAIN.includes("'" + name + "'"), '备份未排除缓存目录 ' + name);
+  });
+  assert.ok(/function copyUserDataBackup\(src, dest\)/.test(V38_MAIN), '缺少统一备份复制器');
+  assert.ok(/filter:\s*\(entry\)/.test(V38_MAIN), '备份复制未使用目录过滤器');
+  assert.ok(!/BACKUP_IGNORED_TOP_LEVEL[\s\S]{0,200}'IndexedDB'/.test(V38_MAIN), '业务 IndexedDB 被错误排除');
+});
+
+// ============================================================
 // 汇总（等待串行测试队列完成，确保 async assertion 可靠计入结果）
 // ============================================================
 testChain.then(function () {
