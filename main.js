@@ -9,6 +9,10 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
+// v3.6.7：资料库支持 .doc/.docx（mammoth 解析 docx；.doc 尽力抽取）
+let mammoth = null;
+try { mammoth = require('mammoth'); } catch (e) { mammoth = null; }
+
 // ---- API 密钥安全存储（H1 修复）：用 safeStorage 加密敏感凭据 ----
 // safeStorage 基于 OS 密钥链（Windows DPAPI / macOS Keychain / Linux libsecret），
 // 加密后数据仅当前用户/机器可解密。加密前缀 'xj-enc:' 标识已加密。
@@ -924,7 +928,7 @@ ipcMain.handle('xj:readUserDocs', async (e, opts) => {
   let names;
   try { names = await fs.promises.readdir(root); }
   catch (err) { return { ok: false, reason: 'read-dir-failed', message: err.message }; }
-  names = names.filter(f => /\.(md|txt)$/i.test(f));
+  names = names.filter(f => /\.(md|txt|docx?)$/i.test(f));
   // 预算加权：按文件长度降序取前 20，避免小文件稀释上下文
   const metas = [];
   for (const f of names) {
@@ -939,7 +943,7 @@ ipcMain.handle('xj:readUserDocs', async (e, opts) => {
   for (const m of top) {
     if (!ensureInsideUserDoc(m.fp, root)) continue; // 防穿越（主进程校验）
     try {
-      let text = await fs.promises.readFile(m.fp, 'utf8');
+      let text = await readUserDocText(m.fp);
       await new Promise(r => setImmediate(r)); // 逐文件让出，不阻塞主进程 UI
       if (opts.query) {
         const q = String(opts.query).toLowerCase();
@@ -1086,7 +1090,7 @@ async function walkUserDoc(root, maxDepth = 4, maxFiles = KB_FILE_LIMIT) {
       const rel = relBase ? relBase + '/' + ent.name : ent.name;
       if (ent.isDirectory()) {
         await walk(abs, depth + 1, rel);
-      } else if (ent.isFile() && /\.(md|txt)$/i.test(ent.name)) {
+      } else if (ent.isFile() && /\.(md|txt|docx?)$/i.test(ent.name)) {
         total++;
         if (results.length >= maxFiles) continue; // 仅跳过「处理」，仍计入 total
         if (!ensureInsideUserDoc(abs, root)) continue; // 防穿越（主进程校验）
@@ -1099,6 +1103,34 @@ async function walkUserDoc(root, maxDepth = 4, maxFiles = KB_FILE_LIMIT) {
   }
   await walk(root, 1, '');
   return { entries: results, total };
+}
+
+// ---- .doc / .docx 文本抽取（v3.6.7）：资料库支持 Word 文档 ----
+// .docx 用 mammoth 解析为纯文本；.doc 旧 OLE 二进制格式无解析库，尽力从 UTF-16LE 抽取可读文本。
+function extractDocText(buffer) {
+  try {
+    const raw = buffer.toString('utf16le');
+    const cleaned = raw.replace(/[^\u0009\u000A\u000D\u0020-\u007E\u4E00-\u9FFF\u3000-\u303F\uFF00-\uFFEF]/g, ' ');
+    return cleaned.replace(/\s{2,}/g, ' ').trim();
+  } catch (e) { return ''; }
+}
+
+async function readUserDocText(abs) {
+  const lower = abs.toLowerCase();
+  try {
+    if (/\.docx$/i.test(lower)) {
+      if (mammoth) {
+        const buf = await fs.promises.readFile(abs);
+        const r = await mammoth.extractRawText({ buffer: buf });
+        return r.value || '';
+      }
+      return extractDocText(await fs.promises.readFile(abs));
+    }
+    if (/\.doc$/i.test(lower)) {
+      return extractDocText(await fs.promises.readFile(abs));
+    }
+    return await fs.promises.readFile(abs, 'utf8');
+  } catch (e) { return ''; }
 }
 
 // 生成卡片/画廊摘要：去掉 frontmatter、markdown 语法、超长 token（data URI / 长 URL / base64），
@@ -1115,10 +1147,10 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
     return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], truncated: false, totalFound: total, limit: KB_FILE_LIMIT, stats: { fileCount: 0, totalFound: total, truncated: false, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
   }
   const files = [], docs = [], catMap = new Map();
-  let totalChars = 0, totalBytes = 0, mdCount = 0, txtCount = 0;
+  let totalChars = 0, totalBytes = 0, mdCount = 0, txtCount = 0, docCount = 0;
   for (const ent of entries) {
     let text = '';
-    try { text = await fs.promises.readFile(ent.absPath, 'utf8'); }
+    try { text = await readUserDocText(ent.absPath); }
     catch (e) { continue; }
     await new Promise(r => setImmediate(r)); // 逐文件让出
     const headings = extractHeadings(text);
@@ -1127,12 +1159,12 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
     const fmMatch = /^---\s*\n[\s\S]*?\n---\s*\n/.exec(text);
     const body = fmMatch ? text.slice(fmMatch[0].length) : text;
     const summary = cleanSummary(text);
-    const title = (headings.find(h => h.level === 1) || {}).text || ent.relPath.split('/').pop().replace(/\.(md|txt)$/i, '');
-    files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, category: cat, headingCount: headings.length, summary, injected: true, fmt: /\.md$/i.test(ent.relPath) ? 'md' : 'txt' });
+    const title = (headings.find(h => h.level === 1) || {}).text || ent.relPath.split('/').pop().replace(/\.(md|txt|docx?)$/i, '');
+    files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, category: cat, headingCount: headings.length, summary, injected: true, fmt: /\.docx$/i.test(ent.relPath) ? 'docx' : /\.doc$/i.test(ent.relPath) ? 'doc' : /\.md$/i.test(ent.relPath) ? 'md' : 'txt' });
     docs.push({ relPath: ent.relPath, text });
     catMap.set(cat, (catMap.get(cat) || 0) + 1);
     totalChars += text.length; totalBytes += ent.size;
-    if (/\.md$/i.test(ent.relPath)) mdCount++; else if (/\.txt$/i.test(ent.relPath)) txtCount++;
+    if (/\.md$/i.test(ent.relPath)) mdCount++; else if (/\.docx?$/i.test(ent.relPath)) docCount++; else txtCount++;
   }
   const keywords = await extractKeywords(docs, 40);
   const tree = buildTree(files);
@@ -1140,7 +1172,7 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
   return {
     ok: true, folder: root, files, tree, categories, keywords,
     truncated: total > files.length, totalFound: total, limit: KB_FILE_LIMIT,
-    stats: { fileCount: files.length, totalFound: total, truncated: total > files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0, mdCount, txtCount },
+    stats: { fileCount: files.length, totalFound: total, truncated: total > files.length, totalBytes, totalChars, categoryCount: categories.length, avgChars: files.length ? Math.round(totalChars / files.length) : 0, mdCount, txtCount, docCount },
   };
 });
 
@@ -1194,9 +1226,9 @@ ipcMain.handle('xj:readUserDocFile', async (e, args) => {
   const root = cfg.folder;
   const abs = path.resolve(root, relPath);
   if (!ensureInsideUserDoc(abs, root)) return { ok: false, reason: 'traversal' };
-  if (!/\.(md|txt)$/i.test(abs)) return { ok: false, reason: 'bad-type' };
+  if (!/\.(md|txt|docx?)$/i.test(abs)) return { ok: false, reason: 'bad-type' };
   let text;
-  try { text = await fs.promises.readFile(abs, 'utf8'); }
+  try { text = await readUserDocText(abs); }
   catch (err) { return { ok: false, reason: 'read-failed', message: err.message }; }
   const headings = extractHeadings(text);
   let mtime = 0, size = 0;
@@ -1222,7 +1254,7 @@ ipcMain.handle('xj:searchUserDocs', async (e, args) => {
   for (const ent of entries) {
     if (hits.length >= max) break;
     let text;
-    try { text = await fs.promises.readFile(ent.absPath, 'utf8'); }
+    try { text = await readUserDocText(ent.absPath); }
     catch (e) { continue; }
     await new Promise(r => setImmediate(r)); // 逐文件让出
     const lines = text.split('\n');

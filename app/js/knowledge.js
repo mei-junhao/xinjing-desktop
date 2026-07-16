@@ -163,7 +163,7 @@
     folderLbl.textContent = meta.folder || '';
     updateTruncWarn(meta);
     if (!meta.files || !meta.files.length) {
-      return showState('<div class="big">资料文件夹为空</div><div>在所选文件夹中放入 .md / .txt 课程资料后点「刷新」。</div>' +
+      return showState('<div class="big">资料文件夹为空</div><div>在所选文件夹中放入 .md / .txt / .doc / .docx 课程资料后点「刷新」。</div>' +
         '<div style="margin-top:6px;font-size:12px">当前目录：' + esc(meta.folder || '') + '</div>');
     }
     if (!state.activeFile || !meta.files.some(function (f) { return f.relPath === state.activeFile; })) {
@@ -193,7 +193,7 @@
     folderLbl.textContent = '';
     showState(
       '<div class="big">还没有设置资料文件夹</div>' +
-      '<div>选择一个本地文件夹，把你的课程讲义、笔记（.md / .txt）放进去。<br>心镜会在本机读取，用于资料浏览、检索，并在 AI 对话时作为你的私人知识库。<br><b>资料不会上传、不出本机。</b></div>' +
+      '<div>选择一个本地文件夹，把你的课程讲义、笔记（.md / .txt / .doc / .docx）放进去。<br>心镜会在本机读取，用于资料浏览、检索，并在 AI 对话时作为你的私人知识库。<br><b>资料不会上传、不出本机。</b></div>' +
       '<button class="kb-btn primary" onclick="document.getElementById(\'kb-pick\').click()">选择资料文件夹</button>'
     );
   }

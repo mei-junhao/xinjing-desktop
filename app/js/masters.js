@@ -457,7 +457,16 @@
   }
 
   // ---------- 新对话 / 删除 ----------
+  // 语义：先把当前对话存入历史记录（若含消息），再开启一个全新、无上下文的对话
   window.newConversation = function () {
+    if (currentConv && currentConv.messages && currentConv.messages.length) {
+      if (!convList.some(function (c) { return c.id === currentConv.id; })) {
+        Store.saveMasterConversation(currentConv);
+        convList.unshift(currentConv);
+      } else {
+        Store.saveMasterConversation(currentConv); // 已在历史中，确保最新消息落盘
+      }
+    }
     currentConv = null; roundKeys = [];
     renderMasterList(); renderChat(); renderHistList();
   };

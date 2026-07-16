@@ -312,6 +312,77 @@
     });
   }
 
+  // ---------- AI 根据逐字稿填写本页（会员功能）----------
+  window.aiFillPage = function () {
+    if (!App.featureGate('ai-notes')) {
+      App.showToast('AI 填写需激活会员后使用', 'warning');
+      return;
+    }
+    if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
+    // 1) 定位已加载的逐字稿
+    var transcript = null;
+    if (currentSessionId) {
+      var s0 = Store.getSession(currentSessionId);
+      if (s0 && s0.transcript && s0.transcript.trim()) transcript = s0.transcript;
+    }
+    if (!transcript) {
+      var sessions = Store.getSessionsByClient(currentClientId) || [];
+      for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i].transcript && sessions[i].transcript.trim()) {
+          transcript = sessions[i].transcript;
+          currentSessionId = sessions[i].id;
+          var sessSel = document.getElementById('sel-session');
+          if (sessSel) {
+            var exists = [].some.call(sessSel.options, function (o) { return o.value === currentSessionId; });
+            if (!exists) onClientChange();
+            sessSel.value = currentSessionId;
+          }
+          break;
+        }
+      }
+    }
+    if (!transcript || !transcript.trim()) {
+      App.showToast('未找到逐字稿，请先上传逐字稿', 'warning');
+      var up = document.getElementById('transcript-file');
+      if (up) up.click(); // 直接唤起上传对话框
+      return;
+    }
+    // 2) 按当前模式构造字段要求并调 AI
+    var fieldsMap = {
+      apa: { keys: ['c1','c2','c3','c4','c5'], map: { c1:'f1', c2:'f2', c3:'f3', c4:'f4', c5:'f5' }, desc: 'c1=主诉与咨询目标；c2=行为观察与非言语信息；c3=情绪状态与情感反应；c4=关键对话片段（尽量还原原话）；c5=下次咨询方向' },
+      soap: { keys: ['s','o','a','p'], map: { s:'soap-s', o:'soap-o', a:'soap-a', p:'soap-p' }, desc: 's=主观资料(Subjective)；o=客观资料(Objective)；a=评估(Assessment)；p=计划(Plan)' },
+      dap: { keys: ['d','a','p'], map: { d:'dap-d', a:'dap-a', p:'dap-p' }, desc: 'd=资料(Data)；a=评估(Assessment)；p=计划(Plan)' },
+      free: { keys: ['text'], map: { text:'f-free' }, desc: 'text=整段自由笔记（基于逐字稿的梳理与反思）' },
+    };
+    var f = fieldsMap[currentMode] || fieldsMap.free;
+    App.showToast('AI 正在根据逐字稿填写本页…', 'info');
+    addXjMsg('ai', '正在根据逐字稿填写「' + currentMode.toUpperCase() + '」本页…');
+    var sys = '你是心理咨询记录填写助手，温尼科特取向。请根据提供的咨询逐字稿，按 ' + currentMode.toUpperCase() + ' 格式填写以下字段。字段含义：' + f.desc + '。\n只输出 JSON（不要任何额外文字），键必须为：' + f.keys.join(',') + '，值为对应文字内容。若某字段在逐字稿中无依据，填空字符串。';
+    AI.send([{ role: 'system', content: sys }, { role: 'user', content: transcript }], function (res) {
+      if (res && res.content && !res.error) {
+        try {
+          var j = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          f.keys.forEach(function (k) {
+            var ta = document.getElementById(f.map[k]);
+            if (ta && j[k] != null && String(j[k]).trim() !== '') {
+              if (currentMode === 'free') {
+                ta.value = (ta.value ? ta.value + '\n\n' : '') + String(j[k]);
+              } else {
+                ta.value = String(j[k]);
+              }
+              ta.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          });
+          App.showToast('已根据逐字稿填写本页', 'success');
+        } catch (e) {
+          App.showToast('AI 返回格式异常，请重试', 'error');
+        }
+      } else {
+        App.showToast('AI 填写失败', 'error');
+      }
+    });
+  };
+
   // ---------- 导出当前编辑内容 ----------
   window.exportNotes = function () {
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }

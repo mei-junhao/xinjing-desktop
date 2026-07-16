@@ -16,12 +16,30 @@
         '<div class="dl-avatar">' + (c.name ? c.name[0] : '?') + '</div>' +
         '<div class="dl-info"><div class="dl-name">' + App.escapeHtml(c.name) + '</div><div class="dl-count">' + count + ' 份文档</div></div></div>';
     }).join('');
+    renderClientSelect();
+  }
+
+  // 顶部下拉：与左栏来访者列表保持同步
+  function renderClientSelect() {
+    var sel = document.getElementById('dc-client-select');
+    if (!sel) return;
+    var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+    sel.innerHTML = '<option value="">手动选择来访者…</option>' + clients.map(function (c) {
+      return '<option value="' + c.id + '">' + App.escapeHtml(c.name) + '</option>';
+    }).join('');
+    sel.value = currentClientId || '';
   }
 
   window.selectClient = function (clientId) {
     currentClientId = clientId;
     renderClientList();
     renderDocs();
+  };
+
+  // 顶部下拉手动选择来访者：切换当前来访者并同步左栏高亮
+  window.onClientSelect = function (id) {
+    if (!id) return;
+    selectClient(id);
   };
 
   window.switchDocTab = function (tab) {
