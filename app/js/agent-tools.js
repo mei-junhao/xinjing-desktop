@@ -294,20 +294,22 @@
         notes: (r.note ? r.note + '｜' : '') + '[来源：Agent 录入]｜' + tag
       };
       try {
-        Store.createSession(session);
-        results.push({ ok: true, clientId: clientId, date: r.date, fee: r.fee, paid: !!r.paid, tag: tag });
+        const created = Store.createSession(session);
+        results.push({ ok: true, clientId: clientId, sessionId: created && created.id, date: r.date, fee: r.fee, paid: !!r.paid, tag: tag });
       } catch (e) {
         results.push({ skipped: true, reason: '落库失败：' + e.message, tag: tag });
       }
     }
     const added = results.filter(function (x) { return x.ok; }).length;
     const skipped = results.filter(function (x) { return x.skipped; }).length;
+    // 收集本次新建的 session id，供 UI「撤销记账」调用 Store.deleteSession 还原
+    const sessionIds = results.filter(function (x) { return x.ok && x.sessionId; }).map(function (x) { return x.sessionId; });
     // 层3：主动提示 —— 收集涉及客户，算跟进提示附到 data.followups（runRound 统一推送）
     const fClients = [];
     for (const r of results) { if (r.clientId && fClients.indexOf(r.clientId) === -1) fClients.push(r.clientId); }
     const followups = [];
     for (const cid of fClients) { computeFollowups(cid).forEach(function (f) { followups.push(f); }); }
-    return sanitizeResult({ ok: true, data: { added: added, skipped: skipped, details: results, followups: followups } });
+    return sanitizeResult({ ok: true, data: { added: added, skipped: skipped, sessionIds: sessionIds, details: results, followups: followups } });
   }
 
   // ============================================================

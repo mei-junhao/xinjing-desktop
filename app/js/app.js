@@ -27,7 +27,7 @@
     'js/memory.js',
     'js/persona-preamble.js',
     'js/client-modal.js',
-    'js/xiaojing-panel.js',
+    'js/xinjing-chat.js',
     'js/page-hints.js'
   ];
   list.forEach(function (src) {
@@ -48,7 +48,7 @@
       'js/memory.js': function () { return typeof Memory !== 'undefined'; },
       'js/persona-preamble.js': function () { return typeof PersonaPreamble !== 'undefined'; },
       'js/client-modal.js': function () { return typeof ClientModal !== 'undefined'; },
-      'js/xiaojing-panel.js': function () { return typeof XiaojingPanel !== 'undefined'; },
+      'js/xinjing-chat.js': function () { return typeof XinJingChat !== 'undefined'; },
       'js/page-hints.js': function () { return typeof PageHints !== 'undefined'; }
     };
     if (guards[src] && guards[src]()) return;
@@ -386,20 +386,30 @@ const App = (() => {
   function _initXiaojingWhenReady(opts) {
     var tries = 0;
     function tryInit() {
-      if (typeof XiaojingPanel !== 'undefined' && XiaojingPanel.build && typeof PageHints !== 'undefined') {
+      if (typeof XinJingChat !== 'undefined' && XinJingChat.build && typeof PageHints !== 'undefined') {
         try {
-          XiaojingPanel.build();
+          // 双加载检测：若旧 xiaojing-panel.js 仍残留并抢注了全局 XiaojingPanel，
+          // 而 XinJingChat 是其别名指向同一 api 对象则无害；若指向不同实现则告警。
+          if (typeof XiaojingPanel !== 'undefined' && XiaojingPanel !== XinJingChat) {
+            console.error('[xinjing-chat] 检测到旧 xiaojing-panel.js 与新模块并存（XiaojingPanel !== XinJingChat），初始化已统一走 XinJingChat。');
+          }
+          // 加载自检：校验统一对话面板的 API 表面完整
+          if (typeof XinJingChat.selfTest === 'function') {
+            var st = XinJingChat.selfTest();
+            if (!st.ok) console.error('[xinjing-chat] selfTest 失败，缺失：' + (st.missing || []).join(', '));
+          }
+          XinJingChat.build();
           var ctx = opts.xjContext || _defaultPageCtx(opts.title, location.pathname);
           if (ctx) {
             window.__XJ_PAGE__ = ctx;
-            XiaojingPanel.updateSub(ctx.title || '工作台助手');
+            XinJingChat.updateSub(ctx.title || '工作台助手');
           }
           if (typeof PageHints !== 'undefined' && PageHints.getHints) {
             var h = PageHints.getHints(location.pathname);
-            if (h && h.length) XiaojingPanel.showNewHint();
+            if (h && h.length) XinJingChat.showNewHint();
           }
           _fireEntryNotification(opts.title, location.pathname);
-        } catch (e) { console.warn('[xiaojing] init fail', e); }
+        } catch (e) { console.warn('[xinjing-chat] init fail', e); }
       } else if (tries < 50) {
         tries++;
         setTimeout(tryInit, 50);

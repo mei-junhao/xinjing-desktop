@@ -428,7 +428,7 @@
               : '✓ 已完成');
             renderProgress(summary);
             // 撤销：记录写操作供 AgentUndo 使用
-            if (data.added !== undefined && data.sessionIds) {
+            if (data.added !== undefined && data.sessionIds && data.sessionIds.length) {
               recordWriteAction(name, {}, data);
             }
           }

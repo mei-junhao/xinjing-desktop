@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -52,6 +52,20 @@
 .topbar .xj-new-client:hover{
   background:var(--accent);color:#fff;
   box-shadow:0 4px 18px rgba(139,147,199,.25);
+  transform:translateY(-1px);
+}
+
+/* 切换到对话模式按钮 */
+.topbar .xj-chat-link{
+  padding:9px 16px;border:1px solid var(--border);border-radius:999px;
+  background:var(--paper-2,#fff);color:var(--ink-2);
+  font:500 12.5px var(--sans);cursor:pointer;
+  display:flex;align-items:center;gap:6px;
+  transition:all .2s ease;
+}
+.topbar .xj-chat-link:hover{
+  border-color:var(--accent);color:var(--accent);
+  background:rgba(139,147,199,.05);
   transform:translateY(-1px);
 }
 
@@ -184,6 +198,7 @@
     <div><h1>心镜</h1><div class="date" id="wel-date"></div></div>
     <div class="spacer"></div>
     <button class="xj-toggle" id="xj-toggle-btn" onclick="toggleXiaojing()"><span class="xj-dot"></span> 小镜</button>
+    <button class="xj-chat-link" onclick="location.href='chat-home.html'" title="切换到对话模式">💬 对话模式</button>
     <button class="xj-new-client" onclick="if(typeof ClientModal!=='undefined')ClientModal.show(function(c){if(typeof App!=='undefined')App.showToast('已新增来访者「'+c.name+'」','success');})" style="border:2px solid var(--accent);border-radius:12px;padding:10px 20px;font:600 13px var(--sans);cursor:pointer;background:var(--paper-2,#fff);color:var(--accent);display:flex;align-items:center;gap:6px;box-shadow:0 2px 12px rgba(139,147,199,.15);transition:all .2s">👤＋ 新建来访</button>
   </div>
 

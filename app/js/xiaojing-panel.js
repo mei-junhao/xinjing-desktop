@@ -156,6 +156,16 @@ const XiaojingPanel = (() => {
   function build() {
     if (panelEl) return panelEl;
 
+    // 若 xinjing-chat.js 已加载，则由它统一接管面板（避免双悬浮球）
+    if (window.XinJingChat && typeof window.XinJingChat.build === 'function' && document.getElementById('xj-panel-v3')) {
+      panelEl = document.getElementById('xj-panel-v3');
+      bodyEl = panelEl.querySelector('#xj3-body');
+      inputEl = panelEl.querySelector('#xj3-input');
+      hintDotEl = panelEl.querySelector('#xj3-fab-dot');
+      try { window.XinJingChat.build(); } catch (e) {}
+      return panelEl;
+    }
+
     var style = document.createElement('style');
     style.textContent = '' +
       '.xj-panel-v3{position:fixed;top:0;right:0;width:0;height:100vh;z-index:9999;pointer-events:none}' +
@@ -551,7 +561,7 @@ const XiaojingPanel = (() => {
                 : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
                 : '✓ 已完成');
               appendProgress(summary);
-              if (data.added !== undefined && data.sessionIds) {
+              if (data.added !== undefined && data.sessionIds && data.sessionIds.length) {
                 recordWriteAction(name, {}, data);
               }
             }

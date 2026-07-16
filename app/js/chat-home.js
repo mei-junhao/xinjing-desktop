@@ -285,13 +285,32 @@
     }
   }
 
+  async function refreshAuthState() {
+    try {
+      if (window.__XJ_API__ && typeof window.__XJ_API__.getState === 'function') {
+        const s = await window.__XJ_API__.getState();
+        if (s && typeof s === 'object' && window.__XJ__ && typeof window.__XJ__ === 'object') {
+          Object.assign(window.__XJ__, s);
+        }
+      }
+    } catch (e) {}
+  }
+
+  function isUnlocked() {
+    // 优先从 window.__XJ__ 读（preload 桥接的实时快照），其次从 App 缓存
+    if (window.__XJ__ && typeof window.__XJ__.aiUnlocked === 'boolean') return !!window.__XJ__.aiUnlocked;
+    if (window.__XJ__ && window.__XJ__.mode === 'full') return true;
+    try {
+      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') return App.aiUnlocked();
+    } catch (e) {}
+    return false;
+  }
+
   async function sendMsg() {
     if (busy) return;
-    let unlocked = true;
-    try {
-      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') unlocked = App.aiUnlocked();
-    } catch (e) {}
-    if (!unlocked) {
+    // 第一次发送前确保授权状态已拉取
+    await refreshAuthState();
+    if (!isUnlocked()) {
       renderSystem('⚠ 小镜需激活后才能使用 AI 对话。请先在设置中配置 AI 密钥。');
       return;
     }
@@ -340,7 +359,7 @@
                 : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
                 : '✓ 已完成');
               renderProgress(summary);
-              if (data.added !== undefined && data.sessionIds) {
+              if (data.added !== undefined && data.sessionIds && data.sessionIds.length) {
                 recordWriteAction(name, {}, data);
               }
             }
@@ -353,10 +372,11 @@
         clearTyping();
         if (result.error) {
           renderMsg('assistant', '⚠ ' + result.error);
+          // 错误分支：AgentCore 未写入消息，此处需记录到 history
           messages.push({ role: 'assistant', content: '⚠ ' + result.error });
         } else if (result.reply) {
+          // 成功分支：AgentCore.runRound 已把模型消息写入 messages（同一数组引用），仅渲染不再 push
           renderMsg('assistant', result.reply);
-          messages.push({ role: 'assistant', content: result.reply });
         }
       } else {
         clearTyping();
@@ -455,9 +475,15 @@
       sendBtn.addEventListener('click', sendMsg);
     }
 
-    renderTierBanner();
-    renderWelcome();
-    restoreMemory();
+    // 先拉一次授权状态（修复对话模式鉴权问题），再渲染 banner
+    refreshAuthState().then(function () {
+      if (msgsEl) {
+        msgsEl.innerHTML = '';
+        renderTierBanner();
+        renderWelcome();
+        restoreMemory();
+      }
+    });
 
     try {
       if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {

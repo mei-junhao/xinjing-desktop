@@ -344,8 +344,161 @@ const XinJingChat = (() => {
     document.head.appendChild(style);
   }
 
+  // 复用 xiaojing-panel.js 已建好的面板时，只补齐扩展样式（undo、确认卡、跟进制）
+  function injectExtensionStyles() {
+    if (document.getElementById('xj3-ext-styles')) return;
+    var s = document.createElement('style');
+    s.id = 'xj3-ext-styles';
+    s.textContent = '' +
+      '.xj3-undo-btn{position:absolute;top:14px;right:48px;border:1px solid var(--border);' +
+        'background:var(--paper,#fff);color:var(--ink-2);font:11px var(--sans);border-radius:6px;' +
+        'padding:3px 8px;cursor:pointer}' +
+      '.xj3-undo-btn:hover{border-color:var(--accent);color:var(--accent)}' +
+      '.xj3-undo-btn:disabled{opacity:.4;cursor:not-allowed}' +
+      '.xj3-confirm-card{background:var(--paper,#fff);border:1px solid var(--danger,#ff5252);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch;box-shadow:0 2px 8px rgba(255,82,82,.1)}' +
+      '.xj3-confirm-title{font-size:12px;font-weight:600;color:var(--danger,#ff5252);margin-bottom:8px}' +
+      '.xj3-confirm-tool{font-size:11px;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-confirm-preview{font-size:12px;color:var(--ink);margin-bottom:10px;line-height:1.6}' +
+      '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
+      '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
+      '.xj3-confirm-actions .xj3-ok{background:var(--accent);color:#fff;border-color:var(--accent)}' +
+      '.xj3-progress{font-size:11px;color:var(--ink-3);padding:4px 8px;align-self:flex-start}' +
+      '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:10px 12px;margin:2px 0;align-self:stretch}' +
+      '.xj3-followup-head{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-followup-item{font-size:12px;color:var(--ink-2);line-height:1.8;padding-left:12px;position:relative;cursor:pointer}' +
+      '.xj3-followup-item:before{content:"•";position:absolute;left:0;color:var(--accent)}' +
+      '.xj3-followup-item:hover{color:var(--accent)}' +
+      '.xj3-nav-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch}' +
+      '.xj3-nav-head{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px}' +
+      '.xj3-nav-reason{font-size:11px;color:var(--ink-3);margin-bottom:8px}' +
+      '.xj3-nav-go{padding:6px 14px;border-radius:8px;border:1px solid var(--accent);' +
+        'background:var(--accent);color:#fff;font:500 12px var(--sans);cursor:pointer}' +
+      '.xj3-lock-banner{background:linear-gradient(135deg,#fff5f0,#fff);border:1px solid #ffb38a;' +
+        'border-radius:10px;padding:12px;margin:4px 0;align-self:stretch}' +
+      '.xj3-lock-title{font-size:12px;font-weight:600;color:#c44a00;margin-bottom:6px}' +
+      '.xj3-lock-desc{font-size:11px;color:var(--ink-2);margin-bottom:8px;line-height:1.5}' +
+      '.xj3-lock-go{padding:6px 14px;border-radius:8px;border:1px solid #ff8a4c;background:#ff8a4c;' +
+        'color:#fff;font:12px var(--sans);cursor:pointer}';
+    document.head.appendChild(s);
+  }
+
+  // 复用模式下，绑定 xiaojing-panel.js 未提供的事件（undo 按钮、followup 点击等）
+  function bindExtEvents() {
+    if (!panelEl) return;
+    // 1) 注入 undo 按钮到头部
+    var head = panelEl.querySelector('.xj3-head');
+    if (head && !panelEl.querySelector('.xj3-undo-btn')) {
+      var undo = document.createElement('button');
+      undo.className = 'xj3-undo-btn';
+      undo.textContent = '↺ 撤销';
+      undo.title = '撤销最近一次写入';
+      undo.disabled = !lastWriteAction;
+      head.appendChild(undo);
+      undo.addEventListener('click', function () {
+        undoLastWrite();
+        if (lastWriteAction) undo.disabled = false;
+        else undo.disabled = true;
+      });
+    }
+    // 2) 事件代理：followup / confirm / nav
+    bodyEl.addEventListener('click', function (e) {
+      var fu = e.target.closest('.xj3-followup-item');
+      if (fu) { var t = fu.textContent.replace(/^[•\s]+/, ''); if (t) quickQuery(t); return; }
+      var ok = e.target.closest('.xj3-confirm-actions .xj3-ok');
+      if (ok) {
+        var card = ok.closest('.xj3-confirm-card');
+        var cb = card && card._resolveOk;
+        if (cb) cb({ ok: true });
+        if (card) card.remove();
+        return;
+      }
+      var cancel = e.target.closest('.xj3-confirm-actions button:not(.xj3-ok)');
+      if (cancel) {
+        var card2 = cancel.closest('.xj3-confirm-card');
+        var cb2 = card2 && card2._resolveOk;
+        if (cb2) cb2({ ok: false });
+        if (card2) card2.remove();
+        return;
+      }
+      var nav = e.target.closest('.xj3-nav-go');
+      if (nav) {
+        var nc = nav.closest('.xj3-nav-card');
+        var href = nc && nc.getAttribute('data-href');
+        if (href) location.href = href;
+      }
+    });
+  }
+
   function build() {
     if (panelEl) return panelEl;
+
+    // 如果页面里 xiaojing-panel.js 已经创建了面板（#xj-panel-v3），
+    // 则复用其 DOM 与 FAB，避免双悬浮球。但需要把 xiaojing-panel.js
+    // 已经绑定的 click 监听器清掉（用 cloneNode 替换关键元素），
+    // 再由 xinjing-chat 重新绑定。
+    var existing = document.getElementById('xj-panel-v3');
+    if (existing) {
+      // 替换 fab / close / overlay / send / voice / input，剥离旧事件
+      var fabOld = existing.querySelector('#xj3-fab');
+      var closeOld = existing.querySelector('#xj3-close');
+      var overlayOld = existing.querySelector('#xj3-overlay');
+      var sendOld = existing.querySelector('#xj3-send');
+      var voiceOld = existing.querySelector('#xj3-voice');
+      var inputOld = existing.querySelector('#xj3-input');
+      function rebind(orig, key) {
+        if (!orig) return null;
+        var fresh = orig.cloneNode(true);
+        orig.parentNode.replaceChild(fresh, orig);
+        return existing.querySelector(key);
+      }
+      rebind(fabOld, '#xj3-fab');
+      rebind(closeOld, '#xj3-close');
+      rebind(overlayOld, '#xj3-overlay');
+      rebind(sendOld, '#xj3-send');
+      rebind(voiceOld, '#xj3-voice');
+      rebind(inputOld, '#xj3-input');
+
+      panelEl = existing;
+      bodyEl = panelEl.querySelector('#xj3-body');
+      inputEl = panelEl.querySelector('#xj3-input');
+      hintDotEl = panelEl.querySelector('#xj3-fab-dot');
+      try {
+        var fab = panelEl.querySelector('#xj3-fab');
+        if (fab) fab.addEventListener('click', toggle);
+        var closeBtn = panelEl.querySelector('#xj3-close');
+        if (closeBtn) closeBtn.addEventListener('click', toggle);
+        var ov = panelEl.querySelector('#xj3-overlay');
+        if (ov) ov.addEventListener('click', toggle);
+        if (inputEl) inputEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') send();
+        });
+        var sendBtn = panelEl.querySelector('#xj3-send');
+        if (sendBtn) sendBtn.addEventListener('click', send);
+        var voiceBtn = panelEl.querySelector('#xj3-voice');
+        if (voiceBtn) voiceBtn.addEventListener('click', toggleVoice);
+      } catch (e) { /* ignore */ }
+      injectExtensionStyles();
+      ensureSystemPrompt();
+      refreshLock();
+      renderGreeting();
+      restoreMemory();
+      bindExtEvents();
+      try {
+        if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+          window.__XJ_API__.onLicenseState(function () { refreshLock(); });
+        }
+      } catch (e) { /* ignore */ }
+      try {
+        if (typeof AI !== 'undefined' && AI.onQuotaChange) {
+          AI.onQuotaChange(function () { updateQuotaBadge(); });
+        }
+      } catch (e) { /* ignore */ }
+      return panelEl;
+    }
+
     injectStyles();
     panelEl = document.createElement('div');
     panelEl.innerHTML = buildPanelHtml();
@@ -743,7 +896,7 @@ const XinJingChat = (() => {
                 : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
                 : '✓ 已完成');
               appendProgress(summary);
-              if (data.added !== undefined && data.sessionIds) {
+              if (data.added !== undefined && data.sessionIds && data.sessionIds.length) {
                 recordWriteAction(name, {}, data);
               }
             }
@@ -756,11 +909,16 @@ const XinJingChat = (() => {
         if (result.error) {
           updateAiMsg(typingDiv, '⚠ ' + result.error);
         } else if (result.reply) {
+          // AgentCore.runRound 已把模型消息写入 messages（同一数组引用），此处仅渲染，不再 push。
           updateAiMsg(typingDiv, result.reply);
-          messages.push({ role: 'assistant', content: result.reply });
         } else {
+          // result.reply 为空：AgentCore 已写入最终 assistant 消息（可能 content 为空），
+          // 仅补充友好兜底文案并就地修正最后一条消息，避免重复 push 产生两条 assistant。
           updateAiMsg(typingDiv, '（已完成）');
-          messages.push({ role: 'assistant', content: '已完成。' });
+          var last = messages[messages.length - 1];
+          if (last && last.role === 'assistant' && !last.content) {
+            last.content = '已完成。';
+          }
         }
       } else {
         if (typeof AI !== 'undefined' && AI.send) {
@@ -953,12 +1111,23 @@ const XinJingChat = (() => {
     } catch (e) {}
   }
 
+  // ---------- 加载自检 ----------
+  // 校验统一对话面板 API 表面完整，供 app.js 初始化时调用。
+  function selfTest() {
+    var expected = ['build', 'toggle', 'open', 'close', 'send', 'quickQuery',
+      'askHint', 'showNewHint', 'clearNewHint', 'updateSub', 'refresh', 'undo'];
+    var missing = expected.filter(function (m) { return typeof api[m] !== 'function'; });
+    var loaded = typeof window !== 'undefined' && window.XinJingChat === api;
+    return { ok: missing.length === 0 && loaded, missing: missing, loaded: loaded };
+  }
+
   // ---------- 导出 ----------
   var api = {
     build: build, toggle: toggle, open: open, close: close,
     send: send, quickQuery: quickQuery, askHint: askHint,
     showNewHint: showNewHint, clearNewHint: clearNewHint,
-    updateSub: updateSub, refresh: refresh, undo: undoLastWrite
+    updateSub: updateSub, refresh: refresh, undo: undoLastWrite,
+    selfTest: selfTest
   };
 
   if (typeof window !== 'undefined') {
@@ -973,6 +1142,11 @@ const XinJingChat = (() => {
       if (text) quickQuery(text);
     };
     window.AgentUndo = undoLastWrite;
+
+    // 加载时主动接管 xiaojing-panel.js 已建好的面板（避免双悬浮球 / 重复事件）
+    if (document.getElementById('xj-panel-v3') && !panelEl) {
+      try { build(); } catch (e) { console.warn('[xinjing-chat] takeover fail', e); }
+    }
   }
 
   return api;
