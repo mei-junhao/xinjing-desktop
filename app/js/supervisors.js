@@ -46,18 +46,18 @@ const Supervisors = (() => {
   // 内置身份元数据（固定 id，确保可识别且不可被用户误删）
   // ⚠️ 种子只存 id/name/builtin/createdAt，prompt 不入库明文（运行时从源码常量合成）。
   const BUILTINS_META = {
-    'builtin-winnicott': { id: 'builtin-winnicott', name: '温尼科特取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-freud': { id: 'builtin-freud', name: '弗洛伊德取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-jung': { id: 'builtin-jung', name: '荣格取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-klein': { id: 'builtin-klein', name: '克莱因取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-adler': { id: 'builtin-adler', name: '阿德勒取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-lacan': { id: 'builtin-lacan', name: '拉康取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-bion': { id: 'builtin-bion', name: '比昂取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-beck': { id: 'builtin-beck', name: '贝克取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-rogers': { id: 'builtin-rogers', name: '罗杰斯取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-yalom': { id: 'builtin-yalom', name: '亚隆取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-sue-johnson': { id: 'builtin-sue-johnson', name: '苏·约翰逊取向督导师', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
-    'builtin-generic': { id: 'builtin-generic', name: '通用督导师（低性能模式）', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-winnicott': { id: 'builtin-winnicott', name: '温尼科特取向督导师', desc: '客体关系理论，关注抱持环境、过渡性客体、真自体与假自体', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-freud': { id: 'builtin-freud', name: '弗洛伊德取向督导师', desc: '经典精神分析，关注潜意识、俄狄浦斯情结、防御机制', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-jung': { id: 'builtin-jung', name: '荣格取向督导师', desc: '分析心理学，关注集体无意识、原型、个性化过程', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-klein': { id: 'builtin-klein', name: '克莱因取向督导师', desc: '客体关系理论，关注婴儿早期焦虑、投射性认同、分裂机制', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-adler': { id: 'builtin-adler', name: '阿德勒取向督导师', desc: '个体心理学，关注自卑情结、社会兴趣、生活风格', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-lacan': { id: 'builtin-lacan', name: '拉康取向督导师', desc: '结构主义精神分析，关注语言、欲望、镜像阶段', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-bion': { id: 'builtin-bion', name: '比昂取向督导师', desc: '精神分析，关注容纳、容器概念、阿尔法功能', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-beck': { id: 'builtin-beck', name: '贝克取向督导师', desc: '认知行为疗法，关注自动思维、认知歪曲、行为激活', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-rogers': { id: 'builtin-rogers', name: '罗杰斯取向督导师', desc: '以人为中心疗法，关注共情、无条件积极关注、真诚一致', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-yalom': { id: 'builtin-yalom', name: '亚隆取向督导师', desc: '存在主义团体治疗，关注存在焦虑、死亡、自由、孤独', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-sue-johnson': { id: 'builtin-sue-johnson', name: '苏·约翰逊取向督导师', desc: '情绪聚焦疗法（EFT），关注情感连接、依恋模式', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
+    'builtin-generic': { id: 'builtin-generic', name: '通用督导师（低性能模式）', desc: '综合取向，适合初步咨询和一般问题', builtin: true, createdAt: '1970-01-01T00:00:00.000Z' },
   };
 
   // 运行时合成：含 prompt 的完整 BUILTINS（供 getById/buildSystemPrompt 使用，不写回 DB）
@@ -102,7 +102,7 @@ const Supervisors = (() => {
 
   function getBuiltinList() {
     return Object.keys(BUILTINS_META).map(function (k) {
-      return { id: k, name: BUILTINS_META[k].name, builtin: true };
+      return { id: k, name: BUILTINS_META[k].name, desc: BUILTINS_META[k].desc, builtin: true };
     });
   }
 

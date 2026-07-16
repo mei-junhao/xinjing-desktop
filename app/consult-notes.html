@@ -47,7 +47,12 @@
 <div class="ntop">
   <button class="back" onclick="leavePage()">&#x2190; 返回</button>
   <h2>咨询记录</h2><span class="spacer"></span>
-  <select id="sel-client" onchange="onClientChange()"><option value="">选择来访者…</option></select>
+  <select id="sel-client" onchange="onClientChange()" style="display:none"><option value="">选择来访者…</option></select>
+  <div id="client-search-box" style="position:relative;">
+    <input type="text" id="client-search" placeholder="搜索来访者…" style="border:1px solid var(--border);border-radius:8px;padding:6px 32px 6px 10px;font:13px var(--sans);background:var(--paper,#fff);width:180px">
+    <div id="client-search-icon" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--ink-3)">🔍</div>
+    <div id="client-dropdown" style="position:absolute;top:100%;left:0;right:0;margin-top:4px;border:1px solid var(--border);border-radius:8px;background:var(--paper-2,#fff);box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:100;display:none;max-height:200px;overflow-y:auto"></div>
+  </div>
   <select id="sel-session" onchange="onSessionChange()" style="display:none"><option value="">选择来访者会话…</option></select>
   <button id="btn-upload-transcript" onclick="document.getElementById('transcript-file').click()" style="display:none">上传逐字稿 AI 分析 <span class="lock-mini">会员</span></button>
   <input type="file" id="transcript-file" accept=".txt,.md,.doc,.docx" style="display:none" onchange="onTranscriptUpload(event)">

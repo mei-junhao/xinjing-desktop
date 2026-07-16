@@ -115,6 +115,35 @@
     document.getElementById('kb-pick').addEventListener('click', pickFolder);
     document.getElementById('kb-refresh').addEventListener('click', function () { loadMeta(true); });
     loadMeta(false);
+    showFirstTimeGuide();
+  }
+
+  function showFirstTimeGuide() {
+    try {
+      var hasFolder = false;
+      var cfg = {};
+      if (typeof window !== 'undefined' && window.__XJ_API__ && typeof window.__XJ_API__.readUserDocConfig === 'function') {
+        cfg = window.__XJ_API__.readUserDocConfig();
+        hasFolder = !!(cfg && cfg.folder);
+      }
+      var guided = localStorage.getItem('kb_guided');
+      if (hasFolder || guided) return;
+      localStorage.setItem('kb_guided', '1');
+      var guide = document.createElement('div');
+      guide.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:1000;text-align:center';
+      guide.innerHTML = '<div style="font-size:24px;margin-bottom:12px">📚</div>' +
+        '<div style="font-size:16px;font-weight:600;margin-bottom:8px;color:var(--ink)">欢迎使用资料库</div>' +
+        '<div style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:20px">资料库是你的私人知识库，你可以把课程讲义、文献资料放入一个文件夹，心镜会帮你检索和管理这些资料。资料仅在本机读取，不会上传。</div>' +
+        '<div style="display:flex;gap:8px;justify-content:center">' +
+          '<button style="padding:8px 16px;border:1px solid var(--border);border-radius:8px;font:13px var(--sans);cursor:pointer;background:var(--paper,#fff);color:var(--ink-2)" onclick="this.parentElement.parentElement.remove()">以后再说</button>' +
+          '<button style="padding:8px 20px;border:none;border-radius:8px;font:600 13px var(--sans);cursor:pointer;background:var(--accent);color:#fff" onclick="document.getElementById(\'kb-pick\').click();this.parentElement.parentElement.remove()">选择文件夹</button>' +
+        '</div>';
+      document.body.appendChild(guide);
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.3);z-index:999';
+      overlay.onclick = function () { guide.remove(); overlay.remove(); };
+      document.body.appendChild(overlay);
+    } catch (e) {}
   }
 
   // ---------- 模式切换器 ----------

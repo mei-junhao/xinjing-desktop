@@ -162,6 +162,18 @@
   .bottom-row{grid-template-columns:1fr}
   .page{padding:20px 16px}
 }
+
+/* ---------- 小镜浮动按钮 ---------- */
+.xj-float-btn{
+  position:fixed;right:24px;bottom:32px;width:56px;height:56px;
+  border-radius:50%;background:var(--accent);color:#fff;
+  font-size:20px;border:none;cursor:pointer;
+  box-shadow:0 4px 20px rgba(139,147,199,.3);
+  z-index:99;transition:all .2s ease;
+  display:flex;align-items:center;justify-content:center;
+}
+.xj-float-btn:hover{background:var(--accent-hover);transform:scale(1.05);box-shadow:0 6px 24px rgba(139,147,199,.4)}
+.xj-float-btn:active{transform:scale(.95)}
 </style>
 </head>
 <body>
@@ -202,55 +214,64 @@
     <a class="mod" href="consult-notes.html">
       <div class="m-icon">&#x1F4CB;</div>
       <div class="m-title">咨询记录</div>
-      <div class="m-desc">快速记录整理，APA 结构化提示，AI 辅助逐字稿</div>
+      <div class="m-desc">快速记录整理，APA 结构化提示</div>
       <div class="m-tag">常用</div>
-    </a>
-    <a class="mod" href="transcript.html">
-      <div class="m-icon">&#x1F4DD;</div>
-      <div class="m-title">逐字稿整理</div>
-      <div class="m-desc">AI 辅助校对，双栏对比修正，错误记忆库自动学习</div>
-    </a>
-    <a class="mod" href="report-writing.html">
-      <div class="m-icon">&#x1F4C4;</div>
-      <div class="m-title">撰写报告</div>
-      <div class="m-desc">呈报督导师的完整案例报告，跨节整合，导出 Word</div>
-      <div class="m-tag" style="background:var(--success);color:#fff">会员 · AI 生成</div>
     </a>
     <a class="mod" href="supervision.html">
       <div class="m-icon">&#x1F9E0;</div>
       <div class="m-title">AI 督导</div>
-      <div class="m-desc">三栏研究台，整体印象/深化分析/临床材料，会话历史</div>
+      <div class="m-desc">三栏研究台，整体印象与深化分析</div>
     </a>
-    <a class="mod" href="real-supervision.html">
-      <div class="m-icon">&#x1F468&#x200D&#x2695&#xFE0F;</div>
-      <div class="m-title">真人督导</div>
-      <div class="m-desc">记录督导过程，上传逐字稿，案例报告，AI 分析</div>
-    </a>
-    <a class="mod" href="doc-center.html">
-      <div class="m-icon">&#x1F4DA;</div>
-      <div class="m-title">文档中心</div>
-      <div class="m-desc">来访者材料归档，按类型查阅，成长轨迹追踪</div>
+    <a class="mod" href="masters.html">
+      <div class="m-icon">&#x1F5E3;</div>
+      <div class="m-title">学派对话</div>
+      <div class="m-desc">与 11 位思想者对话，理论研讨</div>
     </a>
     <a class="mod" href="billing-shell.html">
       <div class="m-icon">&#x1F4B0;</div>
       <div class="m-title">账单</div>
-      <div class="m-desc">收入统计，月结，预付费，对账导出，月历视图</div>
+      <div class="m-desc">收入统计，月结，对账导出</div>
+    </a>
+    <a class="mod" href="knowledge.html">
+      <div class="m-icon">&#x1F4D6;</div>
+      <div class="m-title">资料库</div>
+      <div class="m-desc">导入讲义文献，AI 检索</div>
+      <div class="m-tag" id="kb-mod-count">未设置</div>
+    </a>
+    <button class="mod" onclick="toggleMoreModules()" id="more-mod-btn">
+      <div class="m-icon">&#x22EF;</div>
+      <div class="m-title">更多功能</div>
+      <div class="m-desc">逐字稿、报告、真人督导、文档中心、日历、设置...</div>
+    </button>
+  </div>
+
+  <!-- 更多模块（默认隐藏） -->
+  <div class="modules" id="more-modules" style="display:none">
+    <a class="mod" href="transcript.html">
+      <div class="m-icon">&#x1F4DD;</div>
+      <div class="m-title">逐字稿整理</div>
+      <div class="m-desc">AI 辅助校对，双栏对比修正</div>
+    </a>
+    <a class="mod" href="report-writing.html">
+      <div class="m-icon">&#x1F4C4;</div>
+      <div class="m-title">撰写报告</div>
+      <div class="m-desc">完整案例报告，跨节整合，导出 Word</div>
+      <div class="m-tag" style="background:var(--success);color:#fff">会员 · AI 生成</div>
+    </a>
+    <a class="mod" href="real-supervision.html">
+      <div class="m-icon">&#x1F468&#x200D&#x2695&#xFE0F;</div>
+      <div class="m-title">真人督导</div>
+      <div class="m-desc">记录督导过程，上传逐字稿</div>
+    </a>
+    <a class="mod" href="doc-center.html">
+      <div class="m-icon">&#x1F4DA;</div>
+      <div class="m-title">文档中心</div>
+      <div class="m-desc">来访者材料归档，成长轨迹追踪</div>
     </a>
     <a class="mod" href="session-calendar.html">
       <div class="m-icon">&#x1F4C5;</div>
       <div class="m-title">咨询日历</div>
-      <div class="m-desc">月视图看所有会谈，按来访者筛选，点击直达会话</div>
-    </a>
-    <a class="mod" href="masters.html">
-      <div class="m-icon">&#x1F5E3;</div>
-      <div class="m-title">大师对话</div>
-      <div class="m-desc">与 11 位思想者对话，多大师圆桌研讨</div>
-    </a>
-    <a class="mod" href="knowledge.html">
-      <div class="m-icon">&#x1F4D6;</div>
-      <div class="m-title">我的资料库</div>
-      <div class="m-desc">导入课程讲义与文献，被动注入 AI 对话，随时检索</div>
-      <div class="m-tag" id="kb-mod-count">未设置</div>
+      <div class="m-desc">月视图看所有会谈，点击直达会话</div>
     </a>
     <a class="mod" href="settings.html">
       <div class="m-icon">&#x2699;</div>
@@ -266,6 +287,21 @@
   </div>
 </div>
 </main></div>
+
+<button class="xj-float-btn" id="xj-float-btn" onclick="toggleXiaojing()" title="小镜助手">🧠</button>
+
+<script>
+function toggleMoreModules() {
+  const more = document.getElementById('more-modules');
+  const btn = document.getElementById('more-mod-btn');
+  if (!more || !btn) return;
+  const isHidden = more.style.display === 'none';
+  more.style.display = isHidden ? '' : 'none';
+  btn.innerHTML = isHidden
+    ? '<div class="m-icon">&#x2212;</div><div class="m-title">收起</div><div class="m-desc">隐藏更多功能</div>'
+    : '<div class="m-icon">&#x22EF;</div><div class="m-title">更多功能</div><div class="m-desc">逐字稿、报告、真人督导、文档中心、日历、设置...</div>';
+}
+</script>
 
 <script src="js/store.js"></script>
 <script src="js/memory.js"></script>

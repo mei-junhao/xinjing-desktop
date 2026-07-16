@@ -1,0 +1,73 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicehash/tauri/dev/crates/tauri-config-schema/schema.json",
+  "productName": "心镜 XinJing",
+  "version": "1.0.0",
+  "identifier": "com.xinjing.desktop",
+  "build": {
+    "frontendDist": "../app",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "心镜 XinJing",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' blob:; object-src 'none'"
+    },
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/icon.png",
+      "tooltip": "心镜 XinJing"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "nsis",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "Copyright © 2026 Mei",
+    "category": "Productivity",
+    "shortDescription": "心理咨询本地管理工作台",
+    "longDescription": "心镜 XinJing — 心理咨询本地管理工作台，支持来访者管理、咨询记录、AI 督导、大师对话、知识库等功能",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimplifiedChinese", "English"],
+        "displayLanguageSelector": false
+      }
+    },
+    "macOS": {
+      "frameworks": [],
+      "signingIdentity": null,
+      "providerShortName": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJEODJBQkMwMDdCODY2QkEKUldTNlpyZ0h3S3VDTFQzaHhMeUo5NHFKSTU4OWFTTGtoMXBheHdHdUhScXNKdTNWMk1lVitRTXAK",
+      "endpoints": [
+        "https://xinjing-1258396727.cos.ap-nanjing.myqcloud.com/tauri-updates/latest.json"
+      ]
+    }
+  }
+}

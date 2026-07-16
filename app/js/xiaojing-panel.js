@@ -97,6 +97,7 @@ const XiaojingPanel = (() => {
           '<div class="xj3-body" id="xj3-body"></div>' +
           '<div class="xj3-input-row">' +
             '<input id="xj3-input" placeholder="问点什么……" autocomplete="off">' +
+            '<button id="xj3-voice" title="语音输入">🎤</button>' +
             '<button id="xj3-send">发送</button>' +
           '</div>' +
         '</div>' +
@@ -173,7 +174,11 @@ const XiaojingPanel = (() => {
       '.xj3-input-row button{background:var(--accent);color:#fff;border:none;border-radius:10px;' +
         'padding:0 16px;font:600 13px var(--sans);cursor:pointer;transition:opacity .15s ease}' +
       '.xj3-input-row button:hover{opacity:.9}' +
-      '.xj3-input-row button:active{opacity:.8}';
+      '.xj3-input-row button:active{opacity:.8}' +
+      '.xj3-input-row #xj3-voice{background:none;border:none;font-size:16px;color:var(--ink-3);cursor:pointer;padding:0 8px;border-radius:8px;transition:color .15s ease}' +
+      '.xj3-input-row #xj3-voice:hover{color:var(--accent)}' +
+      '.xj3-input-row #xj3-voice.recording{color:#ff5252;animation:pulse 1.5s infinite}' +
+      '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}';
     document.head.appendChild(style);
 
     panelEl = document.createElement('div');
@@ -192,6 +197,7 @@ const XiaojingPanel = (() => {
       if (e.key === 'Enter') send();
     });
     panelEl.querySelector('#xj3-send').addEventListener('click', send);
+    panelEl.querySelector('#xj3-voice').addEventListener('click', toggleVoice);
 
     bodyEl.addEventListener('click', function (e) {
       var li = e.target.closest('#xj3-hint-list li');
@@ -365,6 +371,53 @@ const XiaojingPanel = (() => {
     if (!inputEl) return;
     inputEl.value = hint;
     send();
+  }
+
+  var voiceRecognition = null;
+  var isRecording = false;
+
+  function toggleVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      appendAiMsg('当前浏览器不支持语音输入');
+      return;
+    }
+    var voiceBtn = panelEl.querySelector('#xj3-voice');
+    if (!voiceBtn) return;
+
+    if (!voiceRecognition) {
+      voiceRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      voiceRecognition.lang = 'zh-CN';
+      voiceRecognition.interimResults = true;
+      voiceRecognition.onresult = function (e) {
+        var interim = '';
+        var final = '';
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
+        }
+        if (inputEl) inputEl.value = final + interim;
+      };
+      voiceRecognition.onend = function () {
+        isRecording = false;
+        if (voiceBtn) voiceBtn.classList.remove('recording');
+        voiceBtn.textContent = '🎤';
+      };
+      voiceRecognition.onerror = function (e) {
+        isRecording = false;
+        if (voiceBtn) voiceBtn.classList.remove('recording');
+        voiceBtn.textContent = '🎤';
+        appendAiMsg('语音输入出错：' + (e.error || '未知错误'));
+      };
+    }
+
+    if (isRecording) {
+      voiceRecognition.stop();
+    } else {
+      voiceRecognition.start();
+      isRecording = true;
+      voiceBtn.classList.add('recording');
+      voiceBtn.textContent = '⏹';
+    }
   }
 
   function toggle() {

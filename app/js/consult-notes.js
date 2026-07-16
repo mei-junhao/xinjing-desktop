@@ -4,19 +4,77 @@
   var currentClientId = null;
   var currentSessionId = null;
   var currentMode = 'apa';
+  var allClients = [];
+  var autoSaveTimer = null;
+  var lastSavedContent = '';
 
   function loadClients() {
     var sel = document.getElementById('sel-client');
-    var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+    allClients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+    var clients = allClients;
     sel.innerHTML = '<option value="">选择来访者…</option>' + clients.map(function (c) {
       return '<option value="' + c.id + '">' + App.escapeHtml(c.name) + '</option>';
     }).join('');
+    initClientSearch();
   }
+
+  function initClientSearch() {
+    var search = document.getElementById('client-search');
+    var dropdown = document.getElementById('client-dropdown');
+    if (!search || !dropdown) return;
+
+    search.addEventListener('input', function () {
+      var q = (search.value || '').toLowerCase();
+      var matched = allClients.filter(function (c) {
+        return c.name.toLowerCase().indexOf(q) >= 0 || (c.phone && c.phone.indexOf(q) >= 0);
+      });
+      if (matched.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      dropdown.innerHTML = matched.map(function (c) {
+        return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px" data-id="' + c.id + '" onmouseenter="this.style.background=\'var(--accent-soft)\'" onmouseleave="this.style.background=\'\'" onclick="selectClient(\'' + c.id + '\')">' +
+          '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">' + (c.name || '?')[0] + '</div>' +
+          '<div><div style="font-size:13px;font-weight:600;color:var(--ink)">' + App.escapeHtml(c.name) + '</div>' + (c.phone ? '<div style="font-size:11px;color:var(--ink-3)">' + App.escapeHtml(c.phone) + '</div>' : '') + '</div>' +
+        '</div>';
+      }).join('');
+      dropdown.style.display = '';
+    });
+
+    search.addEventListener('focus', function () {
+      if (!search.value) {
+        dropdown.innerHTML = allClients.map(function (c) {
+          return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px" data-id="' + c.id + '" onmouseenter="this.style.background=\'var(--accent-soft)\'" onmouseleave="this.style.background=\'\'" onclick="selectClient(\'' + c.id + '\')">' +
+            '<div style="width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">' + (c.name || '?')[0] + '</div>' +
+            '<div><div style="font-size:13px;font-weight:600;color:var(--ink)">' + App.escapeHtml(c.name) + '</div>' + (c.phone ? '<div style="font-size:11px;color:var(--ink-3)">' + App.escapeHtml(c.phone) + '</div>' : '') + '</div>' +
+          '</div>';
+        }).join('');
+        dropdown.style.display = '';
+      }
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!search || !dropdown) return;
+      if (!search.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
+
+  window.selectClient = function (id) {
+    currentClientId = id;
+    var search = document.getElementById('client-search');
+    var dropdown = document.getElementById('client-dropdown');
+    var c = allClients.find(function (x) { return x.id === id; });
+    if (search && c) search.value = c.name;
+    if (dropdown) dropdown.style.display = 'none';
+    onClientChange();
+  };
 
   // 选择来访者：填充会话下拉并显示上传/导出入口
   window.onClientChange = function () {
     var sel = document.getElementById('sel-client');
-    currentClientId = sel.value || null;
+    currentClientId = sel.value || currentClientId;
     currentSessionId = null;
     var sessSel = document.getElementById('sel-session');
     var upBtn = document.getElementById('btn-upload-transcript');
@@ -29,7 +87,6 @@
     }
     var c = Store.getClient(currentClientId);
     addXjMsg('ai', '已选择 ' + c.name + '。可选「来访者会话」继续编辑某节次，或直接在下方新建记录；我可以帮你展开任何一条。');
-    // 填充会话下拉
     var sessions = Store.getSessionsByClient(currentClientId).sort(function (a, b) {
       return (b.date || '').localeCompare(a.date || '');
     });
@@ -413,7 +470,52 @@
 
   App.initPage({ title: '咨询记录', subtitle: '', actions: '', noSidebar: true, onReady: function () {
     loadClients();
+    // 支持从咨询日历跳转：?client=ID&session=ID 自动预选来访者与会话
+    try {
+      var params = new URLSearchParams(location.search);
+      var pClient = params.get('client');
+      var pSession = params.get('session');
+      if (pClient) {
+        var sel = document.getElementById('sel-client');
+        if (sel) { sel.value = pClient; onClientChange(); }
+        var c = allClients.find(function (x) { return x.id === pClient; });
+        var search = document.getElementById('client-search');
+        if (search && c) search.value = c.name;
+        if (pSession) {
+          var ss = document.getElementById('sel-session');
+          if (ss) { ss.value = pSession; onSessionChange(); }
+        }
+      }
+    } catch (e) {}
     // 离开页面（关闭/刷新）自动保存当前草稿
     window.addEventListener('beforeunload', autoSaveSilent);
+    // 自动保存：每隔 30 秒检查一次变化并保存
+    var textareas = document.querySelectorAll('.left textarea');
+    textareas.forEach(function (ta) {
+      ta.addEventListener('input', function () {
+        if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(function () {
+          try {
+            var current = collectCurrentContent();
+            if (current !== lastSavedContent && current.trim()) {
+              saveNotes(true);
+              lastSavedContent = current;
+            }
+          } catch (e) {}
+        }, 30000);
+      });
+    });
   }});
+
+  function collectCurrentContent() {
+    if (currentMode === 'apa') {
+      return [document.getElementById('f1').value, document.getElementById('f2').value, document.getElementById('f3').value, document.getElementById('f4').value, document.getElementById('f5').value].join('\n');
+    } else if (currentMode === 'soap') {
+      return [document.getElementById('soap-s').value, document.getElementById('soap-o').value, document.getElementById('soap-a').value, document.getElementById('soap-p').value].join('\n');
+    } else if (currentMode === 'dap') {
+      return [document.getElementById('dap-d').value, document.getElementById('dap-a').value, document.getElementById('dap-p').value].join('\n');
+    } else {
+      return document.getElementById('f-free').value || '';
+    }
+  }
 })();

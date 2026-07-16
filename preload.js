@@ -43,6 +43,16 @@ const api = {
   readUserDocMeta: () => ipcRenderer.invoke('xj:readUserDocMeta'),
   readUserDocFile: (relPath) => ipcRenderer.invoke('xj:readUserDocFile', { relPath }),
   searchUserDocs: (query, max) => ipcRenderer.invoke('xj:searchUserDocs', { query, max }),
+  ragIndexStatus: () => ipcRenderer.invoke('xj:ragIndexStatus'),
+  ragIndex: () => ipcRenderer.invoke('xj:ragIndex'),
+  ragCancel: () => ipcRenderer.invoke('xj:ragCancel'),
+  ragSearch: (query, topK, tier) => ipcRenderer.invoke('xj:ragSearch', { query, topK, tier }),
+  onRagProgress: (cb) => {
+    if (typeof cb !== 'function') return null;
+    const handler = (e, data) => { try { cb(data); } catch (err) {} };
+    ipcRenderer.on('xj:ragProgress', handler);
+    return () => ipcRenderer.removeListener('xj:ragProgress', handler);
+  },
   openExternal: (url) => ipcRenderer.invoke('xj:openExternal', url),
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）

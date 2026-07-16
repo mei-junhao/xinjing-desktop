@@ -29,15 +29,16 @@ App.initPage({
     try { var d = localStorage.getItem(draftKey); if (d) materialTA.value = d; } catch(e){}
     materialTA.addEventListener('input', function () { try { localStorage.setItem(draftKey, this.value); } catch(e){} });
 
-    // 动态填充督导流派下拉
+    // 动态填充督导流派下拉（带说明）
     var orientSel = document.getElementById('sup-orient');
+    var orientDesc = document.getElementById('sup-orient-desc');
     if (typeof Supervisors !== 'undefined' && Supervisors.getBuiltinList) {
       Supervisors.getBuiltinList().forEach(function (s) {
         var opt = document.createElement('option');
         opt.value = s.id; opt.textContent = s.name;
+        if (s.desc) opt.setAttribute('data-desc', s.desc);
         orientSel.appendChild(opt);
       });
-      // 自定义督导占位
       var custOpt = document.createElement('option');
       custOpt.value = '__custom__'; custOpt.textContent = '自定义督导（会员专属）';
       custOpt.style.color = 'var(--ink-3)';
@@ -53,6 +54,11 @@ App.initPage({
       curOrient = this.value;
       curOrientName = this.options[this.selectedIndex].textContent;
       updateBadge();
+      var desc = this.options[this.selectedIndex].getAttribute('data-desc');
+      if (orientDesc) {
+        orientDesc.textContent = desc || '';
+        orientDesc.style.display = desc ? '' : 'none';
+      }
     });
     function updateBadge() {
       document.getElementById('sup-badge').textContent = curOrientName;

@@ -13,6 +13,17 @@ const crypto = require('crypto');
 let mammoth = null;
 try { mammoth = require('mammoth'); } catch (e) { mammoth = null; }
 
+// v3.6.0：RAG 向量检索（JSON 向量存储降级方案，避免 ChromaDB 原生依赖打包问题）
+let RagIndex = null;
+let ragIndex = null;
+let APP_PROXY_KEY = '';
+try { APP_PROXY_KEY = require('./secret.generated').APP_PROXY_KEY || ''; } catch (e) { APP_PROXY_KEY = ''; }
+try {
+  RagIndex = require('./rag-index.js');
+} catch (e) {
+  console.warn('[rag] RagIndex module not available:', e.message);
+}
+
 // ---- API 密钥安全存储（H1 修复）：用 safeStorage 加密敏感凭据 ----
 // safeStorage 基于 OS 密钥链（Windows DPAPI / macOS Keychain / Linux libsecret），
 // 加密后数据仅当前用户/机器可解密。加密前缀 'xj-enc:' 标识已加密。
@@ -345,7 +356,7 @@ const MIME = {
 function serveApp(req, res) {
   try {
     let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-    if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
+    if (urlPath === '/' || urlPath === '') urlPath = '/chat-home.html';
     const resolved = path.resolve(APP_DIR, '.' + path.normalize(urlPath));
     if (!resolved.startsWith(APP_DIR + path.sep)) {
       res.writeHead(403);
@@ -523,7 +534,7 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadURL(`http://127.0.0.1:${PORT}/index.html`);
+  mainWindow.loadURL(`http://127.0.0.1:${PORT}/chat-home.html`);
 
   // 顶部窗口标题始终固定为「心镜 v1.0.X」，阻止各页面 document.title 覆盖
   mainWindow.on('page-title-updated', (e) => {
@@ -1274,6 +1285,86 @@ ipcMain.handle('xj:searchUserDocs', async (e, args) => {
   }
   hits.sort((a, b) => b.score - a.score);
   return { ok: true, query, hits, fileCount: fileSet.size };
+});
+
+// ---- v3.6.0 RAG 向量检索：索引构建 / 搜索 / 取消 / 状态 / 进度广播 ----
+function ensureRagIndex() {
+  if (ragIndex) return ragIndex;
+  if (!RagIndex) return null;
+  try {
+    ragIndex = new RagIndex({
+      userDataDir: userDataDir(),
+      proxyHost: 'xinjingchat.online',
+      proxyKey: APP_PROXY_KEY,
+      machineId: getMachineCode(),
+    });
+    ragIndex.onProgress((p) => {
+      if (mainWindow) {
+        try { mainWindow.webContents.send('xj:ragProgress', p); } catch (e) {}
+      }
+    });
+  } catch (e) {
+    console.error('[rag] init failed:', e.message);
+    return null;
+  }
+  return ragIndex;
+}
+
+ipcMain.handle('xj:ragIndexStatus', async () => {
+  const ri = ensureRagIndex();
+  if (!ri) return { ok: false, reason: 'rag-module-unavailable' };
+  try {
+    const st = ri.getStatus();
+    return st;
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+});
+
+ipcMain.handle('xj:ragIndex', async () => {
+  const ri = ensureRagIndex();
+  if (!ri) return { ok: false, error: 'rag-module-unavailable' };
+  const cfg = readUserDocConfig();
+  if (!cfg.folder) return { ok: false, error: 'no-folder' };
+  const root = cfg.folder;
+  let entries;
+  try {
+    const r = await walkUserDoc(root, 4, KB_FILE_LIMIT);
+    entries = r.entries;
+  } catch (e) {
+    return { ok: false, error: 'read-dir-failed: ' + e.message };
+  }
+  try {
+    const result = await ri.buildIndex(entries);
+    return result;
+  } catch (e) {
+    console.error('[rag] buildIndex failed:', e.message);
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('xj:ragCancel', async () => {
+  const ri = ensureRagIndex();
+  if (!ri) return { ok: false };
+  ri.cancel();
+  return { ok: true };
+});
+
+ipcMain.handle('xj:ragSearch', async (e, args) => {
+  args = args || {};
+  const query = String(args.query || '').trim();
+  const topK = Math.min(50, Math.max(1, args.topK || 20));
+  const tier = String(args.tier || 'pro');
+  if (!query) return { ok: true, results: [] };
+  const ri = ensureRagIndex();
+  if (!ri) return { ok: false, reason: 'rag-module-unavailable', results: [] };
+  try {
+    const r = await ri.search(query, { topK, tier });
+    return r;
+  } catch (e) {
+    console.warn('[rag] search failed, will fallback:', e.message);
+    return { ok: false, reason: e.message, results: [] };
+  }
 });
 
 ipcMain.on('xj:openActivation', () => openActivationWindow());

@@ -53,8 +53,11 @@ async function _withRetry(fn, retries = MAX_RETRIES) {
     try { return await fn(); }
     catch (e) {
       lastErr = e;
-      if (e.status && e.status >= 500) {
-        await new Promise(r => setTimeout(r, 500 * Math.pow(2, i)));
+      if (e.status && (e.status >= 500 || e.status === 429)) {
+        const delay = e.status === 429
+          ? Math.min(5000, 1000 * Math.pow(2, i))
+          : 500 * Math.pow(2, i);
+        await new Promise(r => setTimeout(r, delay));
         continue;
       }
       throw e;

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>激活 · 心镜 XinJing</title>
+<style>
+  :root{
+    --clay:#9c5a3c; --clay-dark:#7e4830; --ink:#2b2622; --paper:#f6f1ea;
+    --line:rgba(43,38,34,.12); --muted:#8a7f74;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",serif;
+    background:radial-gradient(120% 120% at 50% 0%,#fbf7f1 0%,var(--paper) 100%);
+    color:var(--ink);display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .card{
+    width:min(480px,100%);background:#fff;border-radius:20px;padding:36px 32px;
+    box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 18px 50px rgba(43,38,34,.16);
+    border:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .disc{width:34px;height:34px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#c98b6a,#9c5a3c 70%);
+    box-shadow:0 0 0 4px rgba(156,90,60,.12);}
+  .brand b{font-size:18px;letter-spacing:.5px;}
+  h1{font-size:22px;margin:14px 0 6px;}
+  p.sub{color:var(--muted);font-size:13px;margin:0 0 22px;line-height:1.6;}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.4px;}
+  textarea{
+    width:100%;min-height:92px;resize:vertical;border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;font:600 15px/1.5 ui-monospace,"SFMono-Regular",Menlo,monospace;
+    letter-spacing:1px;color:var(--ink);background:#fcfaf6;outline:none;
+  }
+  textarea:focus{border-color:var(--clay);box-shadow:0 0 0 3px rgba(156,90,60,.12);}
+  .mc-row{display:flex;gap:8px;margin-bottom:18px;}
+  .mc-row .mc{flex:1;border:1px dashed var(--line);border-radius:10px;padding:9px 12px;
+    font:600 13px/1.4 ui-monospace,"SFMono-Regular",Menlo,monospace;letter-spacing:1px;color:var(--muted);background:#fbf7f1;outline:none;}
+  .mc-row .mc-copy{flex:0 0 auto;width:auto;padding:0 18px;border-radius:10px;background:transparent;color:var(--clay);border:1px solid var(--line);}
+  .actions{display:flex;gap:12px;margin-top:20px;}
+  button{
+    flex:1;border:0;border-radius:999px;padding:13px 0;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  .primary{background:var(--clay);color:#fff;}
+  .primary:disabled{opacity:.5;cursor:default;}
+  .ghost{background:transparent;color:var(--muted);border:1px solid var(--line);}
+  .msg{margin-top:16px;font-size:13px;min-height:20px;line-height:1.5;}
+  .msg.ok{color:#3f7d4f;font-weight:700;}
+  .msg.err{color:#b23b2e;font-weight:700;}
+  .hint{margin-top:18px;font-size:11px;color:var(--muted);line-height:1.6;border-top:1px dashed var(--line);padding-top:14px;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand"><div class="disc"></div><b>心镜 XinJing</b></div>
+    <h1>输入激活码</h1>
+    <p class="sub">激活后将解锁完整功能并移除水印与导出限制。激活码由开发者提供，离线即可验证。</p>
+    <label for="mc">本机机器码（发给开发者以索取绑定本机的激活码）</label>
+    <div class="mc-row">
+      <input id="mc" class="mc" readonly placeholder="加载中…" />
+      <button class="ghost mc-copy" id="mc-copy" type="button">复制</button>
+    </div>
+    <label for="code">激活码（格式 XJ-XXXX-XXXX-…）</label>
+    <textarea id="code" placeholder="XJ-XXXX-XXXX-XXXX-XXXX" spellcheck="false"></textarea>
+    <div class="actions">
+      <button class="ghost" id="cancel">取消</button>
+      <button class="primary" id="activate">激活</button>
+    </div>
+    <div class="msg" id="bridge-status"></div>
+    <div class="msg" id="msg"></div>
+    <div class="hint">未激活可使用 90 天免费版，基础个案管理可用；AI 助手等拓展功能需输入激活码解锁。到期后进入受限模式，仅可管理前 5 位来访者与 50 条督导记录（其余只读），禁止导出/打印。激活信息仅保存在本机用户目录，不会上传。</div>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  function fmtDate(ms) {
+    if (!ms) return '终身';
+    const d = new Date(ms);
+    const p = (n) => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  const ta = $('code'), msg = $('msg'), btn = $('activate');
+  const bridgeStatus = $('bridge-status');
+  function refreshBridgeStatus() {
+    if (window.__XJ_API__ && typeof window.__XJ_API__.activate === 'function') {
+      bridgeStatus.className = 'msg ok';
+      bridgeStatus.textContent = '✓ 激活组件已就绪';
+    } else {
+      bridgeStatus.className = 'msg err';
+      bridgeStatus.textContent = '✗ 激活组件未加载（窗口桥接缺失）。请完全退出本程序（右键托盘图标 → 退出），再重新打开重试；仍不行请卸载并安装最新版。';
+    }
+  }
+  refreshBridgeStatus();
+  // 加载并显示本机机器码（供发给开发者出绑定码）
+  (async () => {
+    const mcEl = $('mc'), copyBtn = $('mc-copy');
+    if (!window.__XJ_API__ || typeof window.__XJ_API__.getMachineCode !== 'function') {
+      mcEl.value = '（无法获取，请更新到最新版）'; copyBtn.disabled = true; return;
+    }
+    try {
+      const mc = await window.__XJ_API__.getMachineCode();
+      mcEl.value = mc || '（空）';
+      copyBtn.onclick = () => {
+        mcEl.select();
+        try { navigator.clipboard.writeText(mc); } catch (e) { document.execCommand('copy'); }
+        copyBtn.textContent = '已复制'; setTimeout(() => (copyBtn.textContent = '复制'), 1200);
+      };
+    } catch (e) {
+      mcEl.value = '（获取失败）'; copyBtn.disabled = true;
+    }
+  })();
+  $('cancel').onclick = () => window.__XJ_API__.done && window.close();
+  ta.addEventListener('input', () => { msg.className='msg'; msg.textContent=''; });
+  btn.onclick = async () => {
+    const code = ta.value.trim();
+    if (!code) { msg.className='msg err'; msg.textContent='请输入激活码。'; return; }
+    if (!window.__XJ_API__ || typeof window.__XJ_API__.activate !== 'function') {
+      msg.className='msg err';
+      msg.textContent='激活组件未加载（窗口桥接缺失）。请完全退出本程序（包括右下角托盘图标 → 右键「退出」），再重新打开后重试；若仍不行，请卸载并重新安装最新版。';
+      return;
+    }
+    btn.disabled = true; msg.className='msg'; msg.textContent='正在验证…';
+    try {
+      const r = await window.__XJ_API__.activate(code);
+      if (r && r.ok) {
+        msg.className='msg ok';
+        const tierLabel = (r.tier === 'custom') ? '定制旗舰版 (Custom)'
+          : (r.tier === 'pro') ? '标准版 (Pro)'
+          : (r.tier === 'full' || !r.tier) ? '完整版（旧激活码）' : '已激活';
+        const expText = (r.expiresAt && r.expiresAt !== 0) ? ('有效期至 ' + fmtDate(r.expiresAt)) : '终身有效';
+        msg.textContent = '激活成功！' + tierLabel + ' · 授权给：' + r.identity + '\n' + expText + '\n正在重启…';
+        setTimeout(() => window.__XJ_API__.done(), 800);
+      } else {
+        msg.className='msg err';
+        msg.textContent = (r && r.error) ? r.error : '激活码无效，请核对后重试。';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      msg.className='msg err'; msg.textContent='验证失败：' + (e && e.message ? e.message : e);
+      btn.disabled = false;
+    }
+  };
+</script>
+</body>
+</html>

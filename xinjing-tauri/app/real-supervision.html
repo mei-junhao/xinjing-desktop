@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 真人督导</title>
+<link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/components.css">
+<style>
+.rs-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.rs-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.rs-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
+.rs-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.rs-top .sp{flex:1}
+.rs-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper,#fff)}
+.rs-body{flex:1;display:grid;grid-template-columns:280px 1fr;min-height:0;overflow:hidden}
+.rs-left{background:var(--paper-2,#fff);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.rs-left .rl-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.rs-left .rl-list{flex:1;overflow-y:auto;padding:8px}
+.rs-left .rl-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;line-height:1.5;margin-bottom:4px;transition:all .15s}
+.rs-left .rl-item:hover{background:var(--bg)}
+.rs-left .rl-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
+.rs-left .rl-item .r-name{font-weight:600;color:var(--accent)}
+.rs-left .rl-item .r-date{font-size:11px;color:var(--ink-3)}
+.rs-left .rl-item .r-preview{font-size:11px;color:var(--ink-2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rs-left .rl-item .r-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+.rs-left .rl-item .r-tags .tag{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg-sunken);color:var(--ink-3)}
+.rs-right{display:flex;flex-direction:column;overflow:hidden}
+.rs-right .rr-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--paper-2,#fff)}
+.rs-right .rr-tab{padding:10px 20px;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink-2);transition:all .2s;font-family:var(--sans)}
+.rs-right .rr-tab:hover{color:var(--ink)}
+.rs-right .rr-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.rs-right .rr-content{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.rs-form{display:flex;flex-direction:column;gap:14px;max-width:700px}
+.rs-form label{font-size:12px;font-weight:600;color:var(--ink-2)}
+.rs-form input,.rs-form textarea,.rs-form select{border:1px solid var(--border);border-radius:8px;padding:10px 14px;font:13px var(--sans);outline:none;background:var(--bg);width:100%}
+.rs-form input:focus,.rs-form textarea:focus{border-color:var(--accent)}
+.rs-form textarea{min-height:100px;resize:vertical;font-family:var(--sans);line-height:1.7}
+.rs-form .btn-row{display:flex;gap:8px}
+.rs-form .btn-row button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer;color:var(--ink-2)}
+.rs-form .btn-row button.pri{background:var(--accent);color:#fff;border:none}
+.rs-form .btn-row button:hover{opacity:.9}
+.rs-form .submit-row{display:flex;gap:10px;padding-top:8px}
+.rs-form .submit-row button{flex:1;padding:10px;border-radius:10px;font:600 14px var(--sans);cursor:pointer}
+.rs-form .submit-row .btn-save{background:var(--accent);color:#fff;border:none}
+.rs-form .submit-row .btn-save.ai{background:var(--success);color:#fff;border:none}
+.rs-form .submit-row .btn-cancel{background:var(--paper-2,#fff);border:1px solid var(--border);color:var(--ink-2)}
+/* 会员锁 */
+.member-lock{position:relative;display:inline-block}
+.member-lock .lock-badge{font-size:9px;color:var(--ink-3);background:var(--bg);padding:1px 6px;border-radius:999px;margin-left:4px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="rs-page">
+<div class="rs-top">
+  <button class="back" onclick="location.href='index.html'">← 返回</button>
+  <h2>真人督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="real-supervision-ai.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> AI 分析 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
+  <span class="sp"></span>
+  <select id="rs-client" onchange="loadClientRecords()"><option value="">选择来访者…</option></select>
+  <button class="back" style="border:1px solid var(--border);padding:5px 12px;border-radius:8px" onclick="startNewRecord()">+ 新记录</button>
+</div>
+
+<div class="rs-body">
+  <!-- 左栏：历史记录 -->
+  <div class="rs-left">
+    <div class="rl-head">📋 督导记录</div>
+    <div class="rl-list" id="rs-history">
+      <div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">暂无记录，点击"新记录"开始</div>
+    </div>
+  </div>
+
+  <!-- 右栏：编辑区 -->
+  <div class="rs-right">
+    <div class="rr-tabs">
+      <div class="rr-tab active" data-tab="record" onclick="switchRSTab('record')">📝 记录</div>
+      <div class="rr-tab" data-tab="transcript" onclick="switchRSTab('transcript')">📄 逐字稿</div>
+      <div class="rr-tab" data-tab="report" onclick="switchRSTab('report')">📋 案例报告</div>
+    </div>
+    <div class="rr-content" id="rs-content">
+      <!-- 记录 Tab -->
+      <div class="rs-form" id="rs-record-tab">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div><label>督导师姓名</label><input id="rs-supervisor" placeholder="如：张老师"></div>
+          <div><label>督导日期</label><input type="date" id="rs-date"></div>
+        </div>
+        <div><label>督导主题</label><input id="rs-topic" placeholder="本次督导聚焦的议题"></div>
+        <div><label>督导要点</label><textarea id="rs-summary" placeholder="记录本次督导的核心讨论内容……"></textarea></div>
+        <div><label>技术建议</label><textarea id="rs-techniques" placeholder="督导师给出的具体技术建议……"></textarea></div>
+        <div><label>反思与行动</label><textarea id="rs-reflection" placeholder="自己的反思、后续行动计划……"></textarea></div>
+        <div class="submit-row">
+          <button class="btn-save" onclick="saveRecord()">💾 保存记录</button>
+          <button class="btn-cancel" onclick="clearForm()">清空</button>
+        </div>
+      </div>
+      <!-- 逐字稿 Tab -->
+      <div class="rs-form" id="rs-transcript-tab" style="display:none">
+        <div><label>上传逐字稿文件</label>
+          <input type="file" accept=".txt,.doc,.docx" onchange="uploadTranscriptFile(event)">
+          <div style="font-size:11px;color:var(--ink-3);margin-top:4px">支持 .txt 和 .docx 格式</div>
+        </div>
+        <div><label>或手动粘贴</label>
+          <textarea id="rs-transcript-text" placeholder="粘贴逐字稿内容……" style="min-height:200px"></textarea>
+        </div>
+        <div class="submit-row">
+          <button class="btn-save" onclick="saveTranscriptOnly()">💾 保存逐字稿</button>
+          <button class="btn-save ai" onclick="aiAnalyzeTranscript()">🤖 AI 分析 <span class="member-lock"><span class="lock-badge">会员</span></span></button>
+        </div>
+      </div>
+      <!-- 案例报告 Tab -->
+      <div class="rs-form" id="rs-report-tab" style="display:none">
+        <div><label>案例报告标题</label><input id="rs-report-title" placeholder="如：林小满的督导总结报告"></div>
+        <div><label>案例报告内容</label>
+          <textarea id="rs-report-body" style="min-height:300px" placeholder="在此撰写案例报告……支持 Markdown 格式"></textarea>
+        </div>
+        <div class="submit-row">
+          <button class="btn-save" onclick="saveReport()">💾 保存报告</button>
+          <button class="btn-cancel" onclick="exportReport()">📤 导出</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</main></div>
+
+<script src="js/tauri-bridge.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/xiaojing-panel.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/real-supervision.js"></script>
+
+<script>
+(function(){
+  if (typeof App !== 'undefined' && App.membershipBadge) {
+    var el = document.getElementById('member-badge-slot');
+    if (el) el.innerHTML = App.membershipBadge();
+  }
+})();
+</script>
+</body>
+</html>

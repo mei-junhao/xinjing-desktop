@@ -400,9 +400,15 @@ App.initPage({
     loadRagIndexStatus();
   };
   async function loadRagIndexStatus() {
+    const row = document.getElementById('rag-index-row');
+    const progRow = document.getElementById('rag-progress-row');
     const st = document.getElementById('rag-index-status');
+    const tier = (window.__XJ__ && window.__XJ__.tier) ? window.__XJ__.tier : 'free';
+    const ragAvailable = (tier !== 'free') && window.__XJ_API__ && window.__XJ_API__.ragIndexStatus;
+    if (row) row.style.display = ragAvailable ? '' : 'none';
+    if (progRow) progRow.style.display = 'none';
     if (!st) return;
-    if (!window.__XJ_API__ || !window.__XJ_API__.ragIndexStatus) { st.textContent = '不可用'; return; }
+    if (!ragAvailable) { st.textContent = '不可用'; return; }
     try {
       const r = await window.__XJ_API__.ragIndexStatus();
       if (!r || !r.ok) { st.textContent = '未构建'; return; }
@@ -706,7 +712,7 @@ App.initPage({
   window.cloudActivate = cloudActivate;
   // 主进程激活后实时刷新授权卡片与督导师锁（跨 realm 经桥接方法订阅）
   if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
-    window.__XJ_API__.onLicenseState(() => { try { renderLicenseInfo(); loadSupervisorUI(); } catch (e) {} });
+    window.__XJ_API__.onLicenseState(() => { try { renderLicenseInfo(); loadSupervisorUI(); loadRagIndexStatus(); } catch (e) {} });
   }
 
   // ============================================================

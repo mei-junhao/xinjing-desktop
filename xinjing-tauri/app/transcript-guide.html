@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 逐字稿对话引导</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/agent.css">
+<style>
+/* ====== 会员视觉系统 ====== */
+.xj-lock-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.4;background:rgba(0,0,0,.04);color:var(--ink-3);border:1px solid var(--border);cursor:help}
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.4}
+.xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
+.xj-tier-badge.trial{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(139,147,199,.2)}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ====== 预览条 ====== */
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .lock-icon{font-size:14px}
+.preview-bar .sp{flex:1}
+.preview-bar .badge-trial{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(139,147,199,.2)}
+
+/* ====== 顶栏 ====== */
+.tp-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.tp-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
+.tp-top .back:hover{background:var(--hover-tint)}
+.tp-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.tp-top h2 .sub{font-size:11px;color:var(--ink-3);font-weight:400;margin-left:6px;font-family:var(--sans)}
+.tp-top .sp{flex:1}
+.tp-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+
+/* ====== 三栏 ====== */
+.tp-body{flex:1;display:grid;grid-template-columns:1fr 420px 300px;min-height:0;overflow:hidden}
+.tp-col{display:flex;flex-direction:column;overflow:hidden}
+.tp-col-center{border-right:1px solid var(--border)}
+.tp-col-right{border-right:1px solid var(--border)}
+.tp-col-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--paper-2)}
+.tp-col-head .tch{font-family:var(--serif);font-size:14px;font-weight:600}
+.tp-col-head .tch-badge{font-size:10px;padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.tp-col-head .sp{flex:1}
+.tp-col-head .tch-btn{border:1px solid var(--border);background:var(--paper-2);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
+.tp-col-head .tch-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tp-col-head .tch-btn.pri{background:var(--accent);color:#fff;border:none}
+.tp-col-head .tch-btn:disabled{opacity:.5;cursor:not-allowed}
+.tp-col-body{flex:1;overflow-y:auto;padding:16px}
+
+/* 逐字稿行 */
+.tp-line{display:flex;gap:8px;padding:4px 0;font-size:13px;line-height:1.8;border-radius:4px;transition:background .15s;cursor:pointer}
+.tp-line:hover{background:var(--hover-tint)}
+.tp-line .ln{color:var(--ink-3);font-size:11px;min-width:28px;text-align:right;font-family:var(--mono);padding-top:2px;user-select:none}
+.tp-line .speaker{font-weight:600;min-width:32px;color:var(--accent)}
+.tp-line .text{flex:1;color:var(--ink)}
+.tp-line .text .ai-hint{background:rgba(139,147,199,.15);border-bottom:2px dotted var(--accent);padding:1px 0;cursor:help;border-radius:2px}
+.tp-line .text .ai-hint:hover{background:rgba(139,147,199,.25)}
+
+/* 中栏：AI对话引导 */
+.guide-msg{padding:14px 16px;border-radius:var(--r-card);margin-bottom:12px;font-size:13px;line-height:1.7;max-width:90%}
+.guide-msg.ai{background:var(--accent-soft);color:var(--ink);border:1px solid rgba(139,147,199,.15)}
+.guide-msg.user{background:var(--paper-2);color:var(--ink);border:1px solid var(--border);margin-left:auto;text-align:right}
+.guide-msg .gm-role{font-size:10px;font-weight:600;color:var(--accent);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.guide-msg .gm-suggestion{margin-top:8px;padding:8px 12px;background:rgba(111,174,143,.1);border-left:3px solid var(--green);border-radius:4px;font-size:12px;color:var(--ink-2)}
+.guide-msg .gm-suggestion .sg-label{font-weight:600;color:var(--green);font-size:11px}
+
+/* 右栏：修正面板 */
+.suggest-card{background:var(--paper-2);border:1px solid var(--border);border-radius:var(--r-card);padding:14px;margin-bottom:10px}
+.suggest-card .sc-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.suggest-card .sc-head .sc-icon{font-size:16px}
+.suggest-card .sc-head .sc-title{font-family:var(--serif);font-size:13px;font-weight:600}
+.suggest-card .sc-body{font-size:12px;color:var(--ink-2);line-height:1.7}
+.suggest-card .sc-action{display:flex;gap:6px;margin-top:10px}
+.suggest-card .sc-action button{border:1px solid var(--border);background:var(--paper-2);border-radius:6px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
+.suggest-card .sc-action button:hover{border-color:var(--accent);color:var(--accent)}
+.suggest-card .sc-action button.pri{background:var(--green);color:#fff;border:none}
+.suggest-card .sc-action button:disabled{opacity:.5;cursor:not-allowed}
+
+.guide-input{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;background:var(--paper-2)}
+.guide-input input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);background:var(--bg);color:var(--text);outline:none}
+.guide-input input:focus{border-color:var(--accent)}
+.guide-input button{border:none;background:var(--accent);color:#fff;border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer}
+.guide-input button:disabled{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<!-- ====== 预览条（免费用户可见） ====== -->
+<div class="preview-bar" id="preview-bar" style="display:none">
+  <span class="lock-icon">🔒</span>
+  <span>会员预览模式 · 这是 <span class="xj-tier-badge pro">会员</span> <b>逐字稿对话引导</b> 会员增值功能，升级 <span class="badge-trial">会员</span> 后可使用全部 AI 引导功能</span>
+  <span class="sp"></span>
+  <span style="font-size:11px;color:var(--ink-3)">基础版（方案A）仍免费使用 → <a href="transcript.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<!-- ====== 顶栏 ====== -->
+<div class="tp-top">
+  <button class="back" onclick="location.href='transcript.html'">← 返回基础版</button>
+  <h2>逐字稿整理 <span class="sub">· 会员版C · 对话引导</span></h2>
+  <span class="sp"></span>
+  <select id="sel-client" onchange="loadClientTranscript()">
+    <option value="">选择来访者…</option>
+  </select>
+  <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span>
+</div>
+
+<!-- ====== 三栏主体 ====== -->
+<div class="tp-body">
+
+  <!-- 左栏：逐字稿原文 -->
+  <div class="tp-col">
+    <div class="tp-col-head">
+      <span class="tch">逐字稿原文</span>
+      <span class="tch-badge" id="hint-count">0 处 AI 标注</span>
+      <span class="sp"></span>
+      <button class="tch-btn" id="btn-load" onclick="loadTranscript()" disabled>加载逐字稿</button>
+    </div>
+    <div class="tp-col-body" id="transcript-body">
+      <div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">选择来访者后，点击"加载逐字稿"<br>AI 将逐句分析并标注</div>
+    </div>
+  </div>
+
+  <!-- 中栏：AI对话引导 -->
+  <div class="tp-col tp-col-center">
+    <div class="tp-col-head">
+      <span class="tch">🤖 AI 对话引导</span>
+      <span class="tch-badge">逐句分析</span>
+      <span class="sp"></span>
+      <button class="tch-btn xj-premium-btn" id="btn-per-line" disabled>逐句引导</button>
+      <button class="tch-btn pri xj-premium-btn" id="btn-global" disabled>全局分析</button>
+    </div>
+    <div class="tp-col-body" id="guide-body">
+      <div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">加载逐字稿后，AI 将在这里<br>逐句引导你发现语音识别错误<br>和临床材料</div>
+    </div>
+    <div class="guide-input">
+      <input id="guide-input" placeholder="向 AI 提问逐字稿中的疑问…" disabled onkeydown="if(event.key==='Enter')sendGuideMsg()">
+      <button id="guide-send-btn" disabled onclick="sendGuideMsg()">发送</button>
+    </div>
+  </div>
+
+  <!-- 右栏：修正面板 -->
+  <div class="tp-col tp-col-right">
+    <div class="tp-col-head">
+      <span class="tch">修正建议</span>
+      <span class="tch-badge" id="fix-count">0 条</span>
+      <span class="sp"></span>
+      <button class="tch-btn" id="btn-adopt-all" disabled onclick="adoptAll()">全部采纳</button>
+    </div>
+    <div class="tp-col-body" id="fix-body">
+      <div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">AI 分析完成后<br>修正建议将在这里显示</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/tauri-bridge.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/xiaojing-panel.js"></script>
+<script src="js/ai.js"></script>
+<script>
+App.initPage({ title: '逐字稿 · 对话引导', noSidebar: true, onReady: function () {
+  'use strict';
+  var isMember = typeof App !== 'undefined' && App.featureGate && App.featureGate('transcript-guide');
+  var previewBar = document.getElementById('preview-bar');
+  var tierBadge = document.getElementById('tier-badge');
+
+  if (isMember) {
+    previewBar.style.display = 'none';
+    if (tierBadge) tierBadge.style.display = 'inline-flex';
+    // 启用所有会员按钮
+    document.querySelectorAll('.xj-premium-btn').forEach(function (b) { b.disabled = false; });
+    document.querySelectorAll('.suggest-card .sc-action button').forEach(function (b) { b.disabled = false; });
+  } else {
+    previewBar.style.display = 'flex';
+    if (tierBadge) tierBadge.style.display = 'none';
+  }
+
+  // 来访者列表
+  var sel = document.getElementById('sel-client');
+  Store.getClients().forEach(function (c) {
+    var opt = document.createElement('option');
+    opt.value = c.id; opt.textContent = c.name;
+    sel.appendChild(opt);
+  });
+
+  window.loadClientTranscript = function () {
+    var clientId = sel.value;
+    if (!clientId) return;
+    var btn = document.getElementById('btn-load');
+    if (btn) btn.disabled = false;
+  };
+
+  window.loadTranscript = function () {
+    var clientId = sel.value;
+    if (!clientId) return;
+    var sessions = Store.getSessionsByClient ? Store.getSessionsByClient(clientId) : [];
+    var body = document.getElementById('transcript-body');
+    if (!sessions.length) {
+      body.innerHTML = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">该来访者无咨询记录</div>';
+      return;
+    }
+    var html = '';
+    sessions.forEach(function (s, si) {
+      if (!s.transcript) return;
+      var lines = s.transcript.split('\n');
+      lines.forEach(function (l, li) {
+        html += '<div class="tp-line"><span class="ln">' + String(li + 1).padStart(2, '0') + '</span><span class="speaker">' + (l.charAt(0) || 'T') + '</span><span class="text">' + App.escapeHtml(l.slice(1) || l) + '</span></div>';
+      });
+    });
+    if (!html) html = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">逐字稿为空，请先在咨询记录中填写逐字稿</div>';
+    body.innerHTML = html;
+
+    if (isMember) {
+      runGuideAI();
+    }
+  };
+
+  function runGuideAI() {
+    var clientId = sel.value;
+    if (!clientId || !isMember) return;
+    var text = document.getElementById('transcript-body').innerText;
+    if (!text.trim()) return;
+    var sys = '你是心理咨询逐字稿校对专家。请逐句分析以下逐字稿，返回 JSON：{"errors":[{"line":行号,"pos":位置,"len":长度,"fix":"修正","reason":"理由","type":"typology|term|clinical"}],"insights":[{"line":行号,"topic":"临床议题","quoi":"注意内容"}]}。只输出 JSON。';
+    var guide = document.getElementById('guide-body');
+    var fixBody = document.getElementById('fix-body');
+    guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 分析中…</div>正在逐句阅读逐字稿，请稍候。</div>';
+    AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+      if (res && res.content && !res.error) {
+        try {
+          var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          var errs = json.errors || [];
+          var insights = json.insights || [];
+          // 更新左栏标注
+          var lines = document.querySelectorAll('.tp-line');
+          errs.forEach(function (e) {
+            var li = e.line - 1;
+            if (li >= 0 && li < lines.length) {
+              var textEl = lines[li].querySelector('.text');
+              if (textEl) textEl.innerHTML = textEl.textContent.replace(
+                textEl.textContent.slice(e.pos, e.pos + e.len),
+                '<span class="ai-hint" title="' + App.escapeHtml(e.reason) + '">' + App.escapeHtml(textEl.textContent.slice(e.pos, e.pos + e.len)) + '</span>'
+              );
+            }
+          });
+          document.getElementById('hint-count').textContent = errs.length + ' 处 AI 标注';
+          // 中栏引导
+          var guideHtml = '<div class="guide-msg ai"><div class="gm-role">AI 分析完成</div>发现 <b>' + errs.length + '</b> 处错误和 <b>' + insights.length + '</b> 个临床议题。</div>';
+          guide.innerHTML = guideHtml;
+          // 右栏修正建议
+          var fixHtml = '';
+          errs.forEach(function (e) {
+            fixHtml += '<div class="suggest-card"><div class="sc-head"><span class="sc-icon">📍</span><span class="sc-title">第' + e.line + '行</span></div><div class="sc-body">→ 建议改为「' + App.escapeHtml(e.fix) + '」<br>' + App.escapeHtml(e.reason || '') + '</div><div class="sc-action"><button class="pri" onclick="adoptFix(' + e.line + ',\'' + App.escapeHtml(e.fix).replace(/'/g, "\\'") + '\')">采纳</button><button>跳过</button></div></div>';
+          });
+          fixBody.innerHTML = fixHtml;
+          document.getElementById('fix-count').textContent = errs.length + ' 条';
+        } catch (e) {
+          guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 返回格式异常</div>请重试。</div>';
+        }
+      } else {
+        guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 分析失败</div>' + (res ? App.escapeHtml(res.error || '') : '') + '</div>';
+      }
+    });
+  }
+
+  window.sendGuideMsg = function () {
+    if (!isMember) return;
+    var input = document.getElementById('guide-input');
+    var text = input.value.trim();
+    if (!text) return;
+    var guide = document.getElementById('guide-body');
+    guide.innerHTML += '<div class="guide-msg user"><div class="gm-role">你</div>' + App.escapeHtml(text) + '</div>';
+    input.value = '';
+    var sys = '你是心理咨询逐字稿校对专家。用户正在与你对话逐字稿中的疑问。请用专业知识回答，每次回复控制在150字以内。';
+    AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+      if (res && res.content && !res.error) {
+        guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">AI 引导</div>' + App.escapeHtml(res.content) + '</div>';
+      }
+      guide.scrollTop = guide.scrollHeight;
+    });
+  };
+
+  window.adoptFix = function (line, fix) {
+    var lines = document.querySelectorAll('.tp-line');
+    var li = line - 1;
+    if (li >= 0 && li < lines.length) {
+      var textEl = lines[li].querySelector('.text');
+      if (textEl) {
+        var hint = textEl.querySelector('.ai-hint');
+        if (hint) hint.outerHTML = fix;
+      }
+    }
+    App.showToast('已修正第' + line + '行', 'success');
+  };
+
+  window.adoptAll = function () {
+    if (!isMember) return;
+    document.querySelectorAll('.suggest-card .sc-action button.pri').forEach(function (b) { b.click(); });
+    App.showToast('已全部采纳', 'success');
+  };
+
+  // 会员启用按钮
+  if (isMember) {
+    document.getElementById('btn-load').disabled = false;
+    document.getElementById('guide-input').disabled = false;
+    document.getElementById('guide-send-btn').disabled = false;
+  }
+}});
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 咨询日历</title>
+<link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/components.css">
+<style>
+/* ============ 咨询日历页 ============ */
+.sc-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.sc-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.sc-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
+.sc-top .back:hover{color:var(--accent);background:var(--accent-soft)}
+.sc-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.sc-top .sp{flex:1}
+.sc-top .view-switch{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--paper-2,#fff)}
+.sc-top .view-switch button{border:none;background:none;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);border-right:1px solid var(--border);transition:background .15s}
+.sc-top .view-switch button:last-child{border-right:none}
+.sc-top .view-switch button.active{background:var(--accent);color:#fff}
+.sc-top .month-nav{display:flex;align-items:center;gap:6px}
+.sc-top .month-nav button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 10px;cursor:pointer;font:13px var(--sans);color:var(--ink-2);transition:all .15s}
+.sc-top .month-nav button:hover{border-color:var(--accent);color:var(--accent)}
+.sc-top .month-nav .current{font-family:var(--serif);font-size:15px;font-weight:600;min-width:120px;text-align:center}
+.sc-top .btn-today{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);transition:all .15s}
+.sc-top .btn-today:hover{border-color:var(--accent);color:var(--accent)}
+.sc-top .btn-new{border:none;background:var(--accent);color:#fff;border-radius:8px;padding:6px 16px;font:600 12px var(--sans);cursor:pointer;transition:all .15s}
+.sc-top .btn-new:hover{background:var(--accent-hover);transform:translateY(-1px)}
+.sc-top select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:12px var(--sans);background:var(--paper,#fff);color:var(--ink-2);max-width:160px}
+
+.sc-body{flex:1;overflow-y:auto;padding:20px;max-width:1200px;margin:0 auto;width:100%}
+
+/* 状态图例 */
+.sc-legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:10px;font-size:11px;color:var(--ink-2);font-family:var(--sans)}
+.sc-legend .lg{display:flex;align-items:center;gap:5px}
+.sc-legend .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* 概览卡片 */
+.sc-overview{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.sc-ov-card{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:12px 14px;text-align:center;transition:transform .2s var(--ease)}
+.sc-ov-card:hover{transform:translateY(-2px)}
+.sc-ov-card .lbl{font-size:11px;color:var(--ink-3);font-weight:600}
+.sc-ov-card .val{font-family:var(--serif);font-size:24px;font-weight:700;margin-top:3px}
+.sc-ov-card .val.accent{color:var(--accent)}
+.sc-ov-card .val.green{color:var(--green)}
+.sc-ov-card .val.orange{color:var(--orange)}
+
+/* 月视图 */
+.sc-cal{border:1px solid var(--border);border-radius:var(--r-card,14px);overflow:hidden;background:var(--paper-2,#fff)}
+.sc-cal-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg-soft);border-bottom:1px solid var(--border)}
+.sc-cal-head div{text-align:center;padding:9px 0;font-size:11px;font-weight:600;color:var(--ink-3);font-family:var(--sans)}
+.sc-cal-head div.we{color:var(--accent)}
+.sc-cal-body{display:grid;grid-template-columns:repeat(7,1fr)}
+.sc-day{min-height:96px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:5px 6px;cursor:pointer;transition:background .15s;position:relative;vertical-align:top}
+.sc-day:nth-child(7n){border-right:none}
+.sc-day:hover{background:var(--hover-tint)}
+.sc-day.other{background:var(--bg-sunken);color:var(--ink-3)}
+.sc-day.today{background:var(--accent-soft)}
+.sc-day .day-num{font-size:12px;font-weight:600;color:var(--ink-2);font-family:var(--sans)}
+.sc-day.today .day-num{color:var(--accent);font-weight:700}
+.sc-day .day-num.we{color:var(--accent)}
+.sc-day .day-events{display:flex;flex-direction:column;gap:2px;margin-top:3px}
+.sc-day .day-event{font-size:10px;padding:2px 5px;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;transition:transform .12s var(--ease);font-family:var(--sans);line-height:1.4}
+.sc-day .day-event:hover{transform:translateX(2px)}
+.sc-day .day-more{font-size:9px;color:var(--ink-3);text-align:center;margin-top:1px;font-family:var(--sans)}
+.sc-day .add-hint{position:absolute;bottom:3px;right:4px;font-size:12px;color:var(--ink-3);opacity:0;transition:opacity .15s;font-family:var(--sans)}
+.sc-day:hover .add-hint{opacity:.6}
+
+/* 周视图 */
+.sc-week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.sc-week-col{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:10px;min-height:420px;display:flex;flex-direction:column;overflow:hidden}
+.sc-week-col .w-head{padding:8px 6px;text-align:center;border-bottom:1px solid var(--border);background:var(--bg-soft)}
+.sc-week-col .w-head .w-dname{font-size:11px;color:var(--ink-3);font-family:var(--sans);font-weight:600}
+.sc-week-col .w-head .w-dnum{font-size:18px;font-family:var(--serif);font-weight:600;color:var(--ink);margin-top:2px}
+.sc-week-col.today .w-head .w-dnum{color:var(--accent)}
+.sc-week-col .w-body{flex:1;padding:5px;overflow-y:auto;display:flex;flex-direction:column;gap:5px}
+.sc-week-col .w-body::-webkit-scrollbar{width:4px}
+.sc-week-col .w-body::-webkit-scrollbar-thumb{background:var(--hair-strong);border-radius:2px}
+.sc-week-event{padding:7px 8px;border-radius:7px;cursor:pointer;transition:transform .12s var(--ease);font-family:var(--sans);border-left:3px solid}
+.sc-week-event:hover{transform:translateX(2px)}
+.sc-week-event .we-time{font-size:10px;opacity:.85;font-weight:600}
+.sc-week-event .we-name{font-size:12px;font-weight:600;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-week-event .we-meta{font-size:10px;opacity:.75;margin-top:1px}
+.sc-week-col .w-empty{font-size:11px;color:var(--ink-3);text-align:center;padding:14px 4px;font-family:var(--sans)}
+.sc-week-col .w-add{margin:4px;text-align:center;font-size:11px;color:var(--ink-3);cursor:pointer;border:1px dashed var(--border);border-radius:6px;padding:5px;font-family:var(--sans);transition:all .15s}
+.sc-week-col .w-add:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 日视图（时间轴） */
+.sc-dayview{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:14px;min-height:400px}
+.sc-dayview .dv-date{font-family:var(--serif);font-size:18px;font-weight:600;margin-bottom:12px;color:var(--ink)}
+.sc-timeline{position:relative;padding-left:54px}
+.sc-timeline .tl-hour{display:flex;align-items:flex-start;border-top:1px solid var(--hair);min-height:48px;position:relative}
+.sc-timeline .tl-hour .tl-lab{position:absolute;left:-50px;top:-7px;width:44px;text-align:right;font-size:10px;color:var(--ink-3);font-family:var(--sans)}
+.sc-timeline .tl-event{position:absolute;left:0;right:8px;border-radius:6px;padding:6px 9px;cursor:pointer;transition:transform .12s var(--ease);border-left:3px solid;font-family:var(--sans);overflow:hidden}
+.sc-timeline .tl-event:hover{transform:translateX(3px)}
+.sc-timeline .tl-event .te-time{font-size:10px;font-weight:600;opacity:.85}
+.sc-timeline .tl-event .te-name{font-size:12px;font-weight:600;margin-top:1px}
+.sc-timeline .tl-event .te-meta{font-size:10px;opacity:.75;margin-top:1px}
+.sc-dayview .dv-empty{text-align:center;padding:40px 0;color:var(--ink-3);font-family:var(--sans);font-size:13px}
+.sc-dayview .dv-add{margin-top:14px;text-align:center}
+.sc-dayview .dv-add button{border:1px dashed var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 20px;font:12px var(--sans);cursor:pointer}
+
+/* 空状态 */
+.sc-empty{text-align:center;padding:50px 20px;color:var(--ink-3);font-family:var(--sans)}
+.sc-empty .se-icon{font-size:40px;opacity:.4;margin-bottom:10px}
+.sc-empty .se-txt{font-size:13px}
+.sc-empty .se-btn{margin-top:14px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 20px;font:12px var(--sans);cursor:pointer}
+
+/* 事件详情弹窗 */
+.sc-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s var(--ease)}
+.sc-modal-overlay.show{opacity:1}
+.sc-modal{background:var(--paper-2,#fff);border-radius:14px;padding:24px;max-width:440px;width:92%;box-shadow:0 16px 48px rgba(0,0,0,.18);max-height:90vh;overflow-y:auto;transform:translateY(8px);transition:transform .2s var(--ease)}
+.sc-modal-overlay.show .sc-modal{transform:none}
+.sc-modal h3{margin:0 0 4px;font-family:var(--serif);font-size:19px;color:var(--ink)}
+.sc-modal .sm-sub{font-size:12px;color:var(--ink-3);margin-bottom:16px;font-family:var(--sans)}
+.sc-modal .sm-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--hair);font-size:13px;font-family:var(--sans)}
+.sc-modal .sm-row .k{color:var(--ink-3)}
+.sc-modal .sm-row .v{color:var(--ink);font-weight:600;text-align:right;max-width:60%}
+.sc-modal .sm-badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:5px;font-weight:600;font-family:var(--sans);margin-left:6px}
+.sc-modal .sm-actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.sc-modal .sm-actions button{border:1px solid var(--border);background:var(--paper,#fff);border-radius:8px;padding:8px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);transition:all .15s}
+.sc-modal .sm-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.sc-modal .sm-actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sc-modal .sm-actions button.primary:hover{background:var(--accent-hover)}
+.sc-modal .sm-actions button.danger{color:var(--red);border-color:var(--red)}
+.sc-modal .sm-actions button.danger:hover{background:var(--red);color:#fff}
+.sc-modal .sm-close{position:absolute;top:14px;right:16px;border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--ink-3);padding:4px}
+
+/* 新建会话表单 */
+.sc-form .sf-row{margin-bottom:12px}
+.sc-form .sf-row label{display:block;font-size:11px;color:var(--ink-3);font-family:var(--sans);margin-bottom:4px;font-weight:600}
+.sc-form .sf-row input,.sc-form .sf-row select,.sc-form .sf-row textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:8px 11px;font:13px var(--sans);background:var(--paper,#fff);color:var(--ink);outline:none;box-sizing:border-box}
+.sc-form .sf-row input:focus,.sc-form .sf-row select:focus,.sc-form .sf-row textarea:focus{border-color:var(--accent)}
+.sc-form .sf-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sc-form .sf-warn{font-size:11px;color:var(--red);background:var(--red-soft);padding:7px 10px;border-radius:6px;margin:-4px 0 10px;font-family:var(--sans)}
+.sc-form .sf-ok{font-size:11px;color:var(--green);background:var(--green-soft);padding:7px 10px;border-radius:6px;margin:-4px 0 10px;font-family:var(--sans)}
+.sc-form .sf-actions{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.sc-form .sf-actions button{border-radius:8px;padding:9px 20px;font:13px var(--sans);cursor:pointer}
+.sc-form .sf-actions .cancel{border:1px solid var(--border);background:transparent;color:var(--ink-2)}
+.sc-form .sf-actions .save{border:none;background:var(--accent);color:#fff;font-weight:600}
+.sc-form .sf-actions .save:hover{background:var(--accent-hover)}
+.sc-form .sf-actions .save:disabled{opacity:.5;cursor:not-allowed}
+
+/* 响应式 */
+@media(max-width:900px){
+  .sc-overview{grid-template-columns:repeat(2,1fr)}
+  .sc-week{grid-template-columns:repeat(7,1fr);gap:4px}
+  .sc-week-col{min-height:200px}
+  .sc-week-col .w-body{font-size:11px}
+  .sc-day{min-height:70px}
+}
+@media(max-width:640px){
+  .sc-top{padding:8px 12px;gap:6px}
+  .sc-top h2{font-size:16px}
+  .sc-top .month-nav .current{min-width:90px;font-size:13px}
+  .sc-body{padding:12px}
+  .sc-overview{grid-template-columns:1fr 1fr}
+  .sc-day{min-height:60px;padding:3px}
+  .sc-day .day-event{font-size:9px;padding:1px 3px}
+  .sc-week{grid-template-columns:1fr;gap:6px}
+  .sc-week-col{min-height:auto}
+  .sc-week-col .w-body{flex-direction:row;flex-wrap:wrap}
+  .sc-week-event{flex:1;min-width:140px}
+}
+</style>
+</head>
+<body>
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="sc-page">
+<div class="sc-top">
+  <button class="back" onclick="location.href='index.html'">← 返回首页</button>
+  <h2>咨询日历</h2>
+  <span class="sp"></span>
+  <div class="view-switch">
+    <button id="vw-month" class="active" onclick="SessionCal.setView('month')">月</button>
+    <button id="vw-week" onclick="SessionCal.setView('week')">周</button>
+    <button id="vw-day" onclick="SessionCal.setView('day')">日</button>
+  </div>
+  <div class="month-nav">
+    <button onclick="SessionCal.prev()" title="上一个">‹</button>
+    <span class="current" id="period-label"></span>
+    <button onclick="SessionCal.next()" title="下一个">›</button>
+  </div>
+  <button class="btn-today" onclick="SessionCal.today()">今天</button>
+  <select id="sc-filter-client" onchange="SessionCal.render()" title="按来访者筛选">
+    <option value="">全部来访者</option>
+  </select>
+  <button class="btn-new" onclick="SessionCal.openNewSession()">＋ 新建会话</button>
+</div>
+<div class="sc-body" id="sc-body"></div>
+</div>
+</main></div>
+<script src="js/tauri-bridge.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/client-modal.js"></script>
+<script src="js/xiaojing-panel.js"></script>
+<script src="js/session-calendar.js"></script>
+</body>
+</html>

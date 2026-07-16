@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · AI 督导</title>
+<link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/components.css">
+<style>
+.sup-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.sup-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.sup-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
+.sup-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.sup-top .sp{flex:1}
+.sup-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper,#fff)}
+/* 三栏布局 */
+.sup-body{flex:1;display:grid;grid-template-columns:280px 1fr 360px;min-height:0;overflow:hidden}
+/* 左栏：来访者历史 */
+.col-left{background:var(--paper-2,#fff);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.col-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.col-left .lh-list{flex:1;overflow-y:auto;padding:8px}
+.col-left .lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;line-height:1.5;margin-bottom:4px;transition:all .15s}
+.col-left .lh-item:hover{background:var(--bg)}
+.col-left .lh-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
+.col-left .lh-item .s-num{font-weight:600;color:var(--accent)}
+.col-left .lh-item .s-date{font-size:11px;color:var(--ink-3)}
+.col-left .lh-item .s-preview{font-size:11px;color:var(--ink-2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.col-left .lh-item .s-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+.col-left .lh-item .s-tags .tag{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg-sunken);color:var(--ink-3)}
+.col-left .lh-item .s-tags .tag.done{background:rgba(111,174,143,.12);color:var(--success)}
+.col-left .lh-item .s-tags .tag.impression{background:var(--accent-soft);color:var(--accent)}
+/* 中栏：分析工作区 */
+.col-mid{display:flex;flex-direction:column;overflow:hidden}
+.col-mid .m-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--paper-2,#fff)}
+.col-mid .m-tab{flex:1;padding:10px 12px;text-align:center;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink-2);transition:all .2s;font-family:var(--sans)}
+.col-mid .m-tab:hover{color:var(--ink)}
+.col-mid .m-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.col-mid .m-content{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+/* 分析卡片 */
+.analysis-block{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:18px}
+.analysis-block .ab-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.analysis-block .ab-head .ab-title{font-family:var(--serif);font-size:15px;font-weight:600}
+.analysis-block .ab-head .ab-badge{font-size:10px;color:var(--accent);margin-left:auto;background:var(--accent-soft);padding:2px 8px;border-radius:999px}
+.analysis-block .ab-body{font-size:13px;line-height:1.8;color:var(--ink)}
+.analysis-block .ab-quote{padding:8px 12px;margin:8px 0;background:var(--bg);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:12px;color:var(--ink-2);font-style:italic}
+.analysis-block .ab-quote .q-src{font-size:10px;color:var(--accent);font-style:normal;display:block;margin-top:2px}
+.analysis-block .ab-empty{text-align:center;padding:32px 0;color:var(--ink-3);font-size:13px;line-height:2}
+.analysis-block .ab-empty .big{font-size:36px;display:block;margin-bottom:8px}
+/* 快捷按钮 */
+.quick-strip{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;padding:0 0 8px}
+.quick-strip button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:999px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);transition:all .2s}
+.quick-strip button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.quick-strip button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.quick-strip button.primary:hover{opacity:.9}
+/* 右栏：AI 对话 */
+.col-right{background:var(--paper-2,#fff);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.col-right .cr-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0}
+.col-right .cr-head .cr-name{font-family:var(--serif);font-size:14px;font-weight:600}
+.col-right .cr-head .cr-sp{flex:1}
+.col-right .cr-head button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
+.col-right .cr-chat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.col-right .cr-chat .msg{font-size:13px;line-height:1.8;max-width:95%}
+.col-right .cr-chat .msg.ai{background:var(--accent-soft);padding:12px 14px;border-radius:12px 12px 12px 4px;align-self:flex-start}
+.col-right .cr-chat .msg.me{background:var(--accent);color:#fff;padding:12px 14px;border-radius:12px 12px 4px 12px;align-self:flex-end;max-width:85%}
+.col-right .cr-chat .msg .src{font-size:10px;color:var(--ink-3);margin-bottom:4px;font-weight:600}
+.col-right .cr-input{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}
+.col-right .cr-input input{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font:13px var(--sans);outline:none;background:var(--bg)}
+.col-right .cr-input input:focus{border-color:var(--accent)}
+.col-right .cr-input button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;font:600 13px var(--sans);cursor:pointer}
+/* 会员锁 */
+.member-lock{position:relative}
+.member-lock::after{content:"🔒";position:absolute;top:-4px;right:-4px;font-size:12px;background:var(--paper-2,#fff);border-radius:50%;padding:1px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+/* 导出按钮等 */
+.m-tools{display:flex;gap:6px;margin-top:8px;flex-shrink:0}
+.m-tools button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
+.m-tools button:hover{border-color:var(--accent);color:var(--accent)}
+/* 材料区 */
+.material-input{width:100%;min-height:120px;border:1px solid var(--border);border-radius:10px;padding:12px;font:13px/1.7 var(--sans);resize:vertical;outline:none;background:var(--bg)}
+.material-input:focus{border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="sup-page">
+<div class="sup-top">
+  <button class="back" onclick="location.href='index.html'">← 返回</button>
+  <h2>AI 督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="supervision-mindmap.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> 思维导图 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
+  <span class="sp"></span>
+  <select id="sup-client" onchange="onClientChange()"><option value="">选择来访者…</option></select>
+  <select id="sup-orient"><option value="">选择督导流派…</option></select>
+  <span class="badge" id="sup-badge">AI 督导</span>
+</div>
+
+<div class="sup-body">
+  <!-- 左栏：来访者会话历史 -->
+  <div class="col-left">
+    <div class="lh-head">📋 会话历史</div>
+    <div class="lh-list" id="session-history">
+      <div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">请先选择来访者</div>
+    </div>
+  </div>
+
+  <!-- 中栏：分析工作区 -->
+  <div class="col-mid">
+    <div class="m-tabs">
+      <div class="m-tab active" data-tab="impression" onclick="switchTab('impression')">整体印象</div>
+      <div class="m-tab" data-tab="deepen" onclick="switchTab('deepen')">深化分析</div>
+      <div class="m-tab" data-tab="material" onclick="switchTab('material')">临床材料</div>
+    </div>
+    <div class="m-content" id="m-content">
+      <div class="analysis-block">
+        <div class="ab-head"><span class="ab-title">📖 整体印象</span><span class="ab-badge">AI 分析</span></div>
+        <div class="ab-body" id="impression-body">
+          <div class="ab-empty"><span class="big">🧠</span>选择来访者后，点击"生成整体印象"开始督导</div>
+        </div>
+        <div class="quick-strip">
+          <button class="primary" onclick="generateImpression()">✨ 生成整体印象</button>
+          <button onclick="quickAction('deepen')">深化</button>
+          <button onclick="quickAction('polish')">润色</button>
+          <button onclick="quickAction('tech')">技术建议</button>
+          <button onclick="quickAction('transference')">移情分析</button>
+          <button onclick="inviteMaster()">邀请大师</button>
+        </div>
+      </div>
+      <div class="analysis-block" id="deepen-block" style="display:none">
+        <div class="ab-head"><span class="ab-title">🔍 深化分析</span><span class="ab-badge">AI 分析</span></div>
+        <div class="ab-body" id="deepen-body">
+          <div class="ab-empty">点击"深化"按钮或直接在右侧对话窗提问</div>
+        </div>
+      </div>
+      <div class="analysis-block" id="material-block" style="display:none">
+        <div class="ab-head"><span class="ab-title">📝 临床材料</span></div>
+        <div class="ab-body">
+          <textarea class="material-input" id="sup-material" placeholder="粘贴逐字稿或书写案例材料……"></textarea>
+          <div class="m-tools">
+            <button onclick="loadTranscript()">📂 载入逐字稿</button>
+            <button onclick="document.getElementById('sup-material').value=''">清空</button>
+            <button onclick="document.getElementById('mat-panel').classList.toggle('open')">展开材料</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右栏：AI 对话 -->
+  <div class="col-right">
+    <div class="cr-head">
+      <span class="cr-name">💬 小镜 · 督导对话</span>
+      <span class="cr-sp"></span>
+      <button onclick="exportSup()">导出</button>
+      <button onclick="saveSup()">保存</button>
+    </div>
+    <div class="cr-chat" id="sup-chat">
+      <div class="msg ai"><div class="src">小镜</div>选择来访者后，点击"生成整体印象"开始。之后可以自由对话深入督导。</div>
+    </div>
+    <div class="cr-input">
+      <input id="sup-input" placeholder="向小镜提问…" onkeydown="if(event.key==='Enter')sendSupMsg()">
+      <button onclick="sendSupMsg()">发送</button>
+    </div>
+  </div>
+</div>
+</div>
+</main></div>
+
+<script src="js/tauri-bridge.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+<script src="js/xiaojing-panel.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/prompts.builtin.js"></script>
+<script src="js/supervisors.js"></script>
+<script src="js/supervision-core.js"></script>
+<script src="js/supervision.js"></script>
+
+<script>
+(function(){
+  if (typeof App !== 'undefined' && App.membershipBadge) {
+    var el = document.getElementById('member-badge-slot');
+    if (el) el.innerHTML = App.membershipBadge();
+  }
+})();
+</script>
+</body>
+</html>
