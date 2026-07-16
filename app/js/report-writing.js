@@ -189,7 +189,7 @@
     }).join('\n\n');
     var c = Store.getClient(currentClientId);
     var clientInfo = c.name + '（化名），' + (c.notes || '');
-    var sys = '你是案例报告撰写助手，温尼科特取向。请根据来访者信息和咨询记录，填写报告模块"' + sec.title + '"。要求专业、具体，引用概念标注英文原词。用中文回应。';
+    var sys = '你是案例报告撰写助手。请依据所提供的逐字稿真实文字撰写报告模块"' + sec.title + '"。要求：①分析必须结合逐字稿中的真实表述，所有内容须有逐字稿依据；②逐字稿中未出现的内容不要凭空撰写；③本界面仅做基于事实的整理，不涉及理论知识阐释。用中文、客观、具体地回应。';
     var userContent = '来访者：' + clientInfo + '\n\n咨询记录：\n' + sessionData + '\n\n请填写模块"' + sec.title + '"的内容。';
     var msgs = [{ role: 'system', content: sys }, { role: 'user', content: userContent }];
     if (typeof AI !== 'undefined' && AI.send) {
