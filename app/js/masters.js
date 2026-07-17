@@ -377,13 +377,15 @@
   function renderChat() {
     var titleEl = $('chat-title'), subEl = $('chat-sub'), body = $('chat-body');
     syncDocsButton();
-    var input = $('msg-input'), sendBtn = $('send-btn'), btnNew = $('btn-new'), btnDel = $('btn-del');
+    var input = $('msg-input'), sendBtn = $('send-btn'), btnNew = $('btn-new'), btnDel = $('btn-del'), composer = $('chat-composer');
+    if (composer) composer.style.display = 'flex';
 
     if (!currentConv) {
       titleEl.textContent = mode === '1v1' ? '选择一位大师' : '勾选大师';
       subEl.textContent = mode === '1v1' ? '从左侧挑选一位开始对话' : '在左侧勾选两位及以上大师';
       body.innerHTML = '<div class="empty-state"><i data-lucide="messages-square"></i><div class="big">把一个临床问题带到桌面上</div><span>先选择大师，再输入你正在思考的材料</span></div>';
       input.disabled = true; sendBtn.disabled = true;
+      input.placeholder = '选择一位大师后即可输入';
       btnNew.style.display = 'none'; btnDel.style.display = 'none';
       updateContextPanels(); renderViewpoints();
       if (window.IconSystem && IconSystem.render) IconSystem.render(body);
@@ -392,6 +394,7 @@
 
     btnNew.style.display = ''; btnDel.style.display = '';
     input.disabled = false; sendBtn.disabled = false;
+    input.placeholder = '继续追问，输入 @大师 可指定发言';
 
     if (currentConv.mode === '1v1') {
       var m = getMasterByKey(currentConv.masterKeys[0]);

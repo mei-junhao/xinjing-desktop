@@ -2879,18 +2879,34 @@ test('v4.0.1-7 工作台主操作和会员 AI 双门控存在', function () {
   assert.ok(/App\.featureGate\('ai-masters'\)/.test(V401_MASTERS) && /App\.hasAICompute/.test(V401_MASTERS), '大师对话未双门控');
 });
 
-test('v4.0.1-8 版本、预览基准和账务隔离一致', function () {
+test('v4.0.3-1 文档中心、大师输入框和快捷入口整理具备运行时防回归', function () {
+  const docsJs = fs.readFileSync(path.join(APP_DIR, 'js', 'doc-center.js'), 'utf8');
+  const mastersHtml = fs.readFileSync(path.join(APP_DIR, 'masters.html'), 'utf8');
+  const mastersJs = fs.readFileSync(path.join(APP_DIR, 'js', 'masters.js'), 'utf8');
+  const dashboard = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf8');
+  const index = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf8');
+  assert.ok(/App\.initPage\(\{[\s\S]*?onReady/.test(docsJs), '文档中心未等待 App.initPage 数据水合');
+  assert.ok(/renderClientList\(\);\s*renderDocs\(\);/.test(docsJs), '文档中心水合后未重绘来访者下拉与文档区');
+  assert.ok(!/id="chat-composer"[^>]*style="display:none"/.test(mastersHtml), '大师输入区仍被静态隐藏');
+  assert.ok(/composer\.style\.display\s*=\s*'flex'/.test(mastersJs), '大师输入区未在渲染时保持可见');
+  assert.ok(/id="quick-modules"/.test(index) && /data-quick-key="consult-notes"/.test(index), '快捷入口缺稳定拖动标识');
+  assert.ok(/manage-quick-tools/.test(index) && /reset-quick-tools/.test(index), '快捷入口缺整理或恢复入口');
+  assert.ok(/xj_quick_tools_layout_v1/.test(dashboard) && /localStorage\.setItem/.test(dashboard), '快捷入口排序未持久化');
+  assert.ok(/dragstart/.test(dashboard) && /drop/.test(dashboard), '快捷入口未绑定拖放事件');
+});
+
+test('v4.0.3-2 版本、预览基准和账务隔离一致', function () {
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   const lock = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package-lock.json'), 'utf8'));
   const generated = fs.readFileSync(path.join(__dirname, '..', 'version.generated.js'), 'utf8');
   const settingsHtml = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf8');
   const settingsJs = fs.readFileSync(path.join(APP_DIR, 'js', 'settings.js'), 'utf8');
-  assert.strictEqual(pkg.version, '4.0.1');
-  assert.strictEqual(lock.version, '4.0.1');
-  assert.strictEqual(lock.packages[''].version, '4.0.1');
-  assert.ok(/VERSION:\s*"4\.0\.1"/.test(generated), 'version.generated.js 未同步 4.0.1');
-  assert.ok(/id="ver-text">v4\.0\.1/.test(settingsHtml) && /id="about-version">v4\.0\.1/.test(settingsHtml), '设置页静态版本回退未同步 4.0.1');
-  assert.ok(/var ver = '4\.0\.1'/.test(settingsJs), '设置页脚本版本回退未同步 4.0.1');
+  assert.strictEqual(pkg.version, '4.0.3');
+  assert.strictEqual(lock.version, '4.0.3');
+  assert.strictEqual(lock.packages[''].version, '4.0.3');
+  assert.ok(/VERSION:\s*"4\.0\.3"/.test(generated), 'version.generated.js 未同步 4.0.3');
+  assert.ok(/id="ver-text">v4\.0\.3/.test(settingsHtml) && /id="about-version">v4\.0\.3/.test(settingsHtml), '设置页静态版本回退未同步 4.0.3');
+  assert.ok(/var ver = '4\.0\.3'/.test(settingsJs), '设置页脚本版本回退未同步 4.0.3');
   assert.ok(/css\/style\.css/.test(V401_MASTERS_HTML), '大师页未加载共享布局样式');
   assert.ok(/--xj-top-offset/.test(V401_APP), '试用条未向固定工作区提供顶部高度变量');
   assert.ok(/max-width:\s*1020px[\s\S]*?\.sidebar\s*\{\s*width:\s*178px/.test(V400_UI), '1024 视口未按批准预览收窄侧栏');

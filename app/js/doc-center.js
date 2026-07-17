@@ -32,6 +32,7 @@
 
   window.selectClient = function (clientId) {
     currentClientId = clientId;
+    if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
     renderClientList();
     renderDocs();
   };
@@ -294,10 +295,16 @@
     }
   };
 
-  try {
-    var initialClientId = new URLSearchParams(location.search).get('clientId');
-    if (initialClientId && Store.getClient(initialClientId)) currentClientId = initialClientId;
-  } catch (e) {}
-  renderClientList();
-  if (currentClientId) renderDocs();
+  App.initPage({
+    title: '文档中心',
+    onReady: function () {
+      try {
+        var initialClientId = new URLSearchParams(location.search).get('clientId') || (App.getActiveClientId && App.getActiveClientId());
+        if (initialClientId && Store.getClient(initialClientId)) currentClientId = initialClientId;
+      } catch (e) {}
+      renderClientList();
+      renderDocs();
+      if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
+    }
+  });
 })();

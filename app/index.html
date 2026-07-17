@@ -207,7 +207,7 @@
 .kv-card .kv-num{font-family:var(--sans);font-size:28px;font-variant-numeric:tabular-nums}.kv-card .kv-label{font-size:13px;letter-spacing:0}
 .work-schedule{margin:0;padding:16px 18px;border-radius:8px;animation-duration:.25s}
 .section-head{display:flex;align-items:center;gap:8px}.section-head h2{font:650 16px var(--sans);margin:0}.section-head span{font-size:12px;color:var(--ink-3)}
-.quick-tools{display:grid;gap:10px}.modules{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.quick-tools{display:grid;gap:10px}.quick-tools-actions{display:flex;align-items:center;gap:6px;margin-left:auto}.quick-tools-action{min-height:32px;display:inline-flex;align-items:center;gap:5px;padding:0 9px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2);color:var(--ink-2);font:600 12px var(--sans);cursor:pointer}.quick-tools-action:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}.quick-tools-action[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}.quick-tools-edit-hint{display:none;font-size:12px;color:var(--ink-3)}.quick-tools.editing .quick-tools-edit-hint{display:block}.quick-tools.editing .mod[data-quick-key]{cursor:grab;border-style:dashed}.quick-tools.editing .mod[data-quick-key]:active{cursor:grabbing}.quick-tools.editing .mod.dragging{opacity:.45}.modules.drag-over{outline:1px dashed var(--accent);outline-offset:3px}.quick-tools.editing #more-mod-btn{display:none}.modules{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .mod{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:10px;row-gap:2px;align-items:center;padding:13px 14px;border-radius:7px}
 .mod:hover{border-color:var(--accent);background:var(--accent-soft);box-shadow:none;transform:none}.mod .m-icon{grid-row:1/3;font-size:20px}.mod .m-icon svg{width:19px;height:19px}
 .mod .m-title{font-size:13px;font-weight:650}.mod .m-desc{font-size:11px;line-height:1.45;white-space:nowrap;text-overflow:ellipsis}.mod .m-tag{display:none}
@@ -257,37 +257,38 @@
   <div id="ob-checklist"></div>
 
   <section class="quick-tools" aria-label="快捷进入">
-  <div class="section-head"><h2>快捷进入</h2><span>全部现有工具均保留</span></div>
+  <div class="section-head"><h2>快捷进入</h2><span>全部现有工具均保留</span><div class="quick-tools-actions"><button class="quick-tools-action" id="manage-quick-tools" type="button" aria-pressed="false"><i data-lucide="grip"></i>整理快捷方式</button><button class="quick-tools-action" id="reset-quick-tools" type="button"><i data-lucide="rotate-ccw"></i>恢复默认</button></div></div>
+  <div class="quick-tools-edit-hint" id="quick-tools-edit-hint">拖动工具卡片，可在“快捷进入”和“更多功能”之间自由组合；完成后会自动保存。</div>
   <!-- 模块网格 -->
-  <div class="modules">
-    <a class="mod" href="consult-notes.html">
+  <div class="modules" id="quick-modules" data-quick-zone="quick">
+    <a class="mod" data-quick-key="consult-notes" href="consult-notes.html">
       <div class="m-icon"><i data-lucide="notebook-pen"></i></div>
       <div class="m-title">咨询记录</div>
       <div class="m-desc">快速记录整理，APA 结构化提示</div>
       <div class="m-tag">常用</div>
     </a>
-    <a class="mod" href="supervision.html">
+    <a class="mod" data-quick-key="supervision" href="supervision.html">
       <div class="m-icon"><i data-lucide="brain-circuit"></i></div>
       <div class="m-title">AI 督导</div>
       <div class="m-desc">三栏研究台，整体印象与深化分析</div>
     </a>
-    <a class="mod" href="masters.html">
+    <a class="mod" data-quick-key="masters" href="masters.html">
       <div class="m-icon"><i data-lucide="messages-square"></i></div>
       <div class="m-title">学派对话</div>
       <div class="m-desc">与 11 位思想者对话，理论研讨</div>
     </a>
-    <a class="mod" href="billing-shell.html">
+    <a class="mod" data-quick-key="billing" href="billing-shell.html">
       <div class="m-icon"><i data-lucide="wallet-cards"></i></div>
       <div class="m-title">账单</div>
       <div class="m-desc">收入统计，月结，对账导出</div>
     </a>
-    <a class="mod" href="knowledge.html">
+    <a class="mod" data-quick-key="knowledge" href="knowledge.html">
       <div class="m-icon"><i data-lucide="library-big"></i></div>
       <div class="m-title">资料库</div>
       <div class="m-desc">导入讲义文献，AI 检索</div>
       <div class="m-tag" id="kb-mod-count">未设置</div>
     </a>
-    <a class="mod" href="session-calendar.html">
+    <a class="mod" data-quick-key="calendar" href="session-calendar.html">
       <div class="m-icon"><i data-lucide="calendar-days"></i></div>
       <div class="m-title">咨询日历</div>
       <div class="m-desc">查看今日与本周会谈，直接开始记录</div>
@@ -301,29 +302,29 @@
   </div>
 
   <!-- 更多模块（默认隐藏） -->
-  <div class="modules" id="more-modules" style="display:none">
-    <a class="mod" href="transcript.html">
+  <div class="modules" id="more-modules" data-quick-zone="more" style="display:none">
+    <a class="mod" data-quick-key="transcript" href="transcript.html">
       <div class="m-icon"><i data-lucide="audio-lines"></i></div>
       <div class="m-title">逐字稿整理</div>
       <div class="m-desc">AI 辅助校对，双栏对比修正</div>
     </a>
-    <a class="mod" href="report-writing.html">
+    <a class="mod" data-quick-key="report-writing" href="report-writing.html">
       <div class="m-icon"><i data-lucide="file-text"></i></div>
       <div class="m-title">撰写报告</div>
       <div class="m-desc">完整案例报告，跨节整合，导出 Word</div>
       <div class="m-tag" style="background:var(--success);color:#fff">AI 生成</div>
     </a>
-    <a class="mod" href="real-supervision.html">
+    <a class="mod" data-quick-key="real-supervision" href="real-supervision.html">
       <div class="m-icon"><i data-lucide="handshake"></i></div>
       <div class="m-title">真人督导</div>
       <div class="m-desc">记录督导过程，上传逐字稿</div>
     </a>
-    <a class="mod" href="doc-center.html">
+    <a class="mod" data-quick-key="doc-center" href="doc-center.html">
       <div class="m-icon"><i data-lucide="folder-kanban"></i></div>
       <div class="m-title">文档中心</div>
       <div class="m-desc">来访者材料归档，成长轨迹追踪</div>
     </a>
-    <a class="mod" href="settings.html">
+    <a class="mod" data-quick-key="settings" href="settings.html">
       <div class="m-icon"><i data-lucide="settings-2"></i></div>
       <div class="m-title">设置</div>
       <div class="m-desc">API 配置，备份恢复，激活管理</div>

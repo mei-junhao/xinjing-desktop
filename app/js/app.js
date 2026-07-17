@@ -172,6 +172,17 @@ const App = (() => {
     else if (tier === 'custom') mark.classList.add('tier-custom');
   }
 
+  var ACTIVE_CLIENT_CONTEXT_KEY = 'xj_active_client_id';
+
+  function setActiveClientId(clientId) {
+    if (!clientId) return;
+    try { localStorage.setItem(ACTIVE_CLIENT_CONTEXT_KEY, String(clientId)); } catch (e) {}
+  }
+
+  function getActiveClientId() {
+    try { return localStorage.getItem(ACTIVE_CLIENT_CONTEXT_KEY) || ''; } catch (e) { return ''; }
+  }
+
   const NAV_ITEMS = [
     { key: 'workbench', label: '工作台', icon: 'home', href: 'index.html', group: 'clinical' },
     { key: 'calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html', group: 'clinical' },
@@ -182,6 +193,17 @@ const App = (() => {
     { key: 'knowledge', label: '资料库', icon: 'doc', href: 'knowledge.html', group: 'clinical' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html', group: 'management' },
     { key: 'settings', label: '设置', icon: 'gear', href: 'settings.html', group: 'management' },
+  ];
+
+  const CLINICAL_MATERIAL_ITEMS = [
+    { label: '咨询记录', icon: 'calendar', href: 'consult-notes.html' },
+    { label: '逐字稿整理', icon: 'transcript', href: 'transcript.html' },
+    { label: '撰写报告', icon: 'report', href: 'report-writing.html' },
+  ];
+
+  const SUPERVISION_SPACE_ITEMS = [
+    { label: 'AI 督导', icon: 'cap', href: 'supervision.html', feature: 'ai-supervise' },
+    { label: '真人督导', icon: 'real', href: 'real-supervision.html' },
   ];
 
   const ROUTE_REGISTRY = Object.freeze({
@@ -256,9 +278,9 @@ const App = (() => {
   }
 
   function renderSidebar() {
-    const current = getCurrentPageKey();
+    const currentPath = location.pathname.split('/').pop() || 'index.html';
     const renderItem = function (item) {
-      const active = item.key === current ? ' active' : '';
+      const active = item.href === currentPath ? ' active' : '';
       const locked = item.feature && !canUse(item.feature);
       return `<div class="nav-entry${active}">
         <a class="nav-item${active}" href="${item.href}" title="${item.label}">
@@ -268,9 +290,28 @@ const App = (() => {
         ${locked ? `<button class="nav-unlock" type="button" data-unlock-feature="${item.feature}" title="查看并解锁${item.label}" aria-label="查看并解锁${item.label}">${svgIcon('lock-keyhole')}</button>` : ''}
       </div>`;
     };
-    const clinical = NAV_ITEMS.filter((item) => item.group === 'clinical').map(renderItem).join('');
+    const renderDisclosure = function (key, label, icon, entries) {
+      const active = entries.some(function (item) { return item.href === currentPath; });
+      var collapsed = !active;
+      try {
+        var saved = localStorage.getItem('xj_sidebar_group_' + key);
+        if (saved != null) collapsed = saved === '1' && !active;
+      } catch (e) {}
+      return '<section class="nav-group nav-disclosure' + (collapsed ? ' is-collapsed' : '') + '">' +
+        '<button class="nav-group-toggle" type="button" data-nav-group="' + key + '" aria-expanded="' + String(!collapsed) + '">' +
+          '<span class="nav-group-title"><span class="icon">' + svgIcon(icon) + '</span><span class="nav-group-toggle-label">' + label + '</span></span>' +
+          '<span class="nav-group-chevron">' + svgIcon('chevron-down') + '</span>' +
+        '</button><div class="nav-group-body">' + entries.map(renderItem).join('') + '</div></section>';
+    };
+    const workspace = NAV_ITEMS.filter((item) => item.key === 'workbench' || item.key === 'calendar' || item.key === 'clients').map(renderItem).join('');
+    const clinicalMaterials = CLINICAL_MATERIAL_ITEMS;
+    const supervisionSpace = SUPERVISION_SPACE_ITEMS;
+    const resources = NAV_ITEMS.filter((item) => item.key === 'masters' || item.key === 'knowledge').map(renderItem).join('');
     const management = NAV_ITEMS.filter((item) => item.group === 'management').map(renderItem).join('');
-    const items = '<div class="nav-group"><div class="nav-group-label">临床工作</div>' + clinical + '</div>' +
+    const items = '<div class="nav-group"><div class="nav-group-label">工作区</div>' + workspace + '</div>' +
+      renderDisclosure('clinical-materials', '临床材料', 'calendar', clinicalMaterials) +
+      renderDisclosure('supervision-space', '督导空间', 'cap', supervisionSpace) +
+      '<div class="nav-group"><div class="nav-group-label">专业资源</div>' + resources + '</div>' +
       '<div class="nav-group"><div class="nav-group-label">执业管理</div>' + management + '</div>';
     // 读取折叠状态（默认展开）
     var collapsed = '';
@@ -346,6 +387,17 @@ const App = (() => {
       if (button.dataset.bound) return;
       button.dataset.bound = '1';
       button.addEventListener('click', function () { openPlans(); });
+    });
+    document.querySelectorAll('.nav-group-toggle').forEach(function (button) {
+      if (button.dataset.bound) return;
+      button.dataset.bound = '1';
+      button.addEventListener('click', function () {
+        var group = button.closest('.nav-disclosure');
+        if (!group) return;
+        var collapsed = group.classList.toggle('is-collapsed');
+        button.setAttribute('aria-expanded', String(!collapsed));
+        try { localStorage.setItem('xj_sidebar_group_' + button.dataset.navGroup, collapsed ? '1' : '0'); } catch (e) {}
+      });
     });
     const ttBtn = document.getElementById('xj-theme-toggle');
     if (ttBtn && !ttBtn.dataset.bound) {
@@ -1006,6 +1058,8 @@ const App = (() => {
   return {
     NAV_ITEMS,
     ROUTE_REGISTRY,
+    setActiveClientId,
+    getActiveClientId,
     renderSidebar,
     injectLayout,
     initPage,

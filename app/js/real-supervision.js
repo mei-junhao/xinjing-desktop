@@ -26,6 +26,7 @@
   window.loadClientRecords = function () {
     currentClientId = selClient.value || null;
     if (!currentClientId) { renderHistory([]); return; }
+    if (App.setActiveClientId) App.setActiveClientId(currentClientId);
     var clientRecords = records.filter(function (r) { return r.clientId === currentClientId; })
       .sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     renderHistory(clientRecords);
@@ -231,10 +232,11 @@
     fillClientSelect();
     loadRecords();
     var params = new URLSearchParams(location.search);
-    var cid = params.get('clientId') || params.get('client');
+    var cid = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());
     if (cid && Store.getClient(cid)) {
       selClient.value = cid;
       currentClientId = cid;
+      if (App.setActiveClientId) App.setActiveClientId(currentClientId);
       loadClientRecords();
       App.showToast('已自动关联来访者：' + (Store.getClient(cid).name || ''), 'success');
     }

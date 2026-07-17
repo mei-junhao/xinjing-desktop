@@ -37,13 +37,23 @@
     if (keep) selClient.value = keep;
   }
   fillClientSelect();
+  function restoreActiveClient() {
+    var clientId = App.getActiveClientId && App.getActiveClientId();
+    if (clientId && Store.getClient(clientId) && selClient) {
+      selClient.value = clientId;
+      window.loadClient();
+    }
+  }
   if (window.Store && typeof Store.hydrate === 'function') {
-    Store.hydrate().then(fillClientSelect).catch(function () { fillClientSelect(); });
+    Store.hydrate().then(function () { fillClientSelect(); restoreActiveClient(); }).catch(function () { fillClientSelect(); restoreActiveClient(); });
+  } else {
+    restoreActiveClient();
   }
 
   window.loadClient = function () {
     currentClientId = selClient.value || null;
     if (!currentClientId) return;
+    if (App.setActiveClientId) App.setActiveClientId(currentClientId);
     var c = Store.getClient(currentClientId);
     App.showToast('已选择 ' + c.name, 'success');
   };

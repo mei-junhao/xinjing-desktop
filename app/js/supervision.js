@@ -154,6 +154,7 @@ App.initPage({
         return;
       }
       currentClientId = cid;
+      if (App.setActiveClientId) App.setActiveClientId(currentClientId);
       var client = Store.getClient(cid);
       var preferences = (client && client.preferences) || {};
       if (preferences.lastSupervisionOrientation) setOrientation(preferences.lastSupervisionOrientation, false);
@@ -449,7 +450,7 @@ App.initPage({
     // 从「撰写报告」跳转而来：选择来访者并预填案例报告
     try {
       var qs = new URLSearchParams(location.search);
-      var autoClient = qs.get('clientId') || qs.get('client');
+      var autoClient = qs.get('clientId') || qs.get('client') || (App.getActiveClientId && App.getActiveClientId());
       var autoSession = qs.get('sessionId') || qs.get('session');
       var autoReport = qs.get('autoloadreport') === '1';
       if (autoClient) {

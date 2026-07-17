@@ -3,57 +3,64 @@
 <head>
 <meta charset="utf-8" />
 <title>退出心镜</title>
+<link rel="stylesheet" href="css/tokens.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     height: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: var(--xj-canvas, #eef3f1);
-    color: var(--xj-text, #17221f);
-    overflow: hidden;
+    font-family: var(--sans, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif);
+    background: var(--bg, #f7f6f2);
+    color: var(--ink, #202521);
     user-select: none;
   }
-  body { display: flex; align-items: center; justify-content: center; }
+  body { display: flex; align-items: center; justify-content: center; padding: 18px; overflow: auto; }
   .card {
     position: relative;
-    width: min(360px, calc(100vw - 40px));
-    background: var(--xj-surface, #fff);
-    border: 1px solid var(--xj-border, #cbd6d2);
-    border-radius: 8px;
-    box-shadow: var(--xj-shadow, 0 16px 48px rgba(22, 38, 33, .16));
-    padding: 28px 28px 24px;
+    width: min(420px, 100%);
+    background: var(--paper-2, #fff);
+    border: 1px solid var(--hair, #d9d7d1);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg, 0 18px 42px rgba(30, 35, 31, .14));
+    padding: 30px;
   }
   .close-x {
     position: absolute; top: 14px; right: 14px;
     width: 36px; height: 36px;
     border: none; background: transparent;
-    color: var(--xj-text-3, #75837e);
-    cursor: pointer; border-radius: 6px;
+    color: var(--ink-3, #7c827c);
+    cursor: pointer; border-radius: 7px;
     transition: background .15s, color .15s;
   }
   .close-x::before,.close-x::after{content:"";position:absolute;left:10px;top:17px;width:16px;height:1.5px;border-radius:2px;background:currentColor}
   .close-x::before{transform:rotate(45deg)}.close-x::after{transform:rotate(-45deg)}
-  .close-x:hover { background: var(--xj-surface-muted, #f5f8f7); color: var(--xj-accent, #147d70); }
-  h2 { font-size: 20px; line-height: 1.3; color: var(--xj-text, #17221f); font-weight: 680; margin-bottom: 10px; letter-spacing:0; }
-  p.lead { font-size: 15px; color: var(--xj-text-2, #52615c); line-height: 1.7; margin-bottom: 16px; }
-  p.lead b { color: var(--xj-text, #17221f); font-weight: 650; }
+  .close-x:hover { background: var(--accent-soft, #e2ede9); color: var(--accent, #147d70); }
+  h2 { font-family: var(--serif, "Songti SC", serif); font-size: 22px; line-height: 1.3; color: var(--ink, #202521); font-weight: 600; margin-bottom: 10px; letter-spacing:0; }
+  p.lead { font-size: 15px; color: var(--ink-2, #59615b); line-height: 1.7; margin-bottom: 16px; }
+  p.lead b { color: var(--ink, #202521); font-weight: 650; }
   .backup-note {
-    font-size: 12px; color: var(--xj-text-2, #52615c); line-height: 1.65;
-    background: var(--xj-surface-muted, #f5f8f7); border: 1px solid var(--xj-border, #cbd6d2); border-radius: 6px;
+    font-size: 12px; color: var(--ink-2, #59615b); line-height: 1.65;
+    background: var(--bg-soft, #f1f1ed); border: 1px solid var(--hair, #d9d7d1); border-radius: 7px;
     padding: 10px 12px; margin-bottom: 20px;
   }
-  .backup-note b { color: var(--xj-text, #17221f); font-weight: 600; }
+  .backup-note b { color: var(--ink, #202521); font-weight: 600; }
   .btns { display: flex; gap: 8px; }
   button.act {
-    flex: 1; min-height: 40px; padding: 0 10px; border: 1px solid var(--xj-border, #cbd6d2); border-radius: 6px;
-    font-size: 14px; cursor: pointer; font-weight: 500;
+    flex: 1; min-height: 42px; padding: 0 10px; border: 1px solid var(--hair-strong, #c8c6bf); border-radius: 7px;
+    font: 500 14px var(--sans, sans-serif); cursor: pointer;
     transition: transform .08s, filter .15s;
   }
   button.act:active { transform: scale(0.97); }
-  .cancel,.stay { background: var(--xj-surface, #fff); color: var(--xj-text-2, #52615c); }
-  .cancel:hover,.stay:hover { border-color: var(--xj-accent, #147d70); color: var(--xj-accent, #147d70); background: var(--xj-accent-soft, #dcefeb); }
-  .quit { border-color: var(--xj-accent, #147d70) !important; background: var(--xj-accent, #147d70); color: #fff; }
-  .quit:hover { background: var(--xj-accent-hover, #0f685d); }
+  .cancel,.stay { background: var(--paper-2, #fff); color: var(--ink-2, #59615b); }
+  .cancel:hover,.stay:hover { border-color: var(--accent, #147d70); color: var(--accent, #147d70); background: var(--accent-soft, #e2ede9); }
+  .quit { border-color: var(--accent, #147d70) !important; background: var(--accent, #147d70); color: #fff; }
+  .quit:hover { background: var(--accent-hover, #0f685d); }
+  @media (max-width: 420px) {
+    body { align-items: flex-start; }
+    .card { padding: 26px 20px 20px; }
+    .btns { flex-wrap: wrap; }
+    button.act { min-width: calc(50% - 4px); }
+    button.quit { flex-basis: 100%; }
+  }
 </style>
 <link rel="stylesheet" href="css/workbench.css">
 <link rel="stylesheet" href="css/xj-ui-system.css">

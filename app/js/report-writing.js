@@ -30,6 +30,7 @@
     var sel = document.getElementById('rpt-client');
     currentClientId = sel.value || null;
     if (!currentClientId) { document.getElementById('sess-dd').style.display = 'none'; return; }
+    if (App.setActiveClientId) App.setActiveClientId(currentClientId);
     // 载入来访者基本信息到第 1 步
     var c = Store.getClient(currentClientId);
     stepData[0] = App.escapeHtml(c.name) + '（化名）\n' + (c.notes || '');
@@ -373,6 +374,15 @@
 
   App.initPage({ title: '撰写报告', subtitle: '', actions: '', onReady: function () {
     loadClients();
+    try {
+      var params = new URLSearchParams(location.search);
+      var initialClientId = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());
+      var initialSelect = document.getElementById('rpt-client');
+      if (initialClientId && Store.getClient(initialClientId) && initialSelect) {
+        initialSelect.value = initialClientId;
+        window.loadClientSessions();
+      }
+    } catch (e) {}
     // 点击外部关闭「基于节次」下拉菜单
     document.addEventListener('click', function (e) {
       var dd = document.getElementById('sess-dd');

@@ -143,6 +143,7 @@
 
   window.selectClient = function (id) {
     currentClientId = id;
+    if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
     var search = document.getElementById('client-search');
     var dropdown = document.getElementById('client-dropdown');
     var c = allClients.find(function (x) { return x.id === id; });
@@ -155,6 +156,7 @@
   window.onClientChange = function () {
     var sel = document.getElementById('sel-client');
     currentClientId = sel.value || currentClientId;
+    if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
     currentSessionId = null;
     var sessSel = document.getElementById('sel-session');
     var upBtn = document.getElementById('btn-upload-transcript');
@@ -598,7 +600,7 @@
     // 支持从咨询日历跳转：?client=ID&session=ID 自动预选来访者与会话
     try {
       var params = new URLSearchParams(location.search);
-      var pClient = params.get('clientId') || params.get('client');
+      var pClient = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());
       var pSession = params.get('sessionId') || params.get('session');
       contextDate = params.get('date') || '';
       var requestedMode = params.get('mode');

@@ -169,6 +169,162 @@
     });
   }
 
+  // 快捷入口只保存界面偏好，不触碰来访者、会谈或账务数据。
+  var QUICK_LAYOUT_KEY = 'xj_quick_tools_layout_v1';
+  var quickToolsEditing = false;
+  var draggedQuickCard = null;
+  var defaultQuickLayout = null;
+  var moreWasOpenBeforeEditing = false;
+
+  function getQuickToolContainers() {
+    return {
+      quick: document.getElementById('quick-modules'),
+      more: document.getElementById('more-modules'),
+      moreButton: document.getElementById('more-mod-btn')
+    };
+  }
+
+  function getQuickToolKeys(container) {
+    if (!container) return [];
+    return Array.prototype.slice.call(container.querySelectorAll('[data-quick-key]')).map(function (card) {
+      return card.dataset.quickKey;
+    });
+  }
+
+  function captureQuickLayout() {
+    var containers = getQuickToolContainers();
+    return { quick: getQuickToolKeys(containers.quick), more: getQuickToolKeys(containers.more) };
+  }
+
+  function readQuickLayout() {
+    try {
+      var saved = localStorage.getItem(QUICK_LAYOUT_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      try { localStorage.removeItem(QUICK_LAYOUT_KEY); } catch (ignore) {}
+      return null;
+    }
+  }
+
+  function isValidQuickLayout(layout) {
+    if (!layout || !Array.isArray(layout.quick) || !Array.isArray(layout.more) || !defaultQuickLayout) return false;
+    var expected = defaultQuickLayout.quick.concat(defaultQuickLayout.more).sort();
+    var actual = layout.quick.concat(layout.more).slice().sort();
+    return actual.length === expected.length && actual.every(function (key, index) { return key === expected[index]; });
+  }
+
+  function applyQuickLayout(layout) {
+    if (!isValidQuickLayout(layout)) return;
+    var containers = getQuickToolContainers();
+    if (!containers.quick || !containers.more) return;
+    var cards = {};
+    document.querySelectorAll('[data-quick-key]').forEach(function (card) { cards[card.dataset.quickKey] = card; });
+    layout.quick.forEach(function (key) {
+      if (cards[key]) containers.quick.insertBefore(cards[key], containers.moreButton || null);
+    });
+    layout.more.forEach(function (key) {
+      if (cards[key]) containers.more.appendChild(cards[key]);
+    });
+  }
+
+  function saveQuickLayout() {
+    try { localStorage.setItem(QUICK_LAYOUT_KEY, JSON.stringify(captureQuickLayout())); } catch (e) {}
+  }
+
+  function setMoreModulesVisible(visible) {
+    var containers = getQuickToolContainers();
+    if (!containers.more) return;
+    containers.more.style.display = visible ? '' : 'none';
+  }
+
+  function finishQuickToolDrag() {
+    document.querySelectorAll('.modules.drag-over').forEach(function (zone) { zone.classList.remove('drag-over'); });
+    if (draggedQuickCard) draggedQuickCard.classList.remove('dragging');
+    draggedQuickCard = null;
+  }
+
+  function setQuickToolsEditing(editing) {
+    var section = document.querySelector('.quick-tools');
+    var button = document.getElementById('manage-quick-tools');
+    var containers = getQuickToolContainers();
+    if (!section || !button) return;
+    quickToolsEditing = editing;
+    section.classList.toggle('editing', editing);
+    button.setAttribute('aria-pressed', editing ? 'true' : 'false');
+    button.innerHTML = editing ? '<i data-lucide="check"></i>完成整理' : '<i data-lucide="grip"></i>整理快捷方式';
+    if (editing) {
+      moreWasOpenBeforeEditing = !!(containers.more && containers.more.style.display !== 'none');
+      setMoreModulesVisible(true);
+    } else {
+      setMoreModulesVisible(moreWasOpenBeforeEditing);
+      finishQuickToolDrag();
+    }
+    document.querySelectorAll('[data-quick-key]').forEach(function (card) { card.draggable = editing; });
+    if (window.IconSystem) window.IconSystem.render(button);
+  }
+
+  function bindQuickTools() {
+    var containers = getQuickToolContainers();
+    var manage = document.getElementById('manage-quick-tools');
+    var reset = document.getElementById('reset-quick-tools');
+    if (!containers.quick || !containers.more || !manage || !reset) return;
+
+    defaultQuickLayout = captureQuickLayout();
+    var saved = readQuickLayout();
+    if (isValidQuickLayout(saved)) applyQuickLayout(saved);
+
+    manage.addEventListener('click', function () { setQuickToolsEditing(!quickToolsEditing); });
+    reset.addEventListener('click', function () {
+      try { localStorage.removeItem(QUICK_LAYOUT_KEY); } catch (e) {}
+      applyQuickLayout(defaultQuickLayout);
+      App.showToast('快捷入口已恢复默认组合', 'success');
+    });
+
+    document.querySelectorAll('[data-quick-key]').forEach(function (card) {
+      card.addEventListener('dragstart', function (event) {
+        if (!quickToolsEditing) { event.preventDefault(); return; }
+        draggedQuickCard = card;
+        card.classList.add('dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', card.dataset.quickKey || '');
+      });
+      card.addEventListener('dragend', finishQuickToolDrag);
+      card.addEventListener('click', function (event) {
+        if (quickToolsEditing) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }, true);
+    });
+
+    [containers.quick, containers.more].forEach(function (zone) {
+      zone.addEventListener('dragover', function (event) {
+        if (!quickToolsEditing || !draggedQuickCard) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        zone.classList.add('drag-over');
+      });
+      zone.addEventListener('dragleave', function (event) {
+        if (!zone.contains(event.relatedTarget)) zone.classList.remove('drag-over');
+      });
+      zone.addEventListener('drop', function (event) {
+        if (!quickToolsEditing || !draggedQuickCard) return;
+        event.preventDefault();
+        var target = event.target.closest ? event.target.closest('[data-quick-key]') : null;
+        if (target && target !== draggedQuickCard && target.parentElement === zone) {
+          var before = event.clientY < target.getBoundingClientRect().top + target.offsetHeight / 2;
+          zone.insertBefore(draggedQuickCard, before ? target : target.nextSibling);
+        } else if (zone === containers.quick) {
+          zone.insertBefore(draggedQuickCard, containers.moreButton || null);
+        } else {
+          zone.appendChild(draggedQuickCard);
+        }
+        saveQuickLayout();
+        finishQuickToolDrag();
+      });
+    });
+  }
+
   App.initPage({ title: '今日工作台', subtitle: '', actions: '', onReady: function () {
     renderStats();
     renderSchedule();
@@ -176,6 +332,7 @@
     renderRecent();
     renderTodo();
     renderKbTile();
+    bindQuickTools();
     // 强引导：新手任务清单（真实数据驱动）+ 首启聚光灯导览
     try {
       if (window.Onboarding) {

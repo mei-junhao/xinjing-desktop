@@ -745,14 +745,14 @@ function createWindow() {
     // 那样确认窗会因父窗口不可见而无法显示/点击。此时改为无父、非 modal 的独立窗口。
     const parentVisible = !!(mainWindow && mainWindow.isVisible());
     closeConfirmWin = new BrowserWindow({
-      width: 360,
-      height: 300,
+      width: 456,
+      height: 378,
       parent: parentVisible ? mainWindow : undefined,
       modal: parentVisible,
       frame: false,
       resizable: false,
       show: false,
-      backgroundColor: '#f6f1ea',
+      backgroundColor: '#f7f6f2',
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
