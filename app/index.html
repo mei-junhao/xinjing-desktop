@@ -194,6 +194,25 @@
 }
 .xj-float-btn:hover{background:var(--accent-hover);transform:scale(1.05);box-shadow:0 6px 24px rgba(139,147,199,.4)}
 .xj-float-btn:active{transform:scale(.95)}
+
+/* v4.0.1 approved clinical workbench hierarchy. */
+.page{max-width:1440px;padding:28px 32px 40px;gap:20px}
+.topbar{align-items:center;gap:10px}.topbar h1{font-family:var(--sans);font-size:24px;font-weight:680;letter-spacing:0}
+.topbar .start-next{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 15px;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;font:650 13px var(--sans);cursor:pointer}
+.topbar .start-next:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.topbar .xj-toggle,.topbar .xj-chat-link{border-radius:6px;padding:8px 12px}
+.topbar .xj-new-client{border:1px solid var(--border);border-radius:6px;padding:8px 13px;background:var(--paper-2);color:var(--ink-2);box-shadow:none}
+.topbar .xj-new-client:hover{border-color:var(--accent);background:var(--paper-2);color:var(--accent);box-shadow:none;transform:none}
+.hero-grid{gap:12px}.kv-card{padding:16px 18px;border-radius:8px;text-align:left}.kv-card:hover{border-color:var(--accent);box-shadow:none;transform:none}
+.kv-card .kv-num{font-family:var(--sans);font-size:28px;font-variant-numeric:tabular-nums}.kv-card .kv-label{font-size:13px;letter-spacing:0}
+.work-schedule{margin:0;padding:16px 18px;border-radius:8px;animation-duration:.25s}
+.section-head{display:flex;align-items:center;gap:8px}.section-head h2{font:650 16px var(--sans);margin:0}.section-head span{font-size:12px;color:var(--ink-3)}
+.quick-tools{display:grid;gap:10px}.modules{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.mod{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:10px;row-gap:2px;align-items:center;padding:13px 14px;border-radius:7px}
+.mod:hover{border-color:var(--accent);background:var(--accent-soft);box-shadow:none;transform:none}.mod .m-icon{grid-row:1/3;font-size:20px}.mod .m-icon svg{width:19px;height:19px}
+.mod .m-title{font-size:13px;font-weight:650}.mod .m-desc{font-size:11px;line-height:1.45;white-space:nowrap;text-overflow:ellipsis}.mod .m-tag{display:none}
+.recent{border-radius:8px}
+@media(max-width:1200px){.modules{grid-template-columns:repeat(3,minmax(0,1fr))}.page{padding:24px}}
 </style>
 </head>
 <body>
@@ -201,8 +220,9 @@
 <div class="page" id="main-page">
   <!-- 顶栏 -->
   <div class="topbar">
-    <div><h1>心镜</h1><div class="date" id="wel-date"></div></div>
+    <div><h1>今日工作台</h1><div class="date" id="wel-date"></div></div>
     <div class="spacer"></div>
+    <button class="start-next" id="start-next-session" type="button"><i data-lucide="play"></i>开始下一场会谈</button>
     <button class="xj-toggle" id="xj-toggle-btn" onclick="toggleXiaojing()"><span class="xj-dot"></span> 小镜</button>
     <button class="xj-chat-link" onclick="location.href='chat-home.html'"><i data-lucide="message-square-text"></i>对话模式</button>
     <button class="xj-new-client" onclick="if(typeof ClientModal!=='undefined')ClientModal.show(function(c){if(typeof App!=='undefined')App.showToast('已新增来访者「'+c.name+'」','success');})"><i data-lucide="user-round-plus"></i>新建来访者</button>
@@ -217,18 +237,18 @@
     </div>
     <div class="kv-card">
       <div class="kv-num" id="stat-income">¥0</div>
-      <div class="kv-label">本月收入</div>
+      <div class="kv-label">本月待收</div>
       <div class="kv-sub" id="stat-income-sub"></div>
     </div>
     <div class="kv-card warn">
       <div class="kv-num" id="stat-pending-reports">0</div>
-      <div class="kv-label">待撰报告</div>
+      <div class="kv-label">待补记录</div>
       <div class="kv-sub"></div>
     </div>
   </div>
 
   <section class="work-schedule" aria-label="工作日程">
-    <div class="work-schedule-head"><h3>工作日程</h3><span class="sp"></span><button class="back" onclick="location.href='session-calendar.html'">查看日历</button><button class="back" onclick="location.href='session-calendar.html'">新建会谈</button></div>
+    <div class="work-schedule-head"><h3>今日与本周安排</h3><span class="sp"></span><button class="back" onclick="location.href='session-calendar.html'">查看日历</button><button class="back" onclick="location.href='session-calendar.html?action=new'">新建会谈</button></div>
     <div class="schedule-week" id="week-schedule"></div>
     <div id="today-schedule"></div>
   </section>
@@ -236,6 +256,8 @@
   <!-- 新手任务清单（由 onboarding.js 渲染，完成/关闭后自动收起） -->
   <div id="ob-checklist"></div>
 
+  <section class="quick-tools" aria-label="快捷进入">
+  <div class="section-head"><h2>快捷进入</h2><span>全部现有工具均保留</span></div>
   <!-- 模块网格 -->
   <div class="modules">
     <a class="mod" href="consult-notes.html">
@@ -307,6 +329,7 @@
       <div class="m-desc">API 配置，备份恢复，激活管理</div>
     </a>
   </div>
+  </section>
 
   <!-- 底部双栏 -->
   <div class="bottom-row">

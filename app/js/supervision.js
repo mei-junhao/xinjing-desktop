@@ -1,14 +1,13 @@
 /* 心镜 v3.1.0 — AI 督导（方案C：三栏研究台 + 历史 + 会员分层） */
 App.initPage({
   title: 'AI 督导',
-  noSidebar: true,
   onReady: function () {
     'use strict';
     var chat = document.getElementById('sup-chat');
     var input = document.getElementById('sup-input');
     var materialTA = document.getElementById('sup-material');
-    var curOrient = 'builtin-winnicott';
-    var curOrientName = '温尼科特取向督导师';
+    var curOrient = 'cangjie';
+    var curOrientName = '仓颉版温尼科特督导师';
     var messages = [];
     var busy = false;
     var currentClientId = null;
@@ -31,36 +30,53 @@ App.initPage({
     try { var d = localStorage.getItem(draftKey); if (d) materialTA.value = d; } catch(e){}
     materialTA.addEventListener('input', function () { try { localStorage.setItem(draftKey, this.value); } catch(e){} });
 
-    // 动态填充督导流派下拉（带说明）
+    // 督导师注册表与批准后的取向选择器
     var orientSel = document.getElementById('sup-orient');
     var orientDesc = document.getElementById('sup-orient-desc');
+    var supervisorList = [];
     if (typeof Supervisors !== 'undefined' && Supervisors.getBuiltinList) {
-      Supervisors.getBuiltinList().forEach(function (s) {
+      supervisorList = Supervisors.getBuiltinList();
+      supervisorList.forEach(function (s) {
         var opt = document.createElement('option');
         opt.value = s.id; opt.textContent = s.name;
         if (s.desc) opt.setAttribute('data-desc', s.desc);
         orientSel.appendChild(opt);
       });
-      var custOpt = document.createElement('option');
-      custOpt.value = '__custom__'; custOpt.textContent = '自定义督导（会员专属）';
-      custOpt.style.color = 'var(--ink-3)';
-      orientSel.appendChild(custOpt);
+    }
+    function renderSupervisorOptions() {
+      function buttonFor(s) {
+        return '<button class="supervisor-option' + (s.isWinnicott ? ' special' : '') + (s.id === curOrient ? ' selected' : '') + '" type="button" data-supervisor-id="' + App.escapeHtml(s.id) + '" aria-pressed="' + (s.id === curOrient ? 'true' : 'false') + '">' +
+          '<span class="supervisor-option-mark">' + App.escapeHtml(s.mark || '督') + '</span><span><strong>' + App.escapeHtml(s.name) + '</strong><small>' + App.escapeHtml(s.desc || '') + '</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>';
+      }
+      var special = document.getElementById('supervisor-special-options');
+      var ordinary = document.getElementById('supervisor-orientation-options');
+      if (special) special.innerHTML = supervisorList.filter(function (s) { return s.isWinnicott; }).map(buttonFor).join('');
+      if (ordinary) ordinary.innerHTML = supervisorList.filter(function (s) { return !s.isWinnicott; }).map(buttonFor).join('');
+      document.querySelectorAll('[data-supervisor-id]').forEach(function (button) {
+        button.addEventListener('click', function () { setOrientation(button.getAttribute('data-supervisor-id'), true); closeSupervisorPicker(); });
+      });
+      if (window.IconSystem) window.IconSystem.render(document.getElementById('supervisor-picker'));
+    }
+    function closeSupervisorPicker() {
+      var picker = document.getElementById('supervisor-picker');
+      var openButton = document.getElementById('open-supervisor-picker');
+      if (picker) picker.hidden = true;
+      if (openButton) openButton.setAttribute('aria-expanded', 'false');
     }
     function setOrientation(orientationId, persistPreference) {
-      if (orientationId === '__custom__') {
-        alert('自定义督导功能请联系开发者定制。');
-        return;
-      }
-      if (!orientationId || !orientSel.querySelector('option[value="' + orientationId + '"]')) return;
-      orientSel.value = orientationId;
-      curOrient = orientationId;
-      curOrientName = orientSel.options[orientSel.selectedIndex].textContent;
+      var normalized = Supervisors.normalizeId ? Supervisors.normalizeId(orientationId) : orientationId;
+      var definition = Supervisors.getDefinition ? Supervisors.getDefinition(normalized) : null;
+      if (!normalized || !definition) { App.showToast('督导师配置无效，请重新选择', 'error'); return; }
+      orientSel.value = normalized;
+      curOrient = normalized;
+      curOrientName = definition.displayName;
       updateBadge();
-      var desc = orientSel.options[orientSel.selectedIndex].getAttribute('data-desc');
+      var desc = definition.desc || '';
       if (orientDesc) {
         orientDesc.textContent = desc || '';
-        orientDesc.style.display = desc ? '' : 'none';
+        orientDesc.style.display = 'none';
       }
+      renderSupervisorOptions();
       if (persistPreference && currentClientId) {
         var client = Store.getClient(currentClientId);
         if (client) {
@@ -71,17 +87,51 @@ App.initPage({
       }
     }
     setOrientation(curOrient, false);
-    orientSel.addEventListener('change', function () {
-      if (this.value === '__custom__') {
-        alert('自定义督导功能请联系开发者定制。');
-        this.value = curOrient;
+    orientSel.addEventListener('change', function () { setOrientation(this.value, true); });
+    var openPickerButton = document.getElementById('open-supervisor-picker');
+    if (openPickerButton) openPickerButton.addEventListener('click', function () {
+      var picker = document.getElementById('supervisor-picker');
+      var opening = picker && picker.hidden;
+      if (picker) picker.hidden = !opening;
+      openPickerButton.setAttribute('aria-expanded', String(!!opening));
+    });
+    var closePickerButton = document.getElementById('close-supervisor-picker');
+    if (closePickerButton) closePickerButton.addEventListener('click', closeSupervisorPicker);
+    var customOption = document.getElementById('custom-supervisor-option');
+    if (customOption) customOption.addEventListener('click', function () {
+      if (!App.canUse('custom-supervisors')) {
+        App.showToast('新建定制督导师为旗舰功能', 'warning');
+        App.openPlans();
         return;
       }
-      setOrientation(this.value, true);
+      location.href = 'feedback.html?type=custom-supervisor';
     });
     function updateBadge() {
       document.getElementById('sup-badge').textContent = curOrientName;
+      var name = document.getElementById('supervisor-current-name');
+      var mark = document.getElementById('supervisor-current-mark');
+      var definition = Supervisors.getDefinition ? Supervisors.getDefinition(curOrient) : null;
+      if (name) name.textContent = curOrientName;
+      if (mark) mark.textContent = (definition && definition.mark) || '督';
     }
+    function ensureSupervisionAccess() {
+      if (!App.canUse('ai-supervise')) {
+        App.showToast('AI 督导为会员功能，可先预览界面', 'warning');
+        App.openPlans();
+        return false;
+      }
+      if (!(App.hasAICompute && App.hasAICompute())) {
+        App.showToast('会员权益已解锁，但尚未检测到可用 AI 算力', 'warning');
+        return false;
+      }
+      return true;
+    }
+    function syncAccessUI() {
+      var unlock = document.getElementById('sup-unlock-button');
+      if (unlock) unlock.style.display = App.canUse('ai-supervise') ? 'none' : '';
+    }
+    syncAccessUI();
+    if (App.onLicenseStateChange) App.onLicenseStateChange(syncAccessUI);
 
     // Tab 切换
     window.switchTab = function (tab) {
@@ -209,7 +259,7 @@ App.initPage({
 
     function buildMessages(userText, isImpression) {
       var sys = (typeof Supervisors !== 'undefined' && Supervisors.buildSystemPrompt)
-        ? Supervisors.buildSystemPrompt(curOrient.replace('builtin-', ''))
+        ? Supervisors.buildSystemPrompt(curOrient)
         : '你是一位心理咨询督导，请用中文回应，语气专业而温暖。';
       var material = materialTA.value.trim();
       var hist = messages.slice(-12).map(function (m) { return { role: m.role, content: m.content }; });
@@ -251,7 +301,7 @@ App.initPage({
 
     window.generateImpression = function () {
       if (busy) return;
-      if (!App.featureGate('ai-supervise')) { App.showToast('AI 督导需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
+      if (!ensureSupervisionAccess()) return;
       var mat = materialTA.value.trim();
       if (!mat) { App.showToast('请先在材料区填写临床材料', 'warning'); return; }
       sendToAI('生成整体印象', true);
@@ -259,7 +309,7 @@ App.initPage({
 
     window.quickAction = function (kind) {
       if (busy) return;
-      if (!App.featureGate('ai-supervise')) { App.showToast('AI 督导需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
+      if (!ensureSupervisionAccess()) return;
       var prompts = {
         deepen: '请就材料中的核心议题深化讨论，提出进一步的思考角度与开放式提问。',
         polish: '请在不改变原意的前提下润色以下临床材料的语言，使其更通顺、专业。',
@@ -271,7 +321,7 @@ App.initPage({
 
     window.inviteMaster = function () {
       if (busy) return;
-      if (!App.aiUnlocked()) { App.showToast('邀请大师需激活后使用', 'warning'); return; }
+      if (!ensureSupervisionAccess()) return;
       var masters = (window.MASTERS || []);
       var html = masters.map(function (m) {
         return '<label style="display:inline-block;padding:6px 12px;cursor:pointer"><input type="radio" name="sup-master" value="' + m.key + '"' + (m.key === 'winnicott' ? ' checked' : '') + '> ' + m.name + '</label>';
@@ -305,7 +355,7 @@ App.initPage({
     window.sendSupMsg = function () {
       var text = (input.value || '').trim();
       if (!text || busy) return;
-      if (!App.featureGate('ai-supervise')) { App.showToast('AI 督导需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
+      if (!ensureSupervisionAccess()) return;
       input.value = '';
       sendToAI(text, false);
     };

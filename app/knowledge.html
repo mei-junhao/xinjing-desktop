@@ -7,23 +7,20 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/components.css">
 <style>
-/* ============================================================
-   我的资料库（v3.5.0-UI 复刻）— 暖色治愈系独立皮肤
-   不依赖应用通用 CSS 变量，全部使用 --kb-* 自持，避免冲突
-   ============================================================ */
-:root, body.xj-no-sidebar {
-  --kb-bg:#FAF7F2; --kb-paper:#FFFFFF; --kb-paper-2:#FBF9F5;
-  --kb-ink:#2E2A26; --kb-ink-2:#5C544C; --kb-ink-3:#9A9089;
-  --kb-accent:#2F8F83; --kb-accent-soft:#E3F1EE; --kb-accent-2:#277E73;
-  --kb-warm:#E08D5B; --kb-warm-soft:#FBEDE3;
-  --kb-border:#ECE5D9; --kb-border-2:#F3EEE6;
+/* 资料库沿用共享 01/04/05 token，业务视图保持独立。 */
+body.kb-shell {
+  --kb-bg:var(--xj-canvas); --kb-paper:var(--xj-surface); --kb-paper-2:var(--xj-surface-muted);
+  --kb-ink:var(--xj-text); --kb-ink-2:var(--xj-text-2); --kb-ink-3:var(--xj-text-3);
+  --kb-accent:var(--xj-accent); --kb-accent-soft:var(--xj-accent-soft); --kb-accent-2:var(--xj-accent-hover);
+  --kb-warm:var(--warning); --kb-warm-soft:var(--xj-surface-muted);
+  --kb-border:var(--xj-border); --kb-border-2:var(--xj-border);
   --kb-serif:"Noto Serif SC","Songti SC","STSong",serif;
   --kb-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   --kb-mono:"SF Mono",Menlo,Consolas,monospace;
 }
-body.xj-no-sidebar { background:var(--kb-bg); }
-body.xj-no-sidebar .main { margin-left:0; max-width:none; padding:0; height:100%; }
-body.xj-no-sidebar .content { max-width:none; width:100%; flex:1; min-height:0; display:flex; flex-direction:column; padding:0; }
+body.kb-shell { background:var(--kb-bg); }
+body.kb-shell .main { max-width:none; padding:0; height:calc(100vh - var(--xj-top-offset,0px)); }
+body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; display:flex; flex-direction:column; padding:0; }
 .kb-page { background:var(--kb-bg); color:var(--kb-ink); font-family:var(--kb-sans); display:flex; flex-direction:column; height:100%; min-height:0; }
 
 /* ---- 自绘标题栏（含模式切换 + 操作）---- */
@@ -56,7 +53,7 @@ body.xj-no-sidebar .content { max-width:none; width:100%; flex:1; min-height:0; 
 /* ============================================================
    视图：概览 / 瀑布画廊（入口4）
    ============================================================ */
-.kb-gallery-hero { background:linear-gradient(135deg,#E3F1EE 0%,#FAF7F2 60%); border:1px solid var(--kb-border); border-radius:20px; padding:34px 36px; margin-bottom:24px; }
+.kb-gallery-hero { background:var(--kb-paper-2); border:1px solid var(--kb-border); border-radius:8px; padding:26px 28px; margin-bottom:20px; }
 .kb-gallery-hero h1 { font:700 30px var(--kb-serif); color:var(--kb-ink); margin:0 0 8px; }
 .kb-gallery-hero .sub { font:13.5px var(--kb-sans); color:var(--kb-ink-3); margin-bottom:18px; }
 .kb-gallery-stat { display:inline-flex; align-items:baseline; gap:8px; background:var(--kb-paper); border:1px solid var(--kb-border); border-radius:14px; padding:12px 20px; margin-bottom:18px; }
@@ -255,19 +252,24 @@ body.xj-no-sidebar .content { max-width:none; width:100%; flex:1; min-height:0; 
 .kb-chat .cbar button { background:var(--kb-accent); color:#fff; border:none; border-radius:11px; padding:11px 20px; font:600 13px var(--kb-sans); cursor:pointer; }
 .kb-lock { padding:50px 24px; text-align:center; color:var(--kb-ink-3); font:14px/1.8 var(--kb-sans); }
 .kb-lock .kb-btn { margin-top:16px; }
+.kb-policy { display:inline-flex; align-items:center; min-height:28px; padding:3px 8px; border:1px solid var(--kb-border); border-radius:6px; background:var(--kb-paper-2); color:var(--kb-ink-2); font:600 11px var(--kb-sans); white-space:nowrap; }
+.kb-head,.kb-modes,.kb-mode,.kb-btn,.kb-gcard,.kb-card,.kb-chat-wrap,.kb-msg,.kb-chat .cbar input,.kb-chat .cbar button{border-radius:8px}
+.kb-head{padding:14px 18px}.kb-view{padding:20px 22px 32px}.kb-mode{min-height:34px;padding:6px 10px}
 </style>
 </head>
-<body>
+<body class="kb-shell">
 <div class="layout">
   <div id="sidebar-mount"></div>
   <main class="main">
     <div class="content">
       <div class="kb-page">
         <div class="kb-head">
-          <a class="kb-home" href="index.html">&#8592; 工作台</a>
+          <a class="kb-home" href="index.html"><i data-lucide="arrow-left"></i> 工作台</a>
           <div class="kb-htitle">我的资料库</div>
           <div class="kb-modes" id="kb-modes"></div>
           <span class="spacer"></span>
+          <span class="kb-policy" id="kb-policy">正在读取检索策略</span>
+          <span class="kb-policy" id="kb-index-status">等待扫描</span>
           <span class="kb-folder" id="kb-folder"></span>
           <button class="kb-btn" id="kb-refresh" title="重新扫描资料文件夹">刷新</button>
           <button class="kb-btn primary" id="kb-pick">选择资料文件夹</button>

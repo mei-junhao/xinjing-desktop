@@ -129,7 +129,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 
 <script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script>
-App.initPage({ title: '真人督导 · AI分析', noSidebar: true, onReady: function () {
+App.initPage({ title: '真人督导 · AI分析', onReady: function () {
   'use strict';
   var isMember = typeof App !== 'undefined' && App.featureGate && App.featureGate('real-sup-ai');
   var previewBar = document.getElementById('preview-bar');

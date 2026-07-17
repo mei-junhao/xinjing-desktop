@@ -40,6 +40,7 @@ const SupervisionCore = (() => {
   // 返回 Promise<{impression, chatMessages, error?}>
   async function runImpression(mode, material, options) {
     const spvSystem = buildSystemPrompt(mode);
+    if (!spvSystem) return { error: '督导师配置无效，请重新选择督导师' };
     const preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
     const prompt = buildImpressionPrompt(material);
     const systemContent = (preamble ? preamble + '\n\n' : '') + spvSystem;
@@ -85,7 +86,9 @@ const SupervisionCore = (() => {
     const chat = chatMessages.slice(2).map((m) =>
       (m.role === 'user' ? '咨询师：' : '督导师：') + m.content
     ).join('\n\n');
-    const modeName = mode === 'cangjie' ? '温尼科特取向督导师 · 仓颉版' : '温尼科特取向督导师 · 女娲版';
+    const definition = (typeof Supervisors !== 'undefined' && Supervisors.getDefinition) ? Supervisors.getDefinition(mode) : null;
+    if (!definition) return null;
+    const modeName = definition.saveName || definition.displayName;
     const full = '【整体印象】\n' + impression + (chat ? '\n\n【督导对话】\n' + chat : '');
     if (typeof Store !== 'undefined' && typeof Store.saveAiSupervision === 'function') {
       Store.saveAiSupervision({

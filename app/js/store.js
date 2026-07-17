@@ -905,6 +905,7 @@ const Store = (() => {
     return new Promise((resolve) => {
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
+      const expectedOrigin = 'http://127.0.0.1:' + port;
       let done = false, timer = null;
       const finish = (val) => {
         if (done) return; done = true;
@@ -914,11 +915,12 @@ const Store = (() => {
         resolve(val);
       };
       const onMsg = (e) => {
+        if (e.origin !== expectedOrigin || e.source !== iframe.contentWindow) return;
         if (e.data && e.data.__xj_migrate) finish(e.data.error ? null : (e.data.data || null));
       };
       window.addEventListener('message', onMsg);
       timer = setTimeout(() => finish(null), 8000); // 单端口超时保护
-      iframe.src = 'http://127.0.0.1:' + port + '/migrate-helper.html';
+      iframe.src = expectedOrigin + '/migrate-helper.html';
       document.body.appendChild(iframe);
     });
   }

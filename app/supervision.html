@@ -5,7 +5,7 @@
 <title>心镜 · AI 督导</title>
 <link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/components.css">
 <style>
-.sup-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.sup-page{position:relative;display:flex;flex-direction:column;height:calc(100vh - var(--xj-top-offset,0px));overflow:hidden}
 .sup-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .sup-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
 .sup-top h2{font-family:var(--serif);font-size:18px;margin:0}
@@ -75,6 +75,14 @@
 /* 材料区 */
 .material-input{width:100%;min-height:120px;border:1px solid var(--border);border-radius:10px;padding:12px;font:13px/1.7 var(--sans);resize:vertical;outline:none;background:var(--bg)}
 .material-input:focus{border-color:var(--accent)}
+.supervisor-strip{display:flex;align-items:center;gap:10px;min-width:280px}
+.supervisor-current{display:flex;align-items:center;gap:9px;min-width:0}.supervisor-current-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-weight:750}.supervisor-current-copy{display:grid;min-width:0}.supervisor-current-copy span{font-size:10px;color:var(--ink-3)}.supervisor-current-copy strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.supervisor-open{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2);color:var(--ink-2);font-size:12px;cursor:pointer}.supervisor-open:hover{border-color:var(--accent);color:var(--accent)}
+.supervisor-picker{position:absolute;z-index:30;top:62px;left:16px;right:16px;max-height:min(520px,calc(100vh - 86px));overflow:auto;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--paper-2);box-shadow:var(--xj-shadow);color:var(--ink)}.supervisor-picker[hidden]{display:none!important}
+.supervisor-picker-head{display:flex;align-items:start;gap:12px;margin-bottom:14px}.supervisor-picker-head h3{font:680 16px var(--sans);margin:0}.supervisor-picker-head p{font-size:12px;color:var(--ink-2);margin:3px 0 0}.supervisor-picker-head .sp{flex:1}.supervisor-picker-close{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:var(--ink-2);cursor:pointer}
+.supervisor-picker-label{display:flex;align-items:center;gap:6px;margin:12px 0 7px;color:var(--ink-3);font-size:11px;font-weight:650}.supervisor-option-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.supervisor-option{position:relative;display:grid;grid-template-columns:32px minmax(0,1fr) 18px;align-items:center;gap:9px;min-height:60px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--paper-2);color:var(--ink);text-align:left;cursor:pointer}.supervisor-option:hover{border-color:var(--accent);background:var(--accent-soft)}.supervisor-option.selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.supervisor-option-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:6px;background:var(--bg-sunken);color:var(--accent);font-size:12px;font-weight:750}.supervisor-option strong{display:block;font-size:12px}.supervisor-option small{display:block;margin-top:2px;color:var(--ink-3);font-size:10px;line-height:1.45}.supervisor-option-check{display:none;width:16px;height:16px;color:var(--accent)}.supervisor-option.selected .supervisor-option-check{display:block}.supervisor-option.special{background:var(--accent-soft)}.supervisor-option.custom{grid-template-columns:32px minmax(0,1fr) auto}.supervisor-flagship{font-size:10px;color:#8b651e;font-weight:700;white-space:nowrap}
+.sup-orient-native{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:1280px){.sup-body{grid-template-columns:220px minmax(0,1fr) 300px}.supervisor-option-grid{grid-template-columns:1fr}.sup-top{padding-inline:14px}}
 </style>
 </head>
 <body>
@@ -82,14 +90,28 @@
 <div class="sup-page">
 <div class="sup-top">
   <button class="back" onclick="location.href='index.html'"><i data-lucide="chevron-left"></i>返回工作台</button>
-  <h2>AI 督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="supervision-mindmap.html" class="xj-premium-btn"><i data-lucide="git-fork"></i>思维导图</a>
+  <h2>AI 督导</h2><span id="member-badge-slot"></span><button class="supervisor-open" id="sup-unlock-button" type="button" onclick="App.openPlans()"><i data-lucide="unlock-keyhole"></i>解锁会员</button><span class="sp"></span><a href="supervision-mindmap.html" class="xj-premium-btn"><i data-lucide="git-fork"></i>思维导图</a>
   <span class="sp"></span>
   <select id="sup-client" onchange="onClientChange()"><option value="">选择来访者…</option></select>
-  <select id="sup-orient"><option value="">选择督导流派…</option></select>
+  <div class="supervisor-strip">
+    <div class="supervisor-current"><span class="supervisor-current-mark" id="supervisor-current-mark">仓</span><span class="supervisor-current-copy"><span>当前督导师</span><strong id="supervisor-current-name">仓颉版温尼科特督导师</strong></span></div>
+    <select id="sup-orient" class="sup-orient-native" aria-label="当前督导师"></select>
+    <button class="supervisor-open" id="open-supervisor-picker" type="button" aria-expanded="false"><i data-lucide="users-round"></i>选择督导师</button>
+  </div>
   <button id="continue-supervision" type="button" class="back" style="display:none;border:1px solid var(--accent);color:var(--accent)" onclick="continueLastSupervision()">继续上次督导</button>
   <div id="sup-orient-desc" style="font-size:11px;color:var(--ink-3);max-width:200px;margin-left:8px;margin-top:4px;display:none"></div>
   <span class="badge" id="sup-badge">AI 督导</span>
 </div>
+
+<section class="supervisor-picker" id="supervisor-picker" aria-label="选择督导师取向" hidden>
+  <header class="supervisor-picker-head"><div><h3>选择督导师取向</h3><p>取向只决定理解临床材料的方法论和提问方式，不扮演理论大师本人。</p></div><span class="sp"></span><button class="supervisor-picker-close" id="close-supervisor-picker" type="button" title="关闭督导师选择" aria-label="关闭督导师选择"><i data-lucide="x"></i></button></header>
+  <div class="supervisor-picker-label"><i data-lucide="sparkles"></i>专属温尼科特督导师</div>
+  <div class="supervisor-option-grid" id="supervisor-special-options"></div>
+  <div class="supervisor-picker-label"><i data-lucide="library"></i>内置督导取向</div>
+  <div class="supervisor-option-grid" id="supervisor-orientation-options"></div>
+  <div class="supervisor-picker-label"><i data-lucide="crown"></i>旗舰定制</div>
+  <button class="supervisor-option custom" id="custom-supervisor-option" type="button"><span class="supervisor-option-mark">定</span><span><strong>新建定制督导师</strong><small>联系开发者定制理论框架、表达方式和材料边界。</small></span><span class="supervisor-flagship">旗舰 · 联系定制</span></button>
+</section>
 
 <div class="sup-body">
   <!-- 左栏：来访者会话历史 -->
@@ -119,7 +141,6 @@
           <button onclick="quickAction('polish')">润色</button>
           <button onclick="quickAction('tech')">技术建议</button>
           <button onclick="quickAction('transference')">移情分析</button>
-          <button onclick="inviteMaster()">邀请大师</button>
         </div>
       </div>
       <div class="analysis-block" id="deepen-block" style="display:none">

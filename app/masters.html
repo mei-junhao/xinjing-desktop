@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>大师对话</title>
+  <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/masters-clinical.css">
 </head>
 <body>
@@ -57,6 +58,7 @@
             <button type="button" data-mode="round" role="tab" aria-selected="false">圆桌</button>
           </div>
           <label class="masters-search"><i data-lucide="search"></i><input type="search" placeholder="搜索大师" aria-label="搜索大师"></label>
+          <label class="masters-school-filter"><span>理论学派</span><select id="master-school-filter" aria-label="按理论学派筛选"><option value="">全部学派</option></select></label>
           <div class="master-scroll" id="master-list" aria-live="polite"></div>
           <div class="source-footer"><i data-lucide="info"></i><span>圆桌至少选择两位大师</span></div>
         </aside>
@@ -96,8 +98,8 @@
 
         <aside class="masters-inspector-panel">
           <div class="inspector-tabs" role="tablist" aria-label="对话侧栏">
-            <button class="active" type="button" data-inspector-tab="summary">摘要</button>
-            <button type="button" data-inspector-tab="history">历史</button>
+            <button class="active" type="button" role="tab" aria-selected="true" data-inspector-tab="summary">摘要</button>
+            <button type="button" role="tab" aria-selected="false" data-inspector-tab="history">历史</button>
           </div>
           <section class="inspector-view active" id="inspector-summary">
             <div class="inspector-head"><div><span class="masters-eyebrow">当前上下文</span><h2 id="matrix-title">尚未形成观点</h2></div><button class="masters-icon-btn" id="btn-pin-inspector" type="button" title="切换摘要密度" aria-label="切换摘要密度" aria-pressed="false"><i data-lucide="pin"></i></button></div>
@@ -105,7 +107,7 @@
             <div class="viewpoint-list" id="matrix-body">
               <div class="viewpoint-empty"><i data-lucide="layers-2"></i><span>大师回应会按视角汇总</span></div>
             </div>
-            <div class="next-step-box"><span class="next-step-label">下一步</span><button type="button" id="btn-next-session"><i data-lucide="calendar-plus"></i>安排下一次会谈</button><button type="button" id="btn-supervision-draft"><i data-lucide="file-plus-2"></i>保存为督导草稿</button></div>
+            <div class="next-step-box"><span class="next-step-label">下一步</span><button type="button" id="btn-next-session"><i data-lucide="calendar-plus"></i>安排下一次会谈</button><button type="button" id="btn-supervision-draft"><i data-lucide="file-plus-2"></i>带入 AI 督导材料</button></div>
           </section>
           <section class="inspector-view" id="inspector-history">
             <div class="inspector-head"><div><span class="masters-eyebrow">本机记录</span><h2>历史对话</h2></div><button class="masters-icon-btn" id="btn-filter-history" type="button" title="筛选历史对话" aria-label="筛选历史对话" aria-pressed="false"><i data-lucide="list-filter"></i></button></div>

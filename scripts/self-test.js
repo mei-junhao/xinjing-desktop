@@ -1156,7 +1156,9 @@ test('R2 masters-core.buildMessages 注入 STYLE_CONSTRAINTS（去 AI 文风，�
 
 test('R3 supervisors.buildSystemPrompt 消除跨模式静默回落', function () {
   assert.ok(!/getByMode\(mode\)\s*\|\|\s*NVWA_PROMPT/.test(SRC_SUPERVISORS_R), 'buildSystemPrompt 不得含 || NVWA_PROMPT 回落');
-  assert.ok(/mode\s*===\s*['"]cangjie['"]\s*\?\s*CANGJIE_PROMPT/.test(SRC_SUPERVISORS_R), '应按 mode 严格取 CANGJIE_PROMPT');
+  assert.ok(/definition\.id\s*===\s*['"]cangjie['"]\s*\?\s*CANGJIE_PROMPT/.test(SRC_SUPERVISORS_R), '应按注册表 id 严格取 CANGJIE_PROMPT');
+  assert.ok(/Unknown supervisor id/.test(SRC_SUPERVISORS_R), '未知督导师 id 必须拒绝并告警');
+  assert.ok(!/STYLE_CONSTRAINTS\s*\+\s*['"]\\n\\n['"]\s*\+\s*WINNICOTT_PERSONA_GUARD/.test(SRC_SUPERVISORS_R), '不得向全部取向追加温尼科特身份 guard');
 });
 
 test('R4 prompts.builtin.js 仓颉 typo 已修正', function () {
@@ -1441,13 +1443,10 @@ test('T32 导航：v3.0 模块中枢，11 张卡片入口（v3.5.0 增知识库 
   });
   // 小镜侧滑面板
   assert.ok(indexHtml.indexOf('toggleXiaojing') !== -1, 'index.html 缺少小镜切换按钮');
-  // NAV_ITEMS 保留用于 settings/feedback 等旧页面，只需 dashboard + consultations 两 key 存在
-  const mDash = S_APP.indexOf("key: 'dashboard'");
-  const mCons = S_APP.indexOf("key: 'consultations'");
-  assert.ok(mDash !== -1 && mCons !== -1, 'NAV_ITEMS 缺 dashboard 或 consultations');
-  // label 文本
-  assert.ok(/label:\s*'首页'/.test(S_APP), 'dashboard label 应为「首页」');
-  assert.ok(/label:\s*'咨询记录'/.test(S_APP), 'consultations label 应为「咨询记录」');
+  ['workbench', 'calendar', 'clients', 'clinical', 'supervision', 'masters', 'knowledge', 'billing', 'settings'].forEach(function (key) {
+    assert.ok(S_APP.indexOf("key: '" + key + "'") !== -1, 'NAV_ITEMS 缺任务域 ' + key);
+  });
+  assert.strictEqual((S_APP.match(/\{ key: '[^']+', label:/g) || []).length, 9, '共享侧栏必须正好 9 个任务域');
 });
 
 test('T33 设计令牌收敛：calm 圆角与重阴影已降级（极简化 #8）', function () {
@@ -1859,11 +1858,11 @@ test('v3.3.1-1 supervisors.js 含 12 位 BUILTINS_META', function () {
   assert.ok(/builtin-lacan/.test(SUPERVISORS_331), '缺 builtin-lacan');
 });
 
-test('v3.3.1-2 supervisors.js 含 PERSPECTIVE_PROMPTS 精简方法论', function () {
+test('v3.3.1-2 supervisors.js 含无人物扮演的取向方法论', function () {
   assert.ok(/PERSPECTIVE_PROMPTS/.test(SUPERVISORS_331), '缺 PERSPECTIVE_PROMPTS');
-  assert.ok(/winnicott.*足够好的母亲/.test(SUPERVISORS_331), '缺 winnicott 方法论');
-  assert.ok(/freud.*驱力理论/.test(SUPERVISORS_331), '缺 freud 方法论');
-  assert.ok(/generic.*通用心理督导师/.test(SUPERVISORS_331), '缺 generic 方法论');
+  assert.ok(/freud:\s*'采用经典精神分析督导取向/.test(SUPERVISORS_331), '缺经典精神分析方法论');
+  assert.ok(/generic:\s*'采用整合督导取向/.test(SUPERVISORS_331), '缺整合方法论');
+  assert.ok(/不是任何历史人物本人/.test(SUPERVISORS_331), '缺督导身份边界');
 });
 
 test('v3.3.1-3 supervisors.js 导出 getBuiltinList', function () {
@@ -1872,7 +1871,8 @@ test('v3.3.1-3 supervisors.js 导出 getBuiltinList', function () {
 
 test('v3.3.1-4 supervision.js 动态读取 Supervisors.getBuiltinList', function () {
   assert.ok(/getBuiltinList/.test(SUPERVISION_331), 'supervision.js 未调用 getBuiltinList');
-  assert.ok(/__custom__/.test(SUPERVISION_331), 'supervision.js 缺自定义督导占位');
+  assert.ok(/custom-supervisors/.test(SUPERVISION_331), 'supervision.js 缺旗舰自定义督导师门控');
+  assert.ok(/custom-supervisor-option/.test(SUPERVISION_331), 'supervision.js 缺自定义督导师入口');
 });
 
 test('v3.3.1-5 supervision.html 已移除版本下拉', function () {
@@ -2063,7 +2063,7 @@ test('v3.5.0-UI-5 userdocs.js 扩展 getMeta/getFile/searchDetailed 且元数据
 
 test('v3.5.0-UI-6 app.js 侧栏含 knowledge 导航 + getCurrentPageKey 映射', function () {
   assert.ok(/key:\s*'knowledge'/.test(APPJS_350), 'NAV_ITEMS 缺 knowledge 项');
-  assert.ok(/'knowledge\.html':\s*'knowledge'/.test(APPJS_350), 'getCurrentPageKey 缺 knowledge.html 映射');
+  assert.ok(/'knowledge\.html':\s*\{\s*domain:\s*'knowledge'/.test(APPJS_350), 'ROUTE_REGISTRY 缺 knowledge.html 映射');
 });
 
 test('v3.5.0-UI-7 index.html 含入口4瓦片（knowledge.html + kb-mod-count）', function () {
@@ -2089,8 +2089,9 @@ test('v3.5.0-UI-10 knowledge.js 定义 8 视图渲染器', function () {
   });
 });
 
-test('v3.5.0-UI-11 knowledge.js 对话视图激活门控 + 幂等加载 AI', function () {
-  assert.ok(/App\.aiUnlocked|aiUnlocked/.test(KNOWJS_350UI), 'chat 视图未做激活门控');
+test('v3.5.0-UI-11 knowledge.js 对话视图权益与算力双门控 + 幂等加载 AI', function () {
+  assert.ok(/App\.canUse\('rag-vector'\)/.test(KNOWJS_350UI), 'chat 视图未做产品权益门控');
+  assert.ok(/App\.hasAICompute/.test(KNOWJS_350UI), 'chat 视图未做 AI 算力门控');
   assert.ok(/ensureAI/.test(KNOWJS_350UI), 'chat 视图缺 ensureAI 动态加载');
   assert.ok(/getContextBlock/.test(KNOWJS_350UI), 'chat 视图未用 getContextBlock 拼资料上下文');
 });
@@ -2101,9 +2102,11 @@ test('v3.5.0-UI-12 settings 页增强：统计回显 + 打开资料库入口', f
   assert.ok(/renderUserDocStats/.test(SETTINGSJS_350), 'settings.js 缺 renderUserDocStats');
 });
 
-// --- 复刻关键回归（暖色独立皮肤 + 去侧栏 + 9 视图 + 入口画廊）---
-test('v3.5.0-UI-13 knowledge.js 进入资料库去侧栏（noSidebar:true）', function () {
-  assert.ok(/noSidebar:\s*true/.test(KNOWJS_350UI), 'knowledge.js 未传 noSidebar:true（进入资料库应无左侧栏）');
+// --- v4.0.1 共享皮肤 + 共享侧栏 + 9 视图 + 入口画廊 ---
+test('v4.0.1-KB-1 knowledge 接入共享侧栏与 token', function () {
+  assert.ok(!/noSidebar:\s*true/.test(KNOWJS_350UI), 'knowledge.js 不应再关闭共享侧栏');
+  assert.ok(/class="kb-shell"/.test(KNOWHTML_350UI), 'knowledge.html 缺共享壳层标识');
+  assert.ok(/--kb-bg:var\(--xj-canvas\)/.test(KNOWHTML_350UI), 'knowledge.html 未把资料库 token 映射到共享皮肤');
 });
 test('v3.5.0-UI-14 knowledge.js 默认入口=概览画廊 + 含 renderGallery', function () {
   assert.ok(/function renderGallery\b/.test(KNOWJS_350UI), 'knowledge.js 缺 renderGallery（入口4画廊）');
@@ -2723,6 +2726,9 @@ test('v4.0.0-3 01 默认、04 安静剧场、05 夜间观测由共享 token 实�
   assert.ok(/\[data-skin="observatory"\]/.test(V400_UI), '缺少 05 observatory');
   assert.ok(/premium-skins/.test(V38_APP), 'App 未门控会员皮肤');
   assert.ok(!/data-skin-name="calm"|data-skin-name="editorial"|data-skin-name="xinjing"/.test(V400_SETTINGS), '设置页仍暴露旧皮肤');
+  ['#eef3f1', '#eceae6', '#111719', '#147d70', '#7a3945', '#68bac1'].forEach(function (token) {
+    assert.ok(V400_UI.includes(token), '生产皮肤 token 未对齐批准预览：' + token);
+  });
 });
 
 test('v4.0.0-4 22 个页面全部接入统一 UI，业务页静态加载权益模块', function () {
@@ -2764,6 +2770,145 @@ test('v4.0.0-6 主进程自行计算 RAG tier，免费版不再限制临床记�
   assert.ok(!/LICENSE_CAP_CLIENT|LICENSE_CAP_SUPERVISION|受限模式下最多保存/.test(storeSource), 'Store 仍限制免费版临床数据数量');
   assert.ok(/function licenseGuard\(\) \{\}/.test(storeSource), 'Store 未保留无门槛兼容守卫');
   assert.ok(/function licenseMode\(\)/.test(storeSource), 'Store 导出了未定义的 licenseMode');
+});
+
+// ============================================================
+// v4.0.1 — 批准预览落地：9 任务域、共享壳层、督导师注册表
+// ============================================================
+const V401_APP = fs.readFileSync(path.join(APP_DIR, 'js', 'app.js'), 'utf8');
+const V401_SUPERVISORS = fs.readFileSync(path.join(APP_DIR, 'js', 'supervisors.js'), 'utf8');
+const V401_SUPERVISION = fs.readFileSync(path.join(APP_DIR, 'js', 'supervision.js'), 'utf8');
+const V401_SUPERVISION_CORE = fs.readFileSync(path.join(APP_DIR, 'js', 'supervision-core.js'), 'utf8');
+const V401_SUPERVISION_HTML = fs.readFileSync(path.join(APP_DIR, 'supervision.html'), 'utf8');
+const V401_MASTERS = fs.readFileSync(path.join(APP_DIR, 'js', 'masters.js'), 'utf8');
+const V401_MASTERS_HTML = fs.readFileSync(path.join(APP_DIR, 'masters.html'), 'utf8');
+const V401_KNOWLEDGE = fs.readFileSync(path.join(APP_DIR, 'js', 'knowledge.js'), 'utf8');
+const V401_KNOWLEDGE_HTML = fs.readFileSync(path.join(APP_DIR, 'knowledge.html'), 'utf8');
+
+test('v4.0.1-1 22 个固定路由唯一映射到 9 个任务域', function () {
+  const routes = ['index.html', 'chat-home.html', 'session-calendar.html', 'doc-center.html', 'doc-growth.html', 'consult-notes.html', 'transcript.html', 'transcript-guide.html', 'report-writing.html', 'supervision.html', 'supervision-mindmap.html', 'real-supervision.html', 'real-supervision-ai.html', 'masters.html', 'knowledge.html', 'billing-shell.html', 'billing-calendar.html', 'settings.html', 'feedback.html', 'activation.html', 'confirm-close.html', 'migrate-helper.html'];
+  assert.strictEqual(new Set(routes).size, 22, '固定路由清单存在重复');
+  routes.forEach(function (route) {
+    assert.ok(fs.existsSync(path.join(APP_DIR, route)), '缺少固定路由 ' + route);
+    assert.ok(V401_APP.includes("'" + route + "': { domain:"), 'ROUTE_REGISTRY 缺少 ' + route);
+  });
+  const navBlock = V401_APP.slice(V401_APP.indexOf('const NAV_ITEMS'), V401_APP.indexOf('const ROUTE_REGISTRY'));
+  assert.strictEqual((navBlock.match(/\{ key:/g) || []).length, 9, '共享侧栏必须正好 9 个任务域');
+  ['workbench', 'calendar', 'clients', 'clinical', 'supervision', 'masters', 'knowledge', 'billing', 'settings'].forEach(function (domain) {
+    assert.ok(navBlock.includes("key: '" + domain + "'"), '缺少任务域 ' + domain);
+  });
+  ['activation.html', 'confirm-close.html', 'migrate-helper.html'].forEach(function (route) {
+    assert.ok(new RegExp("'" + route.replace('.', '\\.') + "': \\{ domain: 'settings', parent: 'settings\\.html', sidebar: false").test(V401_APP), route + ' 应为无侧栏工具窗');
+  });
+});
+
+test('v4.0.1-2 共享壳层支持无挂载点页面且授权刷新重绘锁', function () {
+  assert.ok(/function ensureBusinessShell\(/.test(V401_APP), '缺少自动壳层创建');
+  assert.ok(/xj-auto-layout/.test(V401_APP), '无挂载点页面未使用自动壳层');
+  assert.ok(/refreshSidebarChrome\(\);\s*licenseStateCallbacks/.test(V401_APP), '授权刷新后未重绘侧栏锁');
+  assert.ok(/class="nav-unlock"/.test(V401_APP) && /data-unlock-feature/.test(V401_APP), '会员导航缺独立解锁按钮');
+  assert.ok(!/'masters\.html':\s*'ai-masters'/.test(V401_APP), '免费用户仍会在进入大师预览前被全局拦截');
+});
+
+test('v4.0.1-3 督导师 13 项注册表、旧值兼容、未知拒绝和提示词边界', function () {
+  const registry = V401_SUPERVISORS.slice(V401_SUPERVISORS.indexOf('const SUPERVISOR_REGISTRY'), V401_SUPERVISORS.indexOf('const ALIASES'));
+  assert.strictEqual((registry.match(/\{ id:/g) || []).length, 13, '督导师注册表必须正好 13 项');
+  ['cangjie', 'nvwa', 'builtin-freud', 'builtin-jung', 'builtin-klein', 'builtin-adler', 'builtin-lacan', 'builtin-bion', 'builtin-beck', 'builtin-rogers', 'builtin-yalom', 'builtin-sue-johnson', 'builtin-generic'].forEach(function (id) {
+    assert.ok(registry.includes("id: '" + id + "'"), '注册表缺少 ' + id);
+  });
+  const vm = require('vm');
+  const context = { console: { warn: function () {} }, PromptsBuiltin: {
+    getCangjiePrompt: function () { return 'CANGJIE_METHOD'; },
+    getNvwaPrompt: function () { return 'NVWA_METHOD'; },
+    getWinnicottPrompt: function () { return 'LEGACY_METHOD'; },
+    STYLE_CONSTRAINTS: 'STYLE', WINNICOTT_PERSONA_GUARD: 'HISTORICAL_PERSONA'
+  } };
+  vm.runInNewContext(V401_SUPERVISORS + '\nthis.__Supervisors = Supervisors;', context);
+  const supervisors = context.__Supervisors;
+  assert.strictEqual(supervisors.normalizeId('builtin-winnicott'), 'nvwa');
+  assert.ok(supervisors.buildSystemPrompt('cangjie').startsWith('CANGJIE_METHOD'));
+  assert.ok(supervisors.buildSystemPrompt('builtin-freud').includes('采用经典精神分析督导取向'));
+  assert.ok(!supervisors.buildSystemPrompt('builtin-freud').includes('HISTORICAL_PERSONA'));
+  assert.strictEqual(supervisors.buildSystemPrompt('not-a-supervisor'), '');
+  assert.ok(/definition\.saveName \|\| definition\.displayName/.test(V401_SUPERVISION_CORE), '督导保存名未从注册表取得');
+});
+
+test('v4.0.1-4 督导师选择器按专属/取向/旗舰分区且普通项不显示人物名', function () {
+  ['supervisor-special-options', 'supervisor-orientation-options', 'custom-supervisor-option', 'open-supervisor-picker'].forEach(function (id) {
+    assert.ok(V401_SUPERVISION_HTML.includes('id="' + id + '"'), '督导页缺少 ' + id);
+  });
+  assert.ok(/custom-supervisors/.test(V401_SUPERVISION), '旗舰定制入口未门控');
+  ['经典精神分析取向', '分析心理学取向', '克莱因客体关系取向', '整合取向'].forEach(function (label) {
+    assert.ok(V401_SUPERVISORS.includes(label), '缺少取向显示名 ' + label);
+  });
+  assert.ok(!/displayName:\s*'弗洛伊德/.test(V401_SUPERVISORS), '普通督导师 UI 仍显示大师姓名');
+});
+
+test('v4.0.1-5 资料库保留 9 视图并接入共享皮肤与双门控', function () {
+  const modeBlock = V401_KNOWLEDGE.slice(V401_KNOWLEDGE.indexOf('var MODES'), V401_KNOWLEDGE.indexOf('// 分类固定配色'));
+  ['gallery', 'cards', 'threecol', 'table', 'reading', 'search', 'graph', 'chat', 'stats'].forEach(function (mode) {
+    assert.ok(modeBlock.includes("key: '" + mode + "'"), '资料库缺少视图 ' + mode);
+  });
+  ['renderGallery', 'renderCards', 'renderThreeCol', 'renderTable', 'renderReading', 'renderSearch', 'renderGraph', 'renderChat', 'renderStats'].forEach(function (renderer) {
+    assert.ok(new RegExp('function ' + renderer + '\\b').test(V401_KNOWLEDGE), '资料库缺少渲染器 ' + renderer);
+  });
+  assert.ok(/id="kb-pick"/.test(V401_KNOWLEDGE_HTML) && /id="kb-refresh"/.test(V401_KNOWLEDGE_HTML), '资料库丢失文件夹选择或刷新');
+  assert.ok(/refsOn/.test(V401_KNOWLEDGE) && /excludedRelPaths/.test(V401_KNOWLEDGE), '资料库丢失引用开关');
+  assert.ok(/App\.canUse\('rag-vector'\)/.test(V401_KNOWLEDGE) && /App\.hasAICompute/.test(V401_KNOWLEDGE), '资料对话未实行权益与算力双门控');
+  assert.ok(/--kb-bg:var\(--xj-canvas\)/.test(V401_KNOWLEDGE_HTML), '资料库未复用共享皮肤 token');
+});
+
+test('v4.0.1-6 大师搜索、学派和模式共用过滤谓词且保留材料交接边界', function () {
+  assert.ok(/id="master-school-filter"/.test(V401_MASTERS_HTML), '大师页缺学派筛选');
+  assert.ok(/function masterMatchesFilters/.test(V401_MASTERS), '缺统一过滤谓词');
+  assert.ok(/filter\(masterMatchesFilters\)/.test(V401_MASTERS), '大师列表未统一应用过滤谓词');
+  assert.ok(/<button class="master-card/.test(V401_MASTERS), '大师条目不是键盘可聚焦按钮');
+  assert.ok(/setAttribute\('aria-selected'/.test(V401_MASTERS), '大师模式切换未同步 aria-selected');
+  assert.ok(!/card\.hidden/.test(V401_MASTERS), '搜索仍独立写 hidden，会覆盖学派筛选');
+  assert.ok(/带入 AI 督导材料/.test(V401_MASTERS_HTML), '大师到督导未明确为材料交接');
+  assert.ok(/supervision\.html\?source=masters/.test(V401_MASTERS), '材料交接未显式标记来源');
+});
+
+test('v4.0.1-7 工作台主操作和会员 AI 双门控存在', function () {
+  const dashboard = fs.readFileSync(path.join(APP_DIR, 'js', 'dashboard.js'), 'utf8');
+  const index = fs.readFileSync(path.join(APP_DIR, 'index.html'), 'utf8');
+  assert.ok(/id="start-next-session"/.test(index) && /function bindStartNextSession/.test(dashboard), '工作台缺开始下一场会谈主操作');
+  assert.ok(index.includes('本月待收') && index.includes('待补记录'), '工作台统计层级未更新');
+  assert.ok(/function hasAICompute/.test(V401_APP) && /AI\.getTier\(\) === 'user'/.test(V401_APP), 'App 缺 BYOK 算力判断');
+  assert.ok(/App\.canUse\('ai-supervise'\)/.test(V401_SUPERVISION) && /App\.hasAICompute/.test(V401_SUPERVISION), 'AI 督导未双门控');
+  assert.ok(/App\.featureGate\('ai-masters'\)/.test(V401_MASTERS) && /App\.hasAICompute/.test(V401_MASTERS), '大师对话未双门控');
+});
+
+test('v4.0.1-8 版本、预览基准和账务隔离一致', function () {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  const lock = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package-lock.json'), 'utf8'));
+  const generated = fs.readFileSync(path.join(__dirname, '..', 'version.generated.js'), 'utf8');
+  const settingsHtml = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf8');
+  const settingsJs = fs.readFileSync(path.join(APP_DIR, 'js', 'settings.js'), 'utf8');
+  assert.strictEqual(pkg.version, '4.0.1');
+  assert.strictEqual(lock.version, '4.0.1');
+  assert.strictEqual(lock.packages[''].version, '4.0.1');
+  assert.ok(/VERSION:\s*"4\.0\.1"/.test(generated), 'version.generated.js 未同步 4.0.1');
+  assert.ok(/id="ver-text">v4\.0\.1/.test(settingsHtml) && /id="about-version">v4\.0\.1/.test(settingsHtml), '设置页静态版本回退未同步 4.0.1');
+  assert.ok(/var ver = '4\.0\.1'/.test(settingsJs), '设置页脚本版本回退未同步 4.0.1');
+  assert.ok(/css\/style\.css/.test(V401_MASTERS_HTML), '大师页未加载共享布局样式');
+  assert.ok(/--xj-top-offset/.test(V401_APP), '试用条未向固定工作区提供顶部高度变量');
+  assert.ok(/max-width:\s*1020px[\s\S]*?\.sidebar\s*\{\s*width:\s*178px/.test(V400_UI), '1024 视口未按批准预览收窄侧栏');
+  const iconSystem = fs.readFileSync(path.join(APP_DIR, 'js', 'icon-system.js'), 'utf8');
+  assert.ok(/MutationObserver/.test(iconSystem) && /'↶': 'rotate-ccw'/.test(iconSystem), '动态 UI 未接入共享 Lucide 图标桥');
+  const preview = fs.readFileSync(path.join(__dirname, '..', 'design-previews', 'xinjing-integrated-workspace-preview.html'));
+  const hash = require('crypto').createHash('sha256').update(preview).digest('hex').toUpperCase();
+  assert.strictEqual(hash, '544BC3DBC24F6BF373C4433D7BA9D5B991944ABDC14E3F9E0DF7AB2E6AFBC048', '批准预览发生漂移');
+  const billing = fs.readFileSync(path.join(APP_DIR, 'billing-shell.html'), 'utf8');
+  assert.ok(/billableSessionsFor/.test(billing) && /billableSessions\(/.test(billing), '账务隔离函数丢失');
+});
+
+test('v4.0.1-9 迁移辅助页直接打开可理解且跨端口消息限定来源', function () {
+  const helper = fs.readFileSync(path.join(APP_DIR, 'migrate-helper.html'), 'utf8');
+  const store = fs.readFileSync(path.join(APP_DIR, 'js', 'store.js'), 'utf8');
+  assert.ok(/id="migration-direct"/.test(helper) && /返回心镜工作台/.test(helper), '迁移辅助页直接打开仍为空白');
+  assert.ok(!/postMessage\([^\n]+,\s*['"]\*['"]\)/.test(helper), '迁移辅助页仍向任意父来源发送本地数据');
+  assert.ok(/e\.origin !== expectedOrigin/.test(store) && /e\.source !== iframe\.contentWindow/.test(store), '迁移父页面未校验消息来源与 iframe');
 });
 
 // ============================================================

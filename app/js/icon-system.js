@@ -10,7 +10,9 @@
     '📋': 'clipboard-list', '💰': 'circle-dollar-sign', '💵': 'circle-dollar-sign', '🎯': 'target',
     '📂': 'folder-open', '📁': 'folder-up', '✨': 'sparkles', '👤': 'user-round', '🔒': 'lock-keyhole',
     '📖': 'book-open', '📚': 'library-big', '📤': 'arrow-up-from-line',
-    '👋': 'hand', '⚙': 'settings-2', '🎤': 'mic', '💡': 'lightbulb', '🧭': 'compass', '🌱': 'sprout'
+    '👋': 'hand', '⚙': 'settings-2', '🎤': 'mic', '💡': 'lightbulb', '🧭': 'compass', '🌱': 'sprout',
+    '📊': 'chart-no-axes-column-increasing', '📈': 'trending-up', '📌': 'pin', '✅': 'circle-check', '❌': 'circle-x',
+    '⚡': 'zap', '✦': 'sparkles', '↶': 'rotate-ccw', '×': 'x', '✕': 'x'
   };
 
   function replaceDecorativeEmoji(root) {
@@ -22,7 +24,7 @@
     nodes.forEach(function (textNode) {
       var parent = textNode.parentElement;
       if (!parent || parent.closest('[data-keep-emoji], .m-avatar, .xj-msg, .rmsg, .msg, .bubble, .chat-msg')) return;
-      var match = String(textNode.nodeValue || '').match(/^(\s*)(🤖|📄|📝|📅|💬|🧠|🔍|👥|📋|💰|💵|🎯|📂|📁|✨|👤|🔒|📖|📚|📤|👋|⚙|🎤|💡|🧭|🌱)\s*/);
+      var match = String(textNode.nodeValue || '').match(/^(\s*)(🤖|📄|📝|📅|💬|🧠|🔍|👥|📋|💰|💵|🎯|📂|📁|✨|👤|🔒|📖|📚|📤|👋|⚙|🎤|💡|🧭|🌱|📊|📈|📌|✅|❌|⚡|✦|↶|×|✕)\uFE0F?\s*/);
       if (!match || !emojiIcons[match[2]]) return;
       var icon = document.createElement('i');
       icon.setAttribute('data-lucide', emojiIcons[match[2]]);
@@ -67,7 +69,19 @@
     });
   }
 
+  function observeDynamicUi() {
+    if (!window.MutationObserver || !document.body || document.body.dataset.iconObserver === '1') return;
+    document.body.dataset.iconObserver = '1';
+    var observer = new MutationObserver(function (mutations) {
+      var shouldRender = mutations.some(function (mutation) {
+        return mutation.type === 'characterData' || mutation.addedNodes.length > 0;
+      });
+      if (shouldRender) scheduleRender(document);
+    });
+    observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+  }
+
   window.IconSystem = { render: render, scheduleRender: scheduleRender };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { render(document); });
-  else render(document);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { render(document); observeDynamicUi(); });
+  else { render(document); observeDynamicUi(); }
 })();

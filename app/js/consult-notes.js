@@ -593,7 +593,7 @@
     });
   };
 
-  App.initPage({ title: '咨询记录', subtitle: '', actions: '', noSidebar: true, onReady: function () {
+  App.initPage({ title: '咨询记录', subtitle: '', actions: '', onReady: function () {
     loadClients();
     // 支持从咨询日历跳转：?client=ID&session=ID 自动预选来访者与会话
     try {

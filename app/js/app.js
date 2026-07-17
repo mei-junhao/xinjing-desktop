@@ -84,6 +84,7 @@ const App = (() => {
       document.documentElement.setAttribute('data-skin', 'clinical');
     }
     applyTierMark();
+    refreshSidebarChrome();
     licenseStateCallbacks.forEach((cb) => { try { cb(licenseStateCache); } catch (e) {} });
   }
 
@@ -98,6 +99,13 @@ const App = (() => {
 
   function aiUnlocked() {
     return !!(licenseStateCache && licenseStateCache.aiUnlocked);
+  }
+
+  function hasAICompute() {
+    if (aiUnlocked()) return true;
+    try {
+      return typeof AI !== 'undefined' && typeof AI.getTier === 'function' && AI.getTier() === 'user';
+    } catch (e) { return false; }
   }
 
   function isTrial() {
@@ -165,20 +173,41 @@ const App = (() => {
   }
 
   const NAV_ITEMS = [
-    { key: 'dashboard', label: '首页', icon: 'home', href: 'index.html' },
-    { key: 'consultations', label: '咨询记录', icon: 'calendar', href: 'consult-notes.html' },
-    { key: 'transcript', label: '逐字稿整理', icon: 'transcript', href: 'transcript.html' },
-    { key: 'report', label: '撰写报告', icon: 'report', href: 'report-writing.html' },
-    { key: 'session-calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html' },
-    { key: 'supervision', label: 'AI 督导', icon: 'cap', href: 'supervision.html' },
-    { key: 'real-supervision', label: '真人督导', icon: 'real', href: 'real-supervision.html' },
-    { key: 'doc-center', label: '文档中心', icon: 'docCenter', href: 'doc-center.html' },
-    { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html' },
-    { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html' },
-    { key: 'knowledge', label: '我的资料库', icon: 'doc', href: 'knowledge.html' },
-    { key: 'settings', label: '设置', icon: 'gear', href: 'settings.html' },
-    { key: 'feedback', label: '意见建议', icon: 'chat', href: 'feedback.html' },
+    { key: 'workbench', label: '工作台', icon: 'home', href: 'index.html', group: 'clinical' },
+    { key: 'calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html', group: 'clinical' },
+    { key: 'clients', label: '来访者', icon: 'clients', href: 'doc-center.html', group: 'clinical' },
+    { key: 'clinical', label: '临床材料', icon: 'calendar', href: 'consult-notes.html', group: 'clinical' },
+    { key: 'supervision', label: '督导空间', icon: 'cap', href: 'supervision.html', group: 'clinical', feature: 'ai-supervise' },
+    { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html', group: 'clinical', feature: 'ai-masters' },
+    { key: 'knowledge', label: '资料库', icon: 'doc', href: 'knowledge.html', group: 'clinical' },
+    { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html', group: 'management' },
+    { key: 'settings', label: '设置', icon: 'gear', href: 'settings.html', group: 'management' },
   ];
+
+  const ROUTE_REGISTRY = Object.freeze({
+    'index.html': { domain: 'workbench', parent: 'index.html', sidebar: true, feature: 'manual-core' },
+    'chat-home.html': { domain: 'workbench', parent: 'index.html', sidebar: true, feature: 'basic-assistant' },
+    'session-calendar.html': { domain: 'calendar', parent: 'session-calendar.html', sidebar: true, feature: 'manual-core' },
+    'doc-center.html': { domain: 'clients', parent: 'doc-center.html', sidebar: true, feature: 'manual-core' },
+    'doc-growth.html': { domain: 'clients', parent: 'doc-center.html', sidebar: true, feature: 'ai-growth' },
+    'consult-notes.html': { domain: 'clinical', parent: 'consult-notes.html', sidebar: true, feature: 'manual-core' },
+    'transcript.html': { domain: 'clinical', parent: 'consult-notes.html', sidebar: true, feature: 'manual-core' },
+    'transcript-guide.html': { domain: 'clinical', parent: 'consult-notes.html', sidebar: true, feature: 'transcript-guide' },
+    'report-writing.html': { domain: 'clinical', parent: 'consult-notes.html', sidebar: true, feature: 'manual-core' },
+    'supervision.html': { domain: 'supervision', parent: 'supervision.html', sidebar: true, feature: 'ai-supervise' },
+    'supervision-mindmap.html': { domain: 'supervision', parent: 'supervision.html', sidebar: true, feature: 'ai-mindmap' },
+    'real-supervision.html': { domain: 'supervision', parent: 'supervision.html', sidebar: true, feature: 'manual-core' },
+    'real-supervision-ai.html': { domain: 'supervision', parent: 'supervision.html', sidebar: true, feature: 'real-sup-ai' },
+    'masters.html': { domain: 'masters', parent: 'masters.html', sidebar: true, feature: 'ai-masters' },
+    'knowledge.html': { domain: 'knowledge', parent: 'knowledge.html', sidebar: true, feature: 'manual-core' },
+    'billing-shell.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'manual-core' },
+    'billing-calendar.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'billing-calendar' },
+    'settings.html': { domain: 'settings', parent: 'settings.html', sidebar: true, feature: 'manual-core' },
+    'feedback.html': { domain: 'settings', parent: 'settings.html', sidebar: true, feature: 'manual-core' },
+    'activation.html': { domain: 'settings', parent: 'settings.html', sidebar: false, feature: 'manual-core' },
+    'confirm-close.html': { domain: 'settings', parent: 'settings.html', sidebar: false, feature: 'manual-core' },
+    'migrate-helper.html': { domain: 'settings', parent: 'settings.html', sidebar: false, feature: 'manual-core' },
+  });
 
   // 内联 SVG 图标集（stroke 1.6，currentColor，统一描边）
   const ICONS = {
@@ -218,28 +247,7 @@ const App = (() => {
 
   function getCurrentPageKey() {
     const path = location.pathname.split('/').pop() || 'index.html';
-    const map = {
-      'index.html': 'dashboard',
-      'chat-home.html': 'dashboard',
-      'consult-notes.html': 'consultations',
-      'transcript.html': 'transcript',
-      'transcript-guide.html': 'transcript',
-      'report-writing.html': 'report',
-      'session-calendar.html': 'session-calendar',
-      'supervision.html': 'supervision',
-      'supervision-mindmap.html': 'supervision',
-      'real-supervision.html': 'real-supervision',
-      'real-supervision-ai.html': 'real-supervision',
-      'doc-center.html': 'doc-center',
-      'doc-growth.html': 'doc-center',
-      'billing-shell.html': 'billing',
-      'billing-calendar.html': 'billing',
-      'masters.html': 'masters',
-      'knowledge.html': 'knowledge',
-      'settings.html': 'settings',
-      'feedback.html': 'feedback',
-    };
-    return map[path] || 'dashboard';
+    return ROUTE_REGISTRY[path] ? ROUTE_REGISTRY[path].domain : 'workbench';
   }
 
   function applyPageIdentity() {
@@ -251,16 +259,19 @@ const App = (() => {
     const current = getCurrentPageKey();
     const renderItem = function (item) {
       const active = item.key === current ? ' active' : '';
-      return `<a class="nav-item${active}" href="${item.href}">
-        <span class="icon">${svgIcon(item.icon)}</span>
-        <span class="label-text">${item.label}</span>
-      </a>`;
+      const locked = item.feature && !canUse(item.feature);
+      return `<div class="nav-entry${active}">
+        <a class="nav-item${active}" href="${item.href}" title="${item.label}">
+          <span class="icon">${svgIcon(item.icon)}</span>
+          <span class="label-text">${item.label}</span>
+        </a>
+        ${locked ? `<button class="nav-unlock" type="button" data-unlock-feature="${item.feature}" title="查看并解锁${item.label}" aria-label="查看并解锁${item.label}">${svgIcon('lock-keyhole')}</button>` : ''}
+      </div>`;
     };
-    const clinicalKeys = ['dashboard', 'consultations', 'session-calendar', 'transcript', 'report', 'supervision', 'real-supervision'];
-    const clinical = NAV_ITEMS.filter((item) => clinicalKeys.indexOf(item.key) >= 0).map(renderItem).join('');
-    const management = NAV_ITEMS.filter((item) => clinicalKeys.indexOf(item.key) < 0).map(renderItem).join('');
+    const clinical = NAV_ITEMS.filter((item) => item.group === 'clinical').map(renderItem).join('');
+    const management = NAV_ITEMS.filter((item) => item.group === 'management').map(renderItem).join('');
     const items = '<div class="nav-group"><div class="nav-group-label">临床工作</div>' + clinical + '</div>' +
-      '<div class="nav-group"><div class="nav-group-label">个案与管理</div>' + management + '</div>';
+      '<div class="nav-group"><div class="nav-group-label">执业管理</div>' + management + '</div>';
     // 读取折叠状态（默认展开）
     var collapsed = '';
     try { if (localStorage.getItem('xj_sidebar_collapsed') === '1') collapsed = ' collapsed'; } catch(e) {}
@@ -285,6 +296,82 @@ const App = (() => {
           <div class="nav-footer-text">本地存储，数据不出本机</div>
         </div>
       </aside>`;
+  }
+
+  function currentRoute() {
+    const path = location.pathname.split('/').pop() || 'index.html';
+    return ROUTE_REGISTRY[path] || null;
+  }
+
+  function ensureBusinessShell() {
+    const route = currentRoute();
+    if (!document.body || !route || !route.sidebar) return null;
+    let mount = document.getElementById('sidebar-mount');
+    if (mount || document.querySelector('.sidebar')) return mount;
+    let layout = document.querySelector('body > .layout');
+    if (layout) {
+      mount = document.createElement('div');
+      mount.id = 'sidebar-mount';
+      layout.insertBefore(mount, layout.firstChild);
+      return mount;
+    }
+    layout = document.createElement('div');
+    layout.className = 'layout xj-auto-layout';
+    mount = document.createElement('div');
+    mount.id = 'sidebar-mount';
+    const main = document.createElement('main');
+    main.className = 'main xj-auto-main';
+    Array.from(document.body.children).forEach(function (node) {
+      if (node.tagName !== 'SCRIPT' && node !== layout) main.appendChild(node);
+    });
+    layout.appendChild(mount);
+    layout.appendChild(main);
+    document.body.insertBefore(layout, document.body.firstChild);
+    return mount;
+  }
+
+  function bindSidebarControls() {
+    const st = document.getElementById('sidebar-toggle');
+    if (st && !st.dataset.bound) {
+      st.dataset.bound = '1';
+      st.addEventListener('click', function () {
+        const sb = document.querySelector('.sidebar');
+        if (!sb) return;
+        sb.classList.toggle('collapsed');
+        st.setAttribute('aria-expanded', String(!sb.classList.contains('collapsed')));
+        try { localStorage.setItem('xj_sidebar_collapsed', sb.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
+      });
+    }
+    document.querySelectorAll('.nav-unlock').forEach(function (button) {
+      if (button.dataset.bound) return;
+      button.dataset.bound = '1';
+      button.addEventListener('click', function () { openPlans(); });
+    });
+    const ttBtn = document.getElementById('xj-theme-toggle');
+    if (ttBtn && !ttBtn.dataset.bound) {
+      ttBtn.dataset.bound = '1';
+      ttBtn.addEventListener('click', function () {
+        const isDark = document.documentElement.classList.toggle('dark');
+        try { localStorage.setItem('xj_theme', isDark ? 'dark' : 'light'); } catch (e) {}
+        const icon = ttBtn.querySelector('.tt-icon');
+        const label = ttBtn.querySelector('.tt-label');
+        if (icon) icon.innerHTML = svgIcon(isDark ? 'moon' : 'sun');
+        if (label) label.textContent = isDark ? '深色模式' : '浅色模式';
+        if (window.IconSystem) window.IconSystem.render(ttBtn);
+      });
+    }
+  }
+
+  function refreshSidebarChrome() {
+    const route = currentRoute();
+    if (!route || !route.sidebar || !document.body) return;
+    const mount = ensureBusinessShell();
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) sidebar.outerHTML = renderSidebar();
+    else if (mount) mount.outerHTML = renderSidebar();
+    bindSidebarControls();
+    applyTierMark();
+    if (window.IconSystem) window.IconSystem.render(document.querySelector('.sidebar'));
   }
 
   function buildBackButton() {
@@ -313,16 +400,10 @@ const App = (() => {
 
   function injectLayout(title, subtitle, headerActions = '', opts) {
     opts = opts || {};
-    if (!opts.noSidebar) {
-      var sm = document.getElementById('sidebar-mount');
-      if (sm) sm.outerHTML = renderSidebar();
-      var st = document.getElementById('sidebar-toggle');
-      if (st) st.addEventListener('click', function () {
-        var sb = document.querySelector('.sidebar');
-        if (!sb) return;
-        sb.classList.toggle('collapsed');
-        try { localStorage.setItem('xj_sidebar_collapsed', sb.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
-      });
+    const route = currentRoute();
+    if (route && route.sidebar) {
+      document.body.classList.remove('xj-no-sidebar');
+      refreshSidebarChrome();
     } else {
       var sm2 = document.getElementById('sidebar-mount');
       if (sm2) sm2.outerHTML = '';
@@ -340,19 +421,7 @@ const App = (() => {
         <div class="header-actions">${headerActions}</div>`;
     }
     document.title = `心镜 · ${title}`;
-    // 绑定暗色切换按钮（侧边栏底部 #7）
-    const ttBtn = document.getElementById('xj-theme-toggle');
-    if (ttBtn) {
-      ttBtn.addEventListener('click', function () {
-        const isDark = document.documentElement.classList.toggle('dark');
-        try { localStorage.setItem('xj_theme', isDark ? 'dark' : 'light'); } catch (e) {}
-        const icon = ttBtn.querySelector('.tt-icon');
-        const label = ttBtn.querySelector('.tt-label');
-        if (icon) icon.innerHTML = svgIcon(isDark ? 'moon' : 'sun');
-        if (label) label.textContent = isDark ? '深色模式' : '浅色模式';
-        if (window.IconSystem) window.IconSystem.render(ttBtn);
-      });
-    }
+    bindSidebarControls();
     if (window.IconSystem) window.IconSystem.render(document);
   }
 
@@ -921,7 +990,6 @@ const App = (() => {
         'real-supervision-ai.html': 'real-sup-ai',
         'doc-growth.html': 'ai-growth',
         'billing-calendar.html': 'billing-calendar',
-        'masters.html': 'ai-masters',
       };
       const feature = gates[page];
       if (!feature || canUse(feature)) return;
@@ -932,9 +1000,12 @@ const App = (() => {
   }
   setupGlobalChrome();
   applyPageIdentity();
+  refreshSidebarChrome();
+  refreshLicenseState();
 
   return {
     NAV_ITEMS,
+    ROUTE_REGISTRY,
     renderSidebar,
     injectLayout,
     initPage,
@@ -963,6 +1034,7 @@ const App = (() => {
     enableDragDrop,
     readFileAsText,
     aiUnlocked,
+    hasAICompute,
     refreshLicenseState,
     onLicenseStateChange,
     getLicenseState,
@@ -998,7 +1070,9 @@ if (typeof window !== 'undefined') {
 
   function removeBar() {
     var old = document.getElementById('xj-quota-bar');
-    if (old) { old.remove(); document.body.style.paddingTop = ''; }
+    if (old) old.remove();
+    document.body.style.paddingTop = '';
+    document.documentElement.style.removeProperty('--xj-top-offset');
   }
 
   function render() {
@@ -1020,6 +1094,7 @@ if (typeof window !== 'undefined') {
     }
     document.body.insertBefore(bar, document.body.firstChild);
     document.body.style.paddingTop = '24px';
+    document.documentElement.style.setProperty('--xj-top-offset', '24px');
   }
 
   async function build() {

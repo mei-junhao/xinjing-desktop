@@ -371,7 +371,7 @@
     location.href = 'supervision.html?client=' + encodeURIComponent(currentClientId || '') + '&autoloadreport=1';
   };
 
-  App.initPage({ title: '撰写报告', subtitle: '', actions: '', noSidebar: true, onReady: function () {
+  App.initPage({ title: '撰写报告', subtitle: '', actions: '', onReady: function () {
     loadClients();
     // 点击外部关闭「基于节次」下拉菜单
     document.addEventListener('click', function (e) {

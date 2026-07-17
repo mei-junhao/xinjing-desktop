@@ -19,12 +19,12 @@
         if (s.billing && s.billing.paid) mRecv += fee;
       }
     });
-    var pendingReports = allSessions.filter(function (s) { return s.hasTranscript && !s.hasSoap && !s.hasDap; }).length;
+    var pendingReports = allSessions.filter(function (s) { return noteMode(s) === '待记录' && s.status !== 'cancelled'; }).length;
 
     document.getElementById('stat-today').textContent = todaySessions.length + ' 节';
-    document.getElementById('stat-today-sub').textContent = '已完成 ' + todaySessions.filter(function (s) { return s.billing && s.billing.paid; }).length + ' 节';
-    document.getElementById('stat-income').textContent = money(mRec);
-    document.getElementById('stat-income-sub').textContent = '已收 ' + money(mRecv) + ' · 待收 ' + money(mRec - mRecv);
+    document.getElementById('stat-today-sub').textContent = '已记录 ' + todaySessions.filter(function (s) { return noteMode(s) === '已有记录'; }).length + ' 节';
+    document.getElementById('stat-income').textContent = money(Math.max(0, mRec - mRecv));
+    document.getElementById('stat-income-sub').textContent = '应收 ' + money(mRec) + ' · 已收 ' + money(mRecv);
     document.getElementById('stat-pending-reports').textContent = pendingReports;
   }
 
@@ -69,6 +69,23 @@
         '<div class="today-session-info"><div class="today-session-name">' + esc(name) + ' · 第' + esc(s.sessionNumber || '?') + '节</div><div class="today-session-meta">' + esc(noteMode(s)) + (s.status ? ' · ' + esc(s.status) : '') + '</div></div>' +
         '<div class="today-session-actions"><a class="back" href="' + sessionHref(s) + '">开始记录</a></div></div>';
     }).join('');
+  }
+
+  function bindStartNextSession() {
+    var button = document.getElementById('start-next-session');
+    if (!button) return;
+    button.addEventListener('click', function () {
+      var today = App.todayStr();
+      var now = new Date();
+      var current = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      var sessions = Store.getSessions().filter(function (s) {
+        return s && s.date === today && s.status !== 'cancelled';
+      }).sort(function (a, b) {
+        return String(a.startTime || '99:99').localeCompare(String(b.startTime || '99:99'));
+      });
+      var next = sessions.find(function (s) { return !s.startTime || String(s.startTime).slice(0, 5) >= current; }) || sessions[0];
+      location.href = next ? sessionHref(next) : 'session-calendar.html?action=new&date=' + encodeURIComponent(today);
+    });
   }
 
   function renderRecent() {
@@ -152,9 +169,10 @@
     });
   }
 
-  App.initPage({ title: '首页', subtitle: '', actions: '', noSidebar: true, onReady: function () {
+  App.initPage({ title: '今日工作台', subtitle: '', actions: '', onReady: function () {
     renderStats();
     renderSchedule();
+    bindStartNextSession();
     renderRecent();
     renderTodo();
     renderKbTile();

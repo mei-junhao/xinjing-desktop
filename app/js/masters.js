@@ -16,6 +16,8 @@
   var activeController = null;
   var convList = [];
   var includeUserDocs = true;
+  var masterSearchQuery = '';
+  var masterSchool = '';
   // 温度滑块：每位大师独立存储，圆桌模式无滑块
   var talkTemp = 60;
   var talkDetail = 50;
@@ -113,18 +115,43 @@
     try { convList = Store.getMasterConversations() || []; } catch (e) { convList = []; }
   }
 
+  function populateSchoolFilter() {
+    var select = $('master-school-filter');
+    if (!select) return;
+    var schools = [];
+    (window.MASTERS || []).forEach(function (master) {
+      var school = String(master.school || '').trim();
+      if (school && schools.indexOf(school) < 0) schools.push(school);
+    });
+    select.innerHTML = '<option value="">全部学派</option>' + schools.map(function (school) {
+      return '<option value="' + App.escapeHtml(school) + '">' + App.escapeHtml(school) + '</option>';
+    }).join('');
+    select.value = masterSchool;
+  }
+
+  function masterMatchesFilters(master) {
+    var haystack = (master.name + ' ' + (master.en || '') + ' ' + (master.school || '')).toLowerCase();
+    return (!masterSearchQuery || haystack.indexOf(masterSearchQuery) >= 0) &&
+      (!masterSchool || master.school === masterSchool);
+  }
+
   // ---------- 大师列表渲染 ----------
   function renderMasterList() {
     var box = $('master-list');
-    var list = window.MASTERS || [];
+    var list = (window.MASTERS || []).filter(masterMatchesFilters);
     var panel = box.parentElement;
     panel.classList.toggle('mode-round', mode === 'round');
+    if (!list.length) {
+      box.innerHTML = '<div class="viewpoint-empty"><i data-lucide="search-x"></i><span>没有匹配的理论学派或大师</span></div>';
+      if (window.IconSystem && IconSystem.render) IconSystem.render(box);
+      return;
+    }
     box.innerHTML = list.map(function (m) {
       var sel = mode === '1v1' ? (currentConv && currentConv.mode === '1v1' && currentConv.masterKeys[0] === m.key) : roundKeys.indexOf(m.key) >= 0;
-      return '<div class="master-card' + (sel ? ' active' : '') + '" data-key="' + m.key + '" onclick="onMasterClick(\'' + m.key + '\')">'
+      return '<button class="master-card' + (sel ? ' active' : '') + '" type="button" data-key="' + m.key + '" onclick="onMasterClick(\'' + m.key + '\')">'
         + '<div class="m-avatar" style="background:' + accentOf(m) + '">' + (m.initial || m.emoji || '师') + '</div>'
         + '<div class="m-meta"><div class="m-name">' + m.name + '</div><div class="m-school">' + m.school + '</div></div>'
-        + '<div class="m-check">&#10003;</div></div>';
+        + '<div class="m-check"><i data-lucide="check"></i></div></button>';
     }).join('');
   }
 
@@ -161,14 +188,22 @@
     currentConv = c;
     if (c.mode === 'round') { roundKeys = c.masterKeys.slice(); mode = 'round'; }
     else { mode = '1v1'; }
-    document.querySelectorAll('#mode-toggle button').forEach(function (b) { b.classList.toggle('active', b.dataset.mode === mode); });
+    syncModeButtons();
     renderMasterList(); renderChat(); renderHistList(); updateContextPanels(); renderViewpoints();
   };
 
   // ---------- 模式切换 ----------
+  function syncModeButtons() {
+    document.querySelectorAll('#mode-toggle button').forEach(function (button) {
+      var active = button.dataset.mode === mode;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+  }
+
   window.setMode = function (m) {
     mode = m;
-    document.querySelectorAll('#mode-toggle button').forEach(function (b) { b.classList.toggle('active', b.dataset.mode === m); });
+    syncModeButtons();
     currentConv = null; roundKeys = [];
     if (m === 'round') {
       // 多圆桌会话：按更新时间倒序选最近一个
@@ -183,7 +218,7 @@
   // 新建圆桌
   window.newRound = function () {
     mode = 'round';
-    document.querySelectorAll('#mode-toggle button').forEach(function (b) { b.classList.toggle('active', b.dataset.mode === 'round'); });
+    syncModeButtons();
     currentConv = null; roundKeys = [];
     renderMasterList(); renderChat(); renderHistList(); updateContextPanels(); renderViewpoints();
   };
@@ -195,7 +230,11 @@
   document.querySelectorAll('[data-inspector-tab]').forEach(function (tab) {
     tab.addEventListener('click', function () {
       var key = tab.dataset.inspectorTab;
-      document.querySelectorAll('[data-inspector-tab]').forEach(function (item) { item.classList.toggle('active', item === tab); });
+      document.querySelectorAll('[data-inspector-tab]').forEach(function (item) {
+        var active = item === tab;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-selected', String(active));
+      });
       document.querySelectorAll('.inspector-view').forEach(function (view) { view.classList.toggle('active', view.id === 'inspector-' + key); });
     });
   });
@@ -264,7 +303,7 @@
     var text = currentConv.summary || currentConv.messages.filter(function (m) { return m.role === 'assistant'; }).slice(-3).map(function (m) { return m.content; }).join('\n\n');
     if (!text) { App.showToast('当前没有可保存的观点', 'warning'); return; }
     try { localStorage.setItem('xj_sup_v31_draft', text); } catch (e) {}
-    location.href = 'supervision.html';
+    location.href = 'supervision.html?source=masters';
   }
 
   var quoteButton = $('btn-quote-last');
@@ -296,12 +335,15 @@
   var masterSearch = document.querySelector('.masters-search input');
   if (masterSearch) {
     masterSearch.addEventListener('input', function () {
-      var q = masterSearch.value.trim().toLowerCase();
-      document.querySelectorAll('#master-list .master-card').forEach(function (card) {
-        card.hidden = !!q && card.textContent.toLowerCase().indexOf(q) === -1;
-      });
+      masterSearchQuery = masterSearch.value.trim().toLowerCase();
+      renderMasterList();
     });
   }
+  var schoolFilter = $('master-school-filter');
+  if (schoolFilter) schoolFilter.addEventListener('change', function () {
+    masterSchool = schoolFilter.value;
+    renderMasterList();
+  });
 
   // ---------- 大师点击 ----------
   window.onMasterClick = function (key) {
@@ -411,6 +453,7 @@
       return;
     }
     if (!App.featureGate('ai-masters')) { applyAiLock(); App.showToast('AI 对话为付费功能' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'error'); return; }
+    if (!(App.hasAICompute && App.hasAICompute())) { applyAiLock(); App.showToast('会员权益已解锁，但尚未检测到可用 AI 算力', 'warning'); return; }
 
     var input = $('msg-input');
     var text = (input.value || '').trim();
@@ -734,12 +777,26 @@
   function applyAiLock() {
     var lock = $('ai-lock'), input = $('msg-input'), sendBtn = $('send-btn');
     if (!lock) return;
-    if (App.featureGate('ai-masters')) {
+    var eligible = App.featureGate('ai-masters');
+    var compute = App.hasAICompute && App.hasAICompute();
+    var title = lock.querySelector('strong');
+    var copy = lock.querySelector('span');
+    var action = $('btn-view-masters-plan');
+    if (eligible && compute) {
       lock.classList.add('hidden');
       input.disabled = !currentConv; sendBtn.disabled = !currentConv;
     } else {
       lock.classList.remove('hidden');
       input.disabled = true; sendBtn.disabled = true;
+      if (!eligible) {
+        if (title) title.textContent = '大师对话是会员功能';
+        if (copy) copy.textContent = '可预览理论学派、一对一与圆桌界面；解锁后才会调用 AI。';
+        if (action) { action.textContent = '查看并解锁会员'; action.href = 'activation.html'; }
+      } else {
+        if (title) title.textContent = '尚未检测到可用 AI 算力';
+        if (copy) copy.textContent = '会员权益已生效。请检查内置服务，或配置并验证个人 API。';
+        if (action) { action.textContent = '配置 AI'; action.href = 'settings.html#ai'; }
+      }
     }
   }
   App.onLicenseStateChange(function () { try { applyAiLock(); } catch (e) {} });
@@ -762,11 +819,9 @@
   // ---------- 初始化 ----------
   App.initPage({
     title: '大师对话',
-    noSidebar: true,
     onReady: function () {
-      var planBtn = $('btn-view-masters-plan');
-      if (planBtn) planBtn.addEventListener('click', openActivation);
       loadConvs();
+      populateSchoolFilter();
       renderMasterList();
       renderChat();
       renderHistList();

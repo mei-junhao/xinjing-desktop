@@ -6,13 +6,12 @@ App.initPage({
   title: '设置',
   subtitle: 'AI 接口与数据管理',
   actions: '',
-  noSidebar: true,
   onReady: function () {
     'use strict';
 
     // 版本号 — 统一走构建期注入的 version.generated.js（preload 桥接）
     function setVersion() {
-      var ver = '4.0.0';
+      var ver = '4.0.1';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
           ver = window.__XJ_API__.getVersion() || ver;

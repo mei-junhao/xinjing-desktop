@@ -3,7 +3,7 @@
    单一页面 + 9 视图切换器：
      概览画廊(入口4) / 卡片(02) / 三栏(01) / 属性表(03) /
      沉浸阅读(06) / 搜索(07) / 知识图谱(05) / 资料对话(09) / 统计(10)
-   去侧栏；暖色治愈系独立皮肤（CSS 在 knowledge.html）。
+   v4.0.1 接入共享侧栏与 01/04/05 token，9 个业务视图保持不变。
    数据源：window.UserDocs（getMeta / getFile / searchDetailed / getContextBlock），
    全部经主进程 fs、仅本机、零出网。
    ============================================================ */
@@ -101,7 +101,6 @@
     App.initPage({
       title: '我的资料库',
       subtitle: '本地课程资料 · 仅本机读取，数据不出本机',
-      noSidebar: true, // 进入资料库不需要左侧侧边栏
       onReady: boot,
     });
   });
@@ -114,6 +113,8 @@
     renderModes();
     document.getElementById('kb-pick').addEventListener('click', pickFolder);
     document.getElementById('kb-refresh').addEventListener('click', function () { loadMeta(true); });
+    if (App.onLicenseStateChange) App.onLicenseStateChange(function () { updateRagStatus(state.meta); });
+    updateRagStatus(null);
     loadMeta(false);
     showFirstTimeGuide();
   }
@@ -131,7 +132,7 @@
       localStorage.setItem('kb_guided', '1');
       var guide = document.createElement('div');
       guide.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:16px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:1000;text-align:center';
-      guide.innerHTML = '<div style="font-size:24px;margin-bottom:12px">📚</div>' +
+      guide.innerHTML = '<div style="margin-bottom:12px;color:var(--accent)"><i data-lucide="library-big"></i></div>' +
         '<div style="font-size:16px;font-weight:600;margin-bottom:8px;color:var(--ink)">欢迎使用资料库</div>' +
         '<div style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:20px">资料库是你的私人知识库，你可以把课程讲义、文献资料放入一个文件夹，心镜会帮你检索和管理这些资料。资料仅在本机读取，不会上传。</div>' +
         '<div style="display:flex;gap:8px;justify-content:center">' +
@@ -139,6 +140,7 @@
           '<button style="padding:8px 20px;border:none;border-radius:8px;font:600 13px var(--sans);cursor:pointer;background:var(--accent);color:#fff" onclick="document.getElementById(\'kb-pick\').click();this.parentElement.parentElement.remove()">选择文件夹</button>' +
         '</div>';
       document.body.appendChild(guide);
+      if (window.IconSystem) window.IconSystem.render(guide);
       var overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.3);z-index:999';
       overlay.onclick = function () { guide.remove(); overlay.remove(); };
@@ -183,6 +185,7 @@
       meta = await (window.UserDocs ? UserDocs.getMeta(force) : Promise.resolve({ ok: false, reason: 'no-module' }));
     } catch (e) { meta = { ok: false, reason: 'exception' }; }
     state.meta = meta;
+    updateRagStatus(meta);
 
     if (!meta || !meta.ok) {
       if (meta && meta.reason === 'no-folder') return renderEmptyNoFolder();
@@ -203,6 +206,25 @@
     renderView();
   }
 
+  function updateRagStatus(meta) {
+    var policyEl = document.getElementById('kb-policy');
+    var indexEl = document.getElementById('kb-index-status');
+    if (policyEl && typeof XJEntitlements !== 'undefined' && XJEntitlements.ragPolicy) {
+      var license = App.getLicenseState ? App.getLicenseState() : {};
+      var tier = XJEntitlements.effectiveTier ? XJEntitlements.effectiveTier(license) : 'free';
+      var policy = XJEntitlements.ragPolicy(license);
+      var tierLabel = tier === 'custom' ? (App.isTrial && App.isTrial() ? '旗舰试用' : '旗舰') : (tier === 'pro' || tier === 'full' ? '会员' : '免费');
+      var method = policy.method === 'vector-rerank' ? '向量 + Rerank' : (policy.method === 'vector' ? '向量检索' : '关键词检索');
+      var limit = policy.documentLimit === Infinity ? '不限资料' : policy.documentLimit + ' 份';
+      policyEl.textContent = tierLabel + ' · ' + method + ' · ' + limit;
+    }
+    if (indexEl) {
+      if (!meta) indexEl.textContent = '等待扫描';
+      else if (!meta.ok) indexEl.textContent = meta.reason === 'no-folder' ? '未选择文件夹' : '扫描不可用';
+      else indexEl.textContent = '本地已扫描 ' + (((meta.stats || {}).fileCount) || (meta.files || []).length) + ' 份';
+    }
+  }
+
   // 文件数超出性能上限时，在标题栏下方常驻提示（不会静默截断用户资料）
   function updateTruncWarn(meta) {
     var el = document.getElementById('kb-warn');
@@ -211,8 +233,9 @@
       var limit = meta.limit || 3000;
       var shown = (meta.stats && meta.stats.fileCount) || 0;
       el.style.display = 'block';
-      el.innerHTML = '⚠️ 当前资料文件夹共 <b>' + (meta.totalFound || 0) + '</b> 份文件，受性能上限（' + limit +
+      el.innerHTML = '<i data-lucide="triangle-alert"></i> 当前资料文件夹共 <b>' + (meta.totalFound || 0) + '</b> 份文件，受性能上限（' + limit +
         ' 份）约束，已接入前 <b>' + shown + '</b> 份。超出部分暂未纳入检索与 AI 注入，建议将资料拆分到多个子文件夹分别接入。';
+      if (window.IconSystem) window.IconSystem.render(el);
     } else {
       el.style.display = 'none';
     }
@@ -696,10 +719,17 @@
      视图 09 — 资料对话（参考资料侧栏 + 引用开关，demo-09）
      ============================================================ */
   function renderChat() {
-    if (!(App.aiUnlocked && App.aiUnlocked())) {
+    if (!(App.canUse && App.canUse('rag-vector'))) {
       view.innerHTML = '<div class="kb-chat-wrap"><div class="kb-lock" style="grid-column:1/-1">' +
-        '资料对话需要激活 AI 功能后使用。<br>你仍可在其他视图浏览、检索全部资料。<br>' +
-        '<button class="kb-btn primary" onclick="window.__XJ_API__&&window.__XJ_API__.openActivation&&window.__XJ_API__.openActivation()">输入激活码解锁</button>' +
+        '资料对话使用会员向量检索。你仍可免费浏览资料并使用关键词搜索。<br>' +
+        '<button class="kb-btn primary" onclick="App.openPlans()">查看并解锁会员</button>' +
+        '</div></div>';
+      return;
+    }
+    if (!(App.hasAICompute && App.hasAICompute())) {
+      view.innerHTML = '<div class="kb-chat-wrap"><div class="kb-lock" style="grid-column:1/-1">' +
+        '当前方案已包含资料对话，但尚未检测到可用 AI 算力。<br>可配置已验证的个人 API，或检查内置服务状态。<br>' +
+        '<button class="kb-btn primary" onclick="location.href=\'settings.html#ai\'">配置 AI</button>' +
         '</div></div>';
       return;
     }
