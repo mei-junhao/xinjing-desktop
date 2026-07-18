@@ -38,7 +38,7 @@
     currentClientId = selClient.value || null;
     if (!currentClientId) { renderHistory([]); return; }
     if (App.setActiveClientId) App.setActiveClientId(currentClientId);
-    if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, '');
+    if (materialId && Store.reconcileMaterialContext) Store.reconcileMaterialContext(materialId, currentClientId, null, {});
     var clientRecords = records.filter(function (r) { return r.clientId === currentClientId; })
       .sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     renderHistory(clientRecords);
@@ -177,10 +177,15 @@
     App.showToast('AI 分析中…', 'info');
     var sys = '你是心理咨询督导分析专家。请分析以下逐字稿，输出 JSON 格式：\n' +
       '{"clientName":"来访者姓名","keyIssues":["核心议题1","核心议题2"],"supervisorTechniques":["督导师使用的技术1","技术2"],"knowledgeSource":"对应的理论/知识来源","suggestions":["给咨询师的建议"]}\n只输出 JSON，不要其他文字。';
-    // v3.5.0：被动注入用户自建资料库（仅本机读取，零出网）
-    var ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
-    if (ud) sys += '\n\n' + ud;
-    AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+    var context = ClinicalContext.build('real-supervision-ai-organize', { clientId: currentClientId, materialId: materialId }, { system: sys, inputText: text, instruction: '整理真人督导材料', includeUserDocs: true });
+    if (!context.ok) { App.showToast('当前上下文无效，请重新选择来访者', 'warning'); return; }
+    if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.rs-main') || document.body, context);
+    if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { App.showToast('已取消 AI 分析', 'info'); return; }
+    var run = ClinicalContext.createActionRun(context);
+    if (!run) { App.showToast('无法确认材料归属，已取消分析', 'warning'); return; }
+    AI.send(context.messages, function (res) {
+      var currentText = document.getElementById('rs-transcript-text').value.trim();
+      if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentText, { clientId: currentClientId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); App.showToast('上下文已变更，旧分析未采用', 'warning'); return; }
       if (res && res.content && !res.error) {
         try {
           var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
@@ -191,13 +196,14 @@
           summary += '\n\n知识来源：' + (json.knowledgeSource || '未识别');
           summary += '\n\n建议：\n' + (json.suggestions || []).map(function (s) { return '· ' + s; }).join('\n');
           document.getElementById('rs-summary').value = summary;
+          ClinicalContext.completeActionRun(run.id, { kind: 'real-supervision-summary', ref: materialId || currentClientId || '' });
           switchRSTab('record');
           App.showToast('AI 分析完成', 'success');
         } catch (e) {
-          App.showToast('AI 返回格式异常', 'error');
+          ClinicalContext.failActionRun(run.id, 'AI 返回格式异常'); App.showToast('AI 返回格式异常', 'error');
         }
       } else {
-        App.showToast('AI 分析失败', 'error');
+        ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败'); App.showToast('AI 分析失败', 'error');
       }
     });
   };

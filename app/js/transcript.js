@@ -79,7 +79,7 @@
     if (!currentClientId) return;
     if (App.setActiveClientId) App.setActiveClientId(currentClientId);
     var c = Store.getClient(currentClientId);
-    if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, '');
+    if (materialId && Store.reconcileMaterialContext) Store.reconcileMaterialContext(materialId, currentClientId, null, {});
     App.showToast('已选择 ' + c.name, 'success');
   };
 
@@ -171,8 +171,16 @@
       '输出 JSON 格式：{"errors":[{"line":行号(从1开始),"pos":错误位置(字符偏移),"length":错误长度,"fix":"修正文本","type":"typology/term/name/grammar"}]}\n' +
       '只输出 JSON，不要其他文字。如果没有错误，输出 {"errors":[]}';
 
+    var context = ClinicalContext.build('transcript-ai-detect', { clientId: currentClientId, materialId: materialId }, { system: sys, inputText: text, instruction: '检测逐字稿错误' });
+    if (!context.ok) { App.showToast('当前上下文无效，请重新选择材料或来访者', 'warning'); return; }
+    if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.tp-top') || document.body, context);
+    if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { App.showToast('已取消 AI 检测', 'info'); return; }
+    var run = ClinicalContext.createActionRun(context);
+    if (!run) { App.showToast('无法确认材料归属，已取消检测', 'warning'); return; }
     App.showToast('AI 检测中…', 'info');
-    AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+    AI.send(context.messages, function (res) {
+      var currentText = lines.map(function (line) { return line.speaker + ': ' + line.text; }).join('\n');
+      if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentText, { clientId: currentClientId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); App.showToast('上下文已变更，旧检测结果未采用', 'warning'); return; }
       if (res && res.content && !res.error) {
         try {
           var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
@@ -187,12 +195,13 @@
           renderOriginal();
           renderFixed();
           updateStats();
+          ClinicalContext.completeActionRun(run.id, { kind: 'transcript-detect', ref: materialId || currentClientId || '' });
           App.showToast('检测完成，发现 ' + errorCount + ' 处错误', errorCount > 0 ? 'warning' : 'success');
         } catch (e) {
-          App.showToast('AI 返回格式异常，请重试', 'error');
+          ClinicalContext.failActionRun(run.id, 'AI 返回格式异常'); App.showToast('AI 返回格式异常，请重试', 'error');
         }
       } else {
-        App.showToast('AI 检测失败', 'error');
+        ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 检测失败'); App.showToast('AI 检测失败', 'error');
       }
     });
   };

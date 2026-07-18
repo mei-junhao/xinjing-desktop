@@ -166,7 +166,7 @@ App.initPage({
       }
       currentClientId = cid;
       if (App.setActiveClientId) App.setActiveClientId(currentClientId);
-      if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, currentSessionId || '');
+      if (materialId && Store.reconcileMaterialContext) Store.reconcileMaterialContext(materialId, currentClientId, currentSessionId || null, {});
       var client = Store.getClient(cid);
       var preferences = (client && client.preferences) || {};
       if (preferences.lastSupervisionOrientation) setOrientation(preferences.lastSupervisionOrientation, false);
@@ -290,9 +290,19 @@ App.initPage({
     function callAI(msgs) {
       return new Promise(function (resolve) {
         if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
-        AI.send(msgs, function (res) {
-          if (res && res.content && !res.error) resolve({ content: res.content });
-          else resolve({ error: (res && res.error) || '无响应' });
+        var input = materialTA ? materialTA.value.trim() : '';
+        var finalMessage = msgs[msgs.length - 1] || {};
+        var context = ClinicalContext.build('supervision-ai', { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId }, { system: (msgs[0] && msgs[0].content) || '', inputText: input, instruction: finalMessage.content || '', history: msgs.slice(1, -1) });
+        if (!context.ok) { resolve({ error: '当前上下文无效，请重新选择来访者或材料' }); return; }
+        if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.sup-main') || document.body, context);
+        if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { resolve({ error: '用户已取消本次 AI 督导' }); return; }
+        var run = ClinicalContext.createActionRun(context);
+        if (!run) { resolve({ error: '无法确认材料归属' }); return; }
+        AI.send(context.messages, function (res) {
+          var currentInput = materialTA ? materialTA.value.trim() : '';
+          if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentInput, { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); resolve({ error: '上下文已变更，旧结果未采用' }); return; }
+          if (res && res.content && !res.error) { ClinicalContext.completeActionRun(run.id, { kind: 'supervision-response', ref: materialId || currentClientId || '' }); resolve({ content: res.content }); }
+          else { ClinicalContext.failActionRun(run.id, (res && res.error) || '无响应'); resolve({ error: (res && res.error) || '无响应' }); }
         });
       });
     }

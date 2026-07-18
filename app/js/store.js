@@ -27,6 +27,7 @@ const Store = (() => {
     masterConversations: [],
     expenses: [],
     materialWorkspaces: [],
+    clinicalActionRuns: [],
     settings: { apiConfig: {}, version: '1.0.0' },
   };
   let hydrated = false;
@@ -175,7 +176,7 @@ const Store = (() => {
   async function hydrate() {
     if (hydrated) return;
     await migrateFromLocalStorage();
-    const [clients, sessions, supervisions, supervisorIdentities, masterConversations, expenses, materialWorkspaces, settings] = await Promise.all([
+    const [clients, sessions, supervisions, supervisorIdentities, masterConversations, expenses, materialWorkspaces, clinicalActionRuns, settings] = await Promise.all([
       idbGet('clients'),
       idbGet('sessions'),
       idbGet('supervisions'),
@@ -183,6 +184,7 @@ const Store = (() => {
       idbGet('masterConversations'),
       idbGet('expenses'),
       idbGet('materialWorkspaces'),
+      idbGet('clinicalActionRuns'),
       idbGet('settings'),
     ]);
     cache.clients = Array.isArray(clients) ? clients : [];
@@ -192,6 +194,7 @@ const Store = (() => {
     cache.masterConversations = Array.isArray(masterConversations) ? masterConversations.map(normalizeMasterConversation) : [];
     cache.expenses = Array.isArray(expenses) ? expenses : [];
     cache.materialWorkspaces = Array.isArray(materialWorkspaces) ? materialWorkspaces.map(normalizeMaterialWorkspace).filter(Boolean) : [];
+    cache.clinicalActionRuns = Array.isArray(clinicalActionRuns) ? clinicalActionRuns.map(normalizeClinicalActionRun).filter(Boolean) : [];
     cache.settings =
       settings && typeof settings === 'object'
         ? Object.assign({ apiConfig: {}, version: '1.0.0' }, settings)
@@ -557,6 +560,8 @@ const Store = (() => {
       artifacts: {
         transcriptSessionId: artifacts.transcriptSessionId || '', reportDraftKey: artifacts.reportDraftKey || '',
         supervisionId: artifacts.supervisionId || '', realSupervisionId: artifacts.realSupervisionId || '',
+        transcriptActionRunId: artifacts.transcriptActionRunId || '', reportActionRunId: artifacts.reportActionRunId || '',
+        supervisionActionRunId: artifacts.supervisionActionRunId || '', realSupervisionActionRunId: artifacts.realSupervisionActionRunId || '',
       },
       createdAt: value.createdAt || nowISO(), updatedAt: value.updatedAt || nowISO(),
     };
@@ -606,6 +611,80 @@ const Store = (() => {
     return updateMaterialWorkspace(id, {
       clientId: client ? client.id : '', sessionId: session ? session.id : '', linkStatus: client ? 'linked' : 'unlinked',
     });
+  }
+  function reconcileMaterialContext(id, clientId, sessionId, options) {
+    const item = getMaterialWorkspace(id);
+    if (!item) return null;
+    const nextClientId = String(clientId || item.clientId || '');
+    const clientChanged = !!item.clientId && !!nextClientId && item.clientId !== nextClientId;
+    if (clientChanged && !(options && options.confirmClientChange)) return null;
+    if (!nextClientId) return linkMaterialWorkspace(id, '', '');
+    if (sessionId === undefined || sessionId === null || sessionId === '') {
+      if (options && options.unlinkSession) return linkMaterialWorkspace(id, nextClientId, '');
+      return linkMaterialWorkspace(id, nextClientId, clientChanged ? '' : item.sessionId);
+    }
+    return linkMaterialWorkspace(id, nextClientId, sessionId);
+  }
+
+  // 临床动作溯源：只保存受控 ID、版本和长度信息，绝不复制临床正文或路径。
+  const ACTION_TASKS = new Set(['transcript-ai-detect', 'report-ai-fill', 'supervision-ai', 'real-supervision-ai-organize', 'real-supervision-ai-record-analyze']);
+  const ACTION_STATUSES = new Set(['pending', 'succeeded', 'failed', 'stale', 'cancelled']);
+  const SOURCE_KINDS = new Set(['client', 'session', 'material', 'supervision', 'userdocs']);
+  function normalizeClinicalActionRun(value) {
+    if (!value || typeof value !== 'object' || !ACTION_TASKS.has(value.task)) return null;
+    const origin = value.origin && typeof value.origin === 'object' ? value.origin : {};
+    const sourceRows = Array.isArray(value.sources) ? value.sources : [];
+    const snapshot = value.snapshot && typeof value.snapshot === 'object' ? value.snapshot : {};
+    return {
+      id: String(value.id || genId('car')), task: value.task,
+      status: ACTION_STATUSES.has(value.status) ? value.status : 'failed',
+      origin: { clientId: String(origin.clientId || ''), sessionId: String(origin.sessionId || ''), materialId: String(origin.materialId || ''), supervisionId: String(origin.supervisionId || '') },
+      sources: sourceRows.map((source) => ({ kind: SOURCE_KINDS.has(source && source.kind) ? source.kind : '', id: String((source && source.id) || ''), label: String((source && source.label) || ''), chars: Math.max(0, Number(source && source.chars) || 0), truncated: !!(source && source.truncated) })).filter((source) => source.kind && source.id),
+      snapshot: {
+        clientId: String(snapshot.clientId || ''), sessionId: String(snapshot.sessionId || ''), materialId: String(snapshot.materialId || ''), supervisionId: String(snapshot.supervisionId || ''),
+        selectedSessionIds: Array.isArray(snapshot.selectedSessionIds) ? snapshot.selectedSessionIds.map(String).sort() : [], sessionVersions: snapshot.sessionVersions && typeof snapshot.sessionVersions === 'object' ? snapshot.sessionVersions : {},
+        materialUpdatedAt: String(snapshot.materialUpdatedAt || ''), supervisionUpdatedAt: String(snapshot.supervisionUpdatedAt || ''), inputDigest: String(snapshot.inputDigest || ''), key: String(snapshot.key || '')
+      },
+      output: { kind: String(value.output && value.output.kind || ''), ref: String(value.output && value.output.ref || '') },
+      error: String(value.error || '').slice(0, 200), createdAt: String(value.createdAt || nowISO()), completedAt: String(value.completedAt || '')
+    };
+  }
+  function isValidClinicalActionRun(run) {
+    const origin = run.origin;
+    if (!origin.clientId || !run.sources.length) return false;
+    const client = origin.clientId ? getClient(origin.clientId) : null;
+    if (origin.clientId && !client) return false;
+    const session = origin.sessionId ? getSession(origin.sessionId) : null;
+    if (origin.sessionId && (!client || !session || session.clientId !== client.id)) return false;
+    const material = origin.materialId ? getMaterialWorkspace(origin.materialId) : null;
+    if (origin.materialId && (!material || (material.clientId && material.clientId !== origin.clientId) || (material.sessionId && material.sessionId !== origin.sessionId))) return false;
+    const supervision = origin.supervisionId ? getSupervision(origin.supervisionId) : null;
+    if (origin.supervisionId && (!supervision || (supervision.clientId && supervision.clientId !== origin.clientId))) return false;
+    return run.sources.every((source) => {
+      if (source.kind === 'client') return source.id === origin.clientId;
+      if (source.kind === 'session') { const s = getSession(source.id); return !!s && s.clientId === origin.clientId; }
+      if (source.kind === 'material') { const m = getMaterialWorkspace(source.id); return !!m && (!m.clientId || m.clientId === origin.clientId) && (!m.sessionId || m.sessionId === origin.sessionId); }
+      if (source.kind === 'supervision') { const sv = getSupervision(source.id); return !!sv && source.id === origin.supervisionId && (!sv.clientId || sv.clientId === origin.clientId); }
+      return source.kind === 'userdocs' && /^retrieval:[A-Za-z0-9_-]+$/.test(source.id);
+    });
+  }
+  function getClinicalActionRuns(filters) {
+    filters = filters || {};
+    return cache.clinicalActionRuns.filter((run) => (!filters.clientId || run.origin.clientId === filters.clientId) && (!filters.materialId || run.origin.materialId === filters.materialId)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  }
+  function getClinicalActionRun(id) { return cache.clinicalActionRuns.find((run) => run.id === id) || null; }
+  function createClinicalActionRun(data) {
+    const run = normalizeClinicalActionRun(Object.assign({ id: genId('car'), createdAt: nowISO() }, data || {}));
+    if (!run || !isValidClinicalActionRun(run)) return null;
+    cache.clinicalActionRuns.push(run); persist('clinicalActionRuns'); return run;
+  }
+  function updateClinicalActionRun(id, patch) {
+    const current = getClinicalActionRun(id);
+    if (!current) return null;
+    const run = normalizeClinicalActionRun(Object.assign({}, current, patch || {}, { origin: Object.assign({}, current.origin, patch && patch.origin || {}), snapshot: Object.assign({}, current.snapshot, patch && patch.snapshot || {}), output: Object.assign({}, current.output, patch && patch.output || {}) }));
+    if (!run || !isValidClinicalActionRun(run)) return null;
+    const index = cache.clinicalActionRuns.findIndex((item) => item.id === id);
+    cache.clinicalActionRuns[index] = run; persist('clinicalActionRuns'); return run;
   }
 
   // ============================================================
@@ -775,6 +854,9 @@ const Store = (() => {
         date: nowISO().slice(0, 10),
         amount: 0,
         description: '',
+        // v3.7.0 可选：关联来访者（支出可关联，非必要）；可选 batchId（AI 批量记账撤销用）
+        clientId: '',
+        batchId: '',
         createdAt: nowISO(),
         updatedAt: nowISO(),
       },
@@ -783,6 +865,19 @@ const Store = (() => {
     cache.expenses.push(exp);
     persist('expenses');
     return exp;
+  }
+  // v3.7.0 撤销 AI 批量记账：删除所有 batchId 匹配的 sessions 和 expenses
+  function undoBatch(batchId) {
+    if (!batchId) return { sessions: 0, expenses: 0 };
+    const sBefore = cache.sessions.length;
+    const eBefore = cache.expenses.length;
+    cache.sessions = cache.sessions.filter((s) => s.batchId !== batchId);
+    cache.expenses = cache.expenses.filter((e) => e.batchId !== batchId);
+    const sRemoved = sBefore - cache.sessions.length;
+    const eRemoved = eBefore - cache.expenses.length;
+    if (sRemoved > 0) persist('sessions');
+    if (eRemoved > 0) persist('expenses');
+    return { sessions: sRemoved, expenses: eRemoved };
   }
   function updateExpense(id, patch) {
     const idx = cache.expenses.findIndex((e) => e.id === id);
@@ -952,7 +1047,10 @@ const Store = (() => {
         sessions: cache.sessions,
         supervisions: cache.supervisions,
         supervisorIdentities: cache.supervisorIdentities,
+        masterConversations: cache.masterConversations,
+        expenses: cache.expenses,
         materialWorkspaces: cache.materialWorkspaces,
+        clinicalActionRuns: cache.clinicalActionRuns,
         settings: cache.settings,
       },
       null,
@@ -965,12 +1063,19 @@ const Store = (() => {
     if (Array.isArray(data.sessions)) cache.sessions = data.sessions;
     if (Array.isArray(data.supervisions)) cache.supervisions = data.supervisions;
     if (Array.isArray(data.supervisorIdentities)) cache.supervisorIdentities = data.supervisorIdentities;
+    if (Array.isArray(data.masterConversations)) cache.masterConversations = data.masterConversations.map(normalizeMasterConversation);
+    if (Array.isArray(data.expenses)) cache.expenses = data.expenses;
     cache.materialWorkspaces = Array.isArray(data.materialWorkspaces) ? data.materialWorkspaces.map(normalizeMaterialWorkspace).filter(Boolean) : [];
+    cache.clinicalActionRuns = Array.isArray(data.clinicalActionRuns) ? data.clinicalActionRuns.map(normalizeClinicalActionRun).filter(isValidClinicalActionRun) : [];
     if (data.settings) cache.settings = Object.assign({ apiConfig: {}, version: '1.0.0' }, data.settings);
     persist('clients');
     persist('sessions');
     persist('supervisions');
+    persist('supervisorIdentities');
+    persist('masterConversations');
+    persist('expenses');
     persist('materialWorkspaces');
+    persist('clinicalActionRuns');
     persist('settings');
     return true;
   }
@@ -1338,11 +1443,15 @@ const Store = (() => {
     // 支出
     getExpenses, getExpense, getExpensesByCategory, getExpensesByMonth,
     createExpense, updateExpense, deleteExpense, getExpenseStats,
+    // v3.7.0 AI 批量记账撤销
+    undoBatch,
     // 督导师身份（AI 督导，付费）
     getSupervisorIdentities, getSupervisorIdentity,
     createSupervisorIdentity, updateSupervisorIdentity, deleteSupervisorIdentity,
     // 临床材料工作项
-    getMaterialWorkspaces, getMaterialWorkspace, createMaterialWorkspace, updateMaterialWorkspace, deleteMaterialWorkspace, linkMaterialWorkspace,
+    getMaterialWorkspaces, getMaterialWorkspace, createMaterialWorkspace, updateMaterialWorkspace, deleteMaterialWorkspace, linkMaterialWorkspace, reconcileMaterialContext,
+    // 临床动作溯源
+    getClinicalActionRuns, getClinicalActionRun, createClinicalActionRun, updateClinicalActionRun,
     // 设置
     getSettings, saveSettings,
     // 统计

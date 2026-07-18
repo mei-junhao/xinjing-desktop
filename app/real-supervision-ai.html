@@ -127,7 +127,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 
 </div>
 
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script>
 App.initPage({ title: '真人督导 · AI分析', onReady: function () {
   'use strict';
@@ -146,6 +146,7 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
 
   // 来访者列表
   var sel = document.getElementById('sel-client');
+  var activeRecordId = '';
   Store.getClients().forEach(function (c) {
     var opt = document.createElement('option');
     opt.value = c.id; opt.textContent = c.name;
@@ -171,6 +172,7 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
   };
 
   window.selectRecord = function (id) {
+    activeRecordId = id;
     document.querySelectorAll('.lh-item').forEach(function (el) { el.classList.toggle('active', el.dataset.id === id); });
     if (isMember) analyzeRecord(id);
   };
@@ -182,12 +184,21 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
     qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:20px">AI 分析中…</div>';
     var content = record.content || '';
     var sys = '你是心理咨询督导分析专家。请分析以下督导记录中的问答，提取：1)咨询师提问 2)督导回答 3)知识来源/理论锚点 4)督导技术。输出 JSON：{"pairs":[{"question":"…","answer":"…","tags":["标签"],"knowledgeSource":"理论来源"},…],"insights":{"coreIssues":["议题"],"techniques":["技术"],"theories":["理论锚点"],"suggestions":["建议"]}}。只输出 JSON。';
-    AI.send([{ role: 'system', content: sys }, { role: 'user', content: content }], function (res) {
+    var context = ClinicalContext.build('real-supervision-ai-record-analyze', { clientId: record.clientId || sel.value, supervisionId: record.id }, { system: sys, inputText: content, instruction: '分析当前督导记录' });
+    if (!context.ok) { qaBody.textContent = '当前督导记录归属无效，请重新选择。'; return; }
+    if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.rsai-main') || document.querySelector('main') || document.body, context);
+    if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { qaBody.textContent = '已取消 AI 分析。'; return; }
+    var run = ClinicalContext.createActionRun(context);
+    if (!run) { qaBody.textContent = '无法确认督导记录归属，已取消分析。'; return; }
+    AI.send(context.messages, function (res) {
+      var currentRecord = Store.getSupervision ? Store.getSupervision(id) : null;
+      if (activeRecordId !== id || !currentRecord || !ClinicalContext.isSnapshotCurrent(context.snapshot, currentRecord.content || '', { clientId: currentRecord.clientId || sel.value, supervisionId: id })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); qaBody.textContent = '上下文已变更，旧分析未采用。'; return; }
       if (res && res.content && !res.error) {
         try {
           var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
           var pairs = json.pairs || [];
           var insights = json.insights || {};
+          ClinicalContext.completeActionRun(run.id, { kind: 'supervision-record-analysis', ref: record.id });
           // 问答流
           var html = '';
           pairs.forEach(function (p) {
@@ -205,10 +216,10 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
             '<div class="insight-card"><div class="i-head"><span class="i-icon">📚</span><span class="i-title">理论锚点</span></div><ul class="i-list">' + (insights.theories || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>' +
             '<div class="insight-card"><div class="i-head"><span class="i-icon">⚠</span><span class="i-title">督导建议</span></div><ul class="i-list">' + (insights.suggestions || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>';
         } catch (e) {
-          qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 返回格式异常，请重试</div>';
+          ClinicalContext.failActionRun(run.id, 'AI 返回格式异常'); qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 返回格式异常，请重试</div>';
         }
       } else {
-        qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 分析失败</div>';
+        ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败'); qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 分析失败</div>';
       }
     });
   }

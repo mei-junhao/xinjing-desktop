@@ -14,13 +14,17 @@
 .bc-top .month-nav button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 10px;cursor:pointer;font:13px var(--sans);color:var(--ink-2)}
 .bc-top .month-nav .current{font-family:var(--serif);font-size:16px;font-weight:600;min-width:100px;text-align:center}
 .bc-body{flex:1;overflow-y:auto;padding:20px;max-width:1000px;margin:0 auto;width:100%}
-.bc-overview{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-.bc-ov-card{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:14px 16px;text-align:center}
+.bc-overview{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+.bc-ov-card{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:12px 14px;text-align:center}
 .bc-ov-card .lbl{font-size:11px;color:var(--ink-3);font-weight:600}
-.bc-ov-card .val{font-family:var(--serif);font-size:26px;font-weight:700;margin-top:4px}
-.bc-ov-card .val.green{color:var(--danger)} /* 中国财务惯例：涨/收=红 */
-.bc-ov-card .val.red{color:var(--orange)} /* 待收=警告橙 */
-.bc-ov-card .val.accent{color:var(--accent)}
+.bc-ov-card .val{font-family:var(--serif);font-size:22px;font-weight:700;margin-top:4px}
+/* 中国财务惯例：涨/收=红，跌/支=绿，待收=警告橙，净额=强调色 */
+.bc-ov-card .val.income{color:var(--danger)}
+.bc-ov-card .val.expense{color:var(--success)}
+.bc-ov-card .val.received{color:var(--danger)}
+.bc-ov-card .val.pending{color:var(--orange)}
+.bc-ov-card .val.net{color:var(--accent)}
+.bc-ov-card .val.count{color:var(--accent)}
 .bc-calendar{border:1px solid var(--border);border-radius:var(--r-card,14px);overflow:hidden;background:var(--paper-2,#fff)}
 .bc-cal-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border)}
 .bc-cal-head div{text-align:center;padding:10px 0;font-size:11px;font-weight:600;color:var(--ink-3)}
@@ -34,10 +38,36 @@
 .bc-day.today .day-num{color:var(--accent)}
 .bc-day .day-events{display:flex;flex-direction:column;gap:2px;margin-top:2px}
 .bc-day .day-event{font-size:9px;padding:1px 4px;border-radius:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bc-day .day-event.in{background:rgba(217,140,140,.12);color:var(--danger)} /* 涨/收=红 */
-.bc-day .day-event.out{background:rgba(111,174,143,.12);color:var(--success)} /* 跌/支=绿 */
+.bc-day .day-event.in{background:rgba(217,140,140,.12);color:var(--danger)}    /* 收入=红 */
+.bc-day .day-event.out{background:rgba(111,174,143,.12);color:var(--success)}  /* 支出=绿 */
 .bc-day .day-event.pending{background:rgba(214,168,92,.12);color:var(--orange)}
 .bc-day .day-more{font-size:9px;color:var(--ink-3);text-align:center;margin-top:1px}
+
+/* v3.7.0 月结单区（月历子项） */
+.bc-invoice-section{margin-top:24px;background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:18px 20px}
+.bc-invoice-section h3{margin:0 0 4px;font-family:var(--serif);font-size:16px;color:var(--ink-1)}
+.bc-invoice-section .hint{font:12px var(--sans);color:var(--ink-3)}
+.bc-inv-form{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:14px}
+.bc-inv-form label{display:flex;flex-direction:column;gap:3px;font:11px var(--sans);color:var(--ink-3)}
+.bc-inv-form select,.bc-inv-form input[type="month"]{border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:13px var(--sans);background:var(--paper,#fff);min-width:160px}
+.bc-inv-form button{border:none;border-radius:8px;padding:9px 16px;font:600 13px var(--sans);cursor:pointer;background:var(--accent);color:#fff}
+.bc-inv-form button.ghost{background:transparent;border:1px solid var(--border);color:var(--ink-2);font-weight:400}
+.bc-inv-summary{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;padding:12px;background:var(--bg-soft);border-radius:8px}
+.bc-inv-summary .item{display:flex;flex-direction:column;gap:2px;font:12px var(--sans);color:var(--ink-3)}
+.bc-inv-summary .item b{font:600 16px var(--serif);color:var(--ink-1)}
+.bc-inv-summary .item.income b{color:var(--danger)}
+.bc-inv-summary .item.expense b{color:var(--success)}
+.bc-inv-summary .item.pending b{color:var(--orange)}
+.bc-inv-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center}
+.bc-inv-actions button{border:none;border-radius:8px;padding:9px 16px;font:600 13px var(--sans);cursor:pointer}
+.bc-inv-actions .btn-print{background:transparent;border:1px solid var(--border);color:var(--ink-2);font-weight:400}
+.bc-inv-actions .btn-settle{background:var(--accent);color:#fff}
+.bc-inv-actions .btn-override{background:transparent;border:1px dashed var(--accent);color:var(--accent);font-weight:400}
+.bc-inv-actions .override-input{font:13px var(--sans);padding:7px 10px;border:1px solid var(--border);border-radius:8px;width:130px}
+.bc-inv-mode-tag{font:11px var(--sans);padding:3px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.bc-inv-mode-tag.monthly{background:rgba(214,168,92,.15);color:var(--orange)}
+.bc-inv-empty{margin-top:14px;padding:14px;text-align:center;color:var(--ink-3);font:13px var(--sans)}
+.bc-inv-bill{margin-top:18px;border-top:1px solid var(--border);padding-top:18px}
 </style>
 </head>
 <body>

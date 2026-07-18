@@ -42,7 +42,7 @@
     currentClientId = sel.value || null;
     if (!currentClientId) { document.getElementById('sess-dd').style.display = 'none'; return; }
     if (App.setActiveClientId) App.setActiveClientId(currentClientId);
-    if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, '');
+    if (materialId && Store.reconcileMaterialContext) Store.reconcileMaterialContext(materialId, currentClientId, null, {});
     // 载入来访者基本信息到第 1 步
     var c = Store.getClient(currentClientId);
     stepData[0] = App.escapeHtml(c.name) + '（化名）\n' + (c.notes || '');
@@ -213,36 +213,30 @@
     // 收集选中节次（来自「基于节次」下拉菜单）
     var checked = document.querySelectorAll('#sessions-list .sess-cb:checked');
     var sessionIds = Array.prototype.map.call(checked, function (c) { return c.value; });
-    var sessionData = sessionIds.map(function (sid) {
-      var s = Store.getSession(sid);
-      if (!s) return '';
-      var parts = ['第' + s.sessionNumber + '节 (' + s.date + ')'];
-      if (s.transcript) parts.push('逐字稿: ' + s.transcript.slice(0, 800));
-      if (s.soap) parts.push('SOAP: S=' + (s.soap.subjective||'').slice(0,300) + ' O=' + (s.soap.objective||'').slice(0,300) + ' A=' + (s.soap.assessment||'').slice(0,300) + ' P=' + (s.soap.plan||'').slice(0,300));
-      if (s.notes) parts.push('备注: ' + s.notes.slice(0, 400));
-      return parts.join('\n');
-    }).join('\n\n');
-    var c = Store.getClient(currentClientId);
-    var clientInfo = c.name + '（化名），' + (c.notes || '');
     var sys = '你是案例报告撰写助手。请依据所提供的逐字稿真实文字撰写报告模块"' + sec.title + '"。要求：①分析必须结合逐字稿中的真实表述，所有内容须有逐字稿依据；②逐字稿中未出现的内容不要凭空撰写；③本界面仅做基于事实的整理，不涉及理论知识阐释。用中文、客观、具体地回应。';
-    var material = currentMaterialWorkspace();
-    var materialText = material && material.parseStatus === 'ready' ? '\n\n[当前上传材料]\n' + (material.extractedText || '').slice(0, 12000) : '';
-    var userContent = '来访者：' + clientInfo + '\n\n咨询记录：\n' + sessionData + materialText + '\n\n请填写模块"' + sec.title + '"的内容。';
-    var msgs = [{ role: 'system', content: sys }, { role: 'user', content: userContent }];
+    var context = ClinicalContext.build('report-ai-fill', { clientId: currentClientId, materialId: materialId }, { system: sys, selectedSessionIds: sessionIds, inputText: '', instruction: '请填写模块“' + sec.title + '”的内容。' });
+    if (!context.ok) { if (ta) ta.value = ''; App.showToast('当前上下文无效，请重新确认来访者和会谈', 'warning'); return; }
+    if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.rpt-top') || document.body, context);
+    if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { if (ta) ta.value = ''; App.showToast('已取消 AI 填写', 'info'); return; }
+    var run = ClinicalContext.createActionRun(context);
+    if (!run) { if (ta) ta.value = ''; App.showToast('无法确认材料归属，已取消生成', 'warning'); return; }
     if (typeof AI !== 'undefined' && AI.send) {
-      AI.send(msgs, function (res) {
+      AI.send(context.messages, function (res) {
+        var currentSessionIds = Array.prototype.map.call(document.querySelectorAll('#sessions-list .sess-cb:checked'), function (checkbox) { return checkbox.value; });
+        if (!ClinicalContext.isSnapshotCurrent(context.snapshot, '', { clientId: currentClientId, materialId: materialId, selectedSessionIds: currentSessionIds })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); if (ta) ta.value = ''; App.showToast('上下文已变更，旧建议未采用', 'warning'); return; }
         if (ta) ta.value = '';
         if (res && res.content) {
           var sug = document.getElementById('ai-suggest');
           var sugContent = document.getElementById('ai-suggest-content');
           if (sug && sugContent) { sugContent.textContent = res.content; sug.classList.add('show'); }
+          ClinicalContext.completeActionRun(run.id, { kind: 'report-suggestion', ref: materialId || currentClientId || '' });
         } else {
-          App.showToast('生成失败，请重试', 'error');
+          ClinicalContext.failActionRun(run.id, (res && res.error) || '生成失败'); App.showToast('生成失败，请重试', 'error');
         }
       });
     } else {
       if (ta) ta.value = '';
-      App.showToast('AI 模块未就绪', 'error');
+      ClinicalContext.failActionRun(run.id, 'AI 模块未就绪'); App.showToast('AI 模块未就绪', 'error');
     }
   };
 
