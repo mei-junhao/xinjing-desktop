@@ -6,6 +6,30 @@
   var memRules = [];       // [{pattern, fix, count}]
   var errorCount = 0;
   var fixedCount = 0;
+  var materialId = '';
+
+  function loadMaterialWorkspace() {
+    try {
+      materialId = new URLSearchParams(location.search).get('materialId') || '';
+      var material = materialId && Store.getMaterialWorkspace && Store.getMaterialWorkspace(materialId);
+      if (!material || material.parseStatus !== 'ready') return false;
+      if (material.clientId && Store.getClient(material.clientId) && selClient) {
+        selClient.value = material.clientId;
+        window.loadClient();
+      }
+      fillTranscriptText(material.extractedText || '');
+      window.processInput();
+      Store.updateMaterialWorkspace(materialId, { workflow: { transcript: 'in-progress' } });
+      var top = document.querySelector('.tp-top');
+      if (top && !document.getElementById('tp-material-source')) {
+        var source = document.createElement('span');
+        source.id = 'tp-material-source'; source.className = 'tch-badge';
+        source.textContent = '来源：' + (material.source.name || material.title) + (material.clientId ? ' · 已关联' : ' · 未归档，保存前请选择来访者');
+        top.appendChild(source);
+      }
+      return true;
+    } catch (e) { return false; }
+  }
 
   // 加载记忆库
   function loadMemRules() {
@@ -45,7 +69,7 @@
     }
   }
   if (window.Store && typeof Store.hydrate === 'function') {
-    Store.hydrate().then(function () { fillClientSelect(); restoreActiveClient(); }).catch(function () { fillClientSelect(); restoreActiveClient(); });
+    Store.hydrate().then(function () { fillClientSelect(); if (!loadMaterialWorkspace()) restoreActiveClient(); }).catch(function () { fillClientSelect(); restoreActiveClient(); });
   } else {
     restoreActiveClient();
   }
@@ -55,6 +79,7 @@
     if (!currentClientId) return;
     if (App.setActiveClientId) App.setActiveClientId(currentClientId);
     var c = Store.getClient(currentClientId);
+    if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, '');
     App.showToast('已选择 ' + c.name, 'success');
   };
 
@@ -281,7 +306,8 @@
     var text = lines.map(function (l) { return (l.speaker ? l.speaker + ': ' : '') + l.text; }).join('\n');
     var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     if (sessions.length) {
-      Store.updateSessionFull(sessions[0].id, { transcript: text });
+      Store.updateSessionFull(Object.assign({}, sessions[0], { transcript: text }));
+      if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { transcript: 'completed' }, artifacts: { transcriptSessionId: sessions[0].id } });
       App.showToast('已保存到最近一次会话的逐字稿', 'success');
     } else {
       App.showToast('请先在咨询记录中创建会话', 'warning');

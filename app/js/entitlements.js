@@ -41,6 +41,7 @@
     full: Object.freeze({ documentLimit: 500, method: 'vector', contextTokens: 4000, recall: 20, rerank: false }),
     custom: Object.freeze({ documentLimit: Infinity, method: 'vector-rerank', contextTokens: 16000, recall: 20, rerank: true, finalResults: 5 }),
   });
+  const MATERIAL_WORKSPACE_LIMITS = Object.freeze({ free: 20, pro: 100, full: 100, custom: Infinity });
 
   function normalizeTier(tier) {
     const value = String(tier || 'free').toLowerCase();
@@ -99,11 +100,17 @@
     return RAG_POLICY[tier];
   }
 
+  function materialWorkspaceLimit(stateOrTier) {
+    const tier = typeof stateOrTier === 'string' ? normalizeTier(stateOrTier) : effectiveTier(stateOrTier);
+    return MATERIAL_WORKSPACE_LIMITS[tier];
+  }
+
   return Object.freeze({
     TIER_RANK,
     TIER_LABEL,
     FEATURE_MIN_TIER,
     RAG_POLICY,
+    MATERIAL_WORKSPACE_LIMITS,
     normalizeTier,
     effectiveTier,
     canUse,
@@ -111,6 +118,6 @@
     tierLabel,
     featureLabel,
     ragPolicy,
+    materialWorkspaceLimit,
   });
 });
-

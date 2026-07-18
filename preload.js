@@ -55,6 +55,8 @@ const api = {
   },
   openExternal: (url) => ipcRenderer.invoke('xj:openExternal', url),
   saveFileAs: (opts) => ipcRenderer.invoke('xj:saveFileAs', opts),
+  selectClinicalMaterialFile: () => ipcRenderer.invoke('xj:selectClinicalMaterialFile'),
+  parseClinicalMaterialFile: (selectionId) => ipcRenderer.invoke('xj:parseClinicalMaterialFile', selectionId),
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];

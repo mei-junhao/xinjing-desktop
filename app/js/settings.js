@@ -11,7 +11,7 @@ App.initPage({
 
     // 版本号 — 统一走构建期注入的 version.generated.js（preload 桥接）
     function setVersion() {
-      var ver = '4.0.4';
+      var ver = '4.1.0';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
           ver = window.__XJ_API__.getVersion() || ver;

@@ -2,9 +2,20 @@
 (function () {
   'use strict';
   var currentClientId = null;
+  var materialId = '';
   var tplSections = null; // 模板解析出的模块（null=用默认6段）
   var currentStep = 0;
   var stepData = {}; // {0: "text", 1: "text", ...}
+
+  function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
+  function showMaterialSource(material) {
+    var top = document.querySelector('.rpt-top');
+    if (!top || !material || document.getElementById('rpt-material-source')) return;
+    var source = document.createElement('span');
+    source.id = 'rpt-material-source'; source.style.cssText = 'font-size:12px;color:var(--accent);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    source.textContent = '当前材料：' + (material.source.name || material.title) + (material.clientId ? ' · 已关联' : ' · 未归档，保存前请选择来访者');
+    top.appendChild(source);
+  }
 
   // 默认 6 段
   var defaultSections = [
@@ -31,6 +42,7 @@
     currentClientId = sel.value || null;
     if (!currentClientId) { document.getElementById('sess-dd').style.display = 'none'; return; }
     if (App.setActiveClientId) App.setActiveClientId(currentClientId);
+    if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, '');
     // 载入来访者基本信息到第 1 步
     var c = Store.getClient(currentClientId);
     stepData[0] = App.escapeHtml(c.name) + '（化名）\n' + (c.notes || '');
@@ -213,7 +225,9 @@
     var c = Store.getClient(currentClientId);
     var clientInfo = c.name + '（化名），' + (c.notes || '');
     var sys = '你是案例报告撰写助手。请依据所提供的逐字稿真实文字撰写报告模块"' + sec.title + '"。要求：①分析必须结合逐字稿中的真实表述，所有内容须有逐字稿依据；②逐字稿中未出现的内容不要凭空撰写；③本界面仅做基于事实的整理，不涉及理论知识阐释。用中文、客观、具体地回应。';
-    var userContent = '来访者：' + clientInfo + '\n\n咨询记录：\n' + sessionData + '\n\n请填写模块"' + sec.title + '"的内容。';
+    var material = currentMaterialWorkspace();
+    var materialText = material && material.parseStatus === 'ready' ? '\n\n[当前上传材料]\n' + (material.extractedText || '').slice(0, 12000) : '';
+    var userContent = '来访者：' + clientInfo + '\n\n咨询记录：\n' + sessionData + materialText + '\n\n请填写模块"' + sec.title + '"的内容。';
     var msgs = [{ role: 'system', content: sys }, { role: 'user', content: userContent }];
     if (typeof AI !== 'undefined' && AI.send) {
       AI.send(msgs, function (res) {
@@ -334,6 +348,7 @@
 
   // 保存：弹出保存对话框，写到用户选择的真实路径并如实告知
   window.onSaveReport = function () {
+    if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { report: 'completed' }, artifacts: { reportDraftKey: 'xj_report_draft_' + (currentClientId || '') } });
     var secs = getSections();
     var body = '<h1>案例报告</h1>';
     var client = currentClientId ? Store.getClient(currentClientId) : null;
@@ -377,6 +392,13 @@
     try {
       var params = new URLSearchParams(location.search);
       var initialClientId = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());
+      materialId = params.get('materialId') || '';
+      var material = currentMaterialWorkspace();
+      if (material && material.parseStatus === 'ready') {
+        showMaterialSource(material);
+        Store.updateMaterialWorkspace(materialId, { workflow: { report: 'in-progress' } });
+        if (material.clientId) initialClientId = material.clientId;
+      }
       var initialSelect = document.getElementById('rpt-client');
       if (initialClientId && Store.getClient(initialClientId) && initialSelect) {
         initialSelect.value = initialClientId;

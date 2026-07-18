@@ -325,6 +325,92 @@
     });
   }
 
+  var WORKBENCH_VIEW_KEY = 'xj_workbench_view_v1';
+  var selectedWorkbenchClientId = '';
+  var selectedMaterialId = '';
+  function safeView() { try { return localStorage.getItem(WORKBENCH_VIEW_KEY) === 'document' ? 'document' : 'client'; } catch (e) { return 'client'; } }
+  function setWorkbenchView(view) {
+    var documentView = view === 'document';
+    try { localStorage.setItem(WORKBENCH_VIEW_KEY, documentView ? 'document' : 'client'); } catch (e) {}
+    document.getElementById('wb-client-view').setAttribute('aria-selected', documentView ? 'false' : 'true');
+    document.getElementById('wb-document-view').setAttribute('aria-selected', documentView ? 'true' : 'false');
+    ['hero-stats', 'ob-checklist'].forEach(function (id) { var el = document.getElementById(id); if (el) el.closest('section,div').hidden = documentView; });
+    document.querySelectorAll('.work-schedule').forEach(function (el) { el.hidden = documentView; });
+    document.querySelectorAll('.quick-tools,.bottom-row').forEach(function (el) { el.hidden = documentView; });
+    renderWorkbench(documentView ? 'document' : 'client');
+  }
+  function routeFor(page, clientId, sessionId, materialId) {
+    var query = [];
+    if (clientId) query.push('clientId=' + encodeURIComponent(clientId));
+    if (sessionId) query.push('sessionId=' + encodeURIComponent(sessionId));
+    if (materialId) query.push('materialId=' + encodeURIComponent(materialId));
+    return page + (query.length ? '?' + query.join('&') : '');
+  }
+  function renderIcons(root) { if (window.IconSystem) window.IconSystem.render(root); else if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.8 } }); }
+  function clientSessions(clientId) { return Store.getSessionsForPicker(clientId).slice().sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); }); }
+  function renderClientWorkbench(host) {
+    var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+    if (!selectedWorkbenchClientId || !Store.getClient(selectedWorkbenchClientId)) selectedWorkbenchClientId = (App.getActiveClientId && App.getActiveClientId()) || (clients[0] && clients[0].id) || '';
+    var client = Store.getClient(selectedWorkbenchClientId);
+    var sessions = client ? clientSessions(client.id) : [];
+    var latest = sessions[0] || null;
+    var supervisions = client && Store.getSupervisionsByClient ? Store.getSupervisionsByClient(client.id) : [];
+    host.className = 'dual-workbench active';
+    host.innerHTML = '<aside class="wb-panel wb-rail"><div class="wb-rail-head"><h2>来访者</h2><input id="wb-client-search" type="search" placeholder="搜索来访者"></div><div class="wb-client-list" id="wb-client-list"></div></aside>' +
+      '<article class="wb-panel wb-main"><div class="wb-main-head"><h2 id="wb-client-name"></h2><span class="wb-muted" id="wb-client-meta"></span></div><div class="wb-main-body" id="wb-client-body"></div></article>' +
+      '<aside class="wb-panel wb-actions-panel"><div class="wb-main-head"><h2>当前上下文</h2></div><div class="wb-actions" id="wb-client-actions"></div></aside>';
+    function drawList(filter) {
+      var list = clients.filter(function (item) { return !filter || String(item.name || '').indexOf(filter) >= 0; });
+      document.getElementById('wb-client-list').innerHTML = list.length ? list.map(function (item) { var count = clientSessions(item.id).length; return '<button class="wb-client' + (item.id === selectedWorkbenchClientId ? ' active' : '') + '" type="button" data-client-id="' + App.escapeHtml(item.id) + '"><span class="wb-avatar">' + App.escapeHtml((item.name || '?').charAt(0)) + '</span><span><b>' + App.escapeHtml(item.name || '未命名来访者') + '</b><small>' + count + ' 节会谈</small></span></button>'; }).join('') : '<p class="wb-muted">没有匹配的来访者</p>';
+      document.querySelectorAll('[data-client-id]').forEach(function (button) { button.addEventListener('click', function () { selectedWorkbenchClientId = button.getAttribute('data-client-id'); if (App.setActiveClientId) App.setActiveClientId(selectedWorkbenchClientId); renderClientWorkbench(host); }); });
+    }
+    drawList('');
+    document.getElementById('wb-client-search').addEventListener('input', function () { drawList(this.value.trim()); });
+    if (!client) { document.getElementById('wb-client-body').innerHTML = '<div class="wb-empty"><i data-lucide="user-round-plus"></i><div><h2>从一位来访者开始</h2><p>新建来访者后，可以在这里继续会谈记录、逐字稿、报告和督导工作。</p></div></div>'; renderIcons(host); return; }
+    document.getElementById('wb-client-name').textContent = client.name || '未命名来访者';
+    document.getElementById('wb-client-meta').textContent = (client.status === 'active' ? '活跃个案' : '已结束') + ' · ' + sessions.length + ' 节会谈';
+    document.getElementById('wb-client-body').innerHTML = '<div class="wb-kpis"><div class="wb-kpi"><b>' + sessions.length + '</b><span>累计会谈</span></div><div class="wb-kpi"><b>' + supervisions.length + '</b><span>督导记录</span></div><div class="wb-kpi"><b>' + (latest && latest.hasTranscript ? '已就绪' : '待整理') + '</b><span>最近材料</span></div></div><div class="wb-focus"><div><strong>' + (latest ? '继续第 ' + (latest.sessionNumber || '?') + ' 节会谈' : '开始本次临床工作') + '</strong><p>' + (latest ? App.escapeHtml(latest.date || '日期待定') + (latest.hasTranscript ? ' · 已有逐字稿' : ' · 可开始记录') : '尚无会谈记录，可从日历创建。') + '</p></div><button class="wb-primary" id="wb-continue"><i data-lucide="notebook-pen"></i>' + (latest ? '继续记录' : '新建会谈') + '</button></div>';
+    document.getElementById('wb-continue').addEventListener('click', function () { location.href = latest ? routeFor('consult-notes.html', client.id, latest.id) : 'session-calendar.html?action=new&clientId=' + encodeURIComponent(client.id); });
+    document.getElementById('wb-client-actions').innerHTML = '<span class="wb-muted">当前来访者：' + App.escapeHtml(client.name || '') + '</span><button class="wb-action" data-page="transcript.html"><i data-lucide="audio-lines"></i>整理逐字稿<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="report-writing.html"><i data-lucide="file-text"></i>撰写报告<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="supervision.html" data-feature="ai-supervise"><i data-lucide="brain-circuit"></i>进入 AI 督导<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="real-supervision.html"><i data-lucide="handshake"></i>记录真人督导<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="billing-shell.html"><i data-lucide="wallet-cards"></i>查看账务<i data-lucide="chevron-right"></i></button>';
+    document.querySelectorAll('#wb-client-actions [data-page]').forEach(function (button) { button.addEventListener('click', function () { if (button.dataset.feature && !App.featureGate(button.dataset.feature)) return; location.href = routeFor(button.dataset.page, client.id, latest && latest.id); }); });
+    renderIcons(host);
+  }
+  function renderDocumentWorkbench(host) {
+    var materials = Store.getMaterialWorkspaces ? Store.getMaterialWorkspaces() : [];
+    if (!selectedMaterialId || !Store.getMaterialWorkspace(selectedMaterialId)) selectedMaterialId = materials[0] && materials[0].id || '';
+    var material = Store.getMaterialWorkspace(selectedMaterialId);
+    host.className = 'dual-workbench wb-doc active';
+    host.innerHTML = '<aside class="wb-panel wb-rail"><div class="wb-rail-head"><h2>材料来源</h2><button class="wb-primary" id="wb-select-material" type="button"><i data-lucide="file-up"></i>选择文档</button></div><div class="wb-material-list" id="wb-material-list"></div></aside><article class="wb-panel wb-main"><div class="wb-main-head"><h2>材料工作区</h2><span class="wb-muted">文件仅保存解析文本与元数据</span></div><div class="wb-main-body" id="wb-material-body"></div></article><aside class="wb-panel wb-actions-panel"><div class="wb-main-head"><h2>继续处理</h2></div><div class="wb-actions" id="wb-material-actions"></div></aside>';
+    document.getElementById('wb-material-list').innerHTML = materials.length ? materials.map(function (item) { return '<button class="wb-material' + (item.id === selectedMaterialId ? ' active' : '') + '" type="button" data-material-id="' + App.escapeHtml(item.id) + '"><i data-lucide="file-text"></i><span><b>' + App.escapeHtml(item.title) + '</b><small>' + App.escapeHtml(item.parseStatus === 'ready' ? (item.linkStatus === 'linked' ? '已关联' : '未归档') : item.parseStatus === 'parsing' ? '解析中' : '解析失败') + '</small></span></button>'; }).join('') : '<p class="wb-muted">尚无材料</p>';
+    document.querySelectorAll('[data-material-id]').forEach(function (button) { button.addEventListener('click', function () { selectedMaterialId = button.getAttribute('data-material-id'); renderDocumentWorkbench(host); }); });
+    document.getElementById('wb-select-material').addEventListener('click', async function () {
+      var api = window.__XJ_API__;
+      if (!api || !api.selectClinicalMaterialFile || !api.parseClinicalMaterialFile) { App.showToast('当前环境不支持原生文件选择', 'error'); return; }
+      var picked = await api.selectClinicalMaterialFile();
+      if (!picked || picked.canceled) return;
+      if (!picked.ok) { App.showToast(picked.error || '无法选择文件', 'error'); return; }
+      var item = Store.createMaterialWorkspace({ title: picked.file.name, source: picked.file, parseStatus: 'parsing' });
+      if (!item) { App.showToast('未归档材料数量已达当前方案上限', 'warning'); return; }
+      selectedMaterialId = item.id; renderDocumentWorkbench(host);
+      var parsed = await api.parseClinicalMaterialFile(picked.selectionId);
+      if (selectedMaterialId !== item.id || !Store.getMaterialWorkspace(item.id)) return;
+      if (!parsed || !parsed.ok) { Store.updateMaterialWorkspace(item.id, { parseStatus: 'failed', parseError: (parsed && parsed.error) || '解析失败', extractedText: '' }); App.showToast((parsed && parsed.error) || '解析失败，请重新选择文件', 'error'); }
+      else { Store.updateMaterialWorkspace(item.id, { title: parsed.file.name, source: parsed.file, parseStatus: 'ready', parseError: '', extractedText: parsed.text }); App.showToast('材料已解析并保存到本地工作区', 'success'); }
+      renderDocumentWorkbench(host);
+    });
+    if (!material) { document.getElementById('wb-material-body').innerHTML = '<div class="wb-empty"><i data-lucide="files"></i><div><h2>从一份材料开始</h2><p>选择 TXT、MD 或 DOCX 后，可先整理内容，再显式关联来访者和会谈。</p></div></div>'; renderIcons(host); return; }
+    var clients = Store.getClients().filter(function (client) { return client.status !== 'ended'; });
+    var sessions = material.clientId ? clientSessions(material.clientId) : [];
+    document.getElementById('wb-material-body').innerHTML = '<h2>' + App.escapeHtml(material.title) + '</h2><span class="wb-status ' + App.escapeHtml(material.parseStatus) + '">' + App.escapeHtml(material.parseStatus === 'ready' ? (material.linkStatus === 'linked' ? '已关联来访者' : '未归档材料') : material.parseStatus === 'parsing' ? '正在解析' : material.parseError || '解析失败') + '</span><div class="wb-link-grid"><label>关联来访者<select id="wb-material-client"><option value="">暂不关联</option>' + clients.map(function (client) { return '<option value="' + App.escapeHtml(client.id) + '"' + (client.id === material.clientId ? ' selected' : '') + '>' + App.escapeHtml(client.name) + '</option>'; }).join('') + '</select></label><label>关联会谈<select id="wb-material-session"><option value="">暂不指定会谈</option>' + sessions.map(function (session) { return '<option value="' + App.escapeHtml(session.id) + '"' + (session.id === material.sessionId ? ' selected' : '') + '>第' + App.escapeHtml(String(session.sessionNumber || '?')) + ' 节 · ' + App.escapeHtml(session.date || '') + '</option>'; }).join('') + '</select></label></div><button class="wb-secondary" id="wb-save-link">确认关联</button><div class="wb-source">' + App.escapeHtml(material.parseStatus === 'ready' ? (material.extractedText || '').slice(0, 5000) : material.parseError || '正在等待解析结果') + '</div>';
+    document.getElementById('wb-material-client').addEventListener('change', function () { var selected = this.value; var sessionSelect = document.getElementById('wb-material-session'); var nextSessions = selected ? clientSessions(selected) : []; sessionSelect.innerHTML = '<option value="">暂不指定会谈</option>' + nextSessions.map(function (session) { return '<option value="' + App.escapeHtml(session.id) + '">第' + App.escapeHtml(String(session.sessionNumber || '?')) + ' 节 · ' + App.escapeHtml(session.date || '') + '</option>'; }).join(''); });
+    document.getElementById('wb-save-link').addEventListener('click', function () { var clientId = document.getElementById('wb-material-client').value; var sessionId = document.getElementById('wb-material-session').value; if (!Store.linkMaterialWorkspace(material.id, clientId, sessionId)) { App.showToast('关联的会谈必须属于当前来访者', 'error'); return; } App.showToast(clientId ? '材料关联已确认' : '材料保留在未归档工作区', 'success'); renderDocumentWorkbench(host); });
+    document.getElementById('wb-material-actions').innerHTML = material.parseStatus === 'ready' ? '<span class="wb-muted">AI 生成前会显示当前材料与来访者来源。</span><button class="wb-action" data-page="transcript.html"><i data-lucide="audio-lines"></i>整理逐字稿<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="report-writing.html"><i data-lucide="file-text"></i>撰写报告<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="supervision.html" data-feature="ai-supervise"><i data-lucide="brain-circuit"></i>进入 AI 督导<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="real-supervision.html"><i data-lucide="handshake"></i>记录真人督导<i data-lucide="chevron-right"></i></button>' : '<span class="wb-muted">解析完成后可以继续处理。</span>';
+    document.querySelectorAll('#wb-material-actions [data-page]').forEach(function (button) { button.addEventListener('click', function () { if (button.dataset.feature && !App.featureGate(button.dataset.feature)) return; location.href = routeFor(button.dataset.page, material.clientId, material.sessionId, material.id); }); });
+    renderIcons(host);
+  }
+  function renderWorkbench(view) { var host = document.getElementById('dual-workbench'); if (!host) return; if (view === 'document') renderDocumentWorkbench(host); else renderClientWorkbench(host); }
+  function bindWorkbench() { var clientButton = document.getElementById('wb-client-view'); var documentButton = document.getElementById('wb-document-view'); if (!clientButton || !documentButton) return; clientButton.addEventListener('click', function () { setWorkbenchView('client'); }); documentButton.addEventListener('click', function () { setWorkbenchView('document'); }); setWorkbenchView(safeView()); }
+
   App.initPage({ title: '今日工作台', subtitle: '', actions: '', onReady: function () {
     renderStats();
     renderSchedule();
@@ -333,6 +419,7 @@
     renderTodo();
     renderKbTile();
     bindQuickTools();
+    bindWorkbench();
     // 强引导：新手任务清单（真实数据驱动）+ 首启聚光灯导览
     try {
       if (window.Onboarding) {

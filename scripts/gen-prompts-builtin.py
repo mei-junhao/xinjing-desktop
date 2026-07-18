@@ -3,7 +3,7 @@
 Runs once for v1.1.0 F2. The gen-supervisors.py script will be updated
 to output here as well for future regeneration.
 """
-import base64, io, json, os, re, subprocess
+import base64, io, json, os, re, subprocess, sys
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)) + '/..')
 
@@ -11,20 +11,21 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)) + '/..')
 with io.open('app/js/supervisors.js', encoding='utf-8') as f:
     content = f.read()
 
-# Extract the three prompt template literals
+# Extract the three prompt template literals. Newer supervisors.js loads these
+# values from prompts.builtin.js, so preserve and verify that generated asset
+# instead of failing a release build on an intentional one-way dependency.
 cangjie_match = re.search(r'const CANGJIE_PROMPT = `(.+?)`;\s*\n\s*//', content, re.DOTALL)
-if not cangjie_match:
-    raise RuntimeError('Cannot extract CANGJIE_PROMPT')
-cangjie = cangjie_match.group(1)
-
 nvwa_match = re.search(r'const NVWA_PROMPT = `(.+?)`;\s*\n\s*//', content, re.DOTALL)
-if not nvwa_match:
-    raise RuntimeError('Cannot extract NVWA_PROMPT')
-nvwa = nvwa_match.group(1)
-
 winnicott_match = re.search(r'const WINNICOTT_PROMPT = `(.+?)`;\s*\n\s*//', content, re.DOTALL)
-if not winnicott_match:
-    raise RuntimeError('Cannot extract WINNICOTT_PROMPT')
+if not (cangjie_match and nvwa_match and winnicott_match):
+    builtin_path = 'app/js/prompts.builtin.js'
+    if not os.path.exists(builtin_path) or os.path.getsize(builtin_path) == 0:
+        raise RuntimeError('prompts.builtin.js is required when supervisors.js loads built-in prompts')
+    print('supervisors.js loads generated prompts; preserving existing prompts.builtin.js')
+    sys.exit(0)
+
+cangjie = cangjie_match.group(1)
+nvwa = nvwa_match.group(1)
 winnicott = winnicott_match.group(1)
 
 # Extract STYLE_CONSTRAINTS and WINNICOTT_PERSONA_GUARD arrays

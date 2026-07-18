@@ -26,6 +26,7 @@ const Store = (() => {
     supervisorIdentities: [],
     masterConversations: [],
     expenses: [],
+    materialWorkspaces: [],
     settings: { apiConfig: {}, version: '1.0.0' },
   };
   let hydrated = false;
@@ -174,13 +175,14 @@ const Store = (() => {
   async function hydrate() {
     if (hydrated) return;
     await migrateFromLocalStorage();
-    const [clients, sessions, supervisions, supervisorIdentities, masterConversations, expenses, settings] = await Promise.all([
+    const [clients, sessions, supervisions, supervisorIdentities, masterConversations, expenses, materialWorkspaces, settings] = await Promise.all([
       idbGet('clients'),
       idbGet('sessions'),
       idbGet('supervisions'),
       idbGet('supervisorIdentities'),
       idbGet('masterConversations'),
       idbGet('expenses'),
+      idbGet('materialWorkspaces'),
       idbGet('settings'),
     ]);
     cache.clients = Array.isArray(clients) ? clients : [];
@@ -189,6 +191,7 @@ const Store = (() => {
     cache.supervisorIdentities = Array.isArray(supervisorIdentities) ? supervisorIdentities : [];
     cache.masterConversations = Array.isArray(masterConversations) ? masterConversations.map(normalizeMasterConversation) : [];
     cache.expenses = Array.isArray(expenses) ? expenses : [];
+    cache.materialWorkspaces = Array.isArray(materialWorkspaces) ? materialWorkspaces.map(normalizeMaterialWorkspace).filter(Boolean) : [];
     cache.settings =
       settings && typeof settings === 'object'
         ? Object.assign({ apiConfig: {}, version: '1.0.0' }, settings)
@@ -394,6 +397,15 @@ const Store = (() => {
       return ids.length === 0 ? true : ids.some((sid) => remainingSessionIds.includes(sid));
     });
     persist('supervisions');
+    let materialChanged = false;
+    cache.materialWorkspaces = cache.materialWorkspaces.map((material) => {
+      if (material.clientId !== id) return material;
+      materialChanged = true;
+      return Object.assign({}, material, {
+        clientId: '', sessionId: '', linkStatus: 'unlinked', updatedAt: nowISO(),
+      });
+    });
+    if (materialChanged) persist('materialWorkspaces');
     return true;
   }
 
@@ -507,7 +519,93 @@ const Store = (() => {
       sessionIds: (sv.sessionIds || []).filter((sid) => sid !== id),
     }));
     persist('supervisions');
+    let materialChanged = false;
+    cache.materialWorkspaces = cache.materialWorkspaces.map((material) => {
+      if (material.sessionId !== id) return material;
+      materialChanged = true;
+      return Object.assign({}, material, { sessionId: '', updatedAt: nowISO() });
+    });
+    if (materialChanged) persist('materialWorkspaces');
     return true;
+  }
+
+  // ============================================================
+  // 临床材料工作项：仅保存安全元数据和已解析文本，不保存原始二进制文件或绝对路径。
+  // ============================================================
+  function normalizeMaterialWorkspace(value) {
+    if (!value || typeof value !== 'object') return null;
+    const source = value.source && typeof value.source === 'object' ? value.source : {};
+    const workflow = value.workflow && typeof value.workflow === 'object' ? value.workflow : {};
+    const artifacts = value.artifacts && typeof value.artifacts === 'object' ? value.artifacts : {};
+    return {
+      id: String(value.id || genId('mat')),
+      title: String(value.title || source.name || '未命名材料'),
+      source: {
+        name: String(source.name || ''), ext: String(source.ext || '').toLowerCase(),
+        size: Math.max(0, Number(source.size) || 0), modifiedAt: String(source.modifiedAt || ''),
+      },
+      extractedText: typeof value.extractedText === 'string' ? value.extractedText : '',
+      parseStatus: ['parsing', 'ready', 'failed'].includes(value.parseStatus) ? value.parseStatus : 'failed',
+      parseError: typeof value.parseError === 'string' ? value.parseError : '',
+      clientId: typeof value.clientId === 'string' ? value.clientId : '',
+      sessionId: typeof value.sessionId === 'string' ? value.sessionId : '',
+      linkStatus: value.clientId ? 'linked' : 'unlinked',
+      workflow: {
+        transcript: workflow.transcript || 'not-started', report: workflow.report || 'not-started',
+        supervision: workflow.supervision || 'not-started', realSupervision: workflow.realSupervision || 'not-started',
+      },
+      artifacts: {
+        transcriptSessionId: artifacts.transcriptSessionId || '', reportDraftKey: artifacts.reportDraftKey || '',
+        supervisionId: artifacts.supervisionId || '', realSupervisionId: artifacts.realSupervisionId || '',
+      },
+      createdAt: value.createdAt || nowISO(), updatedAt: value.updatedAt || nowISO(),
+    };
+  }
+  function materialWorkspaceLimit() {
+    const api = typeof window !== 'undefined' ? window.XJEntitlements : null;
+    return api && typeof api.materialWorkspaceLimit === 'function' ? api.materialWorkspaceLimit(window.__XJ__ || {}) : 20;
+  }
+  function getMaterialWorkspaces() { return cache.materialWorkspaces.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))); }
+  function getMaterialWorkspace(id) { return cache.materialWorkspaces.find((item) => item.id === id) || null; }
+  function createMaterialWorkspace(data) {
+    const limit = materialWorkspaceLimit();
+    const unlinkedCount = cache.materialWorkspaces.filter((item) => item.linkStatus === 'unlinked').length;
+    if (unlinkedCount >= limit) return null;
+    const item = normalizeMaterialWorkspace(Object.assign({ id: genId('mat'), createdAt: nowISO(), updatedAt: nowISO() }, data || {}));
+    cache.materialWorkspaces.push(item);
+    persist('materialWorkspaces');
+    return item;
+  }
+  function updateMaterialWorkspace(id, patch) {
+    const item = getMaterialWorkspace(id);
+    if (!item || !patch || typeof patch !== 'object') return null;
+    const next = normalizeMaterialWorkspace(Object.assign({}, item, patch, {
+      source: Object.assign({}, item.source, patch.source || {}),
+      workflow: Object.assign({}, item.workflow, patch.workflow || {}),
+      artifacts: Object.assign({}, item.artifacts, patch.artifacts || {}), updatedAt: nowISO(),
+    }));
+    const index = cache.materialWorkspaces.findIndex((entry) => entry.id === id);
+    cache.materialWorkspaces[index] = next;
+    persist('materialWorkspaces');
+    return next;
+  }
+  function deleteMaterialWorkspace(id) {
+    const before = cache.materialWorkspaces.length;
+    cache.materialWorkspaces = cache.materialWorkspaces.filter((item) => item.id !== id);
+    if (cache.materialWorkspaces.length === before) return false;
+    persist('materialWorkspaces');
+    return true;
+  }
+  function linkMaterialWorkspace(id, clientId, sessionId) {
+    const item = getMaterialWorkspace(id);
+    if (!item) return null;
+    const client = clientId ? getClient(clientId) : null;
+    if (clientId && !client) return null;
+    const session = sessionId ? getSession(sessionId) : null;
+    if (sessionId && (!client || !session || session.clientId !== client.id)) return null;
+    return updateMaterialWorkspace(id, {
+      clientId: client ? client.id : '', sessionId: session ? session.id : '', linkStatus: client ? 'linked' : 'unlinked',
+    });
   }
 
   // ============================================================
@@ -854,6 +952,7 @@ const Store = (() => {
         sessions: cache.sessions,
         supervisions: cache.supervisions,
         supervisorIdentities: cache.supervisorIdentities,
+        materialWorkspaces: cache.materialWorkspaces,
         settings: cache.settings,
       },
       null,
@@ -866,10 +965,12 @@ const Store = (() => {
     if (Array.isArray(data.sessions)) cache.sessions = data.sessions;
     if (Array.isArray(data.supervisions)) cache.supervisions = data.supervisions;
     if (Array.isArray(data.supervisorIdentities)) cache.supervisorIdentities = data.supervisorIdentities;
+    cache.materialWorkspaces = Array.isArray(data.materialWorkspaces) ? data.materialWorkspaces.map(normalizeMaterialWorkspace).filter(Boolean) : [];
     if (data.settings) cache.settings = Object.assign({ apiConfig: {}, version: '1.0.0' }, data.settings);
     persist('clients');
     persist('sessions');
     persist('supervisions');
+    persist('materialWorkspaces');
     persist('settings');
     return true;
   }
@@ -1240,6 +1341,8 @@ const Store = (() => {
     // 督导师身份（AI 督导，付费）
     getSupervisorIdentities, getSupervisorIdentity,
     createSupervisorIdentity, updateSupervisorIdentity, deleteSupervisorIdentity,
+    // 临床材料工作项
+    getMaterialWorkspaces, getMaterialWorkspace, createMaterialWorkspace, updateMaterialWorkspace, deleteMaterialWorkspace, linkMaterialWorkspace,
     // 设置
     getSettings, saveSettings,
     // 统计

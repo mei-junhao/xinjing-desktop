@@ -12,9 +12,20 @@ App.initPage({
     var busy = false;
     var currentClientId = null;
     var currentSessionId = '';
+    var materialId = '';
     var latestSupervision = null;
     var draftKey = 'xj_sup_v31_draft';
     var chatKey = 'xj_sup_v31_chat';
+
+    function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
+    function showMaterialSource(material) {
+      var host = document.querySelector('.sup-main') || document.querySelector('.sup-page') || document.body;
+      if (!host || !material || document.getElementById('sup-material-source')) return;
+      var source = document.createElement('div');
+      source.id = 'sup-material-source'; source.style.cssText = 'margin:8px 0;padding:8px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;font-size:12px;color:var(--ink-2)';
+      source.textContent = 'AI 上下文来源：当前材料「' + (material.source.name || material.title) + '」' + (material.clientId ? '、已关联来访者' : '；未归档，保存前请选择来访者');
+      host.insertBefore(source, host.firstChild);
+    }
 
     // 来访者列表
     var selClient = document.getElementById('sup-client');
@@ -155,6 +166,7 @@ App.initPage({
       }
       currentClientId = cid;
       if (App.setActiveClientId) App.setActiveClientId(currentClientId);
+      if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, currentSessionId || '');
       var client = Store.getClient(cid);
       var preferences = (client && client.preferences) || {};
       if (preferences.lastSupervisionOrientation) setOrientation(preferences.lastSupervisionOrientation, false);
@@ -396,7 +408,7 @@ App.initPage({
       var full = messages.map(function (m) { return (m.role === 'user' ? '咨询师：' : '督导师：') + m.content; }).join('\n\n');
       var modeName = curOrientName;
       if (typeof Store !== 'undefined' && typeof Store.saveAiSupervision === 'function') {
-        Store.saveAiSupervision({
+        var saved = Store.saveAiSupervision({
           supervisorName: modeName,
           clientId: currentClientId || '',
           sessionId: currentSessionId,
@@ -404,6 +416,7 @@ App.initPage({
           context: materialTA.value.trim(),
           content: full,
         });
+        if (saved && materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { supervision: 'completed' }, artifacts: { supervisionId: saved.id } });
       }
       App.showToast('已保存督导记录', 'success');
       if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '完成了 AI 督导' });
@@ -452,6 +465,15 @@ App.initPage({
       var qs = new URLSearchParams(location.search);
       var autoClient = qs.get('clientId') || qs.get('client') || (App.getActiveClientId && App.getActiveClientId());
       var autoSession = qs.get('sessionId') || qs.get('session');
+      materialId = qs.get('materialId') || '';
+      var material = currentMaterialWorkspace();
+      if (material && material.parseStatus === 'ready') {
+        if (material.clientId) autoClient = material.clientId;
+        if (material.sessionId) autoSession = material.sessionId;
+        materialTA.value = material.extractedText || '';
+        Store.updateMaterialWorkspace(materialId, { workflow: { supervision: 'in-progress' } });
+        showMaterialSource(material);
+      }
       var autoReport = qs.get('autoloadreport') === '1';
       if (autoClient) {
         selClient.value = autoClient;
@@ -468,6 +490,10 @@ App.initPage({
             }
           }
         }
+      }
+      if (material && material.parseStatus === 'ready') {
+        materialTA.value = material.extractedText || '';
+        switchTab('material');
       }
     } catch (e) {}
   },

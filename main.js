@@ -25,6 +25,11 @@ const crypto = require('crypto');
 let mammoth = null;
 try { mammoth = require('mammoth'); } catch (e) { mammoth = null; }
 
+const CLINICAL_MATERIAL_EXTENSIONS = new Set(['.txt', '.md', '.docx']);
+const CLINICAL_MATERIAL_MAX_BYTES = 20 * 1024 * 1024;
+const CLINICAL_MATERIAL_MAX_CHARS = 1000000;
+const clinicalMaterialSelections = new Map();
+
 // v3.6.0：RAG 向量检索（JSON 向量存储降级方案，避免 ChromaDB 原生依赖打包问题）
 let RagIndex = null;
 let ragIndex = null;
@@ -1344,6 +1349,62 @@ async function readUserDocText(abs) {
     return await fs.promises.readFile(abs, 'utf8');
   } catch (e) { return ''; }
 }
+
+function clinicalMaterialMeta(abs, stat) {
+  const ext = path.extname(abs).toLowerCase();
+  return {
+    name: path.basename(abs), ext: ext.slice(1), size: stat.size,
+    modifiedAt: new Date(stat.mtimeMs).toISOString(),
+  };
+}
+
+async function validateClinicalMaterialPath(abs) {
+  const ext = path.extname(abs).toLowerCase();
+  if (!CLINICAL_MATERIAL_EXTENSIONS.has(ext)) return { ok: false, error: '仅支持 TXT、MD 或 DOCX 文件' };
+  let stat;
+  try { stat = await fs.promises.stat(abs); } catch (e) { return { ok: false, error: '文件已不存在或无法访问' }; }
+  if (!stat.isFile()) return { ok: false, error: '请选择普通文件' };
+  if (stat.size > CLINICAL_MATERIAL_MAX_BYTES) return { ok: false, error: '文件超过 20MB，无法安全解析' };
+  return { ok: true, file: clinicalMaterialMeta(abs, stat) };
+}
+
+ipcMain.handle('xj:selectClinicalMaterialFile', async () => {
+  try {
+    if (!mainWindow) return { ok: false, error: '窗口未就绪' };
+    const picked = await dialog.showOpenDialog(mainWindow, {
+      title: '选择临床材料', properties: ['openFile'],
+      filters: [{ name: '临床材料', extensions: ['txt', 'md', 'docx'] }],
+    });
+    if (picked.canceled || !picked.filePaths || !picked.filePaths[0]) return { ok: false, canceled: true };
+    const validated = await validateClinicalMaterialPath(picked.filePaths[0]);
+    if (!validated.ok) return validated;
+    clinicalMaterialSelections.forEach((entry, key) => { if (entry.expiresAt < Date.now()) clinicalMaterialSelections.delete(key); });
+    const selectionId = crypto.randomBytes(24).toString('hex');
+    clinicalMaterialSelections.set(selectionId, { path: picked.filePaths[0], expiresAt: Date.now() + 10 * 60 * 1000 });
+    return { ok: true, selectionId, file: validated.file };
+  } catch (e) {
+    return { ok: false, error: '无法选择该文件，请重试' };
+  }
+});
+
+ipcMain.handle('xj:parseClinicalMaterialFile', async (event, selectionId) => {
+  const selection = clinicalMaterialSelections.get(String(selectionId || ''));
+  if (!selection || selection.expiresAt < Date.now()) {
+    clinicalMaterialSelections.delete(String(selectionId || ''));
+    return { ok: false, error: '文件选择已失效，请重新选择文件' };
+  }
+  clinicalMaterialSelections.delete(String(selectionId || ''));
+  try {
+    const validated = await validateClinicalMaterialPath(selection.path);
+    if (!validated.ok) return validated;
+    const text = await readUserDocText(selection.path);
+    if (!text || !text.trim()) return { ok: false, error: '未能提取可用文本，请检查文件内容' };
+    if (text.length > CLINICAL_MATERIAL_MAX_CHARS) return { ok: false, error: '解析文本超过 100 万字，无法安全载入' };
+    return { ok: true, file: validated.file, text, warnings: [] };
+  } catch (e) {
+    return { ok: false, error: '文件解析失败，请检查文件后重试' };
+  }
+});
 
 // 生成卡片/画廊摘要：去掉 frontmatter、markdown 语法、超长 token（data URI / 长 URL / base64），
 // 取首个干净的散文句，避免卡片底部出现「乱码」长串

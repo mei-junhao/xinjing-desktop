@@ -4,6 +4,17 @@
   var currentClientId = null;
   var records = [];
   var currentRecordId = null;
+  var materialId = '';
+
+  function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
+  function showMaterialSource(material) {
+    var host = document.querySelector('.rs-main') || document.querySelector('.rs-page') || document.body;
+    if (!host || !material || document.getElementById('rs-material-source')) return;
+    var source = document.createElement('div');
+    source.id = 'rs-material-source'; source.style.cssText = 'margin:8px 0;padding:8px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;font-size:12px;color:var(--ink-2)';
+    source.textContent = '材料来源：' + (material.source.name || material.title) + (material.clientId ? ' · 已关联来访者' : ' · 未归档，保存前请选择来访者');
+    host.insertBefore(source, host.firstChild);
+  }
 
   // 来访者列表（Store 就绪后再填充，并支持深链 ?clientId / ?client 自动关联）
   var selClient = document.getElementById('rs-client');
@@ -27,6 +38,7 @@
     currentClientId = selClient.value || null;
     if (!currentClientId) { renderHistory([]); return; }
     if (App.setActiveClientId) App.setActiveClientId(currentClientId);
+    if (materialId && Store.linkMaterialWorkspace) Store.linkMaterialWorkspace(materialId, currentClientId, '');
     var clientRecords = records.filter(function (r) { return r.clientId === currentClientId; })
       .sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     renderHistory(clientRecords);
@@ -99,9 +111,11 @@
     };
     if (currentRecordId) {
       Store.updateSupervision(currentRecordId, data);
+      if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { realSupervision: 'completed' }, artifacts: { realSupervisionId: currentRecordId } });
       App.showToast('记录已更新', 'success');
     } else {
-      Store.createSupervision(data);
+      var created = Store.createSupervision(data);
+      if (created && materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { realSupervision: 'completed' }, artifacts: { realSupervisionId: created.id } });
       App.showToast('记录已保存', 'success');
       if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '保存了真人督导记录', relatedClientId: currentClientId });
     }
@@ -233,6 +247,15 @@
     loadRecords();
     var params = new URLSearchParams(location.search);
     var cid = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());
+    materialId = params.get('materialId') || '';
+    var material = currentMaterialWorkspace();
+    if (material && material.parseStatus === 'ready') {
+      if (material.clientId) cid = material.clientId;
+      var transcript = document.getElementById('rs-transcript-text');
+      if (transcript) transcript.value = material.extractedText || '';
+      Store.updateMaterialWorkspace(materialId, { workflow: { realSupervision: 'in-progress' } });
+      showMaterialSource(material);
+    }
     if (cid && Store.getClient(cid)) {
       selClient.value = cid;
       currentClientId = cid;
