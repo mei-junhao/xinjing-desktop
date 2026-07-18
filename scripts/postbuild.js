@@ -180,17 +180,29 @@ else if (PLATFORM === 'darwin') {
     process.exit(1);
   }
 
+  // 清理可能残留的 builder 旧名产物（避免上传重复/混淆文件）
+  for (const e of fs.readdirSync(dist)) {
+    if (e === dmgName || e === zipName) continue;
+    if (/-mac\.(zip|dmg)$/.test(e) || /-mac\.zip\.blockmap$/.test(e)) {
+      try { fs.unlinkSync(path.join(dist, e)); console.log('removed stray builder artifact:', e); } catch (_) {}
+    }
+  }
+
   const latestMac = path.join(dist, 'latest-mac.yml');
   if (fs.existsSync(latestMac)) {
     let c = fs.readFileSync(latestMac, 'utf8');
-    const before = c;
-    if (finalZip && dmg) c = c.split(dmg).join(dmgName);
-    if (finalZip && zip) c = c.split(zip).join(zipName);
-    if (c !== before) {
-      fs.writeFileSync(latestMac, c);
-      console.log('patched latest-mac.yml references to ASCII names');
+    // 把 yml 中 url:/path: 行引用的任何 .zip/.dmg 文件名，替换为已重命名的稳定 ASCII 名。
+    // 不依赖 electron-builder 当次产出的具体命名（旧逻辑用 split(builderName) 在 builder
+    // 旧名与 dist 实际文件名不一致时静默失效，导致 latest-mac.yml 引用 404 的旧名）。
+    c = c.replace(/(url:\s*|path:\s*)([^\s]+\.zip)/g, `$1${zipName}`);
+    c = c.replace(/(url:\s*|path:\s*)([^\s]+\.dmg)/g, `$1${dmgName}`);
+    fs.writeFileSync(latestMac, c);
+    console.log('patched latest-mac.yml -> zip:', zipName, '| dmg:', dmgName);
+    // 校验：yml 中不得再出现 builder 旧名（以 -mac. 结尾的 zip/dmg），否则自动更新必 404
+    if (/-mac\.(zip|dmg)/.test(c)) {
+      console.error('latest-mac.yml 仍引用 builder 旧名，修复失败：\n' + c);
+      process.exit(1);
     }
-    console.log('verified latest-mac.yml exists ->', finalZip || finalDmg);
   } else {
     console.error('latest-mac.yml 缺失，Mac 自动更新将无法工作。dist 内容：', entries);
     process.exit(1);

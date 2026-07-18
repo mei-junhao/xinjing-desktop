@@ -67,9 +67,11 @@ jobs:
           TMP=$(mktemp -d)
           cp -R "$APP" "$TMP/"
           ln -s /Applications "$TMP/Applications"
-          hdiutil create -volname "XinJing" -srcfolder "$TMP" -ov -format UDZO "dist/xinjing-3.6.3.dmg"
+          # 动态版本号命名（旧版硬编码 xinjing-3.6.3.dmg，导致 latest-mac.yml 与 dist 实际文件名错位）
+          VERSION=$(node -p "require('./package.json').version")
+          hdiutil create -volname "XinJing" -srcfolder "$TMP" -ov -format UDZO "dist/xinjing-${VERSION}.dmg"
           rm -rf "$TMP"
-          echo "DMG 创建完成：$(du -h dist/xinjing-3.6.3.dmg)"
+          echo "DMG 创建完成：$(du -h dist/xinjing-${VERSION}.dmg)"
 
       - name: Postbuild (patch latest-mac.yml)
         run: node scripts/postbuild.js
