@@ -1033,10 +1033,20 @@ App.initPage({
       var title = document.getElementById('account-edit-title');
       var input = document.getElementById('account-edit-input');
       if (title) title.textContent = (field === 'name') ? '编辑称呼' : '编辑执业取向';
-      if (input) input.value = (field === 'name') ? (s.displayName || '') : (s.orientation || '');
+      if (input) {
+        input.value = (field === 'name') ? (s.displayName || '') : (s.orientation || '');
+        input.readOnly = false;
+        input.disabled = false;
+      }
       var modal = document.getElementById('account-edit-modal');
-      if (modal) modal.style.display = 'flex';
-      if (input) setTimeout(function () { input.focus(); }, 30);
+      if (modal) { modal.style.display = 'flex'; modal.classList.add('xj-open'); }
+      if (input) {
+        // Electron 中刚显示的模态，单次 setTimeout(focus) 在部分环境（尤其中文 IME）不生效，
+        // 表现为「能点开但无法输入」。改用双 rAF 确保布局提交后再聚焦，并选中已有文本便于直接覆盖。
+        var focusInput = function () { try { input.focus(); if (input.value) input.select(); } catch (e) {} };
+        if (window.requestAnimationFrame) requestAnimationFrame(function () { requestAnimationFrame(focusInput); });
+        else setTimeout(focusInput, 30);
+      }
     }
     function saveAccountEdit() {
       var input = document.getElementById('account-edit-input');
@@ -1060,11 +1070,15 @@ App.initPage({
     var btnSave = document.getElementById('account-edit-save');
     var btnCancel = document.getElementById('account-edit-cancel');
     var modalOverlay = document.getElementById('account-edit-modal');
+    var editInput = document.getElementById('account-edit-input');
     if (btnName) btnName.addEventListener('click', function () { openAccountEdit('name'); });
     if (btnOrient) btnOrient.addEventListener('click', function () { openAccountEdit('orient'); });
     if (btnSave) btnSave.addEventListener('click', saveAccountEdit);
     if (btnCancel) btnCancel.addEventListener('click', closeAccountEdit);
     if (modalOverlay) modalOverlay.addEventListener('click', function (e) { if (e.target === modalOverlay) closeAccountEdit(); });
+    if (editInput) editInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); saveAccountEdit(); }
+    });
     loadProfile();
     // v3.4.1: 暴露给 settings.html 内联脚本使用
     window.openConnectDrawer = openConnectDrawer;
