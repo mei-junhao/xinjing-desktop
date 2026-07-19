@@ -206,6 +206,24 @@
     renderView();
   }
 
+  async function assignCategory(relPaths) {
+    var files = (relPaths || []).map(fileByRel).filter(Boolean);
+    if (!files.length) return;
+    var category = window.prompt('输入分类名称', '临床');
+    if (!category || !category.trim()) return;
+    var meta = await UserDocs.readKnowledgeMeta();
+    if (!meta || !meta.ok || meta.readOnly) { App.showToast('分类元数据只读或不可用，请检查资料库状态', 'warning'); return; }
+    var entries = Object.assign({}, meta.entries || {});
+    files.forEach(function (f) {
+      if (f.categorySource === 'frontmatter' || f.categorySource === 'directory') return;
+      entries[f.relPath] = { category: category.trim(), contentHash: f.contentHash || '', updatedAt: new Date().toISOString() };
+    });
+    var result = await UserDocs.writeKnowledgeMeta(entries);
+    if (!result || !result.ok) { App.showToast('分类保存失败，请重试', 'error'); return; }
+    App.showToast('已整理 ' + files.length + ' 份资料', 'success');
+    await loadMeta(true);
+  }
+
   function updateRagStatus(meta) {
     var policyEl = document.getElementById('kb-policy');
     var indexEl = document.getElementById('kb-index-status');
@@ -335,6 +353,7 @@
         '<div class="t">' + esc(f.title) + '</div>' +
         '<div class="s">' + esc(f.summary || '（无摘要）') + '</div>' +
         '<div class="f"><span>' + esc(f.name) + '</span>' +
+        '<button class="kb-classify" data-rel="' + esc(f.relPath) + '" title="修改分类">修改分类</button>' +
         '<span class="injected"><span class="dot"></span>' + f.chars + ' 字 · 已注入</span></div>' +
         '</div>';
     }).join('') || '<div style="color:var(--kb-ink-3);font:13px var(--kb-sans);padding:20px">没有匹配的资料</div>';
@@ -342,7 +361,7 @@
     view.innerHTML =
       '<div class="kb-filter">' + chips + '</div>' +
       '<div class="kb-toolrow"><input id="kb-csearch" placeholder="搜索标题 / 摘要 / 正文…" autocomplete="off">' +
-      '<button class="kb-btn primary" id="kb-cadd">+ 添加资料</button></div>' +
+      '<button class="kb-btn" id="kb-organize">整理未分类资料</button><button class="kb-btn primary" id="kb-cadd">+ 添加资料</button></div>' +
       '<div class="kb-cards">' + cards + '</div>';
     Array.prototype.forEach.call(view.querySelectorAll('.kb-chip'), function (b) {
       b.addEventListener('click', function () {
@@ -350,11 +369,17 @@
       });
     });
     document.getElementById('kb-cadd').addEventListener('click', function () { pickFolder(); });
+    document.getElementById('kb-organize').addEventListener('click', function () {
+      assignCategory(state.meta.files.filter(function (f) { return f.categorySource === 'uncategorized'; }).map(function (f) { return f.relPath; }));
+    });
     var cs = document.getElementById('kb-csearch');
     cs.value = state.cardFilter || '';
     cs.addEventListener('input', function () { state.cardFilter = cs.value; renderCards(); });
     Array.prototype.forEach.call(view.querySelectorAll('.kb-card'), function (c) {
       c.addEventListener('click', function () { state.activeFile = c.getAttribute('data-rel'); switchMode('reading'); });
+    });
+    Array.prototype.forEach.call(view.querySelectorAll('.kb-classify'), function (b) {
+      b.addEventListener('click', function (e) { e.stopPropagation(); assignCategory([b.getAttribute('data-rel')]); });
     });
   }
 

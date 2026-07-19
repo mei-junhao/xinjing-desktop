@@ -1115,6 +1115,52 @@ function readUserDocConfig() {
   try { return JSON.parse(fs.readFileSync(userDocConfigPath(), 'utf8') || '{}'); } catch (e) { return {}; }
 }
 
+const KNOWLEDGE_META_SCHEMA = 1;
+function knowledgeMetaPath() { return path.join(userDataDir(), 'knowledge-meta-v1.json'); }
+let knowledgeMetaWriteQueue = Promise.resolve();
+async function readKnowledgeMetaFile() {
+  try {
+    const raw = await fs.promises.readFile(knowledgeMetaPath(), 'utf8');
+    const data = JSON.parse(raw);
+    if (!data || data.schemaVersion !== KNOWLEDGE_META_SCHEMA || !data.entries || typeof data.entries !== 'object' || Array.isArray(data.entries)) {
+      return { ok: true, readOnly: true, reason: 'unknown-schema', schemaVersion: data && data.schemaVersion, entries: {} };
+    }
+    return { ok: true, readOnly: false, entries: data.entries };
+  } catch (e) {
+    if (e && e.code !== 'ENOENT') {
+      try { await fs.promises.rename(knowledgeMetaPath(), knowledgeMetaPath() + '.corrupt-' + Date.now()); }
+      catch (ignore) { return { ok: false, reason: 'corrupt-quarantine-failed', entries: {} }; }
+      return { ok: true, recovered: true, reason: 'corrupt-quarantined', entries: {} };
+    }
+    return { ok: true, entries: {} };
+  }
+}
+function writeKnowledgeMetaFile(entries) {
+  knowledgeMetaWriteQueue = knowledgeMetaWriteQueue.then(async function () {
+    const current = await readKnowledgeMetaFile();
+    if (!current.ok) return { ok: false, reason: current.reason || 'metadata-unavailable' };
+    if (current.readOnly) return { ok: false, reason: 'unknown-schema' };
+    const safeEntries = {};
+    Object.keys(entries || {}).forEach(function (key) {
+      const item = entries[key];
+      if (!item || typeof item !== 'object' || typeof item.category !== 'string' || !item.category.trim()) return;
+      safeEntries[String(key).replace(/\\/g, '/')] = {
+        category: item.category.trim().slice(0, 80),
+        contentHash: String(item.contentHash || '').slice(0, 128),
+        updatedAt: String(item.updatedAt || new Date().toISOString()),
+      };
+    });
+    const target = knowledgeMetaPath();
+    const tmp = target + '.tmp-' + process.pid + '-' + Date.now();
+    await fs.promises.writeFile(tmp, JSON.stringify({ schemaVersion: KNOWLEDGE_META_SCHEMA, entries: safeEntries }, null, 2), 'utf8');
+    await fs.promises.rename(tmp, target);
+    return { ok: true, entries: safeEntries };
+  }).catch(function () { return { ok: false, reason: 'write-failed' }; });
+  return knowledgeMetaWriteQueue;
+}
+ipcMain.handle('xj:readKnowledgeMeta', () => readKnowledgeMetaFile());
+ipcMain.handle('xj:writeKnowledgeMeta', (e, entries) => writeKnowledgeMetaFile(entries));
+
 // 选择资料文件夹（用户主动选择，写入配置）
 ipcMain.handle('xj:selectUserDocFolder', async () => {
   try {
@@ -1422,6 +1468,7 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
     return { ok: true, folder: root, files: [], tree: [], categories: [], keywords: [], truncated: false, totalFound: total, limit: Number.isFinite(fileLimit) ? fileLimit : null, stats: { fileCount: 0, totalFound: total, truncated: false, totalBytes: 0, totalChars: 0, categoryCount: 0, avgChars: 0 } };
   }
   const files = [], docs = [], catMap = new Map();
+  const localMeta = await readKnowledgeMetaFile();
   let totalChars = 0, totalBytes = 0, mdCount = 0, txtCount = 0, docCount = 0;
   for (const ent of entries) {
     let text = '';
@@ -1430,12 +1477,16 @@ ipcMain.handle('xj:readUserDocMeta', async () => {
     await new Promise(r => setImmediate(r)); // 逐文件让出
     const headings = extractHeadings(text);
     const fmCat = extractFrontmatterCategory(text);
-    const cat = fmCat || (ent.relPath.includes('/') ? ent.relPath.split('/')[0] : '未分类');
+    const dirCat = ent.relPath.includes('/') ? ent.relPath.split('/')[0] : '';
+    const override = localMeta.entries && localMeta.entries[ent.relPath.replace(/\\/g, '/')];
+    const contentHash = crypto.createHash('sha256').update(text).digest('hex');
+    const validOverride = override && typeof override.category === 'string' && override.contentHash === contentHash ? override : null;
+    const cat = fmCat || (validOverride && validOverride.category) || dirCat || '未分类';
     const fmMatch = /^---\s*\n[\s\S]*?\n---\s*\n/.exec(text);
     const body = fmMatch ? text.slice(fmMatch[0].length) : text;
     const summary = cleanSummary(text);
     const title = (headings.find(h => h.level === 1) || {}).text || ent.relPath.split('/').pop().replace(/\.(md|txt|docx?)$/i, '');
-    files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, category: cat, headingCount: headings.length, summary, injected: true, fmt: /\.docx$/i.test(ent.relPath) ? 'docx' : /\.doc$/i.test(ent.relPath) ? 'doc' : /\.md$/i.test(ent.relPath) ? 'md' : 'txt' });
+    files.push({ relPath: ent.relPath, name: ent.relPath.split('/').pop(), title, size: ent.size, mtime: ent.mtime, chars: text.length, contentHash: contentHash, category: cat, categorySource: fmCat ? 'frontmatter' : validOverride ? 'local' : dirCat ? 'directory' : 'uncategorized', headingCount: headings.length, summary, injected: true, fmt: /\.docx$/i.test(ent.relPath) ? 'docx' : /\.doc$/i.test(ent.relPath) ? 'doc' : /\.md$/i.test(ent.relPath) ? 'md' : 'txt' });
     docs.push({ relPath: ent.relPath, text });
     catMap.set(cat, (catMap.get(cat) || 0) + 1);
     totalChars += text.length; totalBytes += ent.size;

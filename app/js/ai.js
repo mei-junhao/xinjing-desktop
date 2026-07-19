@@ -55,6 +55,40 @@ const AI = (() => {
   // 内置基础模型（免费兜底，走代理；保留常量名供旧引用）
   const BUILTIN_MODEL = buildTrialConfig('Qwen3.5-4B');
 
+  // 将可观测错误归一为安全分类；分类供诊断/UI 使用，原始错误不向外泄露。
+  function classifyError(error) {
+    if (!error) return 'provider_http';
+    if (error.code === 'ABORT_ERR' || error.name === 'AbortError') return 'aborted';
+    if (error.code === 'TRIAL_RATE_LIMIT') return 'rate_limit';
+    const status = Number(error.status || error.httpStatus || 0);
+    const message = String(error.message || '').toLowerCase();
+    if (status === 401 || status === 403 || /\b(401|403)\b|unauthori[sz]ed|invalid.*(key|token)|api.?key/.test(message)) return 'auth';
+    if (status === 429 || /\b429\b|rate.?limit|quota|too many requests|额度|限流/.test(message)) return 'rate_limit';
+    if (!status && /failed to fetch|fetch failed|network|dns|timeout|timed out|econn|enotfound|cors|网络|连接|超时/.test(message)) return 'network';
+    if (status >= 400 && status < 500) return 'provider_http';
+    if (status >= 500) return 'provider_http';
+    return 'provider_http';
+  }
+
+  // 所有失败出口共用固定文案；错误详情只保留内部分类，不把服务端原文带到 UI。
+  function safeFailureResult(error, options) {
+    options = options || {};
+    const errorCode = classifyError(error);
+    if (errorCode === 'aborted') {
+      return { error: '已取消生成', code: 'ABORT_ERR', errorCode: errorCode, interrupted: true, partialContent: options.partialContent || '' };
+    }
+    if (options.partial) {
+      return { error: '生成过程中断，请检查网络或服务状态', errorCode: errorCode, partialContent: options.partialContent || '' };
+    }
+    if (errorCode === 'rate_limit') {
+      return { error: '试用额度已用完，请稍后重试或配置自有 API 密钥', errorCode: errorCode };
+    }
+    if (options.fallbackFailed) {
+      return { error: '模型调用失败（含内置兜底仍失败）', errorCode: 'builtin_fallback_failed', causeCode: errorCode, fallbackCode: options.fallbackCode || 'provider_http' };
+    }
+    return { error: '模型调用失败，请检查配置、网络或服务状态', errorCode: errorCode };
+  }
+
   // ---------- 试用额度（代理侧记账，服务端硬限额 ¥5 / 30 天 / 机器码）----------
   const QUOTA_TOTAL_YUAN = 5;
   // 缓存：percent 为剩余百分比(0-100，null=未知)，tier 为代理确认的实际档位
@@ -199,9 +233,13 @@ const AI = (() => {
         {}
       );
       if (msg && typeof msg.content === 'string') return { ok: true };
-      return { ok: false, error: '空响应' };
+      return { ok: false, error: '服务端返回空响应', errorCode: 'provider_http' };
     } catch (e) {
-      return { ok: false, error: (e && e.message) ? e.message : '连接失败' };
+      return {
+        ok: false,
+        error: '连接失败，请检查配置、网络或服务状态',
+        errorCode: classifyError(e),
+      };
     }
   }
 
@@ -360,6 +398,7 @@ const AI = (() => {
         try { const j = JSON.parse(errText); if (j && j.message) msg = j.message; } catch (e) {}
         const rlErr = new Error(msg);
         rlErr.code = 'TRIAL_RATE_LIMIT';
+        rlErr.status = resp.status;
         throw rlErr;
       }
       // 工具不支持类错误（部分模型对 tools 报 400）→ 去掉 tools 重试一次，避免硬失败
@@ -377,7 +416,9 @@ const AI = (() => {
           }
         } catch (e2) { /* 忽略，抛原错误 */ }
       }
-      throw new Error(`HTTP ${resp.status}: ${errText.slice(0, 100)}`);
+      const httpErr = new Error(`HTTP ${resp.status}: ${errText.slice(0, 100)}`);
+      httpErr.status = resp.status;
+      throw httpErr;
     }
     // 读取代理回传的额度/档位响应头，实时更新 UI
     updateQuotaFromHeaders(resp.headers);
@@ -430,6 +471,7 @@ const AI = (() => {
       } catch (e) {
         if (e && e.code === 'ABORT_ERR') throw e;
         const streamErr = new Error(e && e.message ? e.message : '流式响应读取失败');
+        if (e && (e.code === 'ABORT_ERR' || e.name === 'AbortError')) streamErr.code = 'ABORT_ERR';
         streamErr.partial = received;
         streamErr.partialContent = content;
         throw streamErr;
@@ -464,13 +506,8 @@ const AI = (() => {
       };
     } catch (e) {
       // 首 token 已经交给 UI 后不可重放，否则用户会看到重复回答。
-      if (e && (e.partial || e.code === 'ABORT_ERR')) {
-        return {
-          error: e.message || '生成已中断',
-          code: e.code,
-          interrupted: e.code === 'ABORT_ERR',
-          partialContent: e.partialContent || '',
-        };
+      if (e && (e.partial || e.code === 'ABORT_ERR' || e.name === 'AbortError')) {
+        return safeFailureResult(e, { partial: e.partial, partialContent: e.partialContent });
       }
       // 仅当当前确实用的是用户模型（非试用代理）才降级，避免无意义自递归
       if (config.isUser && config.apiKey) {
@@ -481,14 +518,13 @@ const AI = (() => {
             tool_calls: builtinMsg.tool_calls,
             tier: BUILTIN_MODEL.label,
             degraded: true,
-            degradedReason: '用户模型调用失败：' + (e.message || '未知错误') + '，已自动降级到内置免费模型',
+            degradedReason: '用户模型调用失败（' + classifyError(e) + '），已自动降级到内置免费模型',
           };
         } catch (e2) {
-          return { error: '模型调用失败（含内置兜底仍失败）：' + (e2.message || e.message || '未知错误') };
+          return safeFailureResult(e, { fallbackFailed: true, fallbackCode: classifyError(e2) });
         }
       }
-      if (e && e.code === 'TRIAL_RATE_LIMIT') return { error: e.message };
-      return { error: '模型调用失败：' + (e.message || '未知错误') };
+      return safeFailureResult(e);
     }
   }
 
@@ -667,6 +703,8 @@ ${transcript}
     refreshQuota: fetchQuota,
     onQuotaChange,
     getTrialModel,
+    classifyError,
+    safeFailureResult,
   };
 })();
 
@@ -677,5 +715,9 @@ if (typeof window !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { normalizeMessageSequence: AI.normalizeMessageSequence };
+  module.exports = {
+    normalizeMessageSequence: AI.normalizeMessageSequence,
+    classifyError: AI.classifyError,
+    safeFailureResult: AI.safeFailureResult,
+  };
 }

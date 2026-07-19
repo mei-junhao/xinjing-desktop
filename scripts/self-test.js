@@ -2537,6 +2537,7 @@ test('v3.7-13 所有应用 HTML 保留 body 和脚本入口', function () {
   fs.readdirSync(APP_DIR).filter(function (name) { return name.endsWith('.html'); }).forEach(function (name) {
     const html = fs.readFileSync(path.join(APP_DIR, name), 'utf8');
     assert.ok(/<body[\s>]/i.test(html), name + ' 缺少 body');
+    assert.ok(/<\/body>/i.test(html), name + ' 缺少 body 闭合标签');
     assert.ok(/<script\b/i.test(html), name + ' 缺少 script');
   });
 });
@@ -2900,7 +2901,7 @@ test('v4.0.4-2 版本、预览基准和账务隔离一致', function () {
   const generated = fs.readFileSync(path.join(__dirname, '..', 'version.generated.js'), 'utf8');
   const settingsHtml = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf8');
   const settingsJs = fs.readFileSync(path.join(APP_DIR, 'js', 'settings.js'), 'utf8');
-  assert.strictEqual(pkg.version, '4.1.0');
+  assert.strictEqual(pkg.version, '4.1.1');
   assert.strictEqual(lock.version, pkg.version);
   assert.strictEqual(lock.packages[''].version, pkg.version);
   assert.ok(new RegExp('VERSION:\\s*"' + pkg.version.replace(/\./g, '\\.') + '"').test(generated), 'version.generated.js 未同步 package.json');

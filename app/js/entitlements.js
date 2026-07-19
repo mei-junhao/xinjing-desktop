@@ -27,7 +27,7 @@
     'ai-masters': 'pro',
     'transcript-guide': 'pro',
     'ai-growth': 'pro',
-    'billing-calendar': 'pro',
+    'billing-calendar': 'free',
     'export-clean': 'pro',
     'premium-skins': 'pro',
     'rag-vector': 'pro',

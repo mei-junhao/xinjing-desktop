@@ -930,12 +930,30 @@
   }
 
   function toggleAddForm() {
-    var cid = bCurClient ? bCurClient.id : (binCurClient ? binCurClient.id : '');
-    openAddModal(cid);
+    try {
+      var cid = bCurClient ? bCurClient.id : (binCurClient ? binCurClient.id : '');
+      openAddModal(cid);
+    } catch (e) {
+      console.error('[toggleAddForm] 打开记一笔失败:', e);
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast('打开记一笔失败: ' + (e && e.message || e), 'error');
+      } else {
+        alert('打开记一笔失败: ' + (e && e.message || e));
+      }
+    }
   }
   window.billingToggleAddForm = function () {
-    var cid = binCurClient ? binCurClient.id : '';
-    openAddModal(cid);
+    try {
+      var cid = binCurClient ? binCurClient.id : '';
+      openAddModal(cid);
+    } catch (e) {
+      console.error('[billingToggleAddForm] 打开记一笔失败:', e);
+      if (typeof App !== 'undefined' && App.showToast) {
+        App.showToast('打开记一笔失败: ' + (e && e.message || e), 'error');
+      } else {
+        alert('打开记一笔失败: ' + (e && e.message || e));
+      }
+    }
   };
 
   function openAddModal(preClientId, preDate) {

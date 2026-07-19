@@ -374,6 +374,14 @@
   };
 
   // ---------- 对话渲染 ----------
+  window.focusMasterPicker = function () {
+    var list = $('master-list');
+    if (list) {
+      list.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var first = list.querySelector('button.master-card');
+      if (first) first.focus();
+    }
+  };
   function renderChat() {
     var titleEl = $('chat-title'), subEl = $('chat-sub'), body = $('chat-body');
     syncDocsButton();
@@ -383,7 +391,7 @@
     if (!currentConv) {
       titleEl.textContent = mode === '1v1' ? '选择一位大师' : '勾选大师';
       subEl.textContent = mode === '1v1' ? '从左侧挑选一位开始对话' : '在左侧勾选两位及以上大师';
-      body.innerHTML = '<div class="empty-state"><i data-lucide="messages-square"></i><div class="big">把一个临床问题带到桌面上</div><span>先选择大师，再输入你正在思考的材料</span></div>';
+      body.innerHTML = '<div class="empty-state"><i data-lucide="messages-square"></i><div class="big">把一个临床问题带到桌面上</div><span>先选择大师，再输入你正在思考的材料</span><button class="primary" type="button" onclick="focusMasterPicker()"><i data-lucide="users-round"></i>选择大师</button></div>';
       input.disabled = true; sendBtn.disabled = true;
       input.placeholder = '选择一位大师后即可输入';
       btnNew.style.display = 'none'; btnDel.style.display = 'none';

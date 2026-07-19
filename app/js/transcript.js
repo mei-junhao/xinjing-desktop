@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   var currentClientId = null;
+  var currentSessionId = new URLSearchParams(location.search).get('sessionId') || '';
   var lines = [];          // {speaker, text, errors: [{pos,len,fix,type}], fixed: bool}
   var memRules = [];       // [{pattern, fix, count}]
   var errorCount = 0;
@@ -49,6 +50,26 @@
 
   // 来访者列表（在 Store 就绪后再填充，避免下拉为空）
   var selClient = document.getElementById('tp-client');
+  var selSession = document.getElementById('tp-session');
+  function fillSessionSelect() {
+    if (!selSession) return;
+    selSession.innerHTML = '<option value="">选择会谈…</option>';
+    if (!currentClientId) return;
+    Store.getSessionsForPicker(currentClientId).slice().sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '');
+    }).forEach(function (s) {
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = '第' + (s.sessionNumber || '?') + '节 · ' + (s.date || '未设置日期');
+      selSession.appendChild(opt);
+    });
+    if (currentSessionId && Store.getSession(currentSessionId) && Store.getSession(currentSessionId).clientId === currentClientId) {
+      selSession.value = currentSessionId;
+    } else if (selSession) {
+      currentSessionId = '';
+      selSession.value = '';
+    }
+  }
   function fillClientSelect() {
     if (!selClient) return;
     var keep = selClient.value;
@@ -62,7 +83,8 @@
   }
   fillClientSelect();
   function restoreActiveClient() {
-    var clientId = App.getActiveClientId && App.getActiveClientId();
+    var deepLinkedSession = currentSessionId && Store.getSession(currentSessionId);
+    var clientId = deepLinkedSession ? deepLinkedSession.clientId : (App.getActiveClientId && App.getActiveClientId());
     if (clientId && Store.getClient(clientId) && selClient) {
       selClient.value = clientId;
       window.loadClient();
@@ -79,8 +101,13 @@
     if (!currentClientId) return;
     if (App.setActiveClientId) App.setActiveClientId(currentClientId);
     var c = Store.getClient(currentClientId);
+    fillSessionSelect();
     if (materialId && Store.reconcileMaterialContext) Store.reconcileMaterialContext(materialId, currentClientId, null, {});
     App.showToast('已选择 ' + c.name, 'success');
+  };
+  window.loadSession = function () {
+    currentSessionId = selSession && selSession.value || '';
+    if (currentSessionId) App.showToast('已选择会谈', 'success');
   };
 
   // 一键上传文件（txt / md / docx）→ 解析后填入输入框
@@ -313,14 +340,15 @@
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     if (!lines.length) { App.showToast('无内容可保存', 'warning'); return; }
     var text = lines.map(function (l) { return (l.speaker ? l.speaker + ': ' : '') + l.text; }).join('\n');
-    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-    if (sessions.length) {
-      Store.updateSessionFull(Object.assign({}, sessions[0], { transcript: text }));
-      if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { transcript: 'completed' }, artifacts: { transcriptSessionId: sessions[0].id } });
-      App.showToast('已保存到最近一次会话的逐字稿', 'success');
-    } else {
-      App.showToast('请先在咨询记录中创建会话', 'warning');
+    var session = currentSessionId && Store.getSession(currentSessionId);
+    if (!session || session.clientId !== currentClientId) {
+      App.showToast('请先选择属于当前来访者的会谈', 'warning');
+      return;
     }
+    Store.updateSessionFull(Object.assign({}, session, { transcript: text }));
+    if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { transcript: 'completed' }, artifacts: { transcriptSessionId: session.id } });
+    var client = Store.getClient(currentClientId);
+    App.showToast('已保存：' + (client ? client.name : '来访者') + ' · 第' + (session.sessionNumber || '?') + '节 · ' + (session.date || '未设置日期'), 'success');
   };
 
   window.exportTranscript = function () {

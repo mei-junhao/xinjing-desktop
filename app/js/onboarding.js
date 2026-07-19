@@ -283,11 +283,12 @@
   // ② 新手任务清单（真实数据驱动）
   // ============================================================
   function taskState() {
-    var hasAI = false, hasClient = false, hasSession = false, explored = false;
+    var hasAI = false, hasClient = false, hasSession = false, explored = false, hasProfile = false;
     try { hasAI = (window.AI && typeof AI.getTier === 'function' && AI.getTier() === 'user'); } catch (e) {}
     try { hasClient = (window.Store && Store.getClients && Store.getClients().length > 0); } catch (e) {}
     try { hasSession = (window.Store && Store.getSessions && Store.getSessions().length > 0); } catch (e) {}
     try { explored = lsGet(LS_EXPLORE) === '1'; } catch (e) {}
+    try { var profile = (Store.getSettings().profile) || {}; hasProfile = !!(profile.displayName || profile.orientation); } catch (e) {}
     return [
       { key: 'ai', done: hasAI, tt: '配置 AI 模型', ds: '填入你的 API 密钥，解锁高性能模型', go: '去设置', act: function () { location.href = 'settings.html'; } },
       { key: 'client', done: hasClient, tt: '新建第一位来访者', ds: '建立档案，开始你的个案管理', go: '去新建', act: function () {
@@ -295,7 +296,8 @@
           else location.href = 'consult-notes.html';
         } },
       { key: 'session', done: hasSession, tt: '记录一次咨询', ds: '写下第一条会谈记录', go: '去记录', act: function () { location.href = 'consult-notes.html'; } },
-      { key: 'explore', done: explored, tt: '体验 AI 督导 / 大师对话', ds: '让 AI 给你专业视角', go: '去体验', act: function () { lsSet(LS_EXPLORE, '1'); location.href = 'supervision.html'; } }
+      { key: 'explore', done: explored, tt: '体验 AI 督导 / 大师对话', ds: '让 AI 给你专业视角', go: '去体验', act: function () { lsSet(LS_EXPLORE, '1'); location.href = 'supervision.html'; } },
+      { key: 'profile', done: hasProfile, optional: true, tt: '可选：完善执业画像', ds: '称呼和取向仅用于本地个性化，不影响手工工作', go: '去设置', act: function () { location.href = 'settings.html#profile'; } }
     ];
   }
 
@@ -307,11 +309,12 @@
       injectStyle();
 
       var tasks = taskState();
-      var doneN = tasks.filter(function (t) { return t.done; }).length;
-      var pct = Math.round(doneN / tasks.length * 100);
+      var requiredTasks = tasks.filter(function (t) { return !t.optional; });
+      var doneN = requiredTasks.filter(function (t) { return t.done; }).length;
+      var pct = Math.round(doneN / Math.max(1, requiredTasks.length) * 100);
 
       // 全部完成：显示祝贺一小会儿后自动收起（并持久化 dismiss，避免下次再弹）
-      var allDone = doneN === tasks.length;
+      var allDone = doneN === requiredTasks.length;
 
       var rows = tasks.map(function (t) {
         return '<div class="xjob-task' + (t.done ? ' done' : '') + '" data-k="' + t.key + '">' +
@@ -326,7 +329,7 @@
           '<div class="xjob-cl-head">' +
             '<div class="ic">✦</div>' +
             '<h3>新手任务清单</h3>' +
-            '<span class="pct">' + doneN + ' / ' + tasks.length + ' 完成</span>' +
+            '<span class="pct">' + doneN + ' / ' + requiredTasks.length + ' 必做完成</span>' +
             '<button class="xjob-cl-close" title="收起" data-close="1">×</button>' +
           '</div>' +
           '<div class="xjob-bar"><i style="width:' + pct + '%"></i></div>' +

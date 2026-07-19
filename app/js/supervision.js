@@ -195,10 +195,12 @@ App.initPage({
       box.innerHTML = sessions.map(function (s) {
         var hasTranscript = s.transcript && s.transcript.trim();
         var hasSoap = s.soap && (s.soap.subjective || s.soap.objective || s.soap.assessment || s.soap.plan);
+        var linkedMaterials = Store.getMaterialWorkspacesForSession ? Store.getMaterialWorkspacesForSession(currentClientId, s.id) : [];
         var tags = '';
         if (hasTranscript) tags += '<span class="tag done">逐字稿</span>';
         if (hasSoap) tags += '<span class="tag done">记录</span>';
-        if (!hasTranscript && !hasSoap) tags += '<span class="tag">无材料</span>';
+        if (linkedMaterials.length) tags += '<span class="tag done">已关联材料 ' + linkedMaterials.length + '</span>';
+        if (!hasTranscript && !hasSoap && !linkedMaterials.length) tags += '<span class="tag">无材料</span>';
         var preview = (s.transcript || '').slice(0, 60);
         return '<div class="lh-item" onclick="loadSessionTranscript(\'' + s.id + '\')" data-id="' + s.id + '">' +
           '<div class="s-num">第' + (s.sessionNumber || '?') + '节</div>' +
@@ -214,7 +216,13 @@ App.initPage({
       currentSessionId = s.id;
       materialTA.value = s.transcript || '';
       if (s.soap) materialTA.value += '\n\n--- SOAP ---\nS: ' + (s.soap.subjective||'') + '\nO: ' + (s.soap.objective||'') + '\nA: ' + (s.soap.assessment||'') + '\nP: ' + (s.soap.plan||'');
-      addMsg('ai', '已载入第' + (s.sessionNumber || '?') + '节逐字稿。');
+      var linkedMaterials = Store.getMaterialWorkspacesForSession ? Store.getMaterialWorkspacesForSession(s.clientId, s.id) : [];
+      if (linkedMaterials.length) {
+        materialTA.value += '\n\n--- 已关联材料来源 ---\n' + linkedMaterials.map(function (m) {
+          return '【' + (m.sourceName || m.title) + '】\n' + (m.text || '材料已关联，但暂无可预览文本');
+        }).join('\n\n');
+      }
+      addMsg('ai', '已载入第' + (s.sessionNumber || '?') + '节材料' + (linkedMaterials.length ? '，含 ' + linkedMaterials.length + ' 份关联材料。' : '。'));
       // 高亮选中的会话
       document.querySelectorAll('.lh-item').forEach(function (el) { el.classList.remove('active'); });
       var active = document.querySelector('.lh-item[data-id="' + sessionId + '"]');

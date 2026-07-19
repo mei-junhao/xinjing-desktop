@@ -43,6 +43,8 @@ const api = {
   readUserDocMeta: () => ipcRenderer.invoke('xj:readUserDocMeta'),
   readUserDocFile: (relPath) => ipcRenderer.invoke('xj:readUserDocFile', { relPath }),
   searchUserDocs: (query, max) => ipcRenderer.invoke('xj:searchUserDocs', { query, max }),
+  readKnowledgeMeta: () => ipcRenderer.invoke('xj:readKnowledgeMeta'),
+  writeKnowledgeMeta: (entries) => ipcRenderer.invoke('xj:writeKnowledgeMeta', entries),
   ragIndexStatus: () => ipcRenderer.invoke('xj:ragIndexStatus'),
   ragIndex: () => ipcRenderer.invoke('xj:ragIndex'),
   ragCancel: () => ipcRenderer.invoke('xj:ragCancel'),
@@ -233,9 +235,20 @@ try {
 
   function lockExportPrint() {
     if (lockClickHandler) return; // 已加锁，避免重复绑定
+    // P1 修复：只检查可点击元素（button/a/input/[role=button]）自身的 textContent，
+    // 不检查容器元素的 textContent（会包含所有后代按钮文本，导致误判）。
+    // 原因：账单页 #cpanel-invoice 渲染后含"导出 Word 账单"按钮，main.main 的 textContent
+    // 随之包含"导出"字样，导致免费版用户点击顶栏"记一笔"按钮时被误拦截（事件路径经过 main.main）。
     const isBlocked = (el) => {
       if (!el) return false;
-      const t = (el.textContent || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.getAttribute('aria-label') || '');
+      const tag = el.tagName ? el.tagName.toLowerCase() : '';
+      const isClickable = tag === 'button' || tag === 'a' || tag === 'input' ||
+                          el.getAttribute && el.getAttribute('role') === 'button';
+      // 容器元素只检查 title/aria-label（元素自身属性），不检查 textContent（会聚合后代文本）
+      const textPart = isClickable ? (el.textContent || '') : '';
+      const titleAttr = (el.getAttribute && el.getAttribute('title')) || '';
+      const ariaAttr = (el.getAttribute && el.getAttribute('aria-label')) || '';
+      const t = textPart + ' ' + titleAttr + ' ' + ariaAttr;
       return /导出|打印|export|print/i.test(t);
     };
     lockClickHandler = (e) => {

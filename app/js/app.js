@@ -186,7 +186,7 @@ const App = (() => {
   const NAV_ITEMS = [
     { key: 'workbench', label: '工作台', icon: 'home', href: 'index.html', group: 'clinical' },
     { key: 'calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html', group: 'clinical' },
-    { key: 'clients', label: '来访者', icon: 'clients', href: 'doc-center.html', group: 'clinical' },
+    { key: 'clients', label: '来访者档案', icon: 'clients', href: 'doc-center.html', group: 'clinical' },
     { key: 'clinical', label: '临床材料', icon: 'calendar', href: 'consult-notes.html', group: 'clinical' },
     { key: 'supervision', label: '督导空间', icon: 'cap', href: 'supervision.html', group: 'clinical', feature: 'ai-supervise' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html', group: 'clinical', feature: 'ai-masters' },
@@ -223,7 +223,7 @@ const App = (() => {
     'masters.html': { domain: 'masters', parent: 'masters.html', sidebar: true, feature: 'ai-masters' },
     'knowledge.html': { domain: 'knowledge', parent: 'knowledge.html', sidebar: true, feature: 'manual-core' },
     'billing-shell.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'manual-core' },
-    'billing-calendar.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'billing-calendar' },
+    'billing-calendar.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'manual-core' },
     'settings.html': { domain: 'settings', parent: 'settings.html', sidebar: true, feature: 'manual-core' },
     'feedback.html': { domain: 'settings', parent: 'settings.html', sidebar: true, feature: 'manual-core' },
     'activation.html': { domain: 'settings', parent: 'settings.html', sidebar: false, feature: 'manual-core' },
@@ -1041,7 +1041,6 @@ const App = (() => {
         'supervision-mindmap.html': 'ai-mindmap',
         'real-supervision-ai.html': 'real-sup-ai',
         'doc-growth.html': 'ai-growth',
-        'billing-calendar.html': 'billing-calendar',
       };
       const feature = gates[page];
       if (!feature || canUse(feature)) return;

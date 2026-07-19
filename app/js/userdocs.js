@@ -199,6 +199,12 @@
   }
 
   function invalidateMeta() { _meta = null; _metaAt = 0; }
+  async function readKnowledgeMeta() {
+    try { return await window.__XJ_API__.readKnowledgeMeta(); } catch (e) { return { ok: false, reason: 'ipc-failed', entries: {} }; }
+  }
+  async function writeKnowledgeMeta(entries) {
+    try { var r = await window.__XJ_API__.writeKnowledgeMeta(entries || {}); invalidateMeta(); return r; } catch (e) { return { ok: false, reason: 'ipc-failed' }; }
+  }
 
   refresh();
 
@@ -212,6 +218,8 @@
     getFile,
     searchDetailed,
     invalidateMeta,
+    readKnowledgeMeta,
+    writeKnowledgeMeta,
     estimateTokens: _estimateTokens,
     currentTier: _currentTier,
   };

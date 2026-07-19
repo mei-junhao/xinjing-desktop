@@ -84,16 +84,6 @@
     var box = document.getElementById('bc-body');
     document.getElementById('month-label').textContent = curYear + '年' + (curMonth + 1) + '月';
 
-    // P3 修复：featureGate 检查提前到 render 开头，避免免费用户看到完整月历渲染后再被遮罩替换（闪烁）
-    if (typeof App !== 'undefined' && typeof App.featureGate === 'function' && !App.featureGate('billing-calendar')) {
-      box.innerHTML = '<div style="text-align:center;padding:60px 24px;font-family:var(--sans);color:var(--ink-3)">' +
-        (App.lockBadge ? App.lockBadge('billing-calendar') : '') +
-        '<div style="margin-top:14px;font-size:15px;color:var(--ink-2);font-weight:600">月历明细为会员功能</div>' +
-        '<div style="margin-top:6px;font-size:12px">升级会员查看每日收入支出明细与月结单</div>' +
-        '</div>';
-      return;
-    }
-
     // 保存当前月结单区选中的来访者/月份，避免 render() 后被重置
     // P3#9 修复：prevMonthInput 命名避免遮蔽全局函数 prevMonth()
     var savedClientId = null, savedYm = null;

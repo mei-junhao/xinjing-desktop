@@ -572,6 +572,18 @@ const Store = (() => {
   }
   function getMaterialWorkspaces() { return cache.materialWorkspaces.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))); }
   function getMaterialWorkspace(id) { return cache.materialWorkspaces.find((item) => item.id === id) || null; }
+  // 督导/报告等页面只读使用，返回安全摘要，不暴露内部路径或改变材料状态。
+  function getMaterialWorkspacesForSession(clientId, sessionId) {
+    if (!clientId || !sessionId) return [];
+    return getMaterialWorkspaces().filter((item) => item.clientId === clientId && item.sessionId === sessionId).map((item) => ({
+      id: item.id,
+      title: item.title || (item.source && item.source.name) || '未命名材料',
+      sourceName: (item.source && item.source.name) || item.title || '本地材料',
+      updatedAt: item.updatedAt || item.createdAt || '',
+      text: item.extractedText || '',
+      linkStatus: item.linkStatus || 'linked',
+    }));
+  }
   function createMaterialWorkspace(data) {
     const limit = materialWorkspaceLimit();
     const unlinkedCount = cache.materialWorkspaces.filter((item) => item.linkStatus === 'unlinked').length;
@@ -1449,7 +1461,7 @@ const Store = (() => {
     getSupervisorIdentities, getSupervisorIdentity,
     createSupervisorIdentity, updateSupervisorIdentity, deleteSupervisorIdentity,
     // 临床材料工作项
-    getMaterialWorkspaces, getMaterialWorkspace, createMaterialWorkspace, updateMaterialWorkspace, deleteMaterialWorkspace, linkMaterialWorkspace, reconcileMaterialContext,
+    getMaterialWorkspaces, getMaterialWorkspace, getMaterialWorkspacesForSession, createMaterialWorkspace, updateMaterialWorkspace, deleteMaterialWorkspace, linkMaterialWorkspace, reconcileMaterialContext,
     // 临床动作溯源
     getClinicalActionRuns, getClinicalActionRun, createClinicalActionRun, updateClinicalActionRun,
     // 设置
