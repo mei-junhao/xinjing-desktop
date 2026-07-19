@@ -338,7 +338,7 @@
         <div class="actions">
           <button class="primary" onclick="toggleAddForm()"><i data-lucide="plus"></i>记一笔</button>
           <button onclick="openImport()"><i data-lucide="file-up"></i>导入数据</button>
-          <button onclick="location.href='billing-calendar.html'" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)"><i data-lucide="calendar-days"></i>月历</button>
+          <button onclick="App.openFeaturePage('billing-calendar.html', 'billing-calendar')" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)"><i data-lucide="calendar-days"></i>月历</button>
           <button class="danger-btn" onclick="confirmClearData()" style="background:transparent;border:1px solid var(--danger);color:var(--danger);padding:6px 12px;border-radius:8px;font-size:12px;cursor:pointer;margin-left:8px">清除数据</button>
         </div>
       </div>
@@ -382,7 +382,7 @@
               <span class="badge in">来访者账单</span>
               <span class="sp"></span>
               <button onclick="billingToggleAddForm()">+ 记一笔</button>
-              <button onclick="location.href='billing-calendar.html'">月结单</button>
+              <button onclick="App.openFeaturePage('billing-calendar.html', 'billing-calendar')">月结单</button>
             </div>
             <div class="billing-search-row">
               <input id="bin-search" placeholder="搜索来访者…" oninput="renderIncomeList()">
@@ -2376,7 +2376,7 @@
   // 同时清理仅被旧内联表单引用的死代码：closeBinForm / doAddIncome / doSettleMonth
   // billingToggleAddForm 现在统一走 L896 的 openAddModal(cid) 版本
   window.billingToggleSettleForm = function () {
-    location.href = 'billing-calendar.html';
+    App.openFeaturePage('billing-calendar.html', 'billing-calendar');
   };
 
   function renderExpensePanel() {
