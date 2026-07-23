@@ -9,14 +9,18 @@ App.initPage({
   onReady: function () {
     'use strict';
 
-    // 版本号 — 统一走构建期注入的 version.generated.js（preload 桥接）
-    function setVersion() {
-      var ver = '4.1.1';
+    // sandbox preload 通过主进程读取真实应用版本，避免本地 require 在沙箱中失效。
+    async function getAppVersion() {
+      var ver = '4.2.4';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
-          ver = window.__XJ_API__.getVersion() || ver;
+          ver = await window.__XJ_API__.getVersion() || ver;
         }
       } catch (e) {}
+      return ver;
+    }
+    async function setVersion() {
+      var ver = await getAppVersion();
       var verEl = document.getElementById('ver-text');
       if (verEl) verEl.textContent = 'v' + ver;
       var aboutVer = document.getElementById('about-version');
@@ -40,9 +44,9 @@ App.initPage({
         }
       } catch (e) { /* 忽略桥接异常，main.js 会兜底弹网络错误 */ }
       // 安全兜底：3 秒后若仍停在"检查中"，按已最新处理
-      setTimeout(function () {
+      setTimeout(async function () {
         if (info && info.textContent === '正在检查更新…') {
-          var v = (window.__XJ_API__ && window.__XJ_API__.getVersion) ? window.__XJ_API__.getVersion() : '';
+          var v = await getAppVersion();
           info.textContent = '已是最新版本 v' + v;
         }
       }, 3000);
@@ -101,16 +105,15 @@ App.initPage({
       });
     }
 
+    var savedApiKey = '';
     async function loadConfig() {
     const settings = Store.getSettings();
     const api = settings.apiConfig || {};
     document.getElementById('api-baseurl').value = api.baseUrl || '';
-    // H1 修复：apiKey 可能已加密，显示前需解密
-    var displayKey = api.apiKey || '';
-    if (displayKey && displayKey.startsWith('xj-enc:') && window.__XJ_API__ && window.__XJ_API__.decryptSecret) {
-      try { displayKey = await window.__XJ_API__.decryptSecret(displayKey); } catch (e) { displayKey = ''; }
-    }
-    document.getElementById('api-key').value = displayKey;
+    savedApiKey = typeof api.apiKey === 'string' ? api.apiKey : '';
+    var keyInput = document.getElementById('api-key');
+    keyInput.value = '';
+    keyInput.placeholder = savedApiKey ? '密钥已保存；输入新密钥可替换' : 'sk-...';
     const OLD = ['deepseek-pro', 'deepseek-flash', 'minimax-m3', 'agnes', 'deepseek-reasoner', 'deepseek-chat'];
     let modelPref = api.modelPreference || '';
     if (OLD.indexOf(modelPref) !== -1) {
@@ -130,6 +133,18 @@ App.initPage({
     } else {
       sel.value = modelPref || '__builtin__';
     }
+  }
+
+  async function encryptApiKey(rawKey) {
+    if (!rawKey) return savedApiKey;
+    if (!window.__XJ_API__ || typeof window.__XJ_API__.encryptSecret !== 'function') {
+      throw new Error('本机密钥加密服务不可用');
+    }
+    const encrypted = await window.__XJ_API__.encryptSecret(rawKey);
+    if (typeof encrypted !== 'string' || !encrypted.startsWith('xj-enc:')) {
+      throw new Error('本机无法安全加密密钥');
+    }
+    return encrypted;
   }
 
   // 显示当前生效档位（内置 / 用户），供用户感知低性能 vs 高性能
@@ -190,73 +205,92 @@ App.initPage({
     }
     // 选「内置免费模型」= 清除自有配置，回退到内置模型
     if (model === '__builtin__' || !model) {
-      Store.saveSettings({ apiConfig: {} });
+      var builtinSave = await Store.saveSettingsDurable({ apiConfig: {} });
+      if (!builtinSave.ok) {
+        App.showToast('配置保存失败，当前设置未改变', 'error');
+        return false;
+      }
+      savedApiKey = '';
+      document.getElementById('api-key').value = '';
+      document.getElementById('api-key').placeholder = 'sk-...';
       App.showToast('已切换回内置免费模型', 'success');
     } else {
-      // H1 修复：apiKey 经 safeStorage 加密后再存入 IndexedDB
       var rawKey = document.getElementById('api-key').value.trim();
-      var encKey = rawKey;
-      if (rawKey && window.__XJ_API__ && window.__XJ_API__.encryptSecret) {
-        try { encKey = await window.__XJ_API__.encryptSecret(rawKey); } catch (e) { /* 降级明文 */ }
+      var encKey;
+      try {
+        encKey = await encryptApiKey(rawKey);
+      } catch (e) {
+        App.showToast(e.message || '密钥无法安全保存，请重试', 'error');
+        return false;
       }
-      Store.saveSettings({
+      if (!encKey) {
+        App.showToast('请输入 API Key', 'error');
+        return false;
+      }
+      const previous = (Store.getSettings().apiConfig) || {};
+      const nextBaseUrl = document.getElementById('api-baseurl').value.trim();
+      const unchangedConnection = !rawKey && previous.baseUrl === nextBaseUrl && previous.modelPreference === model;
+      var apiSave = await Store.saveSettingsDurable({
         apiConfig: {
-          baseUrl: document.getElementById('api-baseurl').value.trim(),
+          baseUrl: nextBaseUrl,
           apiKey: encKey,
           modelPreference: model,
           maxTokens: 4000,
+          verified: unchangedConnection && previous.verified === true,
         },
       });
+      if (!apiSave.ok) {
+        App.showToast('配置保存失败，当前设置未改变', 'error');
+        return false;
+      }
+      savedApiKey = encKey;
+      document.getElementById('api-key').value = '';
+      document.getElementById('api-key').placeholder = '密钥已保存；输入新密钥可替换';
       App.showToast('已保存 API 配置', 'success');
     }
     updateTierStatus();
   };
 
   // 一键清除自有配置，回到内置免费模型
-  window.useBuiltinModel = function () {
-    Store.saveSettings({ apiConfig: {} });
+  window.useBuiltinModel = async function () {
+    var builtinSave = await Store.saveSettingsDurable({ apiConfig: {} });
+    if (!builtinSave.ok) {
+      App.showToast('配置保存失败，当前设置未改变', 'error');
+      return false;
+    }
     document.getElementById('api-baseurl').value = '';
     document.getElementById('api-key').value = '';
+    document.getElementById('api-key').placeholder = 'sk-...';
     document.getElementById('api-model').value = '__builtin__';
+    savedApiKey = '';
     updateTierStatus();
     App.showToast('已清除配置，改用内置免费模型', 'success');
   };
 
   window.testApi = async function () {
-    let cfg = null;
-    try {
-      if (typeof AI !== 'undefined' && AI.getActiveConfig) cfg = AI.getActiveConfig();
-    } catch (e) { /* ignore */ }
-    if (!cfg || !cfg.baseUrl) {
-      App.showToast('无法获取接口地址', 'error');
+    var sel = document.getElementById('api-model');
+    var model = sel ? sel.value : '';
+    if (model === '__custom__') model = document.getElementById('api-custom-model').value.trim();
+    var rawKey = document.getElementById('api-key').value.trim();
+    var cfg = {
+      baseUrl: document.getElementById('api-baseurl').value.trim(),
+      apiKey: rawKey || savedApiKey,
+      model: model,
+    };
+    if (!cfg.baseUrl || !cfg.apiKey || !cfg.model || model === '__builtin__') {
+      App.showToast('请先填写接口地址、模型和密钥', 'error');
       return;
     }
     App.showToast('正在测试连接...');
     try {
-      // H1 修复：apiKey 可能已加密，使用前需解密
-      var testKey = cfg.apiKey || '';
-      if (testKey.startsWith('xj-enc:') && window.__XJ_API__ && window.__XJ_API__.decryptSecret) {
-        try { testKey = await window.__XJ_API__.decryptSecret(testKey); } catch (e) { testKey = ''; }
-      }
-      const resp = await fetch(cfg.baseUrl.replace(/\/$/, '') + '/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + testKey,
-        },
-        body: JSON.stringify({
-          model: cfg.model,
-          messages: [{ role: 'user', content: 'ping' }],
-          max_tokens: 10,
-        }),
-      });
-      if (resp.ok) {
-        App.showToast('连接成功 ✓（' + (cfg.label || cfg.model) + '）', 'success');
+      const test = typeof AI !== 'undefined' && AI.testConnection ? await AI.testConnection(cfg) : { ok: false };
+      if (test.ok) {
+        App.showToast('连接成功 ✓（' + cfg.model + '）', 'success');
       } else {
-        App.showToast('连接失败：HTTP ' + resp.status, 'error');
+        App.showToast('连接失败，请检查接口地址、模型和密钥', 'error');
       }
     } catch (e) {
-      App.showToast('连接错误：' + e.message, 'error');
+      App.showToast('连接错误，请检查网络后重试', 'error');
     }
   };
 
@@ -971,12 +1005,21 @@ App.initPage({
       baseUrl: CD.baseUrl, apiKey: CD.apiKey, modelPreference: CD.model,
       provider: CD.provider, maxTokens: 4000, verified: test.ok,
     };
-    // H1 修复：apiKey 经 safeStorage 加密后再存入 IndexedDB
     var toSave = Object.assign({}, merged);
-    if (toSave.apiKey && window.__XJ_API__ && window.__XJ_API__.encryptSecret) {
-      try { toSave.apiKey = await window.__XJ_API__.encryptSecret(toSave.apiKey); } catch (e) { /* 降级明文 */ }
+    try {
+      toSave.apiKey = await encryptApiKey(toSave.apiKey);
+    } catch (e) {
+      cdMsg('ai', '<b>密钥未保存</b>。本机暂时无法安全加密密钥，请恢复系统密钥服务后重试。');
+      cdChips([{ label: '重试', onClick: cdTestAndApply }, { label: '关闭', onClick: closeConnectDrawer }]);
+      return;
     }
-    Store.saveSettings({ apiConfig: toSave });
+    var drawerSave = await Store.saveSettingsDurable({ apiConfig: toSave });
+    if (!drawerSave.ok) {
+      cdMsg('ai', '<b>配置未保存</b>。本地存储暂不可用，当前设置未改变；请恢复后重试。');
+      cdChips([{ label: '重试', onClick: cdTestAndApply }, { label: '关闭', onClick: closeConnectDrawer }]);
+      return;
+    }
+    savedApiKey = toSave.apiKey;
     updateTierStatus();
     if (test.ok) {
       cdMsg('ai', '<b>接入成功，已验证可用</b>。模型理解与表达质量已提升；小镜的可执行操作仍以现有工具为准。');
