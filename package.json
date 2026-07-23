@@ -1,87 +1,10 @@
 {
   "name": "xinjing",
-  "version": "4.2.0",
+  "version": "4.2.4",
   "description": "心镜 XinJing — 心理咨询本地管理工作台（桌面版）",
   "author": "Mei",
   "main": "main.js",
   "private": true,
-  "scripts": {
-    "start": "electron .",
-    "icon": "node generate-icon.js",
-    "pack": "electron-builder --dir",
-    "codegen:secret": "node scripts/codegen-secret.js",
-    "codegen:version": "node scripts/codegen-version.js",
-    "predist": "node scripts/codegen-secret.js && node scripts/codegen-version.js && python scripts/gen-knowledge-builtins.py",
-    "prestart": "node scripts/codegen-secret.js && node scripts/codegen-version.js && python scripts/gen-knowledge-builtins.py",
-    "dist": "electron-builder",
-    "release": "electron-builder --publish always"
-  },
-  "build": {
-    "appId": "com.xinjing.desktop",
-    "productName": "心镜 XinJing",
-    "copyright": "Copyright © 2026 Mei",
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "mei-junhao",
-        "repo": "xinjing-desktop"
-      }
-    ],
-    "files": [
-      "main.js",
-      "preload.js",
-      "confirm-close-preload.js",
-      "license-core.js",
-      "secret.generated.js",
-      "version.generated.js",
-      "doc-chunker.js",
-      "rag-index.js",
-      "app/**/*",
-      "build/**/*"
-    ],
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "icon": "build/icon.ico"
-    },
-    "nsis": {
-      "artifactName": "xinjing-setup-${version}.exe",
-      "include": "build/installer.nsh",
-      "useZip": false,
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "心镜 XinJing",
-      "menuCategory": false,
-      "license": null
-    },
-    "portable": {
-      "artifactName": "xinjing-portable-${version}.exe"
-    },
-    "dmg": {
-      "title": "XinJing-${version}",
-      "format": "UDZO"
-    },
-    "mac": {
-      "category": "public.app-category.productivity",
-      "target": [
-        "zip"
-      ],
-      "identity": null,
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "darkModeSupport": true,
-      "icon": "build/icon-mac.png"
-    }
-  },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
     "@capacitor/cli": "^8.4.2",
@@ -92,11 +15,5 @@
     "electron-updater": "^6.3.9",
     "lucide": "^1.24.0",
     "mammoth": "^1.12.0"
-  },
-  "devDependencies": {
-    "electron": "^28.3.3",
-    "electron-builder": "^24.13.3",
-    "png-to-ico": "^3.0.2",
-    "pngjs": "^7.0.0"
   }
 }
