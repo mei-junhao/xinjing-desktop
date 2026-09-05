@@ -9,7 +9,7 @@
       "owner": "Codex-main",
       "acceptance_owner": "Codex-main",
       "independent_reviewer": "Hermes",
-      "state": "publishing",
+      "state": "released",
       "claim_allowed": false,
       "lease_allowed": false,
       "production_write": true,
@@ -18,18 +18,19 @@
       "task_card": "D:/xinjing-electron/docs/agent-coordination/v5.1.9/tasks/XJ-5.1.9-release-candidate-freeze-and-publish-001.md",
       "task_card_sha256": "2E277C546F523EDB16A46124A24FDBDE46339DCB60D5CBAF06306ACC7872AE69",
       "candidate_root": "D:/xinjing-electron/qa/package-candidates/5.1.9-build",
-      "candidate_aggregate_sha256": "3DA5E8EC74C2F90EAEE845E790BC0950B7A4798CF78E81E806F034FD88948001",
-      "candidate_file_count": 195,
+      "candidate_aggregate_sha256": "5BCB508CDFC2C9563CB03CE5254566B92CB06E92DA0BB2D1DCA0DEFFE8EE7EDC",
+      "candidate_file_count": 197,
       "delivery_report": "D:/xinjing-electron/qa/agent-reviews/XJ-5.1.9-release-candidate-freeze-and-publish-001.md",
       "authorization": "user-authorized-5.1.9-build-sign-upload-install-20260904",
       "release_ready": true,
       "publish_authorized": true,
-      "released": false,
-      "status_note": "候选冻结、构建、包内策略验证和 expected-red 已通过；进入签名后 COS 发布。",
+      "released": true,
+      "status_note": "候选冻结、构建、自签名、COS 六件套逐字节回读、本机静默安装与健康探针均通过；5.1.9 已发布。P-3 服务器模型偏好跨设备回显仍为 incomplete/P2。",
       "started_at": "2026-09-04T03:30:00Z",
       "release_ready_at": "2026-09-04T03:42:00Z",
-      "publishing_at": "2026-09-04T04:35:27Z"
+      "publishing_at": "2026-09-04T04:35:27Z",
+      "released_at": "2026-09-05T13:00:17Z"
     }
   ],
-  "updated_at": "2026-09-04T04:35:27Z"
+  "updated_at": "2026-09-05T13:00:17Z"
 }
