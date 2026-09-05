@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -65,8 +65,10 @@ button:active{
     .xj-score-indicator.xj-pop{animation:xjScorePop .3s ease}
 
   </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="form-workspace">
   <div class="layout">
     <div id="sidebar-mount"></div>
     <main class="main">
@@ -84,16 +86,106 @@ button:active{
             <i data-lucide="mail"></i>邮件：<a href="mailto:985729106@qq.com" style="color:var(--accent)">985729106@qq.com</a>
           </div>
         </div>
+        <div class="list-card" style="padding:var(--gap-lg);cursor:default;margin-top:var(--gap-lg)">
+          <div class="section-title"><i data-lucide="clipboard-pen-line"></i>提交反馈</div>
+          <p style="font-family:var(--sans);font-size:13px;color:var(--muted);line-height:1.7;margin:0 0 var(--gap)">
+            「本地保存草稿」只写入本机，不会发送；「发送反馈」会打开你的邮件客户端。发送失败或未发送时，你填写的内容和选择的附件都会保留。
+          </p>
+          <label for="fb-text" style="display:block;font:600 13px var(--sans);margin:0 0 6px">反馈内容</label>
+          <textarea id="fb-text" rows="6" placeholder="描述你的建议或遇到的问题…" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font:14px var(--sans);background:var(--bg);color:var(--text);resize:vertical;box-sizing:border-box;display:block"></textarea>
+          <div style="margin:12px 0">
+            <label for="fb-attachment" style="font:13px var(--sans);color:var(--ink-2)">附件（可多选，仅随本地草稿保存）</label>
+            <input type="file" id="fb-attachment" multiple style="display:block;margin-top:6px;font:13px var(--sans)">
+          </div>
+          <div id="fb-status" role="status" aria-live="polite" style="min-height:18px;font:12px var(--sans);color:var(--muted);margin:0 0 10px"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" id="fb-save" class="btn btn-outline">本地保存草稿</button>
+            <button type="button" id="fb-send" class="btn btn-primary">发送反馈</button>
+          </div>
+        </div>
       </div>
     </main>
   </div>
 
-  <script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+  <script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
   <script>
     App.initPage({
       title: '意见建议',
       subtitle: '你的反馈让心镜更好',
     });
+  </script>
+  <script>
+  (function () {
+    'use strict';
+    var DRAFT_KEY = 'xj_feedback_draft';
+    var text = document.getElementById('fb-text');
+    var file = document.getElementById('fb-attachment');
+    var status = document.getElementById('fb-status');
+    var saveBtn = document.getElementById('fb-save');
+    var sendBtn = document.getElementById('fb-send');
+    if (!text || !saveBtn || !sendBtn) return;
+
+    function attachmentNames() {
+      var list = file && file.files ? Array.prototype.slice.call(file.files) : [];
+      return list.map(function (f) { return f.name; });
+    }
+    function setStatus(msg, ok) {
+      status.textContent = msg;
+      status.style.color = ok === true ? 'var(--success,#6E7E62)' : (ok === false ? 'var(--danger,#B85450)' : 'var(--muted)');
+    }
+    function persistDraft() {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ text: text.value, attachments: attachmentNames(), savedAt: new Date().toISOString() }));
+        return true;
+      } catch (e) { return false; }
+    }
+
+    // 恢复本机草稿（仅展示，不自动发送）
+    try {
+      var raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        var draft = JSON.parse(raw);
+        if (draft && typeof draft.text === 'string') text.value = draft.text;
+        if (draft && Array.isArray(draft.attachments) && draft.attachments.length) {
+          setStatus('已恢复本机草稿（未发送）· 附件：' + draft.attachments.join('、'), null);
+        }
+      }
+    } catch (e) {}
+
+    saveBtn.addEventListener('click', function () {
+      if (!text.value.trim() && !attachmentNames().length) { setStatus('内容为空，未保存', false); return; }
+      if (persistDraft()) setStatus('已保存草稿到本机（未发送）', true);
+      else setStatus('本地保存失败，内容仍保留在页面', false);
+    });
+
+    sendBtn.addEventListener('click', function () {
+      var body = (text.value || '').trim();
+      if (!body && !attachmentNames().length) { setStatus('请先填写反馈内容或选择附件', false); text.focus(); return; }
+      // 发送边界：宿主提供反馈接口则调用；否则打开邮件客户端（附件仅保留本地，不随邮件发送）
+      if (window.__XJ_API__ && typeof window.__XJ_API__.sendFeedback === 'function') {
+        sendBtn.disabled = true;
+        var label = sendBtn.textContent;
+        sendBtn.textContent = '发送中…';
+        window.__XJ_API__.sendFeedback({ text: body, attachments: attachmentNames() }).then(function (r) {
+          sendBtn.disabled = false; sendBtn.textContent = label;
+          if (r && r.ok) setStatus('反馈已发送', true);
+          else setStatus('发送失败，内容与附件选择已保留', false);
+        }).catch(function () {
+          sendBtn.disabled = false; sendBtn.textContent = label;
+          setStatus('发送失败，内容与附件选择已保留', false);
+        });
+        return;
+      }
+      var subject = encodeURIComponent('心镜反馈');
+      var mail = encodeURIComponent(body + '\n\n（附件：' + (attachmentNames().join('、') || '无') + ' — 请手动附上）');
+      try {
+        location.href = 'mailto:985729106@qq.com?subject=' + subject + '&body=' + mail;
+        setStatus('已请求打开邮件客户端，请确认邮件窗口已出现。内容仍保留在本页（附件请手动添加）', null);
+      } catch (e) {
+        setStatus('发送失败，内容与附件选择已保留', false);
+      }
+    });
+  })();
   </script>
 </body>
 </html>

@@ -8,7 +8,7 @@
 .dc-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .dc-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .dc-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
-.dc-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.dc-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .dc-top .sp{flex:1}
 .dc-top input[type=text]{border:1px solid var(--border);border-radius:8px;padding:6px 12px;font:12px var(--sans);width:160px;outline:none;background:var(--bg)}
 .dc-top input[type=text]:focus{border-color:var(--accent)}
@@ -16,9 +16,9 @@
 .dc-top select:focus{border-color:var(--accent)}
 .dc-body{flex:1;display:grid;grid-template-columns:240px 1fr;min-height:0;overflow:hidden}
 .dc-left{background:var(--paper-2,#fff);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.dc-left .dl-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;flex-shrink:0}
+.dc-left .dl-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--sans);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
 .dc-left .dl-list{flex:1;overflow-y:auto;padding:8px}
-.dc-left .dl-item{padding:8px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;margin-bottom:2px;transition:all .15s;display:flex;align-items:center;gap:8px}
+.dc-left .dl-item{width:100%;padding:8px 12px;border:0;border-radius:6px;cursor:pointer;font:12.5px var(--sans);margin-bottom:2px;transition:color .18s ease,background-color .18s ease,border-color .18s ease;display:flex;align-items:center;gap:8px;text-align:left}
 .dc-left .dl-item:hover{background:var(--bg)}
 .dc-left .dl-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
 .dc-left .dl-item .dl-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
@@ -27,11 +27,13 @@
 .dc-left .dl-item .dl-count{font-size:10px;color:var(--ink-3)}
 .dc-right{display:flex;flex-direction:column;overflow:hidden}
 .dc-right .dr-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--paper-2,#fff);overflow-x:auto}
-.dc-right .dr-tab{padding:10px 18px;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink-2);white-space:nowrap;transition:all .2s;font-family:var(--sans)}
+.dc-right .dr-tab{padding:10px 18px;font-size:12px;cursor:pointer;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--ink-2);white-space:nowrap;transition:color .16s,border-color .16s;font-family:var(--sans)}
 .dc-right .dr-tab:hover{color:var(--ink)}
 .dc-right .dr-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
-.dc-right .dr-content{flex:1;overflow-y:auto;padding:20px}
-.dc-right .doc-card{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:16px;margin-bottom:12px;display:flex;gap:14px;cursor:pointer;transition:all .15s}
+.dc-right .dr-tab:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.dc-right .dr-content{flex:1;min-height:0;overflow-y:auto;padding:20px}
+.dc-right .dr-content.atlas-content{overflow:hidden;padding:0}
+.dc-right .doc-card{width:100%;background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px;display:flex;gap:14px;cursor:pointer;transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease;text-align:left;font-family:var(--sans)}
 .dc-right .doc-card:hover{border-color:var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.04)}
 .dc-right .doc-card .dc-icon{font-size:24px;flex-shrink:0;width:36px;text-align:center}
 .dc-right .doc-card .dc-body{flex:1;min-width:0}
@@ -44,7 +46,7 @@
 /* 成长轨迹 */
 .trajectory{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:20px;margin-top:16px}
 .trajectory .tj-head{display:flex;align-items:center;gap:8px;margin-bottom:16px}
-.trajectory .tj-head .tj-title{font-family:var(--serif);font-size:16px;font-weight:600}
+.trajectory .tj-head .tj-title{font-family:var(--sans);font-size:16px;font-weight:600}
 .trajectory .tj-head .tj-badge{font-size:10px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:auto}
 .trajectory .tj-item{display:flex;gap:14px;padding:10px 0;border-left:2px solid var(--accent-soft);padding-left:16px;margin-left:8px;position:relative}
 .trajectory .tj-item::before{content:"";position:absolute;left:-6px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid var(--paper-2,#fff)}
@@ -59,17 +61,62 @@
 .timeline-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .timeline-actions button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:5px;padding:3px 7px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
 .timeline-actions button:hover{border-color:var(--accent);color:var(--accent)}
+/* 4.3 Atlas: only the verified, read-only CaseSpace projection enters this surface. */
+.atlas-shell{height:100%;min-height:0;display:grid;grid-template-columns:188px minmax(450px,1fr) 304px;background:var(--bg);border:1px solid var(--border)}
+.atlas-sessions{min-width:0;overflow:auto;background:var(--paper-2,#fff);border-right:1px solid var(--border);padding:12px}
+.atlas-section-title{display:flex;align-items:center;gap:7px;margin:0 0 10px;font:600 13px var(--sans);color:var(--ink)}
+.atlas-section-title .atlas-count{margin-left:auto;font-size:11px;color:var(--ink-3);font-weight:400}
+.atlas-session{display:block;width:100%;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ink-2);cursor:pointer;text-align:left;padding:9px 8px;margin:2px 0;font:12px var(--sans)}
+.atlas-session:hover{background:var(--bg)}
+.atlas-session.active{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.atlas-session b,.atlas-session small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atlas-session b{font-size:12px}.atlas-session small{margin-top:3px;color:var(--ink-3);font-size:10px}
+.atlas-main{min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--paper-2,#fff)}
+.atlas-toolbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);min-height:54px}
+.atlas-toolbar h3{margin:0;font:600 14px var(--sans)}
+.atlas-toolbar .atlas-status{font-size:11px;color:var(--ink-3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.atlas-toolbar .atlas-spacer{flex:1}
+.atlas-compact-session{display:none;align-items:center;gap:6px;color:var(--ink-2);font-size:11px;white-space:nowrap}.atlas-compact-session select{max-width:142px;height:32px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2,#fff);color:var(--ink);font:11px var(--sans);padding:0 6px}
+.atlas-primary{height:36px;border:1px solid var(--cta-bg,var(--accent));border-radius:6px;background:var(--cta-bg,var(--accent));color:#fff;cursor:pointer;padding:0 12px;font:600 12px var(--sans);white-space:nowrap}
+.atlas-primary:hover{filter:brightness(.96)}
+.atlas-primary:focus-visible,.atlas-node:focus-visible,.atlas-drawer-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.atlas-primary:disabled{cursor:not-allowed;opacity:.55}
+.atlas-board{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:minmax(108px,auto);gap:10px;align-content:start;padding:16px;background-color:var(--paper-2,#fff)}
+.atlas-node{grid-column:span 4;display:flex;min-width:0;min-height:108px;flex-direction:column;align-items:stretch;border:1px solid var(--border);border-radius:6px;background:var(--paper-2,#fff);color:var(--ink);cursor:pointer;padding:12px;text-align:left;font-family:var(--sans);box-shadow:none;transition:border-color .16s,transform .16s}
+.atlas-node:hover{border-color:var(--accent)}
+.atlas-node.selected{border:2px solid var(--accent);padding:11px}
+.atlas-node .atlas-node-type{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:10px}.atlas-node .atlas-node-type i{width:14px;height:14px;color:var(--accent)}
+.atlas-node h4{margin:10px 0 0;font:600 13px/1.45 var(--sans);word-break:break-word}
+.atlas-node footer{display:flex;gap:6px;align-items:center;margin-top:auto;padding-top:9px;border-top:1px solid var(--border);color:var(--ink-3);font-size:10px;min-width:0}.atlas-node footer span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.atlas-node footer span:last-child{margin-left:auto}
+.atlas-source{min-width:0;overflow:auto;background:var(--paper-2,#fff);border-left:1px solid var(--border);padding:14px}
+.atlas-source-header{display:flex;align-items:center;gap:8px;margin-bottom:14px}.atlas-source-header h3{margin:0;font:600 14px var(--sans)}
+.atlas-drawer-close{display:none;margin-left:auto;border:1px solid var(--border);border-radius:6px;background:var(--paper-2,#fff);color:var(--ink-2);cursor:pointer;padding:5px 8px;font:12px var(--sans)}
+.atlas-source-empty{padding:18px 0;color:var(--ink-3);font-size:12px;line-height:1.7}
+.atlas-lineage{display:grid;gap:0}.atlas-lineage-step{border-left:2px solid var(--border);padding:0 0 14px 12px;position:relative}.atlas-lineage-step::before{content:"";position:absolute;left:-5px;top:3px;width:8px;height:8px;border-radius:50%;background:var(--accent)}.atlas-lineage-step:last-child{padding-bottom:0}
+.atlas-lineage-step strong{display:block;font-size:12px}.atlas-lineage-step span{display:block;margin-top:4px;color:var(--ink-3);font-size:11px;line-height:1.55;word-break:break-word}
+.atlas-source-note{margin:16px 0;color:var(--ink-2);font-size:12px;line-height:1.7}.atlas-source .atlas-primary{width:100%}
+.atlas-inline-notice{grid-column:1/-1;align-self:start;background:var(--paper-2,#fff);border:1px solid var(--border);padding:14px;color:var(--ink-2);font-size:12px;line-height:1.65}
+.atlas-empty{height:100%;display:grid;place-items:center;text-align:center;padding:32px;color:var(--ink-2)}.atlas-empty h3{margin:0 0 8px;font:600 16px var(--sans)}.atlas-empty p{max-width:360px;margin:0 0 16px;font-size:12px;line-height:1.7;color:var(--ink-3)}
+.atlas-drawer-scrim{display:none}
+@media (max-width:1519px){.atlas-shell{grid-template-columns:180px minmax(0,1fr)}.atlas-source{position:fixed;z-index:30;top:0;right:0;bottom:0;width:min(340px,calc(100vw - 60px));transform:translateX(105%);transition:transform .2s ease;box-shadow:-12px 0 28px rgba(0,0,0,.15)}.atlas-source.drawer-open{transform:translateX(0)}.atlas-drawer-close{display:inline-flex}.atlas-drawer-scrim{position:fixed;z-index:29;inset:0;background:rgba(0,0,0,.32)}.atlas-drawer-scrim.visible{display:block}}
+@media (max-width:1199px){.atlas-shell{grid-template-columns:minmax(0,1fr)}.atlas-sessions{display:none}.atlas-compact-session{display:flex}.atlas-node{grid-column:span 6}.atlas-toolbar{flex-wrap:wrap}.atlas-toolbar .atlas-status{width:100%;order:3}.atlas-primary{margin-left:auto}}
+@media (max-width:1023px){.dc-body{grid-template-columns:0 minmax(0,1fr)}.dc-left{display:none}}
+@media (max-width:700px){.dc-top{padding:10px 12px}.dc-top .sp{display:none}.dc-top input[type=text]{flex:1;min-width:140px}.atlas-node{grid-column:span 12}.atlas-board{padding:10px}.atlas-toolbar{padding:10px}.atlas-primary{width:100%}}
+@media (prefers-reduced-motion:reduce){.dc-right .dr-tab,.atlas-node,.atlas-primary,.atlas-source{transition:none}.atlas-node:hover{transform:none}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
+  <link rel="stylesheet" href="css/clinical-workspaces.css">
 </head>
-<body>
+<body data-xj-pattern="browser-list">
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="dc-page">
 <div class="dc-top">
-  <button class="back" onclick="location.href='index.html'"><i data-lucide="chevron-left"></i>返回工作台</button>
-  <h2>来访者档案</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="doc-growth.html" class="xj-premium-btn"><i data-lucide="chart-no-axes-combined"></i>成长轨迹</a>
+  <a class="back" href="index.html"><i data-lucide="chevron-left"></i>返回工作台</a>
+  <h2>来访者档案</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="doc-growth.html" class="xj-premium-btn" id="dc-growth-link"><i data-lucide="chart-no-axes-combined"></i>成长轨迹</a>
   <span class="sp"></span>
-  <input type="text" id="dc-search" placeholder="搜索文档…" oninput="filterDocs()">
-  <select id="dc-client-select" onchange="onClientSelect(this.value)"><option value="">手动选择来访者…</option></select>
+  <input type="text" id="dc-search" placeholder="搜索文档…">
+  <select id="dc-client-select"><option value="">手动选择来访者…</option></select>
 </div>
 
 <div class="dc-body">
@@ -80,15 +127,16 @@
   </div>
   <!-- 右栏：文档内容 -->
   <div class="dc-right">
-    <div class="dr-tabs" id="doc-tabs">
-      <div class="dr-tab active" data-tab="all" onclick="switchDocTab('all')"><i data-lucide="files"></i>全部</div>
-      <div class="dr-tab" data-tab="transcript" onclick="switchDocTab('transcript')"><i data-lucide="audio-lines"></i>逐字稿</div>
-      <div class="dr-tab" data-tab="report" onclick="switchDocTab('report')"><i data-lucide="file-text"></i>报告</div>
-      <div class="dr-tab" data-tab="supervision" onclick="switchDocTab('supervision')"><i data-lucide="brain-circuit"></i>督导</div>
-      <div class="dr-tab" data-tab="trajectory" onclick="switchDocTab('trajectory')"><i data-lucide="chart-no-axes-combined"></i>成长轨迹</div>
-      <div class="dr-tab" data-tab="timeline" onclick="switchDocTab('timeline')"><i data-lucide="history"></i>时间线</div>
+    <div class="dr-tabs" id="doc-tabs" role="tablist" aria-label="文档中心视图">
+      <button type="button" class="dr-tab active" role="tab" aria-selected="true" data-tab="material"><i data-lucide="files"></i>材料</button>
+      <button type="button" class="dr-tab" role="tab" aria-selected="false" data-tab="transcript"><i data-lucide="audio-lines"></i>逐字稿</button>
+      <button type="button" class="dr-tab" role="tab" aria-selected="false" data-tab="report"><i data-lucide="file-text"></i>报告</button>
+      <button type="button" class="dr-tab" role="tab" aria-selected="false" data-tab="supervision"><i data-lucide="brain-circuit"></i>督导</button>
+      <button type="button" class="dr-tab" role="tab" aria-selected="false" data-tab="timeline"><i data-lucide="history"></i>个案时间线</button>
+      <button type="button" class="dr-tab" role="tab" aria-selected="false" data-tab="atlas"><i data-lucide="orbit"></i>个案图谱</button>
+      <button type="button" class="dr-tab" role="tab" aria-selected="false" data-tab="trajectory"><i data-lucide="chart-no-axes-combined"></i>AI 成长洞察</button>
     </div>
-    <div class="dr-content" id="doc-content">
+    <div class="dr-content" id="doc-content" role="tabpanel">
       <div class="empty-state"><span class="big"><i data-lucide="folder-open"></i></span>选择左侧来访者查看文档</div>
     </div>
   </div>
@@ -96,7 +144,7 @@
 </div>
 </main></div>
 
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/source-ref.js"></script><script src="js/case-space-view-model.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/clinical-workspace-ui.js"></script><script src="js/app.js"></script>
 <script src="js/doc-center.js"></script>
 
 <script>

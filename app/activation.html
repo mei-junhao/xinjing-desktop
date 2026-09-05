@@ -3,183 +3,353 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>激活 · 心镜 XinJing</title>
+<title>会员与激活 · 心镜 XinJing</title>
+<link rel="stylesheet" href="css/workbench.css" />
+<link rel="stylesheet" href="css/xj-ui-system.css" />
 <style>
-  :root{
-    --clay:#9c5a3c; --clay-dark:#7e4830; --ink:#2b2622; --paper:#f6f1ea;
-    --line:rgba(43,38,34,.12); --muted:#8a7f74;
+  /* v5.0.0: utility-window palette maps onto shared skin tokens (Clinical/Theatre/Observatory + dark). */
+  :root {
+    --canvas: var(--xj-canvas, #f3f6f5);
+    --surface: var(--xj-surface, #ffffff);
+    --text: var(--xj-text, #202725);
+    --muted: var(--xj-text-2, #66716d);
+    --line: var(--xj-border, #d7dfdc);
+    --accent: var(--xj-accent, #167568);
+    --accent-hover: var(--xj-accent-hover, #115f55);
+    --success: var(--success, #23734f);
+    --warning-bg: var(--orange-soft, #fff8e8);
+    --warning-border: var(--warning, #d8a542);
+    --danger: var(--danger, #a63f36);
+    --info-bg: var(--accent-soft, #eef6f4);
+    --focus: color-mix(in srgb, var(--xj-accent, #167568) 20%, transparent);
   }
-  *{box-sizing:border-box;}
-  html,body{height:100%;margin:0;}
-  body{
-    font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
-    background:#f4f7f6;
-    color:var(--ink);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; margin: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    letter-spacing: 0;
+    overflow-x: hidden;
   }
-  .card{
-    width:min(960px,100%);background:#fff;border-radius:8px;padding:28px 30px;
-    box-shadow:0 12px 34px rgba(43,38,34,.12);
-    border:1px solid var(--line);
+  .utility-shell {
+    width: min(960px, calc(100% - 32px));
+    margin: 24px auto;
+    padding: 28px 30px 32px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(25, 42, 37, .08);
   }
-  body.xj-utility-page.xj-plans-page .card{width:min(960px,100%);max-width:none;}
-  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
-  .disc{width:34px;height:34px;border-radius:50%;
-    background:radial-gradient(circle at 35% 30%,#c98b6a,#9c5a3c 70%);
-    box-shadow:0 0 0 4px rgba(156,90,60,.12);}
-  .brand b{font-size:18px;letter-spacing:.5px;}
-  h1{font-size:22px;margin:14px 0 6px;}
-  p.sub{color:var(--muted);font-size:13px;margin:0 0 22px;line-height:1.6;}
-  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.4px;}
-  textarea{
-    width:100%;min-height:92px;resize:vertical;border:1px solid var(--line);border-radius:12px;
-    padding:12px 14px;font:600 15px/1.5 ui-monospace,"SFMono-Regular",Menlo,monospace;
-    letter-spacing:1px;color:var(--ink);background:#fcfaf6;outline:none;
+  .page-header { margin-bottom: 24px; }
+  .brand { color: var(--accent); font-size: 14px; font-weight: 700; }
+  h1 { margin: 4px 0 6px; font-size: 24px; line-height: 1.25; }
+  h2 { margin: 0; font-size: 18px; line-height: 1.35; }
+  .subtitle, .section-copy { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .status-panel {
+    display: none;
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--info-bg);
+    font-size: 14px;
   }
-  textarea:focus{border-color:var(--clay);box-shadow:0 0 0 3px rgba(156,90,60,.12);}
-  .mc-row{display:flex;gap:8px;margin-bottom:18px;}
-  .mc-row .mc{flex:1;border:1px dashed var(--line);border-radius:10px;padding:9px 12px;
-    font:600 13px/1.4 ui-monospace,"SFMono-Regular",Menlo,monospace;letter-spacing:1px;color:var(--muted);background:#fbf7f1;outline:none;}
-  .mc-row .mc-copy{flex:0 0 auto;width:auto;padding:0 18px;border-radius:10px;background:transparent;color:var(--clay);border:1px solid var(--line);}
-  .actions{display:flex;gap:12px;margin-top:20px;}
-  button{
-    flex:1;border:0;border-radius:999px;padding:13px 0;font-weight:700;font-size:14px;cursor:pointer;
+  .status-panel.is-visible { display: block; }
+  .status-panel.is-warning { background: var(--warning-bg); border-color: var(--warning-border); }
+  .lifecycle { margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  .lifecycle h2 { margin: 0 0 10px; font-size: 14px; }
+  .lifecycle-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 16px; margin: 0; }
+  .lifecycle-item dt { font-size: 12px; color: var(--muted); }
+  .lifecycle-item dd { margin: 2px 0 0; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+  .section-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+  .plan-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .plan-table { width: 100%; min-width: 720px; border-collapse: collapse; background: var(--surface); }
+  .plan-table th, .plan-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: center;
+    vertical-align: middle;
   }
-  .primary{background:var(--clay);color:#fff;}
-  .primary:disabled{opacity:.5;cursor:default;}
-  .ghost{background:transparent;color:var(--muted);border:1px solid var(--line);}
-  .msg{margin-top:16px;font-size:13px;min-height:20px;line-height:1.5;}
-  .msg.ok{color:#3f7d4f;font-weight:700;}
-  .msg.err{color:#b23b2e;font-weight:700;}
-  .hint{margin-top:18px;font-size:11px;color:var(--muted);line-height:1.6;border-top:1px dashed var(--line);padding-top:14px;}
-  .plans{margin:22px 0 26px}.plans-head{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:12px}
-  .plans h2{font-size:18px;margin:0}.plans p{font-size:12px;color:var(--muted);margin:4px 0 0;line-height:1.6}
-  .plan-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px}
-  .plan-table{width:100%;min-width:720px;border-collapse:collapse;background:#fff}
-  .plan-table th,.plan-table td{padding:10px 12px;border-bottom:1px solid var(--line);font-size:12px;text-align:center;line-height:1.45}
-  .plan-table th{background:#f2f6f4;font-size:13px}.plan-table th:first-child,.plan-table td:first-child{text-align:left}
-  .plan-table tr:last-child td{border-bottom:0}.yes{color:#2f7a59;font-weight:700}.no{color:#a1aaa6}.pro{color:#147d70;font-weight:700}.flagship{color:#8b651e;font-weight:700}
-  .activate-form{max-width:560px;margin:0 auto;padding-top:4px}
-  @media(max-width:700px){body{padding:12px}.card{padding:20px 16px}.plans-head{align-items:flex-start;flex-direction:column}}
+  .plan-table th { background: #f0f5f3; font-size: 14px; }
+  .plan-table th:first-child, .plan-table td:first-child { text-align: left; }
+  .plan-table tr:last-child td { border-bottom: 0; }
+  .available { color: var(--success); font-weight: 700; }
+  .pro { color: var(--accent); font-weight: 700; }
+  .flagship { color: #7b5b17; font-weight: 700; }
+  .activation-form { max-width: 620px; margin: 30px auto 0; }
+  .field { margin-top: 18px; }
+  label { display: block; margin-bottom: 7px; font-size: 14px; font-weight: 700; }
+  .field-note { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+  .machine-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  input, textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fbfcfc;
+    color: var(--text);
+    font: 600 14px/1.55 ui-monospace, "SFMono-Regular", Consolas, monospace;
+    letter-spacing: 0;
+    outline: none;
+  }
+  input { height: 40px; padding: 8px 11px; }
+  textarea { min-height: 108px; padding: 11px 12px; resize: vertical; overflow-wrap: anywhere; }
+  input:focus, textarea:focus, button:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus); }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  button {
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font: 700 14px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+  button:hover { border-color: #aebbb7; background: #f7f9f8; }
+  button.primary { border-color: var(--cta-bg, var(--accent)); background: var(--cta-bg, var(--accent)); color: #fff; }
+  button.primary:hover { border-color: var(--cta-bg-hover, var(--accent-hover)); background: var(--cta-bg-hover, var(--accent-hover)); }
+  button:disabled { cursor: not-allowed; color: #7c8582; background: #e7ecea; border-color: #d5ddda; }
+  .machine-row button { min-width: 84px; }
+  .message { min-height: 24px; margin-top: 13px; font-size: 13px; white-space: pre-line; }
+  .message.success { color: var(--success); font-weight: 700; }
+  .message.error { color: var(--danger); font-weight: 700; }
+  .bridge-state { margin-top: 12px; color: var(--muted); font-size: 12px; }
+  .recovery { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  @media (max-width: 700px) {
+    .utility-shell { width: min(100% - 20px, 960px); margin: 10px auto; padding: 20px 16px 24px; }
+    .section-head { align-items: flex-start; flex-direction: column; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+  }
 </style>
-<link rel="stylesheet" href="css/workbench.css">
-<link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body class="xj-utility-page xj-plans-page">
-  <div class="card">
-    <div class="brand"><div class="disc"></div><b>心镜 XinJing</b></div>
-    <h1>选择适合你的工作方式</h1>
-    <p class="sub">免费版保留手工执业工作流；会员解锁 AI 临床能力；旗舰版提供更深的资料检索和更高服务规格。新安装前 60 天可体验会员与旗舰 AI 能力。</p>
-    <section class="plans" aria-labelledby="plans-title">
-      <div class="plans-head"><div><h2 id="plans-title">三档会员对比</h2><p>功能资格与 AI 算力来源分开计算，配置自己的 API Key 不会自动提升会员档位。</p></div></div>
-      <div class="plan-table-wrap">
-        <table class="plan-table">
-          <thead><tr><th scope="col">能力</th><th scope="col">免费</th><th scope="col" class="pro">会员</th><th scope="col" class="flagship">旗舰</th></tr></thead>
-          <tbody>
-            <tr><td>来访者、日历、手工记录/逐字稿/报告</td><td class="yes">完整</td><td class="yes">完整</td><td class="yes">完整</td></tr>
-            <tr><td>基础记账、备份、真人督导记录</td><td class="yes">完整</td><td class="yes">完整</td><td class="yes">完整</td></tr>
-            <tr><td>AI 记录、报告、检测与督导</td><td>限时体验</td><td class="yes">解锁</td><td class="yes">解锁</td></tr>
-            <tr><td>督导思维导图、多大师会诊、对话引导、成长轨迹</td><td>限时体验</td><td class="yes">解锁</td><td class="yes">解锁</td></tr>
-            <tr><td>无水印导出、账单月历、04/05 皮肤、BYOK</td><td class="no">—</td><td class="yes">解锁</td><td class="yes">解锁</td></tr>
-            <tr><td>资料库文档</td><td>100 篇</td><td>500 篇</td><td class="flagship">不限</td></tr>
-            <tr><td>检索方式</td><td>关键词</td><td>向量语义</td><td class="flagship">向量 + Rerank</td></tr>
-            <tr><td>上下文 token</td><td>2,000</td><td>4,000</td><td class="flagship">16,000</td></tr>
-            <tr><td>结果策略</td><td>Top-5</td><td>召回 Top-20</td><td class="flagship">Top-20 → 精排 Top-5</td></tr>
-            <tr><td>自定义督导师、更高模型与额度</td><td class="no">—</td><td class="no">—</td><td class="yes">解锁</td></tr>
-          </tbody>
-        </table>
+<body class="xj-utility-page xj-plans-page" data-xj-pattern="utility-window">
+<main class="utility-shell">
+  <header class="page-header">
+    <div class="brand">心镜 XinJing</div>
+    <h1>会员与激活</h1>
+    <p class="subtitle">免费版保留完整手工执业工作流；会员解锁 AI 临床能力与进阶工具。</p>
+  </header>
+
+  <div id="license-status" class="status-panel" role="status" aria-live="polite"></div>
+
+  <section class="lifecycle" aria-labelledby="lifecycle-title">
+    <h2 id="lifecycle-title">授权生命周期</h2>
+    <dl class="lifecycle-list">
+      <div class="lifecycle-item"><dt>授权状态</dt><dd id="lc-authorization">查询中…</dd></div>
+      <div class="lifecycle-item"><dt>绑定设备</dt><dd id="lc-device">—</dd></div>
+      <div class="lifecycle-item"><dt>有效期</dt><dd id="lc-validity">—</dd></div>
+      <div class="lifecycle-item"><dt>退款 / 撤销</dt><dd id="lc-revoke">以购买渠道为准</dd></div>
+      <div class="lifecycle-item"><dt>迁移状态</dt><dd id="lc-migration">—</dd></div>
+    </dl>
+  </section>
+
+  <section aria-labelledby="plans-title">
+    <div class="section-head">
+      <div>
+        <h2 id="plans-title">三档会员对比</h2>
+        <p class="section-copy">AI 使用资格与算力来源分别计算；配置自己的 API Key 不会提升会员档位。</p>
       </div>
-    </section>
-    <div class="activate-form">
-    <h2>输入激活码</h2>
-    <label for="mc">本机机器码（发给开发者以索取绑定本机的激活码）</label>
-    <div class="mc-row">
-      <input id="mc" class="mc" readonly placeholder="加载中…" />
-      <button class="ghost mc-copy" id="mc-copy" type="button">复制</button>
     </div>
-    <label for="code">激活码（格式 XJ-XXXX-XXXX-…）</label>
-    <textarea id="code" placeholder="XJ-XXXX-XXXX-XXXX-XXXX" spellcheck="false"></textarea>
+    <div class="plan-table-wrap" tabindex="0" aria-label="会员方案对比表，可横向滚动">
+      <table class="plan-table">
+        <thead><tr><th scope="col">能力</th><th scope="col">免费</th><th scope="col" class="pro">会员 Pro</th><th scope="col" class="flagship">旗舰 Custom</th></tr></thead>
+        <tbody>
+          <tr><td>来访者、日历、手工记录与逐字稿</td><td class="available">完整</td><td class="available">完整</td><td class="available">完整</td></tr>
+          <tr><td>基础记账、备份、真人督导记录</td><td class="available">完整</td><td class="available">完整</td><td class="available">完整</td></tr>
+          <tr><td>基础 Markdown、TXT、Word 导出与打印</td><td class="available">完整</td><td class="available">完整</td><td class="available">完整</td></tr>
+          <tr><td>AI 记录、报告、检测与督导</td><td>限时 AI 试用</td><td class="available">解锁</td><td class="available">解锁</td></tr>
+          <tr><td>督导思维导图、多大师会诊、对话引导与成长轨迹</td><td>限时 AI 试用</td><td class="available">解锁</td><td class="available">解锁</td></tr>
+          <tr><td>账单月历与 04/05 高级皮肤</td><td>预览</td><td class="available">解锁</td><td class="available">解锁</td></tr>
+          <tr><td>资料库文档与检索</td><td>100 篇，关键词</td><td>500 篇，向量检索</td><td class="flagship">不限，向量 + Rerank</td></tr>
+          <tr><td>单次检索上下文上限</td><td>2,000 token</td><td>4,000 token</td><td class="flagship">16,000 token</td></tr>
+          <tr><td>自定义督导师与更高服务规格</td><td>不可用</td><td>不可用</td><td class="available">解锁</td></tr>
+          <tr><td>自带 API Key（仅算力配置）</td><td class="available">可配置</td><td class="available">可配置</td><td class="available">可配置</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="activation-form" aria-labelledby="activation-title">
+    <h2 id="activation-title">输入新版激活码</h2>
+    <div class="field">
+      <label for="mc">本机机器码</label>
+      <div class="machine-row">
+        <input id="mc" readonly placeholder="正在读取" aria-describedby="machine-note" />
+        <button id="mc-copy" type="button">复制</button>
+      </div>
+      <p id="machine-note" class="field-note">申请授权时，请提供此机器码。授权仅绑定当前设备。</p>
+    </div>
+    <div class="field">
+      <label for="code">激活码</label>
+      <textarea id="code" placeholder="XJ2-..." spellcheck="false" autocomplete="off" aria-describedby="code-note"></textarea>
+      <p id="code-note" class="field-note">新版激活码以 XJ2- 开头。旧版 XJ- 激活码需要人工迁移。</p>
+    </div>
     <div class="actions">
-      <button class="ghost" id="cancel">取消</button>
-      <button class="primary" id="activate">激活</button>
+      <button id="cancel" type="button">取消</button>
+      <button class="primary" id="activate" type="button">验证并激活</button>
     </div>
-    <div class="msg" id="bridge-status"></div>
-    <div class="msg" id="msg"></div>
-    <div class="hint">激活码由开发者提供，激活信息只保存在本机用户目录。免费版可继续使用手工临床工作流；会员功能、无水印导出和高级资料检索按上表开放。</div>
-    </div>
-  </div>
+    <div id="msg" class="message" role="alert" aria-live="assertive"></div>
+    <div id="bridge-status" class="bridge-state" role="status"></div>
+    <p class="recovery">激活信息只保存在本机用户目录。授权迁移或恢复失败时，请保留本机机器码并联系购买渠道；本地来访者和会谈资料不会被删除。</p>
+  </section>
+</main>
 
 <script>
   const $ = (id) => document.getElementById(id);
-  function fmtDate(ms) {
-    if (!ms) return '终身';
-    const d = new Date(ms);
-    const p = (n) => String(n).padStart(2, '0');
-    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  const codeInput = $('code');
+  const message = $('msg');
+  const activateButton = $('activate');
+
+  function formatDate(milliseconds) {
+    if (!milliseconds) return '';
+    const date = new Date(milliseconds);
+    return Number.isFinite(date.getTime()) ? date.toLocaleDateString('zh-CN') : '';
   }
-  const ta = $('code'), msg = $('msg'), btn = $('activate');
-  const bridgeStatus = $('bridge-status');
-  function refreshBridgeStatus() {
-    if (window.__XJ_API__ && typeof window.__XJ_API__.activate === 'function') {
-      bridgeStatus.className = 'msg ok';
-      bridgeStatus.textContent = '✓ 激活组件已就绪';
-    } else {
-      bridgeStatus.className = 'msg err';
-      bridgeStatus.textContent = '✗ 激活组件未加载（窗口桥接缺失）。请完全退出本程序（右键托盘图标 → 退出），再重新打开重试；仍不行请卸载并安装最新版。';
-    }
+
+  function normalizeTier(value) {
+    const tier = String(value || '').toLowerCase();
+    if (tier === 'custom') return 'custom';
+    if (tier === 'pro' || tier === 'full') return 'pro';
+    return null;
   }
-  refreshBridgeStatus();
-  // 加载并显示本机机器码（供发给开发者出绑定码）
-  (async () => {
-    const mcEl = $('mc'), copyBtn = $('mc-copy');
-    if (!window.__XJ_API__ || typeof window.__XJ_API__.getMachineCode !== 'function') {
-      mcEl.value = '（无法获取，请更新到最新版）'; copyBtn.disabled = true; return;
-    }
-    try {
-      const mc = await window.__XJ_API__.getMachineCode();
-      mcEl.value = mc || '（空）';
-      copyBtn.onclick = () => {
-        mcEl.select();
-        try { navigator.clipboard.writeText(mc); } catch (e) { document.execCommand('copy'); }
-        copyBtn.textContent = '已复制'; setTimeout(() => (copyBtn.textContent = '复制'), 1200);
-      };
-    } catch (e) {
-      mcEl.value = '（获取失败）'; copyBtn.disabled = true;
-    }
-  })();
-  $('cancel').onclick = () => {
-    if (window.__XJ_API__ && typeof window.__XJ_API__.done === 'function') window.__XJ_API__.done();
-    else window.close();
-  };
-  ta.addEventListener('input', () => { msg.className='msg'; msg.textContent=''; });
-  btn.onclick = async () => {
-    const code = ta.value.trim();
-    if (!code) { msg.className='msg err'; msg.textContent='请输入激活码。'; return; }
-    if (!window.__XJ_API__ || typeof window.__XJ_API__.activate !== 'function') {
-      msg.className='msg err';
-      msg.textContent='激活组件未加载（窗口桥接缺失）。请完全退出本程序（包括右下角托盘图标 → 右键「退出」），再重新打开后重试；若仍不行，请卸载并重新安装最新版。';
+
+  function tierLabel(tier) {
+    return tier === 'custom' ? '旗舰 Custom' : tier === 'pro' ? '会员 Pro' : '未知授权';
+  }
+
+  function setMessage(kind, text) {
+    message.className = 'message' + (kind ? ' ' + kind : '');
+    message.textContent = text || '';
+  }
+
+  function renderLifecycle(state) {
+    const set = (id, text) => { const el = $(id); if (el) el.textContent = (text == null || text === '') ? '—' : text; };
+    if (!state || typeof state !== 'object') {
+      set('lc-authorization', '未提供');
+      set('lc-device', '—');
+      set('lc-validity', '—');
+      set('lc-migration', '—');
       return;
     }
-    btn.disabled = true; msg.className='msg'; msg.textContent='正在验证…';
-    try {
-      const r = await window.__XJ_API__.activate(code);
-      if (r && r.ok) {
-        msg.className='msg ok';
-        const tierLabel = (r.tier === 'custom') ? '定制旗舰版 (Custom)'
-          : (r.tier === 'pro') ? '标准版 (Pro)'
-          : (r.tier === 'full' || !r.tier) ? '完整版（旧激活码）' : '已激活';
-        const expText = (r.expiresAt && r.expiresAt !== 0) ? ('有效期至 ' + fmtDate(r.expiresAt)) : '终身有效';
-        msg.textContent = '激活成功！' + tierLabel + ' · 授权给：' + r.identity + '\n' + expText + '\n正在重启…';
-        setTimeout(() => window.__XJ_API__.done(), 800);
-      } else {
-        msg.className='msg err';
-        msg.textContent = (r && r.error) ? r.error : '激活码无效，请核对后重试。';
-        btn.disabled = false;
-      }
-    } catch (e) {
-      msg.className='msg err'; msg.textContent='验证失败：' + (e && e.message ? e.message : e);
-      btn.disabled = false;
+    const normalizedTier = normalizeTier(state.tier);
+    if (state.activated && normalizedTier) set('lc-authorization', tierLabel(normalizedTier));
+    else if (state.activated) set('lc-authorization', '未知授权（已拒绝）');
+    else if (state.aiTrialActive) set('lc-authorization', 'AI 试用（非会员）');
+    else if (state.migrationRequired) set('lc-authorization', '待迁移（当前免费版）');
+    else set('lc-authorization', '免费版');
+    set('lc-validity', state.expiresAt ? formatDate(state.expiresAt) : '未提供');
+    set('lc-migration', state.migrationRequired ? '检测到旧版授权，需人工迁移' : '无需迁移');
+  }
+
+  function showLicenseStatus(state) {
+    const panel = $('license-status');
+    panel.className = 'status-panel';
+    panel.textContent = '';
+    renderLifecycle(state);
+    if (!state || typeof state !== 'object') return;
+    if (state.migrationRequired) {
+      panel.className = 'status-panel is-visible is-warning';
+      panel.textContent = '检测到旧版授权记录。当前按免费版运行，本地资料保持不变。请提供本机机器码，联系购买渠道换取新版授权。';
+      return;
     }
-  };
+    if (state.activated) {
+      const tier = normalizeTier(state.tier);
+      if (!tier) {
+        panel.className = 'status-panel is-visible is-warning';
+        panel.textContent = '检测到未知会员档位。为保护本地数据，已拒绝放行，请联系购买渠道核对授权声明。';
+        return;
+      }
+      panel.className = 'status-panel is-visible';
+      panel.textContent = '当前授权：' + tierLabel(tier) + (state.expiresAt ? '，有效期至 ' + (formatDate(state.expiresAt) || '未提供') : '');
+      return;
+    }
+    if (state.aiTrialActive) {
+      panel.className = 'status-panel is-visible';
+      panel.textContent = 'AI 试用中，剩余 ' + Number(state.aiTrialDaysLeft || 0) + ' 天。AI 试用不代表已购买会员或旗舰版。';
+    }
+  }
+
+  async function initialize() {
+    const api = window.__XJ_API__;
+    const bridge = $('bridge-status');
+    const machine = $('mc');
+    const copyButton = $('mc-copy');
+    if (!api || typeof api.activate !== 'function' || typeof api.getMachineCode !== 'function') {
+      bridge.textContent = '激活组件未加载。请完全退出心镜后重新打开；若仍失败，请更新或重新安装。';
+      machine.value = '无法读取';
+      copyButton.disabled = true;
+      activateButton.disabled = true;
+      return;
+    }
+    bridge.textContent = '激活组件已就绪';
+    try {
+      const machineCode = await api.getMachineCode();
+      machine.value = machineCode || '无法读取';
+      copyButton.disabled = !machineCode;
+      const lcDevice = $('lc-device');
+      if (lcDevice) lcDevice.textContent = machineCode ? '本机 · ' + machineCode : '无法读取';
+      copyButton.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(machineCode);
+        } catch (error) {
+          machine.select();
+          document.execCommand('copy');
+        }
+        copyButton.textContent = '已复制';
+        window.setTimeout(() => { copyButton.textContent = '复制'; }, 1200);
+      });
+    } catch (error) {
+      machine.value = '读取失败';
+      copyButton.disabled = true;
+    }
+    if (typeof api.getState === 'function') {
+      try { showLicenseStatus(await api.getState()); } catch (error) { /* status is optional */ }
+    }
+  }
+
+  $('cancel').addEventListener('click', () => {
+    if (window.__XJ_API__ && typeof window.__XJ_API__.done === 'function') window.__XJ_API__.done();
+    else window.close();
+  });
+  codeInput.addEventListener('input', () => setMessage('', ''));
+  activateButton.addEventListener('click', async () => {
+    const code = codeInput.value.trim();
+    if (!code) {
+      setMessage('error', '请输入激活码。');
+      codeInput.focus();
+      return;
+    }
+    if (!code.startsWith('XJ2-') && !/^XJ-/i.test(code)) {
+      setMessage('error', '激活码格式不正确。新版激活码应以 XJ2- 开头。');
+      return;
+    }
+    activateButton.disabled = true;
+    setMessage('', '正在验证授权声明…');
+    try {
+      const result = await window.__XJ_API__.activate(code);
+      const tier = result && result.ok ? normalizeTier(result.tier) : null;
+      if (result && result.ok && tier) {
+        setMessage('success', '激活成功：' + tierLabel(tier) + '\n有效期至 ' + (formatDate(result.expiresAt) || '未提供') + '\n正在刷新授权状态…');
+        window.setTimeout(() => window.__XJ_API__.done(), 800);
+        return;
+      }
+      setMessage('error', result && result.ok ? '授权返回未知会员档位，已拒绝激活。' : (result && result.error ? result.error : '激活码无效，请核对完整内容后重试。'));
+    } catch (error) {
+      setMessage('error', '验证失败：' + (error && error.message ? error.message : String(error)));
+    }
+    activateButton.disabled = false;
+  });
+
+  initialize();
 </script>
 </body>
 </html>

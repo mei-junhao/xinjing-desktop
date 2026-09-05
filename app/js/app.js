@@ -40,28 +40,30 @@ const App = (() => {
       const dark = t === 'dark' || (t === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.classList.toggle('dark', !!dark);
     } catch (e) { /* localStorage 不可用时忽略 */ }
-    // 旧皮肤值统一迁移到 01；新系统只允许 01/04/05 三个稳定标识。
+    // 旧皮肤值统一迁移到 01；XJ-5.1.9-ui-aligned-skin-stage1 起新增 aligned 默认皮肤（02 对齐），
+    // 01/04/05 与旧标识行为不变（决策 B1：aligned 新默认，旧皮肤完整保留可切回）。
     try {
       const storedSkin = localStorage.getItem('xj_skin');
-      const allowed = ['clinical', 'theatre', 'observatory'];
+      const allowed = ['clinical', 'aligned', 'theatre', 'observatory'];
       const legacySkin = storedSkin === 'calm' || storedSkin === 'xinjing' || storedSkin === 'editorial';
-      const skin = !legacySkin && allowed.indexOf(storedSkin) !== -1 ? storedSkin : 'clinical';
+      const skin = !legacySkin && allowed.indexOf(storedSkin) !== -1 ? storedSkin : 'aligned';
       localStorage.setItem('xj_skin', skin);
       document.documentElement.setAttribute('data-skin', skin);
-    } catch (e) { document.documentElement.setAttribute('data-skin', 'clinical'); }
+    } catch (e) { document.documentElement.setAttribute('data-skin', 'aligned'); }
   })();
 
     // 皮肤管理（正交于 .dark 明暗切换）：skin=配色族，dark=明暗
   const Theme = {
     getSkin: function () {
       try {
-        var skin = localStorage.getItem('xj_skin') || 'clinical';
-        return ['clinical', 'theatre', 'observatory'].indexOf(skin) !== -1 ? skin : 'clinical';
-      } catch (e) { return 'clinical'; }
+        var skin = localStorage.getItem('xj_skin') || 'aligned';
+        return ['clinical', 'aligned', 'theatre', 'observatory'].indexOf(skin) !== -1 ? skin : 'aligned';
+      } catch (e) { return 'aligned'; }
     },
     setSkin: function (name) {
-      if (['clinical', 'theatre', 'observatory'].indexOf(name) === -1) name = 'clinical';
-      if (name !== 'clinical' && !canUse('premium-skins')) {
+      if (['clinical', 'aligned', 'theatre', 'observatory'].indexOf(name) === -1) name = 'aligned';
+      // aligned 为免费默认皮肤，不参与会员门控；theatre/observatory 维持 premium 门控。
+      if ((name === 'theatre' || name === 'observatory') && !canUse('premium-skins')) {
         showToast('安静剧场与夜间观测为会员皮肤，可在方案对比中查看权益。', 'warning');
         return false;
       }
@@ -76,10 +78,14 @@ const App = (() => {
   // 我们改成通过 __XJ_API__.getState() 拉取权威状态并缓存，各页读 App.aiUnlocked()/App.getLicenseState()。
   let licenseStateCache = (window.__XJ__ && typeof window.__XJ__ === 'object' ? { ...window.__XJ__ } : {});
   const licenseStateCallbacks = [];
+  let sidebarEntitlementsDirty = false;
 
   function updateLicenseState(state) {
     if (state && typeof state === 'object') licenseStateCache = state;
-    if (!canUse('premium-skins') && Theme.getSkin() !== 'clinical') {
+    piMembershipProjectionRevision += 1;
+    sidebarEntitlementsDirty = true;
+    // 会员门控降级：aligned（免费默认）与 clinical 不参与降级；theatre/observatory 维持降级到 clinical。
+    if (!canUse('premium-skins') && Theme.getSkin() !== 'clinical' && Theme.getSkin() !== 'aligned') {
       try { localStorage.setItem('xj_skin', 'clinical'); } catch (e) {}
       document.documentElement.setAttribute('data-skin', 'clinical');
     }
@@ -134,6 +140,15 @@ const App = (() => {
     return canUse(kind);
   }
 
+  function openFeaturePage(href, feature) {
+    if (canUse(feature)) {
+      location.href = href;
+      return true;
+    }
+    openMembershipGate(feature);
+    return false;
+  }
+
   function lockBadge(kind) {
     if (canUse(kind)) return '';
     var minimum = (typeof XJEntitlements !== 'undefined' && XJEntitlements.minimumTier) ? XJEntitlements.minimumTier(kind) : 'pro';
@@ -143,7 +158,7 @@ const App = (() => {
 
   function membershipBadge() {
     var tier = (licenseStateCache && licenseStateCache.tier) || 'free';
-    if (isTrial() && aiUnlocked()) return '<span class="xj-tier-badge custom">旗舰试用</span>';
+    if (isTrial() && aiUnlocked()) return '<span class="xj-tier-badge">AI 试用</span>';
     if (tier === 'custom') return '<span class="xj-tier-badge custom">旗舰版</span>';
     if (tier === 'pro' || tier === 'full') return '<span class="xj-tier-badge pro">会员</span>';
     return '<span class="xj-tier-badge">免费版</span>';
@@ -152,6 +167,55 @@ const App = (() => {
   function openPlans() {
     if (window.__XJ_API__ && typeof window.__XJ_API__.openActivation === 'function') window.__XJ_API__.openActivation();
     else location.href = 'activation.html';
+  }
+
+  function membershipTierLabel(tier) {
+    if (tier === 'custom') return '旗舰版';
+    if (tier === 'pro' || tier === 'full') return '会员';
+    return '免费版';
+  }
+
+  function openMembershipGate(feature) {
+    const key = String(feature || '');
+    const entitlementsReady = typeof XJEntitlements !== 'undefined'
+      && typeof XJEntitlements.featureLabel === 'function'
+      && typeof XJEntitlements.minimumTier === 'function';
+    const minimumTier = entitlementsReady ? XJEntitlements.minimumTier(key) : '';
+    if (!key || !entitlementsReady || !['pro', 'full', 'custom'].includes(minimumTier)) {
+      showToast('此功能的会员信息暂不可用，请稍后重试。', 'warning');
+      return false;
+    }
+    if (canUse(key)) return true;
+
+    const existing = document.getElementById('membership-gate-modal');
+    if (existing) closeModalElement(existing);
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'membership-gate-modal';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = '<div class="modal" style="max-width:440px" aria-labelledby="membership-gate-title" aria-describedby="membership-gate-summary">' +
+      '<div class="modal-header"><h2 id="membership-gate-title">查看会员权益</h2></div>' +
+      '<div class="modal-body"><p id="membership-gate-summary"></p><dl class="xj-membership-gate-details">' +
+      '<div><dt>当前方案</dt><dd data-gate-current-tier></dd></div>' +
+      '<div><dt>所需方案</dt><dd data-gate-required-tier></dd></div>' +
+      '</dl><p class="hint" data-gate-preview></p></div>' +
+      '<div class="modal-footer"><button class="btn btn-ghost" type="button" data-modal-cancel>暂不查看</button>' +
+      '<button class="btn btn-primary" type="button" data-gate-view-plans>查看方案</button></div></div>';
+    document.body.appendChild(overlay);
+
+    const label = String(XJEntitlements.featureLabel(key) || '此功能');
+    const currentTier = isTrial() && aiUnlocked() ? 'AI 试用' : membershipTierLabel((licenseStateCache && licenseStateCache.tier) || 'free');
+    overlay.querySelector('#membership-gate-summary').textContent = '“' + label + '”需要更高的会员权益才能使用。';
+    overlay.querySelector('[data-gate-current-tier]').textContent = currentTier;
+    overlay.querySelector('[data-gate-required-tier]').textContent = membershipTierLabel(minimumTier);
+    overlay.querySelector('[data-gate-preview]').textContent = '查看方案后可比较权益；不会自动升级，也不会自动启用 AI。';
+    overlay.querySelector('[data-gate-view-plans]').addEventListener('click', function () {
+      closeModalElement(overlay);
+      openPlans();
+    });
+    bindModalClose('membership-gate-modal');
+    openModalElement(overlay, { removeOnClose: true, initialFocus: '[data-modal-cancel]' });
+    return false;
   }
 
   function onLicenseStateChange(cb) {
@@ -186,7 +250,7 @@ const App = (() => {
   const NAV_ITEMS = [
     { key: 'workbench', label: '工作台', icon: 'home', href: 'index.html', group: 'clinical' },
     { key: 'calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html', group: 'clinical' },
-    { key: 'clients', label: '来访者档案', icon: 'clients', href: 'doc-center.html', group: 'clinical' },
+    { key: 'clients', label: '文档中心', icon: 'docCenter', href: 'doc-center.html', group: 'clinical' },
     { key: 'clinical', label: '临床材料', icon: 'calendar', href: 'consult-notes.html', group: 'clinical' },
     { key: 'supervision', label: '督导空间', icon: 'cap', href: 'supervision.html', group: 'clinical', feature: 'ai-supervise' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html', group: 'clinical', feature: 'ai-masters' },
@@ -198,12 +262,15 @@ const App = (() => {
   const CLINICAL_MATERIAL_ITEMS = [
     { label: '咨询记录', icon: 'calendar', href: 'consult-notes.html' },
     { label: '逐字稿整理', icon: 'transcript', href: 'transcript.html' },
+    { label: '逐字稿引导', icon: 'guide', href: 'transcript-guide.html', feature: 'transcript-guide' },
     { label: '撰写报告', icon: 'report', href: 'report-writing.html' },
   ];
 
   const SUPERVISION_SPACE_ITEMS = [
     { label: 'AI 督导', icon: 'cap', href: 'supervision.html', feature: 'ai-supervise' },
     { label: '真人督导', icon: 'real', href: 'real-supervision.html' },
+    { label: '人工督导分析', icon: 'realAI', href: 'real-supervision-ai.html', feature: 'real-sup-ai' },
+    { label: '督导思维导图', icon: 'mindmap', href: 'supervision-mindmap.html', feature: 'ai-mindmap' },
   ];
 
   const ROUTE_REGISTRY = Object.freeze({
@@ -223,7 +290,7 @@ const App = (() => {
     'masters.html': { domain: 'masters', parent: 'masters.html', sidebar: true, feature: 'ai-masters' },
     'knowledge.html': { domain: 'knowledge', parent: 'knowledge.html', sidebar: true, feature: 'manual-core' },
     'billing-shell.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'manual-core' },
-    'billing-calendar.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'manual-core' },
+    'billing-calendar.html': { domain: 'billing', parent: 'billing-shell.html', sidebar: true, feature: 'billing-calendar' },
     'settings.html': { domain: 'settings', parent: 'settings.html', sidebar: true, feature: 'manual-core' },
     'feedback.html': { domain: 'settings', parent: 'settings.html', sidebar: true, feature: 'manual-core' },
     'activation.html': { domain: 'settings', parent: 'settings.html', sidebar: false, feature: 'manual-core' },
@@ -258,7 +325,8 @@ const App = (() => {
     wallet: 'wallet-cards', calendar: 'notebook-pen', sync: 'refresh-cw', gear: 'settings-2',
     chat: 'message-circle', search: 'search', doc: 'library-big', spark: 'sparkles',
     box: 'archive', download: 'download', transcript: 'audio-lines', report: 'file-text',
-    real: 'handshake', docCenter: 'folder-kanban', 'chevron-left': 'chevron-left',
+    real: 'handshake', realAI: 'clipboard-check', guide: 'message-circle',
+    mindmap: 'brain-circuit', growth: 'chart-no-axes-combined', docCenter: 'folder-kanban', 'chevron-left': 'chevron-left',
     sun: 'sun', moon: 'moon', panel: 'message-square-text', userPlus: 'user-round-plus'
   };
 
@@ -275,6 +343,147 @@ const App = (() => {
   function applyPageIdentity() {
     if (!document.body) return;
     document.body.setAttribute('data-xj-page', getCurrentPageKey());
+  }
+
+  // 全局模型选择器：目录和价格来自服务端，选择仅持久化模型 ID + 目录版本。
+  const modelSelectorState = { catalog: null, promise: null };
+  const MODEL_SELECTOR_CACHE_KEY = 'xj_server_model_catalog_v1';
+  const MODEL_SELECTOR_CACHE_TTL = 5 * 60 * 1000;
+  const CLIENT_PRIMARY_MODEL_IDS = new Set(['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6']);
+
+  function selectedBuiltinModelId() {
+    try {
+      const settings = Store.getSettings() || {};
+      const selection = settings.aiModelSelection;
+      return selection && typeof selection.modelId === 'string' && CLIENT_PRIMARY_MODEL_IDS.has(selection.modelId)
+        ? selection.modelId : 'deepseek-v4-pro';
+    } catch (_) { return 'deepseek-v4-pro'; }
+  }
+
+  function modelStaticLabel(modelId) {
+    return ({
+      'deepseek-v4-pro': 'DeepSeek V4 Pro',
+      'deepseek-v4-flash': 'DeepSeek V4 Flash',
+      'gpt-5.6': 'GPT Terra',
+    })[modelId] || modelId || '模型';
+  }
+
+  function modelPriceLabel(entry, catalog) {
+    const fx = Number(catalog && catalog.fxRateUsdToCny) || 7;
+    const input = (Number(entry.inputPrice) || 0) * fx;
+    const output = (Number(entry.outputPrice) || 0) * fx;
+    return '输入 ¥' + input.toFixed(2) + ' / 输出 ¥' + output.toFixed(2) + ' / 百万 token';
+  }
+
+  function normalizeModelCatalog(value) {
+    if (!value || typeof value !== 'object' || !Array.isArray(value.models) || !value.catalogRevision) return null;
+    const models = value.models.filter(function (entry) {
+      return entry && typeof entry.modelId === 'string' && CLIENT_PRIMARY_MODEL_IDS.has(entry.modelId) && entry.fallbackOnly !== true;
+    }).map(function (entry) {
+      return {
+        modelId: entry.modelId,
+        displayName: entry.displayName || modelStaticLabel(entry.modelId),
+        provider: entry.provider || '',
+        inputPrice: Number(entry.inputPrice) || 0,
+        outputPrice: Number(entry.outputPrice) || 0,
+        catalogRevision: entry.catalogRevision || value.catalogRevision,
+      };
+    });
+    return models.length ? {
+      catalogRevision: String(value.catalogRevision),
+      fxRateUsdToCny: Number(value.fxRateUsdToCny) || 7,
+      settlementCurrency: value.settlementCurrency || 'CNY',
+      models: models,
+    } : null;
+  }
+
+  function readCachedModelCatalog() {
+    try {
+      const cached = JSON.parse(localStorage.getItem(MODEL_SELECTOR_CACHE_KEY) || 'null');
+      if (cached && cached.savedAt && Date.now() - cached.savedAt < MODEL_SELECTOR_CACHE_TTL) {
+        modelSelectorState.catalog = normalizeModelCatalog(cached.value);
+      }
+    } catch (_) { /* 缓存损坏时重新拉取 */ }
+  }
+
+  function ensureServerModelCatalog(force) {
+    if (!force && modelSelectorState.catalog && !modelSelectorState.promise) return Promise.resolve(modelSelectorState.catalog);
+    if (!force && modelSelectorState.promise) return modelSelectorState.promise;
+    const commercial = window.__XJ_API__ && window.__XJ_API__.commercial;
+    if (!commercial || typeof commercial.getServerModelCatalog !== 'function') {
+      return Promise.reject(new Error('服务器模型目录接口不可用'));
+    }
+    modelSelectorState.promise = Promise.resolve(commercial.getServerModelCatalog({})).then(function (result) {
+      const value = normalizeModelCatalog(result && result.value);
+      if (!result || result.ok !== true || !value) throw new Error('服务器模型目录不可用');
+      modelSelectorState.catalog = value;
+      try { localStorage.setItem(MODEL_SELECTOR_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), value: value })); } catch (_) {}
+      updateModelSelectorChrome();
+      return value;
+    }).finally(function () { modelSelectorState.promise = null; });
+    return modelSelectorState.promise;
+  }
+
+  function updateModelSelectorChrome() {
+    const id = selectedBuiltinModelId();
+    const label = modelSelectorState.catalog && modelSelectorState.catalog.models.find(function (entry) { return entry.modelId === id; });
+    document.querySelectorAll('[data-xj-model-label]').forEach(function (node) {
+      node.textContent = label ? label.displayName : modelStaticLabel(id);
+    });
+  }
+
+  function openModelSelector() {
+    const existing = document.getElementById('xj-model-selector-modal');
+    if (existing) closeModalElement(existing);
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'xj-model-selector-modal';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.innerHTML = '<div class="modal xj-model-selector-dialog" role="dialog" aria-modal="true" aria-labelledby="xj-model-selector-title">' +
+      '<div class="modal-header"><h2 id="xj-model-selector-title">选择主力模型</h2></div>' +
+      '<div class="modal-body"><p class="hint" data-model-selector-status>正在读取服务器模型目录…</p><div class="xj-model-options" role="listbox" aria-label="服务器可用主力模型"></div><p class="hint xj-model-fallback-note">主力上游失败时由服务器自动切换 Qwen 免费兜底，兜底不扣费。</p></div>' +
+      '<div class="modal-footer"><button class="btn btn-ghost" type="button" data-modal-cancel>关闭</button><button class="btn btn-secondary" type="button" data-model-selector-retry>重新读取</button></div></div>';
+    document.body.appendChild(overlay);
+    const status = overlay.querySelector('[data-model-selector-status]');
+    const options = overlay.querySelector('.xj-model-options');
+    function renderCatalog(catalog) {
+      const selected = selectedBuiltinModelId();
+      status.textContent = '价格来自服务器目录 · 版本 ' + catalog.catalogRevision;
+      options.innerHTML = catalog.models.map(function (entry) {
+        const active = entry.modelId === selected;
+        return '<button class="xj-model-option' + (active ? ' is-selected' : '') + '" type="button" role="option" aria-selected="' + String(active) + '" data-model-id="' + escapeHtml(entry.modelId) + '">' +
+          '<span class="xj-model-option-main"><strong>' + escapeHtml(entry.displayName) + '</strong><small>' + escapeHtml(entry.provider) + ' · ' + escapeHtml(modelPriceLabel(entry, catalog)) + '</small></span>' +
+          '<span class="xj-model-option-check" aria-hidden="true">' + (active ? '当前' : '选择') + '</span></button>';
+      }).join('');
+      options.querySelectorAll('[data-model-id]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const modelId = button.getAttribute('data-model-id');
+          button.disabled = true;
+          const next = { modelId: modelId, catalogRevision: catalog.catalogRevision, savedAt: new Date().toISOString() };
+          Promise.resolve(Store.saveSettingsDurable({ aiModelSelection: next })).then(function (result) {
+            if (!result || result.ok !== true) throw new Error('模型选择未保存');
+            updateModelSelectorChrome();
+            try { window.dispatchEvent(new CustomEvent('xj:model-selection-changed')); } catch (_) {}
+            closeModalElement(overlay);
+            showToast('已切换到 ' + modelStaticLabel(modelId) + '，后续请求按服务器价格结算。', 'success');
+          }).catch(function () {
+            button.disabled = false;
+            status.textContent = '保存失败，当前模型未改变，请重试。';
+          });
+        });
+      });
+    }
+    function showError() {
+      status.textContent = '无法读取服务器模型目录，请检查网络后重试。';
+      options.innerHTML = '';
+    }
+    overlay.querySelector('[data-model-selector-retry]').addEventListener('click', function () {
+      status.textContent = '正在重新读取服务器模型目录…';
+      ensureServerModelCatalog(true).then(renderCatalog).catch(showError);
+    });
+    bindModalClose(overlay.id);
+    openModalElement(overlay, { removeOnClose: true, initialFocus: '[data-modal-cancel]' });
+    ensureServerModelCatalog(false).then(renderCatalog).catch(showError);
   }
 
   function renderSidebar() {
@@ -306,7 +515,8 @@ const App = (() => {
     const workspace = NAV_ITEMS.filter((item) => item.key === 'workbench' || item.key === 'calendar' || item.key === 'clients').map(renderItem).join('');
     const clinicalMaterials = CLINICAL_MATERIAL_ITEMS;
     const supervisionSpace = SUPERVISION_SPACE_ITEMS;
-    const resources = NAV_ITEMS.filter((item) => item.key === 'masters' || item.key === 'knowledge').map(renderItem).join('');
+    const resources = NAV_ITEMS.filter((item) => item.key === 'masters' || item.key === 'knowledge').map(renderItem).join('') +
+      renderItem({ label: '成长轨迹', icon: 'growth', href: 'doc-growth.html', feature: 'ai-growth' });
     const management = NAV_ITEMS.filter((item) => item.group === 'management').map(renderItem).join('');
     const items = '<div class="nav-group"><div class="nav-group-label">工作区</div>' + workspace + '</div>' +
       renderDisclosure('clinical-materials', '临床材料', 'calendar', clinicalMaterials) +
@@ -326,10 +536,13 @@ const App = (() => {
             <div class="en">Xinjing</div>
           </div>
         </div>
-        <button class="sidebar-toggle" id="sidebar-toggle" aria-label="收起或展开侧栏">${svgIcon('chevron-left')}</button>
+        <button class="sidebar-toggle" id="sidebar-toggle" aria-label="收起或展开侧栏" aria-expanded="${String(!collapsed)}">${svgIcon('chevron-left')}</button>
         <nav class="nav">${items}</nav>
         <div class="nav-spacer"></div>
         <div class="nav-footer">
+          <button class="model-selector" id="xj-model-selector" type="button" title="选择主力模型" aria-label="选择主力模型">
+            <span class="tt-icon">${svgIcon('spark')}</span><span class="model-selector-copy"><span class="model-selector-label">主力模型</span><span class="model-selector-current" data-xj-model-label>${escapeHtml(modelStaticLabel(selectedBuiltinModelId()))}</span></span>
+          </button>
           <button class="theme-toggle" id="xj-theme-toggle">
             <span class="tt-icon">${svgIcon(document.documentElement.classList.contains('dark') ? 'moon' : 'sun')}</span>
             <span class="tt-label">${document.documentElement.classList.contains('dark') ? '深色模式' : '浅色模式'}</span>
@@ -383,10 +596,16 @@ const App = (() => {
         try { localStorage.setItem('xj_sidebar_collapsed', sb.classList.contains('collapsed') ? '1' : '0'); } catch(e) {}
       });
     }
+    const modelButton = document.getElementById('xj-model-selector');
+    if (modelButton && !modelButton.dataset.bound) {
+      modelButton.dataset.bound = '1';
+      modelButton.addEventListener('click', openModelSelector);
+    }
+    updateModelSelectorChrome();
     document.querySelectorAll('.nav-unlock').forEach(function (button) {
       if (button.dataset.bound) return;
       button.dataset.bound = '1';
-      button.addEventListener('click', function () { openPlans(); });
+      button.addEventListener('click', function () { openMembershipGate(button.dataset.unlockFeature); });
     });
     document.querySelectorAll('.nav-group-toggle').forEach(function (button) {
       if (button.dataset.bound) return;
@@ -414,16 +633,34 @@ const App = (() => {
     }
   }
 
-  function refreshSidebarChrome() {
+  function refreshSidebarChrome(options) {
     const route = currentRoute();
     if (!route || !route.sidebar || !document.body) return;
     const mount = ensureBusinessShell();
     const sidebar = document.querySelector('.sidebar');
-    if (sidebar) sidebar.outerHTML = renderSidebar();
-    else if (mount) mount.outerHTML = renderSidebar();
+    const focusedUnlock = sidebar && document.activeElement && document.activeElement.classList.contains('nav-unlock')
+      ? String(document.activeElement.dataset.unlockFeature || '') : '';
+    // P0#1 修复：不再使用 outerHTML 替换侧栏（破坏焦点、事件绑定、皮肤切换状态）
+    // 权益变化时仅更新导航内容，保留侧栏节点、收起状态和其余稳定控件。
+    if (!sidebar && mount) {
+      mount.innerHTML = renderSidebar();
+    } else if (sidebar && sidebarEntitlementsDirty) {
+      const nextShell = document.createElement('div');
+      nextShell.innerHTML = renderSidebar();
+      const nextNav = nextShell.querySelector('.nav');
+      const nav = sidebar.querySelector('.nav');
+      if (nav && nextNav) nav.innerHTML = nextNav.innerHTML;
+    }
+    sidebarEntitlementsDirty = false;
     bindSidebarControls();
     applyTierMark();
     if (window.IconSystem) window.IconSystem.render(document.querySelector('.sidebar'));
+    if (focusedUnlock) {
+      const restoredUnlock = Array.from(document.querySelectorAll('.nav-unlock')).find(function (button) {
+        return button.dataset.unlockFeature === focusedUnlock;
+      });
+      if (restoredUnlock) requestAnimationFrame(function () { restoredUnlock.focus(); });
+    }
   }
 
   function buildBackButton() {
@@ -569,6 +806,273 @@ const App = (() => {
   // ---------- 页面初始化门控 ----------
   // 统一流程：渲染布局 -> 等待数据从 IndexedDB 载入内存 -> 执行页面逻辑
   // 各页面 JS 通过 App.initPage({ title, subtitle, actions, onReady }) 接入
+  var piTransportInstalled = false;
+  var piStoreProjectionRevision = 0;
+  var piMembershipProjectionRevision = 0;
+  var PI_SESSION_FIELDS = Object.freeze(['date', 'startTime', 'endTime', 'durationMinutes', 'transcript', 'soap', 'dap', 'reflection', 'summary', 'isConfirmed', 'templateSelection', 'billing', 'tags', 'notes']);
+  var PI_SUPERVISION_FIELDS = Object.freeze(['type', 'supervisorName', 'date', 'sessionIds', 'content', 'conclusion', 'status', 'notes']);
+  var PI_CLINICAL_REF_FIELDS = Object.freeze(['sourceId', 'sourceVersion', 'sourceContentHash', 'anchorContentHash']);
+  var PI_CLINICAL_ENTRY_TYPES = Object.freeze(['transcript', 'soap', 'dap', 'reflection', 'summary', 'notes', 'content', 'conclusion']);
+
+  function piFail(code, message) {
+    return { ok: false, code: String(code || 'XJ_PI_DIRECT_WRITE_DENIED'), message: String(message || code || 'Pi durable operation rejected') };
+  }
+
+  function piVersionOf(value) {
+    var parsed = Date.parse(String(value || ''));
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+  }
+
+  function piAllowedFields(input, allowed) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+    var result = {};
+    var keys = Object.keys(input);
+    for (var i = 0; i < keys.length; i++) {
+      if (allowed.indexOf(keys[i]) < 0) return null;
+      result[keys[i]] = input[keys[i]];
+    }
+    return result;
+  }
+
+  function piClinicalRefs(input) {
+    if (!Array.isArray(input) || !input.length) return null;
+    var out = [];
+    for (var i = 0; i < input.length; i++) {
+      var ref = input[i];
+      if (!ref || typeof ref !== 'object' || Array.isArray(ref)) return null;
+      var keys = Object.keys(ref);
+      if (keys.length !== PI_CLINICAL_REF_FIELDS.length || keys.some(function (key) { return PI_CLINICAL_REF_FIELDS.indexOf(key) < 0; })) return null;
+      if (!ref.sourceId || !String(ref.sourceVersion) || !ref.sourceContentHash || !ref.anchorContentHash) return null;
+      out.push({ sourceId: String(ref.sourceId), sourceVersion: String(ref.sourceVersion), sourceContentHash: String(ref.sourceContentHash), anchorContentHash: String(ref.anchorContentHash) });
+    }
+    return out;
+  }
+
+  function piClinicalEntries(record) {
+    if (!record || !Array.isArray(record.fields) || !record.fields.length) return null;
+    var result = {};
+    for (var i = 0; i < record.fields.length; i++) {
+      var item = record.fields[i];
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+      var entryType = String(item.entryType || 'notes');
+      if (PI_CLINICAL_ENTRY_TYPES.indexOf(entryType) < 0) return null;
+      var text = String(item.text || item.content || '').trim();
+      if (!text) return null;
+      var target = entryType === 'content' ? 'notes' : entryType;
+      if (target === 'soap' || target === 'dap') {
+        var parsed = null;
+        try { parsed = JSON.parse(text); } catch (_) { parsed = null; }
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          parsed = target === 'soap'
+            ? { subjective: text, objective: '', assessment: '', plan: '' }
+            : { data: text, assessment: '', plan: '' };
+        }
+        result[target] = parsed;
+      } else {
+        result[target] = result[target] ? String(result[target]) + '\n' + text : text;
+      }
+    }
+    return result;
+  }
+
+  async function piClinicalDurableWrite(record) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) return piFail('XJ_PI_INVALID_CONTEXT');
+    var clientId = String(record.clientId || '');
+    var sessionId = String(record.sessionId || '');
+    var snapshotHash = String(record.snapshotHash || '');
+    var sourceRefs = piClinicalRefs(record.sourceRefs);
+    var fields = piClinicalEntries(record);
+    if (!clientId || !sessionId || !snapshotHash || !sourceRefs || !fields) return piFail('XJ_PI_SNAPSHOT_MISMATCH');
+    var kind = String(record.kind || 'session');
+    var id = '';
+    var value = null;
+    var result = null;
+    var versionHint = Date.now();
+    var metadata = {
+      schemaVersion: 1,
+      clinicalActionRunId: String(record.clinicalActionRunId || ''),
+      taskId: String(record.taskId || ''),
+      clientId: clientId,
+      sessionId: sessionId,
+      snapshotHash: snapshotHash,
+      sourceRefs: sourceRefs,
+      generationEntitlement: String(record.generationEntitlement || 'manual'),
+      version: versionHint,
+      savedAt: versionHint,
+    };
+    if (!metadata.clinicalActionRunId || !metadata.taskId) return piFail('XJ_PI_INVALID_CONTEXT');
+    if (kind === 'session') {
+      if (!Store || typeof Store.getSession !== 'function' || typeof Store.saveSessionDurable !== 'function') return piFail('XJ_PI_DIRECT_WRITE_DENIED');
+      var session = Store.getSession(sessionId);
+      if (!session || String(session.clientId || '') !== clientId) return piFail('XJ_PI_CLIENT_SESSION_MISMATCH');
+      value = Object.assign({}, session, fields, { piClinical: metadata });
+      id = String(session.id || sessionId);
+      result = await Store.saveSessionDurable(value);
+    } else if (kind === 'supervision') {
+      if (!Store || typeof Store.getSupervision !== 'function' || typeof Store.saveSupervisionDurable !== 'function') return piFail('XJ_PI_DIRECT_WRITE_DENIED');
+      var supervision = Store.getSupervision(String(record.supervisionId || sessionId));
+      if (!supervision) return piFail('XJ_PI_TASK_NOT_FOUND');
+      value = Object.assign({}, supervision, fields, { piClinical: metadata });
+      id = String(supervision.id);
+      result = await Store.saveSupervisionDurable(value);
+    } else {
+      return piFail('XJ_PI_UNKNOWN_FIELD', 'unsupported clinical durable kind');
+    }
+    if (!result || result.ok !== true) return piFail(result && result.error && result.error.code || 'XJ_PI_DIRECT_WRITE_DENIED');
+    return { ok: true, savedObjectId: id, version: versionHint, savedAt: versionHint, object: result.value || value };
+  }
+
+  function piClinicalDurableRead(payload) {
+    var id = String(payload && payload.savedObjectId || '');
+    if (!id || !Store) return piFail('XJ_PI_VERIFY_FAILED');
+    var object = null;
+    try {
+      object = typeof Store.getSession === 'function' ? Store.getSession(id) : null;
+      if (!object && typeof Store.getSupervision === 'function') object = Store.getSupervision(id);
+    } catch (_) { object = null; }
+    var meta = object && object.piClinical;
+    if (!object || !meta || meta.schemaVersion !== 1) return piFail('XJ_PI_VERIFY_FAILED', 'clinical durable metadata unavailable');
+    if (String(meta.clientId || '') !== String(object.clientId || '') && object.clientId != null) return piFail('XJ_PI_VERIFY_FAILED', 'clinical metadata ownership mismatch');
+    var expected = payload && payload.expected && typeof payload.expected === 'object' ? payload.expected : null;
+    if (expected) {
+      if (expected.clientId && String(expected.clientId) !== String(meta.clientId)) return piFail('XJ_PI_VERIFY_FAILED', 'clinical client mismatch');
+      if (expected.sessionId && String(expected.sessionId) !== String(meta.sessionId)) return piFail('XJ_PI_VERIFY_FAILED', 'clinical session mismatch');
+      if (expected.snapshotHash && String(expected.snapshotHash) !== String(meta.snapshotHash)) return piFail('XJ_PI_VERIFY_FAILED', 'clinical snapshot mismatch');
+    }
+    return {
+      ok: true,
+      savedObjectId: id,
+      version: Number(meta.version),
+      savedAt: Number(meta.savedAt),
+      clientId: String(meta.clientId || ''),
+      sessionId: String(meta.sessionId || ''),
+      snapshotHash: String(meta.snapshotHash || ''),
+      sourceRefs: Array.isArray(meta.sourceRefs) ? meta.sourceRefs.map(function (ref) { return Object.assign({}, ref); }) : [],
+      object: object,
+    };
+  }
+
+  async function piDurableWrite(record) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) return piFail('XJ_PI_UNKNOWN_FIELD');
+    var kind = String(record.kind || '');
+    var fields = null;
+    var result = null;
+    var value = null;
+    var id = '';
+    if (kind === 'session') {
+      if (!record.clientId || !record.sessionId || !Store || typeof Store.getSession !== 'function' || typeof Store.saveSessionDurable !== 'function') return piFail('XJ_PI_DIRECT_WRITE_DENIED');
+      var session = Store.getSession(String(record.sessionId));
+      if (!session || String(session.clientId || '') !== String(record.clientId || '')) return piFail('XJ_PI_CLIENT_SESSION_MISMATCH');
+      fields = piAllowedFields(record.fields, PI_SESSION_FIELDS);
+      if (!fields) return piFail('XJ_PI_UNKNOWN_FIELD');
+      value = Object.assign({}, session, fields);
+      result = await Store.saveSessionDurable(value);
+      id = String(session.id || record.sessionId);
+    } else if (kind === 'supervision') {
+      if (!Store || typeof Store.getSupervision !== 'function' || typeof Store.saveSupervisionDurable !== 'function') return piFail('XJ_PI_DIRECT_WRITE_DENIED');
+      var supervision = Store.getSupervision(String(record.sessionId || record.supervisionId || ''));
+      if (!supervision) return piFail('XJ_PI_TASK_NOT_FOUND');
+      fields = piAllowedFields(record.fields, PI_SUPERVISION_FIELDS);
+      if (!fields) return piFail('XJ_PI_UNKNOWN_FIELD');
+      value = Object.assign({}, supervision, fields);
+      result = await Store.saveSupervisionDurable(value);
+      id = String(supervision.id);
+    } else {
+      return piFail('XJ_PI_UNKNOWN_FIELD', 'unsupported durable kind');
+    }
+    if (!result || result.ok !== true) return piFail(result && result.error && result.error.code || 'XJ_PI_DIRECT_WRITE_DENIED');
+    var version = piVersionOf(result.version || value.updatedAt);
+    if (!version) return piFail('XJ_PI_VERIFY_FAILED', 'durable version missing');
+    return {
+      ok: true,
+      savedObjectId: id,
+      version: version,
+      object: { snapshotHash: String(record.snapshotHash || ''), version: version, kind: kind, id: id }
+    };
+  }
+
+  function installPiRendererTransport() {
+    if (piTransportInstalled || !window.__XJ_API__ || !window.__XJ_API__.piTransport) return;
+    var transport = window.__XJ_API__.piTransport;
+    if (typeof transport.onRequest !== 'function' || typeof transport.reply !== 'function') return;
+    piTransportInstalled = true;
+    transport.onRequest(function (request) {
+      Promise.resolve().then(async function () {
+        if (request.kind === 'durable-write') {
+          if (request.payload && request.payload.clinicalActionRunId) return piClinicalDurableWrite(request.payload);
+          return piDurableWrite(request.payload);
+        }
+        if (request.kind === 'durable-read') return piClinicalDurableRead(request.payload);
+        return piFail('XJ_PI_UNKNOWN_EVENT', 'unsupported renderer request');
+      }).then(function (response) {
+        transport.reply(request.requestId, response && typeof response === 'object' ? response : piFail('XJ_PI_VERIFY_FAILED'));
+      }).catch(function () {
+        transport.reply(request.requestId, piFail('XJ_PI_DIRECT_WRITE_DENIED'));
+      });
+    });
+    window.XJPiRuntime = Object.freeze({
+      publishState: function (state) {
+        if (!state || typeof state !== 'object' || Array.isArray(state)) return false;
+        return transport.publishState(state);
+      },
+      publishContext: function (projection, reads) {
+        piStoreProjectionRevision += 1;
+        return transport.publishState({
+          projection: Object.assign({}, projection || {}, {
+            storeProjectionVersion: Number.isSafeInteger(projection && projection.storeProjectionVersion)
+              ? projection.storeProjectionVersion : piStoreProjectionRevision,
+            membershipProjectionVersion: Number.isSafeInteger(projection && projection.membershipProjectionVersion)
+              ? projection.membershipProjectionVersion : piMembershipProjectionRevision,
+          }),
+          reads: reads || {},
+        });
+      },
+      revision: function () { return { store: piStoreProjectionRevision, membership: piMembershipProjectionRevision }; },
+    });
+  }
+
+  // 页面级 Pi 接线钩子：只发布当前页面明确提供的 ClinicalContext 投影，
+  // 不扫描全库、不创建第二套 Store writer。主进程会再次校验字段、会员和发送方。
+  function publishPiContext(projection, reads) {
+    if (!window.__XJ_API__ || !window.__XJ_API__.piTransport || typeof window.__XJ_API__.piTransport.publishState !== 'function') return false;
+    if (!projection || typeof projection !== 'object' || Array.isArray(projection)) return false;
+    var payload = { projection: projection, reads: reads && typeof reads === 'object' && !Array.isArray(reads) ? reads : {} };
+    try { return window.__XJ_API__.piTransport.publishState(payload) === true; } catch (_) { return false; }
+  }
+
+  function publishDefaultPiContext() {
+    if (typeof Store === 'undefined' || typeof Store.getSessionsByClient !== 'function') return false;
+    var clientId = getActiveClientId();
+    if (!clientId) return false;
+    var sessions = [];
+    try { sessions = Store.getSessionsByClient(clientId) || []; } catch (_) { return false; }
+    if (!sessions.length) return false;
+    sessions = sessions.slice().sort(function (a, b) {
+      return String(b && (b.updatedAt || b.date) || '').localeCompare(String(a && (a.updatedAt || a.date) || ''));
+    });
+    var session = sessions[0];
+    if (!session || !session.id) return false;
+    var refs = Array.isArray(session.sourceRefs) ? session.sourceRefs.map(function (ref) {
+      if (!ref || typeof ref !== 'object') return null;
+      if (!ref.sourceId || !Number.isSafeInteger(Number(ref.sourceVersion))) return null;
+      if (typeof ref.sourceContentHash !== 'string' || typeof ref.anchorContentHash !== 'string') return null;
+      return {
+        sourceId: String(ref.sourceId),
+        sourceVersion: Number(ref.sourceVersion),
+        sourceContentHash: ref.sourceContentHash,
+        anchorContentHash: ref.anchorContentHash,
+      };
+    }).filter(Boolean) : [];
+    piStoreProjectionRevision += 1;
+    return publishPiContext({
+      clientId: String(clientId),
+      sessionId: String(session.id),
+      sourceRefs: refs,
+      storeProjectionVersion: piStoreProjectionRevision,
+      membershipProjectionVersion: Number.isSafeInteger(piMembershipProjectionRevision) ? piMembershipProjectionRevision : 0,
+    }, {});
+  }
+
   async function initPage(opts) {
     opts = opts || {};
     applyPageIdentity();
@@ -576,7 +1080,7 @@ const App = (() => {
       injectLayout(opts.title, opts.subtitle || '', opts.actions || '', opts);
       applyTierMark(); // 侧边栏注入后按当前档位给「心」字 logo 上色（初始快照）
     }
-    bindModalClose('confirm-modal');
+    ensureConfirmModal();
 
     // 在页面逻辑运行前，通过 IPC 拉取权威授权状态，避免 window.__XJ__ 快照未同步导致 AI 锁误判
     await refreshLicenseState();
@@ -588,6 +1092,28 @@ const App = (() => {
       } catch (e) {
         console.warn('[App] 数据加载失败，将使用空数据', e);
       }
+    }
+    installPiRendererTransport();
+    if (opts.piContext) {
+      try {
+        var piContext = typeof opts.piContext === 'function' ? opts.piContext() : opts.piContext;
+        if (piContext && typeof piContext === 'object') {
+          publishPiContext(piContext.projection || piContext, piContext.reads || {});
+        }
+      } catch (_) { /* 页面未提供合法投影时保持主进程 fail-closed */ }
+    } else {
+      publishDefaultPiContext();
+    }
+    // 隐私诊断模块按固定本地顺序加载；页面无需逐一维护脚本标签。
+    // 运行时在 Store hydrate 后恢复既有的明确同意状态，未同意时保持关闭。
+    try {
+      await loadPrivacyObservabilityModules();
+      if (window.XJPrivacyObservabilityRuntime && typeof window.XJPrivacyObservabilityRuntime.initialize === 'function') {
+        window.XJPrivacyObservabilityRuntime.initialize({ version: '4.2.4' });
+      }
+    } catch (_) {
+      // 诊断能力不可用不应阻塞临床工作台启动，也不输出路径或原始异常。
+      try { console.warn('[XJ privacy] 诊断模块未就绪'); } catch (ignored) {}
     }
     if (typeof opts.onReady === 'function') opts.onReady();
 
@@ -616,24 +1142,99 @@ const App = (() => {
       .replace(/'/g, '&#39;');
   }
 
-  // L10 修复：统一错误日志——收集到内存环形缓冲，供调试和诊断包导出
-  var _errorLog = [];
-  var _ERROR_LOG_MAX = 100;
+  var _privacyLoadPromise = null;
+  function loadLocalScript(path) {
+    return new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = path;
+      script.async = false;
+      script.onload = function () { resolve(); };
+      script.onerror = function () { reject(new Error('privacy-module-load-failed')); };
+      (document.head || document.documentElement).appendChild(script);
+    });
+  }
+  function loadPrivacyObservabilityModules() {
+    if (typeof window === 'undefined') return Promise.resolve();
+    if (window.XJPrivacyObservabilityRuntime) return Promise.resolve();
+    if (_privacyLoadPromise) return _privacyLoadPromise;
+    _privacyLoadPromise = Promise.resolve()
+      .then(function () {
+        return window.XJPrivacyObservabilityCore ? null : loadLocalScript('js/privacy-observability-core.js');
+      })
+      .then(function () {
+        return window.XJPrivacyObservabilityBoundary ? null : loadLocalScript('js/privacy-observability-boundary.js');
+      })
+      .then(function () {
+        return window.XJPrivacyObservabilityRuntime ? null : loadLocalScript('js/privacy-observability-runtime.js');
+      });
+    return _privacyLoadPromise;
+  }
+
+  function privacyRuntime() {
+    return typeof window !== 'undefined' ? window.XJPrivacyObservabilityRuntime : null;
+  }
+  var PRIVACY_ERROR_CODES = [
+    'UNKNOWN_FAILURE', 'APP_STARTUP_FAILED', 'RENDERER_EVENT_FAILED', 'STORAGE_READ_FAILED',
+    'STORAGE_WRITE_FAILED', 'BACKUP_FAILED', 'AI_REQUEST_FAILED', 'NETWORK_REQUEST_FAILED',
+    'IPC_REQUEST_FAILED', 'UPDATE_FAILED', 'SHUTDOWN_FAILED'
+  ];
+  var PRIVACY_STAGES = ['startup', 'renderer', 'storage-read', 'storage-write', 'backup', 'ai', 'network', 'ipc', 'update', 'shutdown'];
+  var PRIVACY_RECOVERY_RESULTS = ['not-attempted', 'recovered', 'degraded', 'failed', 'cancelled'];
+  function privacyModuleName(module) {
+    return typeof module === 'string' ? module.toLowerCase() : '';
+  }
+  function privacyStage(module) {
+    var name = privacyModuleName(module);
+    if (name.indexOf('startup') !== -1 || name.indexOf('init') !== -1) return 'startup';
+    if (name.indexOf('storage') !== -1 || name.indexOf('store') !== -1) return 'storage-read';
+    if (name.indexOf('backup') !== -1 || name.indexOf('restore') !== -1) return 'backup';
+    if (name.indexOf('ai') !== -1 || name.indexOf('model') !== -1) return 'ai';
+    if (name.indexOf('network') !== -1 || name.indexOf('fetch') !== -1 || name.indexOf('request') !== -1) return 'network';
+    if (name.indexOf('ipc') !== -1 || name.indexOf('bridge') !== -1) return 'ipc';
+    if (name.indexOf('update') !== -1) return 'update';
+    if (name.indexOf('shutdown') !== -1 || name.indexOf('close') !== -1) return 'shutdown';
+    return 'renderer';
+  }
+  function privacyErrorCode(module, error) {
+    var candidate = '';
+    try { candidate = error && typeof error.code === 'string' ? error.code : ''; } catch (_) {}
+    if (PRIVACY_ERROR_CODES.indexOf(candidate) !== -1) return candidate;
+    var name = privacyModuleName(module);
+    if (name.indexOf('startup') !== -1 || name.indexOf('init') !== -1) return 'APP_STARTUP_FAILED';
+    if (name.indexOf('storage') !== -1 || name.indexOf('store') !== -1) return 'STORAGE_READ_FAILED';
+    if (name.indexOf('backup') !== -1 || name.indexOf('restore') !== -1) return 'BACKUP_FAILED';
+    if (name.indexOf('ai') !== -1 || name.indexOf('model') !== -1) return 'AI_REQUEST_FAILED';
+    if (name.indexOf('network') !== -1 || name.indexOf('fetch') !== -1 || name.indexOf('request') !== -1) return 'NETWORK_REQUEST_FAILED';
+    if (name.indexOf('ipc') !== -1 || name.indexOf('bridge') !== -1) return 'IPC_REQUEST_FAILED';
+    if (name.indexOf('update') !== -1) return 'UPDATE_FAILED';
+    if (name.indexOf('shutdown') !== -1 || name.indexOf('close') !== -1) return 'SHUTDOWN_FAILED';
+    return 'RENDERER_EVENT_FAILED';
+  }
+  function privacyRecoveryResult(context) {
+    try {
+      var candidate = context && typeof context === 'object' ? context.recoveryResult : '';
+      return PRIVACY_RECOVERY_RESULTS.indexOf(candidate) !== -1 ? candidate : 'not-attempted';
+    } catch (_) { return 'not-attempted'; }
+  }
+
+  // 只保留固定匿名诊断枚举；原始 message、stack、context 和路径不再进入应用日志。
   function logError(module, err, context) {
-    var entry = {
-      ts: new Date().toISOString(),
-      module: module || 'unknown',
-      msg: (err && err.message) ? err.message : String(err || ''),
-      stack: (err && err.stack) ? String(err.stack).slice(0, 500) : '',
-      ctx: context || ''
-    };
-    _errorLog.push(entry);
-    if (_errorLog.length > _ERROR_LOG_MAX) _errorLog.shift();
+    var errorCode = privacyErrorCode(module, err);
+    var stage = privacyStage(module);
+    var recoveryResult = privacyRecoveryResult(context);
+    var runtimeApi = privacyRuntime();
+    if (runtimeApi && typeof runtimeApi.recordError === 'function') {
+      try { runtimeApi.recordError({ errorCode: errorCode, stage: stage, recoveryResult: recoveryResult }); } catch (_) {}
+    }
     if (typeof console !== 'undefined' && console.error) {
-      console.error('[' + entry.module + ']', entry.msg, context || '');
+      console.error('[XJ privacy diagnostic]', errorCode);
     }
   }
-  function getErrorLog() { return _errorLog.slice(); }
+  function getErrorLog() {
+    var runtimeApi = privacyRuntime();
+    if (!runtimeApi || typeof runtimeApi.getErrorRecords !== 'function') return [];
+    try { return runtimeApi.getErrorRecords(); } catch (_) { return []; }
+  }
 
   function formatDate(isoOrStr, withYear = false) {
     if (!isoOrStr) return '';
@@ -721,40 +1322,177 @@ const App = (() => {
   }
 
   // ---------- 模态框 ----------
-  function openModal(id) {
-    const overlay = document.getElementById(id);
-    if (overlay) overlay.classList.add('show');
+  const modalStack = [];
+  const MODAL_FOCUSABLE = [
+    'button:not([disabled])', 'a[href]', 'input:not([disabled])',
+    'select:not([disabled])', 'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+  ].join(',');
+
+  function focusableElements(root) {
+    return Array.from(root.querySelectorAll(MODAL_FOCUSABLE)).filter(function (element) {
+      return !element.hidden && element.getAttribute('aria-hidden') !== 'true' && element.getClientRects().length > 0;
+    });
+  }
+
+  function modalEntry(overlay) {
+    for (let index = modalStack.length - 1; index >= 0; index -= 1) {
+      if (modalStack[index].overlay === overlay) return modalStack[index];
+    }
+    return null;
+  }
+
+  function openModalElement(overlay, options) {
+    if (!overlay) return null;
+    options = options || {};
+    let entry = modalEntry(overlay);
+    if (!entry) {
+      const active = document.activeElement;
+      entry = {
+        overlay,
+        returnFocus: active && active !== document.body && typeof active.focus === 'function' ? active : null,
+        removeOnClose: options.removeOnClose === true,
+        onClose: typeof options.onClose === 'function' ? options.onClose : null,
+      };
+      modalStack.push(entry);
+    } else {
+      if (options.removeOnClose === true) entry.removeOnClose = true;
+      if (typeof options.onClose === 'function') entry.onClose = options.onClose;
+    }
+    overlay.setAttribute('role', overlay.getAttribute('role') || 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.classList.add('show');
+    document.body.classList.add('xj-modal-open');
+    const preferred = options.initialFocus
+      ? overlay.querySelector(options.initialFocus)
+      : overlay.querySelector('[data-modal-cancel], .btn-ghost:not([disabled]), .cancel:not([disabled]), .close:not([disabled])');
+    const target = preferred || focusableElements(overlay)[0] || overlay;
+    if (target === overlay && !overlay.hasAttribute('tabindex')) overlay.setAttribute('tabindex', '-1');
+    requestAnimationFrame(function () { try { target.focus(); } catch (error) {} });
+    return overlay;
+  }
+
+  function closeModalElement(overlay) {
+    if (!overlay) return false;
+    const entry = modalEntry(overlay);
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden', 'true');
+    if (entry) modalStack.splice(modalStack.indexOf(entry), 1);
+    if (modalStack.length === 0) document.body.classList.remove('xj-modal-open');
+    else document.body.classList.add('xj-modal-open');
+    const returnFocus = entry && entry.returnFocus;
+    const onClose = entry && entry.onClose;
+    if (entry && entry.removeOnClose && overlay.isConnected) overlay.remove();
+    if (onClose) {
+      try { onClose(); } catch (error) { console.error('[Modal] close cleanup failed', error); }
+    }
+    if (returnFocus) {
+      requestAnimationFrame(function () {
+        if (!document.contains(returnFocus)) return;
+        try { returnFocus.focus(); } catch (error) {}
+      });
+    }
+    return true;
+  }
+
+  function openModal(id, options) {
+    return openModalElement(document.getElementById(id), options);
   }
 
   function closeModal(id) {
-    const overlay = document.getElementById(id);
-    if (overlay) overlay.classList.remove('show');
+    return closeModalElement(document.getElementById(id));
   }
 
   function bindModalClose(id) {
     const overlay = document.getElementById(id);
-    if (!overlay) return;
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) closeModal(id);
+    if (!overlay || overlay.dataset.xjModalBound === 'true') return;
+    overlay.dataset.xjModalBound = 'true';
+    overlay.addEventListener('click', function (event) {
+      if (event.target === overlay) closeModalElement(overlay);
     });
-    const closeBtn = overlay.querySelector('.close');
-    if (closeBtn) closeBtn.addEventListener('click', () => closeModal(id));
+    overlay.querySelectorAll('.close, [data-modal-cancel]').forEach(function (button) {
+      button.addEventListener('click', function () { closeModalElement(overlay); });
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    const entry = modalStack[modalStack.length - 1];
+    if (!entry) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeModalElement(entry.overlay);
+      return;
+    }
+    if (e.key === 'Tab') {
+      const items = focusableElements(entry.overlay);
+      if (!items.length) { e.preventDefault(); entry.overlay.focus(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && (document.activeElement === first || !entry.overlay.contains(document.activeElement))) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    }
+  }, true);
+
+  function ensureConfirmModal() {
+    let overlay = document.getElementById('confirm-modal');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'confirm-modal';
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.innerHTML = '<div class="modal" style="max-width:420px" aria-labelledby="confirm-title" aria-describedby="confirm-message">' +
+        '<div class="modal-header"><h2 id="confirm-title">请确认</h2></div>' +
+        '<div class="modal-body"><p id="confirm-message"></p></div>' +
+        '<div class="modal-footer"><button class="btn btn-ghost" type="button" data-modal-cancel>取消</button>' +
+        '<button class="btn btn-primary" id="confirm-ok" type="button">确定</button></div></div>';
+      document.body.appendChild(overlay);
+    }
+    const cancel = overlay.querySelector('.btn-ghost');
+    if (cancel) cancel.setAttribute('data-modal-cancel', '');
+    bindModalClose('confirm-modal');
+    return overlay;
   }
 
   // ---------- 确认对话框 ----------
   function confirmDialog(message, onConfirm, danger = false) {
-    const overlay = document.getElementById('confirm-modal');
-    if (!overlay) return;
-    overlay.querySelector('#confirm-message').textContent = message;
-    const btn = overlay.querySelector('#confirm-ok');
-    btn.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', () => {
-      closeModal('confirm-modal');
-      onConfirm();
+    const overlay = ensureConfirmModal();
+    const messageNode = overlay.querySelector('#confirm-message');
+    messageNode.textContent = String(message || '');
+    const oldButton = overlay.querySelector('#confirm-ok');
+    const button = oldButton.cloneNode(true);
+    oldButton.parentNode.replaceChild(button, oldButton);
+    button.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+    button.textContent = danger ? '确认操作' : '确定';
+    const cancel = overlay.querySelector('[data-modal-cancel]');
+    button.addEventListener('click', async function () {
+      if (button.disabled) return;
+      const idleText = button.textContent;
+      button.disabled = true;
+      if (cancel) cancel.disabled = true;
+      button.textContent = '处理中…';
+      try {
+        const result = typeof onConfirm === 'function' ? await onConfirm() : true;
+        if (result === false) {
+          button.disabled = false;
+          if (cancel) cancel.disabled = false;
+          button.textContent = idleText;
+          return;
+        }
+        closeModalElement(overlay);
+      } catch (error) {
+        button.disabled = false;
+        if (cancel) cancel.disabled = false;
+        button.textContent = idleText;
+        showToast('操作失败，请恢复后重试', 'error');
+      }
     });
-    openModal('confirm-modal');
+    openModalElement(overlay, { initialFocus: '[data-modal-cancel]' });
+    return overlay;
   }
 
   // ---------- 下载 ----------
@@ -1019,8 +1757,9 @@ const App = (() => {
     window.__xjCloseCmd = close;
   }
 
-    // 启动时自动应用已保存的皮肤
+  // 启动时自动应用已保存的皮肤
   document.documentElement.setAttribute('data-skin', Theme.getSkin());
+  readCachedModelCatalog();
 
   function setupGlobalChrome() {
     ensureCmdPalette();
@@ -1041,6 +1780,7 @@ const App = (() => {
         'supervision-mindmap.html': 'ai-mindmap',
         'real-supervision-ai.html': 'real-sup-ai',
         'doc-growth.html': 'ai-growth',
+        'billing-calendar.html': 'billing-calendar',
       };
       const feature = gates[page];
       if (!feature || canUse(feature)) return;
@@ -1061,7 +1801,30 @@ const App = (() => {
     getActiveClientId,
     renderSidebar,
     injectLayout,
+    refreshSidebarChrome,
+    bindSidebarControls,
     initPage,
+    loadPrivacyObservabilityModules,
+    getPrivacyObservabilityState: function () {
+      var runtimeApi = privacyRuntime();
+      return runtimeApi && typeof runtimeApi.getState === 'function' ? runtimeApi.getState() : { ok: false, errorCode: 'not-initialized', value: null };
+    },
+    grantPrivacyConsent: function () {
+      var runtimeApi = privacyRuntime();
+      return runtimeApi && typeof runtimeApi.grantConsent === 'function' ? runtimeApi.grantConsent() : Promise.resolve({ ok: false, errorCode: 'not-initialized', value: null });
+    },
+    revokePrivacyConsent: function () {
+      var runtimeApi = privacyRuntime();
+      return runtimeApi && typeof runtimeApi.revokeConsent === 'function' ? runtimeApi.revokeConsent() : Promise.resolve({ ok: false, errorCode: 'not-initialized', value: null });
+    },
+    clearPrivacyDiagnostics: function () {
+      var runtimeApi = privacyRuntime();
+      return runtimeApi && typeof runtimeApi.clear === 'function' ? runtimeApi.clear() : { ok: false, errorCode: 'not-initialized', value: null };
+    },
+    exportPrivacyDiagnostics: function () {
+      var runtimeApi = privacyRuntime();
+      return runtimeApi && typeof runtimeApi.exportSupportReport === 'function' ? runtimeApi.exportSupportReport() : { ok: false, errorCode: 'not-initialized', value: null };
+    },
     escapeHtml,
     logError,
     getErrorLog,
@@ -1078,6 +1841,8 @@ const App = (() => {
     showToast,
     openModal,
     closeModal,
+    openModalElement,
+    closeModalElement,
     bindModalClose,
     confirmDialog,
     downloadFile,
@@ -1088,17 +1853,20 @@ const App = (() => {
     readFileAsText,
     aiUnlocked,
     hasAICompute,
+    canUse,
+    featureGate,
+    openFeaturePage,
     refreshLicenseState,
+    publishPiContext,
     onLicenseStateChange,
     getLicenseState,
     isTrial,
     isPro,
     isCustom,
-    canUse,
-    featureGate,
     lockBadge,
     membershipBadge,
     openPlans,
+    openMembershipGate,
     Theme,
   };
 })();
@@ -1130,8 +1898,10 @@ if (typeof window !== 'undefined') {
 
   function render() {
     if (location.pathname.includes('activation.html')) return;
+    var showQuota = !isUnlocked();
     removeBar();
-    if (isUnlocked()) return; // 已激活/已解锁：不显示
+    document.documentElement.classList.toggle('xj-quota-reserved', showQuota);
+    if (!showQuota) return; // 已激活/已解锁：不显示
     var bar = document.createElement('div');
     bar.id = 'xj-quota-bar';
     bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;height:24px;background:var(--accent-soft,#ECEEF9);display:flex;align-items:center;justify-content:center;font:11px var(--sans);color:var(--accent);gap:12px;border-bottom:1px solid var(--accent-line,#B5BDE0)';
@@ -1150,23 +1920,20 @@ if (typeof window !== 'undefined') {
     document.documentElement.style.setProperty('--xj-top-offset', '24px');
   }
 
-  async function build() {
-    // 先拉取权威授权状态，避免读到 preload 初始快照（激活后不同步）导致误显
-    try {
-      if (typeof App !== 'undefined' && App.refreshLicenseState) await App.refreshLicenseState();
-    } catch (e) {}
+  function build() {
+    // The quota bar changes document geometry. Render its cached state while this
+    // parser-blocking script still owns first paint, then reconcile asynchronously.
     render();
-    // 订阅授权变化：激活/过期后自动重绘（移除或重建配额条）
     try {
       if (typeof App !== 'undefined' && App.onLicenseStateChange) App.onLicenseStateChange(render);
+      if (typeof App !== 'undefined' && App.refreshLicenseState) {
+        Promise.resolve(App.refreshLicenseState()).then(render).catch(function () {});
+      }
     } catch (e) {}
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(build, 100); });
-  } else {
-    setTimeout(build, 100);
-  }
+  if (document.body) build();
+  else document.addEventListener('DOMContentLoaded', build, { once: true });
 })();
 
 // v3.4.0：全局"＋新建来访"注入（所有页面的来访者下拉统一加）

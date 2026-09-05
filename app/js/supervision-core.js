@@ -1,7 +1,7 @@
 /* ============================================================
    心镜 XinJing — 督导管线纯核（supervision-core.js）
    - 无 DOM 依赖：不调 getElementById/querySelector/innerHTML
-   - 依赖宿主全局：window.AI.send / Supervisors.buildSystemPrompt / Store.saveAiSupervision
+   - 依赖宿主全局：window.AI.send / Supervisors.buildSystemPrompt / Store.saveAiSupervisionDurable
    - 页面壳 supervision.js 保留 window.* 入口函数，委托本模块 + DOM 渲染
    - prompt 全文与 supervision.js L263-281 字节同源（守护提示词不偏移）
    ============================================================ */
@@ -80,7 +80,7 @@ const SupervisionCore = (() => {
 
   // 保存督导记录（不操作 DOM）——与 supervision.js L366-392 字节同源
   // 返回 full 文本（页面壳可用于 showToast），纯核内部已完成 Store 保存
-  function saveSupervision(mode, chatMessages, material, loadedSession) {
+  async function saveSupervision(mode, chatMessages, material, loadedSession) {
     if (!chatMessages.length || chatMessages[0].role !== 'system') return null;
     const impression = chatMessages[1] && chatMessages[1].role === 'assistant' ? chatMessages[1].content : '';
     const chat = chatMessages.slice(2).map((m) =>
@@ -90,14 +90,18 @@ const SupervisionCore = (() => {
     if (!definition) return null;
     const modeName = definition.saveName || definition.displayName;
     const full = '【整体印象】\n' + impression + (chat ? '\n\n【督导对话】\n' + chat : '');
-    if (typeof Store !== 'undefined' && typeof Store.saveAiSupervision === 'function') {
-      Store.saveAiSupervision({
+    if (typeof Store === 'undefined' || typeof Store.saveAiSupervisionDurable !== 'function') {
+      throw new Error('督导保存通道未就绪');
+    }
+    const result = await Store.saveAiSupervisionDurable({
         supervisorName: modeName,
         clientId: loadedSession ? loadedSession.clientId : '',
         sessionId: loadedSession ? loadedSession.id : '',
         context: material,
         content: full,
       });
+    if (!result || !result.ok) {
+      throw new Error((result && result.error && result.error.message) || '督导记录持久化失败');
     }
     return full;
   }
@@ -105,7 +109,7 @@ const SupervisionCore = (() => {
   // ===================== U1-C 真人督导整理模式 =====================
   // M1 决议：realsup 不调 Supervisors.buildSystemPrompt，独立写 system prompt
   function buildRealSupPrompt() {
-    return [
+    const prompt = [
       '你是心理咨询师助理，你的任务是把「真人督导录音转写文字稿」结构化为督导记录字段。',
       '不要发表评论，不要补充内容，不要把转写中的口语化片段当作你的输出。',
       '严格按照下方 JSON schema 输出，5 个字段缺一不可：',
@@ -116,6 +120,21 @@ const SupervisionCore = (() => {
       '- techniques: 数组，督导师提出的核心技术/建议要点',
       '只输出 JSON 对象本身，不要 markdown 围栏、不要解释、不要前后文字。',
     ].join('\n');
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.registerPrompt) {
+      PromptGovernance.registerPrompt({
+        id: 'supervision.real-supervision-parse.system',
+        version: '4.4.0',
+        task: 'real-supervision-ai-organize',
+        model: 'chat-completions-compatible',
+        author: 'XinJing product team',
+        source: 'app/js/supervision-core.js',
+        changeLog: ['4.4.0: registered the real-supervision parsing system template.'],
+        content: prompt,
+      });
+    }
+    return typeof PromptGovernance !== 'undefined' && PromptGovernance.appendFactAndSourceGuard
+      ? PromptGovernance.appendFactAndSourceGuard(prompt)
+      : prompt;
   }
 
   // R1 决议：resolve 前轻量 sanitize + 5 字段名校验 prune

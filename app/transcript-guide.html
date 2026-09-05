@@ -11,30 +11,31 @@
 .xj-lock-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.4;background:rgba(0,0,0,.04);color:var(--ink-3);border:1px solid var(--border);cursor:help}
 .xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.4}
 .xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
-.xj-tier-badge.trial{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(139,147,199,.2)}
-.xj-premium-btn{position:relative}
-.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
-.xj-locked-area{position:relative}
-.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-3);pointer-events:auto}
-.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+.xj-tier-badge.trial{background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
+ /* P0 REPAIR 02: emoji 伪元素已移除，由 tokens.css + xj-ui-system.css 统一管理 */
 
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
 /* ====== 预览条 ====== */
-.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--accent-soft);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
 .preview-bar .lock-icon{font-size:14px}
 .preview-bar .sp{flex:1}
-.preview-bar .badge-trial{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(139,147,199,.2)}
+.preview-bar .badge-trial{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
 
 /* ====== 顶栏 ====== */
 .tp-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .tp-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
 .tp-top .back:hover{background:var(--hover-tint)}
-.tp-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.tp-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .tp-top h2 .sub{font-size:11px;color:var(--ink-3);font-weight:400;margin-left:6px;font-family:var(--sans)}
 .tp-top .sp{flex:1}
 .tp-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.guide-context-status{font:11px var(--sans);color:var(--ink-3);padding:4px 8px;border:1px solid var(--border);border-radius:6px;white-space:nowrap}
+.guide-context-status[data-state="verified"]{color:var(--success,#2f7a59);border-color:var(--success,#2f7a59);background:rgba(47,122,89,.06)}
+.guide-context-status[data-state="blocked"]{color:var(--danger,#a33);border-color:var(--danger,#a33);background:rgba(163,51,51,.06)}
+.guide-context-host{padding:0 16px;background:var(--bg-sunken);}
+.guide-context-host:empty{display:none}
 
 /* ====== 三栏 ====== */
 .tp-body{flex:1;display:grid;grid-template-columns:1fr 420px 300px;min-height:0;overflow:hidden}
@@ -42,27 +43,29 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .tp-col-center{border-right:1px solid var(--border)}
 .tp-col-right{border-right:1px solid var(--border)}
 .tp-col-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--paper-2)}
-.tp-col-head .tch{font-family:var(--serif);font-size:14px;font-weight:600}
+.tp-col-head .tch{font-family:var(--sans);font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
 .tp-col-head .tch-badge{font-size:10px;padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
 .tp-col-head .sp{flex:1}
 .tp-col-head .tch-btn{border:1px solid var(--border);background:var(--paper-2);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
 .tp-col-head .tch-btn:hover{border-color:var(--accent);color:var(--accent)}
-.tp-col-head .tch-btn.pri{background:var(--accent);color:#fff;border:none}
+.tp-col-head .tch-btn.pri{background:var(--cta-bg,var(--accent));color:#fff;border:none}
 .tp-col-head .tch-btn:disabled{opacity:.5;cursor:not-allowed}
 .tp-col-body{flex:1;overflow-y:auto;padding:16px}
 
 /* 逐字稿行 */
 .tp-line{display:flex;gap:8px;padding:4px 0;font-size:13px;line-height:1.8;border-radius:4px;transition:background .15s;cursor:pointer}
 .tp-line:hover{background:var(--hover-tint)}
+.tp-line:focus-visible{outline:2px solid var(--accent);outline-offset:2px;background:var(--accent-soft)}
+.tp-line.is-selected{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
 .tp-line .ln{color:var(--ink-3);font-size:11px;min-width:28px;text-align:right;font-family:var(--mono);padding-top:2px;user-select:none}
 .tp-line .speaker{font-weight:600;min-width:32px;color:var(--accent)}
 .tp-line .text{flex:1;color:var(--ink)}
-.tp-line .text .ai-hint{background:rgba(139,147,199,.15);border-bottom:2px dotted var(--accent);padding:1px 0;cursor:help;border-radius:2px}
-.tp-line .text .ai-hint:hover{background:rgba(139,147,199,.25)}
+.tp-line .text .ai-hint{background:var(--accent-soft);border-bottom:2px dotted var(--accent);padding:1px 0;cursor:help;border-radius:2px}
+.tp-line .text .ai-hint:hover{background:var(--accent-soft);filter:brightness(.97)}
 
 /* 中栏：AI对话引导 */
 .guide-msg{padding:14px 16px;border-radius:var(--r-card);margin-bottom:12px;font-size:13px;line-height:1.7;max-width:90%}
-.guide-msg.ai{background:var(--accent-soft);color:var(--ink);border:1px solid rgba(139,147,199,.15)}
+.guide-msg.ai{background:var(--accent-soft);color:var(--ink);border:1px solid var(--border)}
 .guide-msg.user{background:var(--paper-2);color:var(--ink);border:1px solid var(--border);margin-left:auto;text-align:right}
 .guide-msg .gm-role{font-size:10px;font-weight:600;color:var(--accent);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
 .guide-msg .gm-suggestion{margin-top:8px;padding:8px 12px;background:rgba(111,174,143,.1);border-left:3px solid var(--green);border-radius:4px;font-size:12px;color:var(--ink-2)}
@@ -72,7 +75,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .suggest-card{background:var(--paper-2);border:1px solid var(--border);border-radius:var(--r-card);padding:14px;margin-bottom:10px}
 .suggest-card .sc-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
 .suggest-card .sc-head .sc-icon{font-size:16px}
-.suggest-card .sc-head .sc-title{font-family:var(--serif);font-size:13px;font-weight:600}
+.suggest-card .sc-head .sc-title{font-family:var(--sans);font-size:13px;font-weight:600}
 .suggest-card .sc-body{font-size:12px;color:var(--ink-2);line-height:1.7}
 .suggest-card .sc-action{display:flex;gap:6px;margin-top:10px}
 .suggest-card .sc-action button{border:1px solid var(--border);background:var(--paper-2);border-radius:6px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
@@ -83,29 +86,54 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .guide-input{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;background:var(--paper-2)}
 .guide-input input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);background:var(--bg);color:var(--text);outline:none}
 .guide-input input:focus{border-color:var(--accent)}
-.guide-input button{border:none;background:var(--accent);color:#fff;border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer}
+.guide-input button{border:none;background:var(--cta-bg,var(--accent));color:#fff;border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer}
 .guide-input button:disabled{opacity:.5;cursor:not-allowed}
+
+.guide-steps{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--bg-sunken);border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
+.guide-steps .gs-title{font-weight:600;color:var(--accent);display:inline-flex;align-items:center;gap:6px;font-size:12px}
+.guide-steps ol{display:flex;gap:18px;margin:0;padding:0;list-style:none;font-size:12px;color:var(--ink-2);flex-wrap:wrap}
+.guide-steps ol li{display:flex;align-items:center;gap:6px}
+.guide-steps ol li::before{content:attr(data-n);width:18px;height:18px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:700;display:inline-grid;place-items:center;flex-shrink:0}
+.guide-steps .gs-exit{margin-left:auto;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:6px;padding:5px 12px;font:12px var(--sans);text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="split-editor">
 
 <!-- ====== 预览条（免费用户可见） ====== -->
 <div class="preview-bar" id="preview-bar" style="display:none">
-  <span class="lock-icon">🔒</span>
+  <span class="lock-icon"><i data-lucide="lock-keyhole" aria-hidden="true"></i></span>
   <span>会员预览模式 · 这是 <span class="xj-tier-badge pro">会员</span> <b>逐字稿对话引导</b> 会员增值功能，升级 <span class="badge-trial">会员</span> 后可使用全部 AI 引导功能</span>
   <span class="sp"></span>
-  <span style="font-size:11px;color:var(--ink-3)">基础版（方案A）仍免费使用 → <a href="transcript.html" style="color:var(--accent)">返回</a></span>
+  <span style="font-size:11px;color:var(--ink-3)">基础版（方案A）仍免费使用 <i data-lucide="arrow-right" aria-hidden="true"></i> <a href="transcript.html" style="color:var(--accent)">返回</a></span>
 </div>
 
 <!-- ====== 顶栏 ====== -->
 <div class="tp-top">
-  <button class="back" onclick="location.href='transcript.html'">← 返回基础版</button>
+  <button class="back" onclick="location.href='transcript.html'"><i data-lucide="arrow-left" aria-hidden="true"></i>返回基础版</button>
   <h2>逐字稿整理 <span class="sub">· 会员版C · 对话引导</span></h2>
   <span class="sp"></span>
   <select id="sel-client" onchange="loadClientTranscript()">
     <option value="">选择来访者…</option>
   </select>
+  <select id="sel-session" aria-label="选择会谈" onchange="selectGuideSession()" disabled>
+    <option value="">选择会谈…</option>
+  </select>
+  <span id="context-status" class="guide-context-status" data-state="idle" aria-live="polite">会谈未选择</span>
   <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span>
+</div>
+
+
+<div class="guide-steps" aria-label="逐字稿工作流步骤">
+  <span class="gs-title"><i data-lucide="list-ordered"></i>三步工作流</span>
+  <ol>
+    <li data-n="1">选择来访者并加载逐字稿</li>
+    <li data-n="2">AI 逐句标注与修正建议</li>
+    <li data-n="3">采纳修正后回到逐字稿保存</li>
+  </ol>
+  <a class="gs-exit" href="transcript.html"><i data-lucide="arrow-left"></i>回到逐字稿整理</a>
 </div>
 
 <!-- ====== 三栏主体 ====== -->
@@ -127,12 +155,13 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
   <!-- 中栏：AI对话引导 -->
   <div class="tp-col tp-col-center">
     <div class="tp-col-head">
-      <span class="tch">🤖 AI 对话引导</span>
+      <span class="tch"><i data-lucide="sparkles"></i>AI 对话引导</span>
       <span class="tch-badge">逐句分析</span>
       <span class="sp"></span>
-      <button class="tch-btn xj-premium-btn" id="btn-per-line" disabled>逐句引导</button>
-      <button class="tch-btn pri xj-premium-btn" id="btn-global" disabled>全局分析</button>
+      <button class="tch-btn xj-premium-btn" id="btn-per-line" disabled onclick="runPerLineGuide()">逐句引导</button>
+      <button class="tch-btn pri xj-premium-btn" id="btn-global" disabled onclick="runGlobalGuide()">全局分析</button>
     </div>
+    <div id="context-summary-host" class="guide-context-host" aria-live="polite"></div>
     <div class="tp-col-body" id="guide-body">
       <div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">加载逐字稿后，AI 将在这里<br>逐句引导你发现语音识别错误<br>和临床材料</div>
     </div>
@@ -157,7 +186,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 
 </div>
 
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script>
 App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
   'use strict';
@@ -178,6 +207,27 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
 
   // 来访者列表
   var sel = document.getElementById('sel-client');
+  var sessionSel = document.getElementById('sel-session');
+  var activeSessionId = '';
+  var activeLineNumber = 0;
+  var activeContext = null;
+  var contextEpoch = 0;
+  var guideHistory = [];
+  var pendingFixes = [];
+  function setContextStatus(text, state) {
+    var status = document.getElementById('context-status');
+    if (status) { status.textContent = text; status.dataset.state = state || 'idle'; }
+  }
+  function resetGuideSurface(message) {
+    document.getElementById('transcript-body').innerHTML = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">' + App.escapeHtml(message || '请选择会谈') + '</div>';
+    document.getElementById('guide-body').innerHTML = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">选择会谈后，AI 才会读取这一份逐字稿。</div>';
+    document.getElementById('fix-body').innerHTML = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">AI 分析完成后，修正建议将在这里显示。</div>';
+    document.getElementById('hint-count').textContent = '0 处 AI 标注';
+    document.getElementById('fix-count').textContent = '0 条';
+    var adoptAllButton = document.getElementById('btn-adopt-all'); if (adoptAllButton) adoptAllButton.disabled = true;
+    var contextHost = document.getElementById('context-summary-host'); if (contextHost) contextHost.innerHTML = '';
+    ['btn-per-line','btn-global','guide-input','guide-send-btn'].forEach(function (id) { var node = document.getElementById(id); if (node) node.disabled = true; });
+  }
   Store.getClients().forEach(function (c) {
     var opt = document.createElement('option');
     opt.value = c.id; opt.textContent = c.name;
@@ -186,54 +236,103 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
 
   window.loadClientTranscript = function () {
     var clientId = sel.value;
-    if (!clientId) return;
+    activeSessionId = '';
+    activeLineNumber = 0;
+    activeContext = null;
+    contextEpoch += 1;
+    guideHistory = [];
+    pendingFixes = [];
+    if (sessionSel) {
+      sessionSel.innerHTML = '<option value="">选择会谈…</option>';
+      sessionSel.disabled = !clientId;
+      if (clientId) (Store.getSessionsByClient ? Store.getSessionsByClient(clientId) : []).forEach(function (session) {
+        var option = document.createElement('option');
+        option.value = session.id;
+        option.textContent = '第' + (session.sessionNumber || '?') + '节 · ' + (session.date || '日期未填写');
+        sessionSel.appendChild(option);
+      });
+    }
+    setContextStatus(clientId ? '请选择会谈' : '来访者未选择', 'idle');
+    resetGuideSurface(clientId ? '请选择会谈，再加载逐字稿' : '请选择来访者和会谈');
     var btn = document.getElementById('btn-load');
-    if (btn) btn.disabled = false;
+    if (btn) btn.disabled = !clientId || !isMember;
+  };
+
+  window.selectGuideSession = function () {
+    activeSessionId = sessionSel ? sessionSel.value : '';
+    activeLineNumber = 0;
+    activeContext = null;
+    contextEpoch += 1;
+    guideHistory = [];
+    pendingFixes = [];
+    setContextStatus(activeSessionId ? '会谈已选择，等待加载' : '请选择会谈', activeSessionId ? 'idle' : 'blocked');
+    resetGuideSurface(activeSessionId ? '点击“加载逐字稿”读取当前会谈' : '请选择会谈');
+    var btn = document.getElementById('btn-load');
+    if (btn) btn.disabled = !activeSessionId || !isMember;
   };
 
   window.loadTranscript = function () {
     var clientId = sel.value;
-    if (!clientId) return;
+    if (!clientId || !activeSessionId) { App.showToast('请先选择来访者和会谈', 'warning'); return; }
     var sessions = Store.getSessionsByClient ? Store.getSessionsByClient(clientId) : [];
+    var selectedSession = Store.getSession ? Store.getSession(activeSessionId) : sessions.filter(function (s) { return s.id === activeSessionId; })[0];
+    if (!selectedSession || selectedSession.clientId !== clientId) { setContextStatus('会谈归属无效，已阻断', 'blocked'); resetGuideSurface('当前会谈与来访者不匹配，请重新选择'); return; }
     var body = document.getElementById('transcript-body');
-    if (!sessions.length) {
-      body.innerHTML = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">该来访者无咨询记录</div>';
+    contextEpoch += 1;
+    if (!selectedSession) {
+      body.innerHTML = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">该会谈不存在或已被删除</div>';
       return;
     }
     var html = '';
-    sessions.forEach(function (s, si) {
-      if (!s.transcript) return;
-      var lines = s.transcript.split('\n');
-      lines.forEach(function (l, li) {
-        html += '<div class="tp-line"><span class="ln">' + String(li + 1).padStart(2, '0') + '</span><span class="speaker">' + (l.charAt(0) || 'T') + '</span><span class="text">' + App.escapeHtml(l.slice(1) || l) + '</span></div>';
-      });
+    if (selectedSession.transcript) selectedSession.transcript.split('\n').forEach(function (l, li) {
+      html += '<div class="tp-line" data-line="' + (li + 1) + '" tabindex="0" role="button" aria-label="选择第' + (li + 1) + '行逐字稿" onclick="selectGuideLine(this)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectGuideLine(this);}"><span class="ln">' + String(li + 1).padStart(2, '0') + '</span><span class="speaker">' + App.escapeHtml(l.charAt(0) || 'T') + '</span><span class="text">' + App.escapeHtml(l.slice(1) || l) + '</span></div>';
     });
     if (!html) html = '<div class="empty-state" style="font-size:13px;color:var(--ink-3);text-align:center;padding:40px 20px">逐字稿为空，请先在咨询记录中填写逐字稿</div>';
     body.innerHTML = html;
-
-    if (isMember) {
-      runGuideAI();
-    }
+    activeContext = ClinicalContext.build('transcript-ai-detect', { clientId: clientId, sessionId: activeSessionId }, { inputText: selectedSession.transcript || '', instruction: '仅分析当前会谈的逐字稿，返回错误标注与临床议题。位置 pos 和长度 len 以每行去掉说话人前缀后的可见文字为准。', system: '你是心理咨询逐字稿校对专家。请逐句分析当前会谈逐字稿，返回 JSON：{"errors":[{"line":行号,"pos":位置,"len":长度,"fix":"修正","reason":"理由","type":"typology|term|clinical"}],"insights":[{"line":行号,"topic":"临床议题","quoi":"注意内容"}]}。line、pos、len 必须是合法非负整数，且不能越过对应可见行文字范围。只输出 JSON。' });
+    if (!activeContext.ok) { setContextStatus('来源不可用，已阻断', 'blocked'); document.getElementById('guide-body').innerHTML = '<div class="guide-msg ai"><div class="gm-role">无法开始</div>当前会谈未通过来源校验：' + App.escapeHtml(activeContext.reason || 'unknown') + '</div>'; return; }
+    if (ClinicalContextView && ClinicalContextView.renderSummary) ClinicalContextView.renderSummary(document.getElementById('context-summary-host'), activeContext);
+    setContextStatus('来源已核对 · 仅当前会谈', 'verified');
+    ['btn-per-line','btn-global','guide-input','guide-send-btn'].forEach(function (id) { var node = document.getElementById(id); if (node) node.disabled = !isMember; });
+    if (isMember) runGuideAI();
   };
 
   function runGuideAI() {
     var clientId = sel.value;
-    if (!clientId || !isMember) return;
-    var text = document.getElementById('transcript-body').innerText;
+    var contextForRun = activeContext;
+    var sessionIdForRun = activeSessionId;
+    var epochForRun = contextEpoch;
+    if (!clientId || !sessionIdForRun || !isMember || !contextForRun || !contextForRun.ok) return;
+    var currentSession = Store.getSession ? Store.getSession(sessionIdForRun) : null;
+    var text = currentSession && typeof currentSession.transcript === 'string' ? currentSession.transcript : '';
     if (!text.trim()) return;
     var sys = '你是心理咨询逐字稿校对专家。请逐句分析以下逐字稿，返回 JSON：{"errors":[{"line":行号,"pos":位置,"len":长度,"fix":"修正","reason":"理由","type":"typology|term|clinical"}],"insights":[{"line":行号,"topic":"临床议题","quoi":"注意内容"}]}。只输出 JSON。';
     var guide = document.getElementById('guide-body');
     var fixBody = document.getElementById('fix-body');
     guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 分析中…</div>正在逐句阅读逐字稿，请稍候。</div>';
-    AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+    var run = ClinicalContext.createActionRun(contextForRun);
+    if (!run) { guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">来源校验失败</div>没有创建分析记录，未发送请求。</div>'; return; }
+    if (ClinicalContextView && ClinicalContextView.confirmSend && !ClinicalContextView.confirmSend(contextForRun)) { ClinicalContext.failActionRun(run.id, '用户取消发送', 'cancelled'); guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">已取消</div>你没有发送当前会谈上下文。</div>'; return; }
+    sendGuideRequest(contextForRun.messages, function (res) {
+      var currentSession = Store.getSession ? Store.getSession(sessionIdForRun) : null;
+      if (epochForRun !== contextEpoch || !currentSession || !ClinicalContext.isSnapshotCurrent(contextForRun.snapshot, currentSession.transcript || '', { clientId: clientId, sessionId: sessionIdForRun })) { ClinicalContext.failActionRun(run.id, '会谈上下文已变更', 'stale'); guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">分析已作废</div>当前会谈内容已变化，请重新加载后再分析。</div>'; return; }
       if (res && res.content && !res.error) {
         try {
           var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
-          var errs = json.errors || [];
-          var insights = json.insights || [];
+          var errs = Array.isArray(json.errors) ? json.errors : [];
+          var insights = Array.isArray(json.insights) ? json.insights : [];
+          var sourceLines = text.split('\n');
+          var validErrors = errs.filter(function (item) {
+            var line = Number(item && item.line), pos = Number(item && item.pos), len = Number(item && item.len);
+            if (!Number.isInteger(line) || !Number.isInteger(pos) || !Number.isInteger(len) || line < 1 || pos < 0 || len < 0 || line > sourceLines.length) return false;
+            var visible = sourceLines[line - 1].length > 1 ? sourceLines[line - 1].slice(1) : sourceLines[line - 1];
+            return pos + len <= visible.length && typeof (item.fix || '') === 'string' && typeof (item.reason || '') === 'string';
+          }).slice(0, 100).map(function (item) { return Object.assign({}, item, { line: Number(item.line), pos: Number(item.pos), len: Number(item.len), fix: String(item.fix || ''), reason: String(item.reason || '') }); });
+          pendingFixes = validErrors.slice();
+          ClinicalContext.completeActionRun(run.id, { kind: contextForRun.taskSpec.outputSchema.kind, citations: contextForRun.sources.map(function (source) { return { kind: source.kind, id: source.id, sourceContentHash: source.sourceContentHash }; }) });
           // 更新左栏标注
           var lines = document.querySelectorAll('.tp-line');
-          errs.forEach(function (e) {
+          validErrors.forEach(function (e) {
             var li = e.line - 1;
             if (li >= 0 && li < lines.length) {
               var textEl = lines[li].querySelector('.text');
@@ -243,68 +342,196 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
               );
             }
           });
-          document.getElementById('hint-count').textContent = errs.length + ' 处 AI 标注';
+          document.getElementById('hint-count').textContent = validErrors.length + ' 处 AI 标注';
           // 中栏引导
-          var guideHtml = '<div class="guide-msg ai"><div class="gm-role">AI 分析完成</div>发现 <b>' + errs.length + '</b> 处错误和 <b>' + insights.length + '</b> 个临床议题。</div>';
+          var guideHtml = '<div class="guide-msg ai"><div class="gm-role">AI 分析完成</div>发现 <b>' + validErrors.length + '</b> 处有效标注和 <b>' + insights.length + '</b> 个临床议题。</div>';
           guide.innerHTML = guideHtml;
           // 右栏修正建议
           var fixHtml = '';
-          errs.forEach(function (e) {
-            fixHtml += '<div class="suggest-card"><div class="sc-head"><span class="sc-icon">📍</span><span class="sc-title">第' + e.line + '行</span></div><div class="sc-body">→ 建议改为「' + App.escapeHtml(e.fix) + '」<br>' + App.escapeHtml(e.reason || '') + '</div><div class="sc-action"><button class="pri" onclick="adoptFix(' + e.line + ',\'' + App.escapeHtml(e.fix).replace(/'/g, "\\'") + '\')">采纳</button><button>跳过</button></div></div>';
+          validErrors.forEach(function (e) {
+            fixHtml += '<div class="suggest-card" data-line="' + e.line + '" data-pos="' + e.pos + '" data-len="' + e.len + '" data-fix="' + App.escapeHtml(e.fix || '') + '"><div class="sc-head"><span class="sc-icon"><i data-lucide="map-pin"></i></span><span class="sc-title">第' + e.line + '行</span></div><div class="sc-body"><i data-lucide="arrow-right" aria-hidden="true"></i> 建议改为「' + App.escapeHtml(e.fix || '') + '」<br>' + App.escapeHtml(e.reason || '') + '</div><div class="sc-action"><button type="button" class="pri" data-action="adopt">采纳</button><button type="button" class="ghost" data-action="skip">跳过</button></div></div>';
           });
           fixBody.innerHTML = fixHtml;
-          document.getElementById('fix-count').textContent = errs.length + ' 条';
+          fixBody.querySelectorAll('.suggest-card').forEach(function (card) {
+            var lineNumber = Number(card.dataset.line || 0);
+            var position = Number(card.dataset.pos || 0);
+            var length = Number(card.dataset.len || 0);
+            var fixText = card.dataset.fix || '';
+            var adoptButton = card.querySelector('[data-action="adopt"]');
+            var skipButton = card.querySelector('[data-action="skip"]');
+            if (adoptButton) adoptButton.addEventListener('click', function () { adoptFix(lineNumber, fixText, position, length, card); });
+            if (skipButton) skipButton.addEventListener('click', function () { skipFix(lineNumber, skipButton); });
+          });
+          document.getElementById('fix-count').textContent = validErrors.length + ' 条';
+          document.getElementById('btn-adopt-all').disabled = !validErrors.length;
         } catch (e) {
+          ClinicalContext.failActionRun(run.id, 'AI 返回格式异常');
           guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 返回格式异常</div>请重试。</div>';
         }
       } else {
+        ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败');
         guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 分析失败</div>' + (res ? App.escapeHtml(res.error || '') : '') + '</div>';
       }
     });
   }
 
+  // AI 请求必须有明确的失败出口，且与主进程 120 秒上游闸门对齐，避免客户端过早取消主力模型响应。
+  var GUIDE_REQUEST_TIMEOUT_MS = 125000;
+  function sendGuideRequest(messages, callback) {
+    var settled = false;
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      if (controller) controller.abort();
+      callback({ error: '模型响应超时，请检查网络或切换主力模型后重试', errorCode: 'network-timeout' });
+    }, GUIDE_REQUEST_TIMEOUT_MS);
+    AI.send(messages, function (res) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      callback(res || { error: '模型调用失败，请重试' });
+    }, controller ? { signal: controller.signal } : undefined);
+  }
+
   window.sendGuideMsg = function () {
-    if (!isMember) return;
+    if (!isMember || !activeContext || !activeContext.ok) { App.showToast('请先加载一份已核验的会谈', 'warning'); return; }
+    var contextEpochForQuestion = contextEpoch;
+    var sessionIdForQuestion = activeSessionId;
+    var clientIdForQuestion = sel.value;
     var input = document.getElementById('guide-input');
     var text = input.value.trim();
     if (!text) return;
     var guide = document.getElementById('guide-body');
     guide.innerHTML += '<div class="guide-msg user"><div class="gm-role">你</div>' + App.escapeHtml(text) + '</div>';
     input.value = '';
-    var sys = '你是心理咨询逐字稿校对专家。用户正在与你对话逐字稿中的疑问。请用专业知识回答，每次回复控制在150字以内。';
-    AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+    var sys = '你是心理咨询逐字稿校对专家。用户正在询问当前会谈逐字稿。回答必须只基于当前会谈来源，若问题超出来源范围请明确说明。每次回复控制在150字以内。';
+    var questionContext = ClinicalContext.build('transcript-ai-detect', { clientId: clientIdForQuestion, sessionId: sessionIdForQuestion }, { inputText: text, history: guideHistory, instruction: '回答用户关于当前会谈逐字稿的问题，不修改正式记录。', system: sys });
+    if (!questionContext.ok) { guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">无法发送</div>当前会谈来源已失效，请重新加载。</div>'; return; }
+    var questionRun = ClinicalContext.createActionRun(questionContext);
+    if (!questionRun) { guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">无法发送</div>当前会谈未通过动作登记，未发送请求。</div>'; return; }
+    if (ClinicalContextView && ClinicalContextView.confirmSend && !ClinicalContextView.confirmSend(questionContext)) { ClinicalContext.failActionRun(questionRun.id, '用户取消发送', 'cancelled'); guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">已取消</div>本轮问题未发送。</div>'; return; }
+    guideHistory.push({ role: 'user', content: text });
+    sendGuideRequest(questionContext.messages, function (res) {
+      var currentSession = Store.getSession ? Store.getSession(sessionIdForQuestion) : null;
+      if (contextEpochForQuestion !== contextEpoch || !currentSession || !ClinicalContext.isSnapshotCurrent(questionContext.snapshot, text, { clientId: clientIdForQuestion, sessionId: sessionIdForQuestion })) { ClinicalContext.failActionRun(questionRun.id, '会谈上下文已变更', 'stale'); guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">回答已作废</div>当前会谈内容已变化，请重新加载。</div>'; return; }
       if (res && res.content && !res.error) {
-        guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">AI 引导</div>' + App.escapeHtml(res.content) + '</div>';
+        guideHistory.push({ role: 'assistant', content: res.content });
+        ClinicalContext.completeActionRun(questionRun.id, { kind: questionContext.taskSpec.outputSchema.kind, summary: res.content, citations: questionContext.sources.map(function (source) { return { kind: source.kind, id: source.id, sourceContentHash: source.sourceContentHash }; }) });
+        guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">AI 引导 · 当前会谈</div>' + App.escapeHtml(res.content) + '</div>';
+      } else {
+        ClinicalContext.failActionRun(questionRun.id, (res && res.error) || 'AI 引导失败');
+        guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">AI 引导失败</div>' + App.escapeHtml((res && res.error) || '请稍后重试') + '</div>';
       }
       guide.scrollTop = guide.scrollHeight;
     });
   };
 
-  window.adoptFix = function (line, fix) {
+  window.adoptFix = async function (line, fix, pos, len, card) {
+    if (!isMember || !activeSessionId || !activeContext || !activeContext.ok) { App.showToast('当前会谈来源已失效，未采纳修改', 'warning'); return; }
+    var sessionId = activeSessionId, clientId = sel.value;
+    var current = Store.getSession ? Store.getSession(sessionId) : null;
+    if (!current || !ClinicalContext.isSnapshotCurrent(activeContext.snapshot, current.transcript || '', { clientId: clientId, sessionId: sessionId })) { App.showToast('会谈内容已变化，请重新加载后再采纳', 'warning'); return; }
+    var rawLines = String(current.transcript || '').split('\n');
+    var index = Number(line) - 1, position = Number(pos), length = Number(len);
+    if (!Number.isInteger(index) || !Number.isInteger(position) || !Number.isInteger(length) || index < 0 || index >= rawLines.length || position < 0 || length < 0) { App.showToast('修正位置无效，未采纳', 'warning'); return; }
+    var rawLine = rawLines[index], visible = rawLine.length > 1 ? rawLine.slice(1) : rawLine;
+    if (position + length > visible.length) { App.showToast('修正位置已越界，未采纳', 'warning'); return; }
+    var replacement = String(fix || '');
+    var nextVisible = visible.slice(0, position) + replacement + visible.slice(position + length);
+    rawLines[index] = rawLine.length > 1 ? rawLine.charAt(0) + nextVisible : nextVisible;
+    var saved = Store.updateSessionFull ? await Store.updateSessionFull(Object.assign({}, current, { transcript: rawLines.join('\n') })) : { ok: false };
+    if (!saved || saved.ok !== true) { App.showToast('保存修正失败，原稿未改变', 'warning'); return; }
+    activeContext = null;
+    contextEpoch += 1;
+    pendingFixes = [];
+    ['btn-per-line','btn-global','guide-input','guide-send-btn','btn-adopt-all'].forEach(function (id) { var node = document.getElementById(id); if (node) node.disabled = true; });
+    setContextStatus('已保存修正，请重新加载逐字稿后继续 AI 引导', 'idle');
     var lines = document.querySelectorAll('.tp-line');
-    var li = line - 1;
-    if (li >= 0 && li < lines.length) {
-      var textEl = lines[li].querySelector('.text');
-      if (textEl) {
-        var hint = textEl.querySelector('.ai-hint');
-        if (hint) hint.outerHTML = fix;
-      }
-    }
-    App.showToast('已修正第' + line + '行', 'success');
+    var textEl = lines[index] && lines[index].querySelector('.text');
+    if (textEl) textEl.textContent = nextVisible;
+    if (card) { card.setAttribute('data-state', 'adopted'); card.setAttribute('aria-label', '第' + line + '行修正建议已采纳'); var adoptButton = card.querySelector('[data-action="adopt"]'); if (adoptButton) { adoptButton.disabled = true; adoptButton.textContent = '已采纳'; } }
+    App.showToast('已修正第' + line + '行并保存', 'success');
+    return saved;
   };
 
-  window.adoptAll = function () {
-    if (!isMember) return;
-    document.querySelectorAll('.suggest-card .sc-action button.pri').forEach(function (b) { b.click(); });
-    App.showToast('已全部采纳', 'success');
+  window.selectGuideLine = function (line) {
+    if (!line) return;
+    activeLineNumber = Number(line.dataset.line || 0);
+    document.querySelectorAll('.tp-line').forEach(function (item) { item.classList.toggle('is-selected', item === line); });
+    line.focus();
+  };
+
+  window.skipFix = function (line, button) {
+    var card = button && button.closest ? button.closest('.suggest-card') : null;
+    if (card) {
+      card.setAttribute('data-state', 'skipped');
+      card.setAttribute('aria-label', '第' + line + '行修正建议已跳过');
+      if (button) { button.disabled = true; button.textContent = '已跳过'; }
+      var adopt = card.querySelector('.sc-action button.pri');
+      if (adopt) adopt.disabled = true;
+    }
+    App.showToast('已跳过第' + line + '行建议', 'info');
+  };
+
+  window.adoptAll = async function () {
+    if (!isMember || !activeSessionId || !activeContext || !activeContext.ok) { App.showToast('当前会谈来源已失效，未采纳修改', 'warning'); return; }
+    var sessionId = activeSessionId, clientId = sel.value;
+    var current = Store.getSession ? Store.getSession(sessionId) : null;
+    if (!current || !ClinicalContext.isSnapshotCurrent(activeContext.snapshot, current.transcript || '', { clientId: clientId, sessionId: sessionId })) { App.showToast('会谈内容已变化，请重新加载后再采纳', 'warning'); return; }
+    var rawLines = String(current.transcript || '').split('\n');
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.suggest-card:not([data-state="adopted"]):not([data-state="skipped"])'));
+    var proposals = cards.map(function (card) { return { card: card, line: Number(card.dataset.line), pos: Number(card.dataset.pos), len: Number(card.dataset.len), fix: String(card.dataset.fix || '') }; }).filter(function (item) {
+      var index = item.line - 1;
+      if (!Number.isInteger(item.line) || !Number.isInteger(item.pos) || !Number.isInteger(item.len) || index < 0 || index >= rawLines.length || item.pos < 0 || item.len < 0) return false;
+      var visible = rawLines[index].length > 1 ? rawLines[index].slice(1) : rawLines[index];
+      return item.pos + item.len <= visible.length;
+    }).sort(function (a, b) { return b.line - a.line || b.pos - a.pos; });
+    proposals.forEach(function (item) {
+      var index = item.line - 1, rawLine = rawLines[index], visible = rawLine.length > 1 ? rawLine.slice(1) : rawLine;
+      var nextVisible = visible.slice(0, item.pos) + item.fix + visible.slice(item.pos + item.len);
+      rawLines[index] = rawLine.length > 1 ? rawLine.charAt(0) + nextVisible : nextVisible;
+    });
+    if (!proposals.length) { App.showToast('没有可采纳的有效建议', 'info'); return; }
+    var saved = Store.updateSessionFull ? await Store.updateSessionFull(Object.assign({}, current, { transcript: rawLines.join('\n') })) : { ok: false };
+    if (!saved || saved.ok !== true) { App.showToast('保存修正失败，原稿未改变', 'warning'); return; }
+    activeContext = null;
+    contextEpoch += 1;
+    pendingFixes = [];
+    ['btn-per-line','btn-global','guide-input','guide-send-btn','btn-adopt-all'].forEach(function (id) { var node = document.getElementById(id); if (node) node.disabled = true; });
+    setContextStatus('已保存修正，请重新加载逐字稿后继续 AI 引导', 'idle');
+    var lines = document.querySelectorAll('.tp-line');
+    rawLines.forEach(function (rawLine, index) { var textEl = lines[index] && lines[index].querySelector('.text'); if (textEl) textEl.textContent = rawLine.length > 1 ? rawLine.slice(1) : rawLine; });
+    proposals.forEach(function (item) { item.card.setAttribute('data-state', 'adopted'); var button = item.card.querySelector('[data-action="adopt"]'); if (button) { button.disabled = true; button.textContent = '已采纳'; } });
+    App.showToast('已全部采纳并保存', 'success');
   };
 
   // 会员启用按钮
   if (isMember) {
-    document.getElementById('btn-load').disabled = false;
-    document.getElementById('guide-input').disabled = false;
-    document.getElementById('guide-send-btn').disabled = false;
+    document.getElementById('btn-load').disabled = true;
   }
+  window.runGlobalGuide = function () { if (!isMember || !activeSessionId) { App.showToast('请先加载会谈', 'warning'); return; } runGuideAI(); };
+  window.runPerLineGuide = function () {
+    if (!isMember || !activeSessionId) { App.showToast('请先加载会谈', 'warning'); return; }
+    var sessionIdForLine = activeSessionId, clientIdForLine = sel.value, epochForLine = contextEpoch;
+    var line = document.querySelector('.tp-line[data-line="' + activeLineNumber + '"]');
+    if (!line) { App.showToast('请先点击一行逐字稿', 'warning'); return; }
+    var text = line.innerText;
+    var guide = document.getElementById('guide-body');
+    guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">逐句引导中…</div>正在分析第' + App.escapeHtml(line.dataset.line) + '行。</div>';
+    var ctx = ClinicalContext.build('transcript-ai-detect', { clientId: clientIdForLine, sessionId: sessionIdForLine }, { inputText: text, instruction: '仅解释当前逐字稿第' + line.dataset.line + '行，给出校对与临床关注点，不修改正式记录。', system: '你是心理咨询逐字稿引导助手。只基于当前会谈来源回答，简洁输出。' });
+    if (!ctx.ok) { guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">无法分析</div>当前来源已失效，请重新加载。</div>'; return; }
+    var lineRun = ClinicalContext.createActionRun(ctx);
+    if (!lineRun) { guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">无法分析</div>当前会谈未通过动作登记，未发送请求。</div>'; return; }
+    if (ClinicalContextView && ClinicalContextView.confirmSend && !ClinicalContextView.confirmSend(ctx)) { ClinicalContext.failActionRun(lineRun.id, '用户取消发送', 'cancelled'); guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">已取消</div>本轮逐句分析未发送。</div>'; return; }
+    sendGuideRequest(ctx.messages, function (res) {
+      var currentSession = Store.getSession ? Store.getSession(sessionIdForLine) : null;
+      if (epochForLine !== contextEpoch || !currentSession || !ClinicalContext.isSnapshotCurrent(ctx.snapshot, text, { clientId: clientIdForLine, sessionId: sessionIdForLine })) { ClinicalContext.failActionRun(lineRun.id, '会谈上下文已变更', 'stale'); guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">逐句分析已作废</div>当前会谈内容已变化，请重新加载。</div>'; return; }
+      if (res && res.content && !res.error) { ClinicalContext.completeActionRun(lineRun.id, { kind: ctx.taskSpec.outputSchema.kind, summary: res.content, citations: ctx.sources.map(function (source) { return { kind: source.kind, id: source.id, sourceContentHash: source.sourceContentHash }; }) }); }
+      else ClinicalContext.failActionRun(lineRun.id, (res && res.error) || '逐句分析失败');
+      guide.innerHTML = res && res.content && !res.error ? '<div class="guide-msg ai"><div class="gm-role">第' + App.escapeHtml(line.dataset.line) + '行引导</div>' + App.escapeHtml(res.content) + '</div>' : '<div class="guide-msg ai"><div class="gm-role">逐句分析失败</div>' + App.escapeHtml((res && res.error) || '请稍后重试') + '</div>';
+    });
+  };
 }});
 </script>
 </body>

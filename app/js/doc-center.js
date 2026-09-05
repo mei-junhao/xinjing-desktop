@@ -1,9 +1,61 @@
-/* 心镜 v3.1.0 — 文档中心（方案E：双栏+Tab分类+成长轨迹） */
+/* 心镜 v3.1.0 — 文档中心（方案E：双栏+Tab分类+成长洞察） */
 (function () {
   'use strict';
   var currentClientId = null;
-  var currentTab = 'all';
+  var currentTab = 'material';
   var searchQuery = '';
+  var atlasState = {
+    clientId: '', model: null, status: 'idle', requestId: 0, controller: null,
+    selectedNodeId: '', selectedSessionId: '', sourceDrawerOpen: false, returnFocusId: ''
+  };
+
+  function atlasText(value) { return value == null ? '' : String(value); }
+
+  function isNarrowAtlasLayout() {
+    return typeof window !== 'undefined' && window.innerWidth < 1520;
+  }
+
+  function stopAtlasRequest() {
+    if (atlasState.controller && typeof atlasState.controller.abort === 'function') atlasState.controller.abort();
+    atlasState.controller = null;
+  }
+
+  function resetAtlasState() {
+    stopAtlasRequest();
+    atlasState.clientId = currentClientId || '';
+    atlasState.model = null;
+    atlasState.status = 'idle';
+    atlasState.selectedNodeId = '';
+    atlasState.selectedSessionId = '';
+    atlasState.sourceDrawerOpen = false;
+    atlasState.returnFocusId = '';
+  }
+
+  function syncDocCenterUrl() {
+    try {
+      if (!window.history || typeof window.history.replaceState !== 'function') return;
+      var params = new URLSearchParams(window.location.search || '');
+      if (currentClientId) params.set('clientId', currentClientId);
+      else params.delete('clientId');
+      if (currentTab === 'atlas') params.set('view', 'atlas');
+      else if (params.get('view') === 'atlas') params.delete('view');
+      var query = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : '') + (window.location.hash || ''));
+    } catch (e) {}
+  }
+
+  function growthTrajectoryUrl() {
+    return 'doc-growth.html?clientId=' + encodeURIComponent(currentClientId || '');
+  }
+
+  function syncGrowthLink() {
+    var growthLink = document.getElementById('dc-growth-link');
+    if (growthLink) growthLink.setAttribute('href', growthTrajectoryUrl());
+  }
+
+  function openGrowthTrajectory() {
+    window.location.href = growthTrajectoryUrl();
+  }
 
   function renderClientList() {
     var box = document.getElementById('client-list');
@@ -12,8 +64,8 @@
       var sessions = Store.getSessionsByClient(c.id) || [];
       var supervisions = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(c.id) : []) || [];
       var count = sessions.length + supervisions.length;
-      return '<div class="dl-item' + (c.id === currentClientId ? ' active' : '') + '" onclick="selectClient(\'' + c.id + '\')">' +
-        '<div class="dl-avatar">' + (c.name ? c.name[0] : '?') + '</div>' +
+      return '<div class="dl-item' + (c.id === currentClientId ? ' active' : '') + '" role="button" tabindex="0" data-client-id="' + App.escapeHtml(c.id) + '">' +
+        '<div class="dl-avatar">' + App.escapeHtml(c.name ? c.name[0] : '?') + '</div>' +
         '<div class="dl-info"><div class="dl-name">' + App.escapeHtml(c.name) + '</div><div class="dl-count">' + count + ' 份文档</div></div></div>';
     }).join('');
     renderClientSelect();
@@ -25,14 +77,17 @@
     if (!sel) return;
     var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
     sel.innerHTML = '<option value="">手动选择来访者…</option>' + clients.map(function (c) {
-      return '<option value="' + c.id + '">' + App.escapeHtml(c.name) + '</option>';
+      return '<option value="' + App.escapeHtml(c.id) + '">' + App.escapeHtml(c.name) + '</option>';
     }).join('');
     sel.value = currentClientId || '';
   }
 
   window.selectClient = function (clientId) {
+    if (currentClientId !== clientId) resetAtlasState();
     currentClientId = clientId;
     if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
+    syncGrowthLink();
+    syncDocCenterUrl();
     renderClientList();
     renderDocs();
   };
@@ -44,8 +99,18 @@
   };
 
   window.switchDocTab = function (tab) {
+    if (tab === 'trajectory') {
+      openGrowthTrajectory();
+      return;
+    }
+    if (currentTab === 'atlas' && tab !== 'atlas') stopAtlasRequest();
     currentTab = tab;
-    document.querySelectorAll('.dr-tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === tab); });
+    document.querySelectorAll('.dr-tab').forEach(function (t) {
+      var active = t.dataset.tab === tab;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', String(active));
+    });
+    syncDocCenterUrl();
     renderDocs();
   };
 
@@ -56,16 +121,21 @@
 
   function renderDocs() {
     var box = document.getElementById('doc-content');
+    box.classList.toggle('atlas-content', currentTab === 'atlas');
     if (!currentClientId) {
-      box.innerHTML = '<div class="empty-state"><span class="big">' + App.svgIcon('folder-open') + '</span>选择左侧来访者查看文档</div>';
+      if (currentTab === 'atlas') {
+        renderAtlasNoClient(box);
+      } else {
+        box.innerHTML = '<div class="empty-state"><span class="big">' + App.svgIcon('folder-open') + '</span>选择左侧来访者查看文档</div>';
+      }
       if (window.IconSystem) window.IconSystem.render(box);
       return;
     }
     var client = Store.getClient(currentClientId);
     if (!client) { box.innerHTML = '<div class="empty-state">来访者不存在</div>'; return; }
 
-    if (currentTab === 'trajectory') {
-      renderTrajectory(box, client);
+    if (currentTab === 'atlas') {
+      renderAtlas(box, client);
       return;
     }
     if (currentTab === 'timeline') {
@@ -76,8 +146,19 @@
     var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     var supervisions = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(currentClientId) : []) || [];
     var docs = [];
+    var materialIds = Object.create(null);
 
     sessions.forEach(function (s) {
+      if ((currentTab === 'material' || currentTab === 'all') && Store.getMaterialWorkspacesForSession) {
+        (Store.getMaterialWorkspacesForSession(currentClientId, s.id) || []).forEach(function (summary) {
+          var material = Store.getMaterialWorkspace ? Store.getMaterialWorkspace(summary.id) : summary;
+          if (!material || material.clientId !== currentClientId || material.sessionId !== s.id || materialIds[material.id]) return;
+          materialIds[material.id] = true;
+          var parseStatus = material.parseStatus === 'ready' ? '已解析' : (material.parseStatus === 'parsing' ? '解析中' : '解析失败');
+          var materialPreview = material.parseStatus === 'ready' ? material.extractedText : (material.parseError || '材料尚未完成解析');
+          docs.push({ type: 'material', title: material.title || (material.source && material.source.name) || '未命名材料', date: material.updatedAt || material.createdAt || s.date, preview: materialPreview ? String(materialPreview).slice(0, 120) : '', id: material.id, sessionId: s.id, parseStatus: parseStatus, canOpen: material.parseStatus === 'ready' });
+        });
+      }
       if (currentTab === 'all' || currentTab === 'transcript') {
         if (s.transcript && s.transcript.trim()) {
           docs.push({ type: 'transcript', title: '第' + (s.sessionNumber || '?') + '节 逐字稿', date: s.date, preview: s.transcript.slice(0, 120), id: s.id, sessionNumber: s.sessionNumber });
@@ -109,26 +190,265 @@
     docs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
 
     if (!docs.length) {
-      box.innerHTML = '<div class="empty-state"><span class="big">📭</span>暂无文档' + (searchQuery ? ' 匹配搜索条件' : '') + '</div>';
+      box.innerHTML = '<div class="empty-state"><span class="big"><i data-lucide="inbox" aria-hidden="true"></i></span>暂无文档' + (searchQuery ? ' 匹配搜索条件' : '') + '</div>';
+      if (window.IconSystem) window.IconSystem.render(box);
       return;
     }
 
-    var icons = { transcript: 'file-text', report: 'clipboard-pen-line', supervision: 'brain-circuit' };
-    var tags = { transcript: '逐字稿', report: '咨询记录', supervision: '督导' };
+    var icons = { material: 'file-check-2', transcript: 'file-text', report: 'clipboard-pen-line', supervision: 'brain-circuit' };
+    var tags = { material: '材料', transcript: '逐字稿', report: '咨询记录', supervision: '督导' };
 
     box.innerHTML = docs.map(function (d) {
-      return '<div class="doc-card" onclick="openDoc(\'' + d.type + '\',\'' + d.id + '\')">' +
+      return '<div class="doc-card" role="button" tabindex="0" data-doc-action="open-doc" data-doc-type="' + App.escapeHtml(d.type) + '" data-doc-id="' + App.escapeHtml(d.id) + '">' +
         '<div class="dc-icon">' + App.svgIcon(icons[d.type] || 'file-text') + '</div>' +
         '<div class="dc-body">' +
         '<div class="dc-title">' + App.escapeHtml(d.title) + '</div>' +
-        '<div class="dc-meta">' + App.formatDate(d.date) + ' <span class="tag">' + (tags[d.type] || d.type) + '</span></div>' +
+        '<div class="dc-meta">' + App.formatDate(d.date) + ' <span class="tag">' + (tags[d.type] || d.type) + '</span>' + (d.parseStatus ? ' <span class="tag">' + App.escapeHtml(d.parseStatus) + '</span>' : '') + '</div>' +
         (d.preview ? '<div class="dc-preview">' + App.escapeHtml(d.preview) + '…</div>' : '') +
         '</div></div>';
     }).join('');
 
-    // 底部成长轨迹入口
-    box.innerHTML += '<div style="text-align:center;padding:8px"><button class="back" onclick="switchDocTab(\'trajectory\')">' + App.svgIcon('chart-no-axes-combined') + '查看 ' + App.escapeHtml(client.name) + ' 的成长轨迹</button></div>';
+    // 成长洞察只由专属页处理；文档中心不再构造第二条 AI 调用链。
+    box.innerHTML += '<div style="text-align:center;padding:8px"><button type="button" class="back" data-doc-action="open-growth">' + App.svgIcon('chart-no-axes-combined') + '查看 ' + App.escapeHtml(client.name) + ' 的 AI 成长洞察</button></div>';
     if (window.IconSystem) window.IconSystem.render(box);
+  }
+
+  function renderAtlasNoClient(box) {
+    box.innerHTML = '<section class="atlas-empty"><div><h3>尚未选择来访者</h3><p>个案图谱只显示已关联且通过来源校验的材料。先选择一位来访者，再查看其可追溯材料。</p><button type="button" class="atlas-primary" data-doc-action="focus-client-select">选择来访者</button></div></section>';
+  }
+
+  function atlasAdmittedNodes(model, clientId) {
+    return ((model && model.nodes) || []).filter(function (node) {
+      return node && node.kind === 'material' && node.clientId === clientId &&
+        node.sourceStatus === 'verified' && node.sourceRef && node.sourceRef.id;
+    });
+  }
+
+  function atlasMaterialMeta(node) {
+    if (!node || !node.id || node.clientId !== currentClientId || !node.sourceRef || !Store.getMaterialWorkspace) return null;
+    var locator = atlasText(node.sourceRef.anchor && node.sourceRef.anchor.locator);
+    var materialId = locator.indexOf('material:') === 0 ? locator.slice('material:'.length) : '';
+    if (!materialId) return null;
+    var material = Store.getMaterialWorkspace(materialId);
+    if (!material || material.clientId !== currentClientId || material.sessionId !== node.sessionId || material.parseStatus !== 'ready') return null;
+    var source = material.source || {};
+    return {
+      nodeId: node.id,
+      materialId: material.id,
+      sessionId: material.sessionId,
+      title: atlasText(material.title || source.name || '未命名材料'),
+      kind: source.ext ? atlasText(source.ext).toUpperCase() + ' 材料' : '已验证材料',
+      updatedAt: material.updatedAt || material.createdAt || '',
+      sourceId: atlasText(node.sourceRef.id),
+      locator: locator,
+      anchorKind: atlasText(node.sourceRef.anchor && node.sourceRef.anchor.kind)
+    };
+  }
+
+  function atlasSessionRows(clientId) {
+    return (Store.getSessionsByClient(clientId) || []).slice().sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '');
+    }).map(function (session) {
+      return {
+        id: atlasText(session.id),
+        label: '第' + (session.sessionNumber || '?') + '节',
+        detail: App.formatDate(session.date || '') || '未记录日期'
+      };
+    });
+  }
+
+  function atlasCurrentNode(nodes) {
+    return nodes.find(function (node) { return node.id === atlasState.selectedNodeId; }) || null;
+  }
+
+  function atlasNodeMarkup(meta, selected) {
+    return '<button type="button" class="atlas-node' + (selected ? ' selected' : '') + '" id="atlas-node-' + App.escapeHtml(meta.nodeId) + '" data-atlas-action="select-node" data-atlas-node-id="' + App.escapeHtml(meta.nodeId) + '" aria-pressed="' + String(!!selected) + '">' +
+      '<span class="atlas-node-type">' + App.svgIcon('file-check-2') + App.escapeHtml(meta.kind) + '</span>' +
+      '<h4>' + App.escapeHtml(meta.title) + '</h4>' +
+      '<footer><span>' + App.escapeHtml(meta.locator || '来源定位可用') + '</span><span>已验证</span></footer></button>';
+  }
+
+  function atlasSourceMarkup(meta, client) {
+    if (!meta) {
+      return '<div class="atlas-source-empty">选择一份已验证材料后，这里会显示它的来源定位和现有打开命令。图谱不会在这里生成或保存临床推论。</div>';
+    }
+    var session = Store.getSession ? Store.getSession(meta.sessionId) : null;
+    var sessionLabel = session ? '第' + (session.sessionNumber || '?') + '节 · ' + (App.formatDate(session.date || '') || '未记录日期') : '会谈信息不可用';
+    return '<div class="atlas-lineage">' +
+      '<div class="atlas-lineage-step"><strong>原始来源</strong><span>' + App.escapeHtml(meta.title) + '</span></div>' +
+      '<div class="atlas-lineage-step"><strong>关联会谈</strong><span>' + App.escapeHtml(sessionLabel) + '</span></div>' +
+      '<div class="atlas-lineage-step"><strong>验证定位</strong><span>' + App.escapeHtml(meta.anchorKind || 'material:text') + ' · ' + App.escapeHtml(meta.locator || meta.sourceId) + '</span></div>' +
+      '</div><p class="atlas-source-note">当前图谱只显示已确认的来源链，不把同现关系写成临床因果，也不保存 AI 推论。</p>' +
+      '<button type="button" class="atlas-primary" data-atlas-action="open-source">打开当前来源</button>';
+  }
+
+  function syncAtlasDrawerAccessibility(box) {
+    if (!box) return;
+    var narrow = isNarrowAtlasLayout();
+    var drawer = box.querySelector('.atlas-source');
+    if (drawer) {
+      var drawerBlocked = narrow && !atlasState.sourceDrawerOpen;
+      drawer.inert = drawerBlocked;
+      drawer.setAttribute('aria-hidden', String(drawerBlocked));
+    }
+    box.querySelectorAll('.atlas-tool-rail, .atlas-sessions, .atlas-main').forEach(function (surface) {
+      var backgroundBlocked = narrow && atlasState.sourceDrawerOpen;
+      surface.inert = backgroundBlocked;
+      surface.setAttribute('aria-hidden', String(backgroundBlocked));
+    });
+  }
+
+  function renderAtlasContent(box, client, nodes) {
+    var sessions = atlasSessionRows(currentClientId);
+    var nodeIds = nodes.map(function (node) { return node.id; });
+    if (atlasState.selectedNodeId && nodeIds.indexOf(atlasState.selectedNodeId) < 0) atlasState.selectedNodeId = '';
+    var visibleNodes = atlasState.selectedSessionId ? nodes.filter(function (node) {
+      return node.sessionId === atlasState.selectedSessionId;
+    }) : nodes.slice();
+    var selectedHidden = !!atlasState.selectedNodeId && !visibleNodes.some(function (node) { return node.id === atlasState.selectedNodeId; });
+    if (!atlasState.selectedNodeId && visibleNodes.length) atlasState.selectedNodeId = visibleNodes[0].id;
+    var selectedNode = atlasCurrentNode(nodes);
+    var selectedMeta = atlasMaterialMeta(selectedNode);
+    var counts = {};
+    nodes.forEach(function (node) { counts[node.sessionId] = (counts[node.sessionId] || 0) + 1; });
+
+    var sessionsHtml = '<aside class="atlas-sessions" aria-label="会谈时间线"><h3 class="atlas-section-title">会谈时间线 <span class="atlas-count">' + sessions.length + ' 节</span></h3>';
+    sessionsHtml += '<button type="button" class="atlas-session' + (!atlasState.selectedSessionId ? ' active' : '') + '" data-atlas-action="select-session" data-atlas-session-id=""><b>全部会谈</b><small>' + nodes.length + ' 份已验证材料</small></button>';
+    sessionsHtml += sessions.map(function (session) {
+      var active = session.id === atlasState.selectedSessionId;
+      return '<button type="button" class="atlas-session' + (active ? ' active' : '') + '" aria-pressed="' + String(active) + '" data-atlas-action="select-session" data-atlas-session-id="' + App.escapeHtml(session.id) + '"><b>' + App.escapeHtml(session.label) + '</b><small>' + App.escapeHtml(session.detail) + ' · ' + (counts[session.id] || 0) + ' 份材料</small></button>';
+    }).join('') + '</aside>';
+    var compactSession = '<label class="atlas-compact-session"><span>会谈</span><select aria-label="筛选会谈" data-atlas-session-select><option value="">全部会谈</option>' + sessions.map(function (session) {
+      return '<option value="' + App.escapeHtml(session.id) + '"' + (session.id === atlasState.selectedSessionId ? ' selected' : '') + '>' + App.escapeHtml(session.label) + '</option>';
+    }).join('') + '</select></label>';
+
+    var cards = visibleNodes.map(function (node) {
+      var meta = atlasMaterialMeta(node);
+      return meta ? atlasNodeMarkup(meta, node.id === atlasState.selectedNodeId) : '';
+    }).join('');
+    if (!visibleNodes.length) {
+      cards = '<div class="atlas-inline-notice">' + (atlasState.selectedSessionId ? '本节会谈没有通过来源校验的材料。切换会谈不会修改任何材料关联。' : '当前来访者还没有通过来源校验的材料。可到材料视图完成关联与解析后再返回此处。') + '</div>';
+    }
+    if (selectedHidden) cards += '<div class="atlas-inline-notice">当前材料已被筛选隐藏。图谱保留当前选择，不会自动切换到其他材料。</div>';
+
+    var sourceOpen = atlasState.sourceDrawerOpen ? ' drawer-open' : '';
+    var drawerIsHidden = !atlasState.sourceDrawerOpen && isNarrowAtlasLayout();
+    var toolRail = '<aside class="atlas-tool-rail" aria-label="图谱工具">' +
+      '<span class="atlas-tool-current" title="选择材料" aria-label="当前工具：选择材料">' + App.svgIcon('mouse-pointer-2') + '</span>' +
+      '<button type="button" title="显示全部会谈" aria-label="显示全部会谈" data-atlas-action="select-session" data-atlas-session-id="">' + App.svgIcon('maximize-2') + '</button>' +
+      '<span class="atlas-tool-separator"></span>' +
+      '<button type="button" title="重新校验来源" aria-label="重新校验来源" data-atlas-action="refresh">' + App.svgIcon('refresh-cw') + '</button>' +
+      '</aside>';
+    box.innerHTML = '<div class="atlas-shell">' + toolRail + sessionsHtml +
+      '<section class="atlas-main" aria-label="材料画布"><header class="atlas-toolbar"><div><h3>材料画布</h3><span class="atlas-status">仅显示已通过来源校验的只读材料</span></div><span class="atlas-spacer"></span>' + compactSession + '<button type="button" class="atlas-primary"' + (selectedMeta ? '' : ' disabled title="请先选择已验证材料"') + ' data-atlas-action="open-source">打开当前来源</button></header><div class="atlas-board">' + cards + '</div></section>' +
+      '<div class="atlas-drawer-scrim' + (atlasState.sourceDrawerOpen ? ' visible' : '') + '" data-atlas-action="close-drawer" aria-hidden="true"></div>' +
+      '<aside class="atlas-source' + sourceOpen + '" aria-label="来源检查器" aria-hidden="' + String(drawerIsHidden) + '"' + (drawerIsHidden ? ' inert' : '') + '><header class="atlas-source-header"><div><small>只读投影</small><h3>来源检查器</h3></div><button type="button" class="atlas-drawer-close" id="atlas-source-close" data-atlas-action="close-drawer">关闭</button></header>' + atlasSourceMarkup(selectedMeta, client) + '</aside></div>';
+    if (window.IconSystem) window.IconSystem.render(box);
+    syncAtlasDrawerAccessibility(box);
+  }
+
+  function renderAtlas(box, client) {
+    if (atlasState.status === 'ready' && atlasState.clientId === currentClientId && atlasState.model) {
+      renderAtlasContent(box, client, atlasAdmittedNodes(atlasState.model, currentClientId));
+      return;
+    }
+    if (!window.CaseSpaceViewModel || typeof window.CaseSpaceViewModel.refresh !== 'function') {
+      box.innerHTML = '<section class="atlas-empty"><div><h3>图谱投影不可用</h3><p>来源校验模块尚未就绪，已停止显示材料，避免呈现未验证来源。</p></div></section>';
+      return;
+    }
+    stopAtlasRequest();
+    atlasState.status = 'loading';
+    atlasState.clientId = currentClientId;
+    var requestId = ++atlasState.requestId;
+    atlasState.controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    box.innerHTML = '<section class="atlas-empty"><div><h3>正在校验材料来源</h3><p>图谱只在来源投影完成后显示，不会回退到未验证材料。</p></div></section>';
+    var options = { currentContext: { clientId: currentClientId } };
+    if (atlasState.controller) options.signal = atlasState.controller.signal;
+    Promise.resolve(window.CaseSpaceViewModel.refresh(currentClientId, options)).then(function (result) {
+      if (requestId !== atlasState.requestId || currentTab !== 'atlas' || currentClientId !== atlasState.clientId) return;
+      if (!result || !result.ok || !result.model) {
+        atlasState.status = 'error';
+        box.innerHTML = '<section class="atlas-empty"><div><h3>图谱未能安全加载</h3><p>当前来源投影无效或已经过期。请重新选择来访者后再试。</p></div></section>';
+        return;
+      }
+      atlasState.model = result.model;
+      atlasState.status = 'ready';
+      renderAtlasContent(box, client, atlasAdmittedNodes(result.model, currentClientId));
+    }).catch(function () {
+      if (requestId !== atlasState.requestId || currentTab !== 'atlas') return;
+      atlasState.status = 'error';
+      box.innerHTML = '<section class="atlas-empty"><div><h3>图谱未能安全加载</h3><p>读取来源投影时出现异常，未显示任何可能过期的材料。</p></div></section>';
+    });
+  }
+
+  window.focusAtlasClientSelect = function () {
+    var select = document.getElementById('dc-client-select');
+    if (select && typeof select.focus === 'function') select.focus();
+  };
+
+  window.refreshAtlasProjection = function () {
+    stopAtlasRequest();
+    atlasState.status = 'idle';
+    atlasState.model = null;
+    atlasState.selectedNodeId = '';
+    var box = document.getElementById('doc-content');
+    var client = currentClientId && Store.getClient(currentClientId);
+    if (box && client && currentTab === 'atlas') renderAtlas(box, client);
+  };
+
+  window.selectAtlasSession = function (sessionId) {
+    atlasState.selectedSessionId = atlasText(sessionId);
+    var box = document.getElementById('doc-content');
+    var client = Store.getClient(currentClientId);
+    if (box && client && atlasState.model) renderAtlasContent(box, client, atlasAdmittedNodes(atlasState.model, currentClientId));
+  };
+
+  window.selectAtlasNode = function (nodeId) {
+    var nodes = atlasAdmittedNodes(atlasState.model, currentClientId);
+    var node = nodes.find(function (candidate) { return candidate.id === nodeId; });
+    if (!node || !atlasMaterialMeta(node)) return;
+    atlasState.selectedNodeId = nodeId;
+    atlasState.returnFocusId = 'atlas-node-' + nodeId;
+    if (isNarrowAtlasLayout()) atlasState.sourceDrawerOpen = true;
+    var box = document.getElementById('doc-content');
+    var client = Store.getClient(currentClientId);
+    if (box && client) renderAtlasContent(box, client, nodes);
+    if (atlasState.sourceDrawerOpen) setTimeout(function () {
+      var close = document.getElementById('atlas-source-close');
+      if (close && typeof close.focus === 'function') close.focus();
+    }, 0);
+  };
+
+  window.closeAtlasDrawer = function () {
+    if (!atlasState.sourceDrawerOpen) return;
+    atlasState.sourceDrawerOpen = false;
+    var box = document.getElementById('doc-content');
+    var client = Store.getClient(currentClientId);
+    if (box && client && atlasState.model) renderAtlasContent(box, client, atlasAdmittedNodes(atlasState.model, currentClientId));
+    var focusId = atlasState.returnFocusId;
+    setTimeout(function () {
+      var trigger = focusId && document.getElementById(focusId);
+      if (trigger && typeof trigger.focus === 'function') trigger.focus();
+    }, 0);
+  };
+
+  window.openAtlasSource = function () {
+    var node = atlasCurrentNode(atlasAdmittedNodes(atlasState.model, currentClientId));
+    var meta = atlasMaterialMeta(node);
+    if (!meta || !Store.getMaterialWorkspace) return;
+    var material = Store.getMaterialWorkspace(meta.materialId);
+    if (!material || material.clientId !== currentClientId || material.sessionId !== meta.sessionId || material.parseStatus !== 'ready') {
+      if (App.showToast) App.showToast('来源已变化，请重新打开图谱', 'warning');
+      return;
+    }
+    window.location.href = 'transcript.html?clientId=' + encodeURIComponent(currentClientId) + '&sessionId=' + encodeURIComponent(meta.sessionId) + '&materialId=' + encodeURIComponent(meta.materialId);
+  };
+
+  function handleAtlasEscape(event) {
+    if (event && event.key === 'Escape' && atlasState.sourceDrawerOpen) {
+      event.preventDefault();
+      window.closeAtlasDrawer();
+    }
   }
 
   function hasClinicalNote(session) {
@@ -142,7 +462,7 @@
   }
 
   function timelineButton(label, target, value) {
-    return '<button type="button" onclick="openTimelineTarget(\'' + target + '\',decodeURIComponent(\'' + encodeURIComponent(String(value || '')) + '\'))">' + App.escapeHtml(label) + '</button>';
+    return '<button type="button" data-timeline-target="' + App.escapeHtml(target) + '" data-timeline-value="' + App.escapeHtml(String(value || '')) + '">' + App.escapeHtml(label) + '</button>';
   }
 
   function renderTimeline(box, client) {
@@ -159,7 +479,7 @@
       return Store.isBillableSession && Store.isBillableSession(s) && !(s.billing || {}).paid;
     }).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
     var payments = ((client.billing && client.billing.monthlyPayments) || []).slice();
-    var html = '<div class="trajectory"><div class="tj-head"><span class="tj-title">🕒 ' + App.escapeHtml(client.name) + ' 的个案时间线</span><span class="tj-badge">只读聚合</span></div>';
+    var html = '<div class="trajectory"><div class="tj-head"><span class="tj-title">' + App.svgIcon('clock-3') + App.escapeHtml(client.name) + ' 的个案时间线</span><span class="tj-badge">只读聚合</span></div>';
     html += '<div class="timeline-summary">';
     html += '<div class="summary-block"><h3>下一次会谈</h3>';
     if (futureSessions.length) {
@@ -219,91 +539,135 @@
     else if (target === 'calendar') location.href = 'session-calendar.html?date=' + encodeURIComponent(value || '');
   };
 
-  function renderTrajectory(box, client) {
-    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-    var supervisions = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(currentClientId) : []) || [];
-
-    var html = '<div class="trajectory">';
-    html += '<div class="tj-head"><span class="tj-title">' + App.svgIcon('chart-no-axes-combined') + App.escapeHtml(client.name) + ' 的成长轨迹</span><span class="tj-badge">AI 生成</span></div>';
-
-    var items = [];
-    sessions.forEach(function (s) {
-      var text = '';
-      if (s.soap && s.soap.assessment) text = s.soap.assessment.slice(0, 100);
-      else if (s.transcript) text = '进行了第' + (s.sessionNumber || '?') + '节咨询';
-      if (text) items.push({ date: s.date, text: text, tag: '咨询', type: 'session' });
-    });
-    supervisions.forEach(function (sv) {
-      var text = sv.summary || sv.content || '';
-      if (text) items.push({ date: sv.date, text: text.slice(0, 100), tag: '督导', type: 'supervision' });
-    });
-    items.sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
-
-    if (!items.length) {
-      html += '<div style="text-align:center;padding:20px;color:var(--ink-3)">暂无数据</div>';
-    } else {
-      items.forEach(function (item) {
-        html += '<div class="tj-item"><div class="tj-date">' + App.formatDate(item.date) + '</div><div class="tj-text">' + App.escapeHtml(item.text) + '</div><span class="tj-tag">' + item.tag + '</span></div>';
-      });
-    }
-    html += '</div>';
-
-    // 会员功能：AI生成洞察（featureGate 硬门控 + 实际 AI 调用）
-    if (typeof App !== 'undefined' && typeof App.featureGate === 'function' && !App.featureGate('ai-growth')) {
-      html += '<div class="trajectory" style="margin-top:12px">';
-      html += '<div class="tj-head"><span class="tj-title">' + App.svgIcon('sparkles') + 'AI 成长洞察</span>' + App.lockBadge('ai-growth') + '</div>';
-      html += '<div class="xj-locked-area"><div style="text-align:center;padding:24px;color:var(--ink-3);font-size:12px">升级会员后，AI 将自动分析所有材料，生成来访者的成长轨迹、核心议题变化与治疗进展洞察</div></div>';
-      html += '</div>';
-    } else {
-      html += '<div class="trajectory" style="margin-top:12px">';
-      html += '<div class="tj-head"><span class="tj-title">' + App.svgIcon('sparkles') + 'AI 成长洞察</span><span class="tj-badge">已解锁</span></div>';
-      html += '<div id="ai-trajectory-output" style="padding:16px"><button class="btn btn-primary" onclick="generateAiTrajectory()">生成成长洞察</button></div>';
-      html += '</div>';
-    }
-    window.generateAiTrajectory = function () {
-      var out = document.getElementById('ai-trajectory-output');
-      if (out) out.innerHTML = '<div style="text-align:center;padding:20px;color:var(--ink-3)">AI 分析中…</div>';
-      var sessions = Store.getSessionsForPicker(currentClientId);
-      var sups = Store.getSupervisionsByClient(currentClientId) || [];
-      var ctx = sessions.map(function (s) { return '第' + (s.sessionNumber || '?') + '节(' + (s.date || '?') + '): ' + ((s.soap && s.soap.assessment) || s.summary || '').slice(0, 200); }).join('\n');
-      ctx += '\n督导: ' + sups.map(function (sv) { return (sv.date || '?') + ': ' + (sv.conclusion || sv.content || '').slice(0, 200); }).join('\n');
-      AI.send([{ role: 'system', content: '你是心理咨询个案分析专家。根据以下咨询记录和督导记录，生成来访者的成长轨迹分析。输出JSON：{"trajectory":"整体成长轨迹描述","keyChanges":["关键变化1","关键变化2"],"insights":["AI洞察1","洞察2"],"recommendations":["后续建议1"]}' }, { role: 'user', content: ctx }], function (res) {
-        if (res && res.content && !res.error) {
-          try {
-            var j = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
-            var h = '<div style="line-height:1.8;font-size:13px">';
-            h += '<p><b>成长轨迹</b>：' + App.escapeHtml(j.trajectory || '') + '</p>';
-            if (j.keyChanges) h += '<p><b>关键变化</b>：<br>' + j.keyChanges.map(function (c) { return '· ' + App.escapeHtml(c); }).join('<br>') + '</p>';
-            if (j.insights) h += '<p><b>AI 洞察</b>：<br>' + j.insights.map(function (c) { return '· ' + App.escapeHtml(c); }).join('<br>') + '</p>';
-            if (j.recommendations) h += '<p><b>后续建议</b>：<br>' + j.recommendations.map(function (c) { return '· ' + App.escapeHtml(c); }).join('<br>') + '</p>';
-            h += '</div>';
-            if (out) out.innerHTML = h;
-          } catch (e) { if (out) out.innerHTML = '<pre>' + App.escapeHtml(res.content) + '</pre>'; }
-        } else { if (out) out.innerHTML = '<span style="color:var(--danger)">AI 分析失败</span>'; }
-      });
-    };
-
-    box.innerHTML = html;
-    if (window.IconSystem) window.IconSystem.render(box);
-  }
-
   window.openDoc = function (type, id) {
+    var clientId = currentClientId || '';
+    if (!clientId) return;
     if (type === 'transcript' || type === 'report') {
-      location.href = 'consult-notes.html?clientId=' + encodeURIComponent(currentClientId || '') + '&sessionId=' + encodeURIComponent(id) + '&mode=quick';
+      var session = Store.getSession ? Store.getSession(id) : null;
+      if (!session || session.clientId !== clientId) {
+        if (App.showToast) App.showToast('会谈不属于当前来访者，已阻止打开', 'warning');
+        return;
+      }
+      location.href = 'consult-notes.html?clientId=' + encodeURIComponent(clientId) + '&sessionId=' + encodeURIComponent(id) + '&mode=quick';
+    } else if (type === 'material') {
+      var material = Store.getMaterialWorkspace ? Store.getMaterialWorkspace(id) : null;
+      if (!material || material.clientId !== clientId || !material.sessionId || (Store.getSession && (!Store.getSession(material.sessionId) || Store.getSession(material.sessionId).clientId !== clientId))) {
+        if (App.showToast) App.showToast('材料归属无法核对，已阻止打开', 'warning');
+        return;
+      }
+      if (material.parseStatus !== 'ready' || !String(material.extractedText || '').trim()) {
+        if (App.showToast) App.showToast(material.parseError || '材料尚未完成解析，暂时无法打开', 'warning');
+        return;
+      }
+      location.href = 'transcript.html?clientId=' + encodeURIComponent(clientId) + '&sessionId=' + encodeURIComponent(material.sessionId) + '&materialId=' + encodeURIComponent(material.id);
     } else if (type === 'supervision') {
-      location.href = 'real-supervision.html?id=' + id;
+      var supervision = Store.getSupervision ? Store.getSupervision(id) : null;
+      if (!supervision || supervision.clientId !== clientId) {
+        if (App.showToast) App.showToast('督导记录不属于当前来访者，已阻止打开', 'warning');
+        return;
+      }
+      location.href = 'real-supervision.html?id=' + encodeURIComponent(id || '') + '&clientId=' + encodeURIComponent(clientId);
     }
   };
+
+  function activateClientControl(control) {
+    if (!control) return;
+    window.selectClient(control.getAttribute('data-client-id') || '');
+  }
+
+  function handleDocContentAction(control) {
+    if (!control) return;
+    var docAction = control.getAttribute('data-doc-action');
+    if (docAction === 'open-doc') {
+      window.openDoc(control.getAttribute('data-doc-type') || '', control.getAttribute('data-doc-id') || '');
+      return;
+    }
+    if (docAction === 'open-growth') {
+      openGrowthTrajectory();
+      return;
+    }
+    if (docAction === 'focus-client-select') {
+      window.focusAtlasClientSelect();
+      return;
+    }
+    var atlasAction = control.getAttribute('data-atlas-action');
+    if (atlasAction === 'select-node') window.selectAtlasNode(control.getAttribute('data-atlas-node-id') || '');
+    else if (atlasAction === 'select-session') window.selectAtlasSession(control.getAttribute('data-atlas-session-id') || '');
+    else if (atlasAction === 'refresh') window.refreshAtlasProjection();
+    else if (atlasAction === 'open-source') window.openAtlasSource();
+    else if (atlasAction === 'close-drawer') window.closeAtlasDrawer();
+    else if (control.hasAttribute('data-timeline-target')) window.openTimelineTarget(control.getAttribute('data-timeline-target') || '', control.getAttribute('data-timeline-value') || '');
+  }
+
+  function bindDocCenterEvents() {
+    var clientList = document.getElementById('client-list');
+    if (clientList) {
+      clientList.addEventListener('click', function (event) {
+        activateClientControl(event.target.closest('[data-client-id]'));
+      });
+      clientList.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        var control = event.target.closest('[data-client-id]');
+        if (!control) return;
+        event.preventDefault();
+        activateClientControl(control);
+      });
+    }
+
+    var search = document.getElementById('dc-search');
+    if (search) search.addEventListener('input', window.filterDocs);
+    var clientSelect = document.getElementById('dc-client-select');
+    if (clientSelect) clientSelect.addEventListener('change', function (event) { window.onClientSelect(event.target.value); });
+    var tabs = document.getElementById('doc-tabs');
+    if (tabs) tabs.addEventListener('click', function (event) {
+      var tab = event.target.closest('[data-tab]');
+      if (tab) window.switchDocTab(tab.getAttribute('data-tab') || 'all');
+    });
+
+    var content = document.getElementById('doc-content');
+    if (content) {
+      content.addEventListener('click', function (event) {
+        handleDocContentAction(event.target.closest('[data-doc-action], [data-atlas-action], [data-timeline-target]'));
+      });
+      content.addEventListener('change', function (event) {
+        if (event.target && event.target.hasAttribute('data-atlas-session-select')) window.selectAtlasSession(event.target.value || '');
+      });
+      content.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        var control = event.target.closest('.doc-card[role="button"]');
+        if (!control) return;
+        event.preventDefault();
+        handleDocContentAction(control);
+      });
+    }
+  }
 
   App.initPage({
     title: '文档中心',
     onReady: function () {
       try {
-        var initialClientId = new URLSearchParams(location.search).get('clientId') || (App.getActiveClientId && App.getActiveClientId());
+        var params = new URLSearchParams(location.search);
+        var initialClientId = params.get('clientId') || (App.getActiveClientId && App.getActiveClientId());
         if (initialClientId && Store.getClient(initialClientId)) currentClientId = initialClientId;
+        if (params.get('view') === 'atlas') currentTab = 'atlas';
       } catch (e) {}
+      document.querySelectorAll('.dr-tab').forEach(function (tab) {
+        var active = tab.dataset.tab === currentTab;
+        tab.classList.toggle('active', active);
+        tab.setAttribute('aria-selected', String(active));
+      });
+      bindDocCenterEvents();
+      document.addEventListener('keydown', handleAtlasEscape);
+      syncGrowthLink();
       renderClientList();
       renderDocs();
+      // P0#3 修复：动态设置 AI 成长洞察链接的锁标记
+      var growthLink = document.getElementById('dc-growth-link');
+      if (growthLink && typeof App !== 'undefined' && typeof App.lockBadge === 'function') {
+        var badge = App.lockBadge('ai-growth');
+        if (badge) growthLink.innerHTML = '<i data-lucide="chart-no-axes-combined"></i>AI 成长洞察 ' + badge;
+        if (window.IconSystem) window.IconSystem.render(growthLink);
+      }
       if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
     }
   });

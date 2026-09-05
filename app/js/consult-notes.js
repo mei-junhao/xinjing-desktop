@@ -11,6 +11,10 @@
   var currentWorkflow = 'quick';
   var restoredDraftKeys = {};
   var suppressClientDraftRestore = false;
+  var currentTemplateSelection = null;
+  var templateSelectionDirty = false;
+  var templateSelectionFailure = null;
+  var templateControlsBound = false;
 
   function draftKey() {
     if (!currentClientId) return '';
@@ -64,6 +68,228 @@
     var suffix = currentSessionId ? ('第' + ((Store.getSession(currentSessionId) || {}).sessionNumber || '?') + '节') : (contextDate || App.todayStr());
     el.textContent = c.name + ' · ' + suffix;
   }
+
+  function renderNoteSummary(summary) {
+    var box = document.getElementById('note-summary');
+    var text = document.getElementById('note-summary-text');
+    if (!box || !text) return;
+    var value = String(summary || '').trim();
+    text.textContent = value;
+    box.hidden = !value;
+    box.classList.toggle('show', !!value);
+  }
+
+  function templateViewModel() {
+    if (typeof SessionTemplateViewModel !== 'undefined') return SessionTemplateViewModel;
+    if (typeof window !== 'undefined' && window.SessionTemplateViewModel) return window.SessionTemplateViewModel;
+    return null;
+  }
+
+  function templateLicenseState() {
+    try { return App && typeof App.getLicenseState === 'function' ? App.getLicenseState() : null; }
+    catch (e) { return null; }
+  }
+
+  function defaultTemplateSelection() {
+    var vm = templateViewModel();
+    if (vm && typeof vm.createSelection === 'function') {
+      var result = vm.createSelection('manual-session-v1', { licenseState: templateLicenseState(), context: 'individual' });
+      if (result && result.ok) return result.selection;
+    }
+    return { version: 'session-template-selection-v1', templateId: 'manual-session-v1', tierAtSelection: 'Free', context: 'individual', appliedAt: new Date().toISOString(), customTemplateId: '' };
+  }
+
+  function templateLabel(item, historical) {
+    if (historical) return item.title + '（历史锁定）';
+    if (item.locked && item.preview) return item.title + '（试用预览）';
+    if (item.locked) return item.title + '（' + (item.requiredTier === 'Flagship' ? '需旗舰版' : '需会员') + '）';
+    return item.title;
+  }
+
+  function renderSessionTemplateControl() {
+    var bar = document.getElementById('session-template-bar');
+    var select = document.getElementById('session-template-select');
+    var status = document.getElementById('session-template-status');
+    var customWrap = document.getElementById('session-template-custom');
+    var customInput = document.getElementById('session-custom-template-id');
+    var plans = document.getElementById('session-template-plans');
+    if (!bar || !select || !status || !customWrap || !customInput) return;
+    if (!currentClientId) { bar.hidden = true; return; }
+    bar.hidden = false;
+    var vm = templateViewModel();
+    if (!vm || typeof vm.list !== 'function') {
+      select.innerHTML = '<option value="manual-session-v1">基础手动记录</option>';
+      select.value = 'manual-session-v1';
+      select.disabled = false;
+      customWrap.hidden = true;
+      status.className = 'session-template-status';
+      status.textContent = '模板边界暂不可用，当前仅保留手动记录。';
+      if (plans) plans.hidden = true;
+      return;
+    }
+    var result = vm.list({ licenseState: templateLicenseState(), context: 'individual', includeLocked: true });
+    if (!result || !result.ok) {
+      select.innerHTML = '<option value="manual-session-v1">基础手动记录</option>';
+      select.value = 'manual-session-v1';
+      status.className = 'session-template-status';
+      status.textContent = '当前仅可使用基础手动记录。';
+      customWrap.hidden = true;
+      if (plans) plans.hidden = true;
+      return;
+    }
+    var normalizedCurrent = currentTemplateSelection && typeof vm.normalizeSelection === 'function' ? vm.normalizeSelection(currentTemplateSelection) : null;
+    var historicalId = normalizedCurrent && normalizedCurrent.ok ? normalizedCurrent.selection.templateId : '';
+    var rows = result.templates.slice();
+    if (historicalId && !rows.some(function (item) { return item.id === historicalId; })) {
+      rows.push({ id: historicalId, title: '历史模板', requiredTier: normalizedCurrent.selection.tierAtSelection, locked: true, preview: false, outline: '历史选择保留为受限元数据。' });
+    }
+    select.innerHTML = rows.map(function (item) {
+      var historical = !!(historicalId && item.id === historicalId && !templateSelectionDirty);
+      return '<option value="' + App.escapeHtml(item.id) + '"' + (item.locked && !historical ? ' disabled' : '') + ' title="' + App.escapeHtml(item.outline || '') + '">' + App.escapeHtml(templateLabel(item, historical)) + '</option>';
+    }).join('');
+    var wanted = historicalId || 'manual-session-v1';
+    var option = Array.prototype.find.call(select.options, function (candidate) { return candidate.value === wanted; });
+    select.value = option ? wanted : 'manual-session-v1';
+    var selected = rows.find(function (item) { return item.id === select.value; });
+    var selectedIsLocked = !!(selected && selected.locked && !templateSelectionDirty);
+    customWrap.hidden = !selected || selected.id !== 'flagship-session-v1';
+    customInput.value = normalizedCurrent && normalizedCurrent.ok ? (normalizedCurrent.selection.customTemplateId || '') : '';
+    customInput.disabled = selectedIsLocked;
+    select.setAttribute('aria-describedby', 'session-template-status');
+    status.className = 'session-template-status' + (templateSelectionFailure ? ' error' : (selectedIsLocked ? ' locked' : ''));
+    if (templateSelectionFailure) {
+      status.textContent = '模板选择保存失败，当前记录已保留；请重试。';
+    } else if (selectedIsLocked) {
+      status.textContent = '历史模板当前不可用，已保留原选择，不会自动改写。可改用当前可用模板。';
+    } else if (result.access && result.access.trial) {
+      status.textContent = '当前为 AI 试用：付费模板仅供预览，不能写入会谈。';
+    } else if (templateSelectionDirty) {
+      status.textContent = '本次选择将在保存记录时写入。';
+    } else {
+      status.textContent = '选择会谈记录的结构；模板正文不会写入选择快照。';
+    }
+    if (plans) plans.hidden = !rows.some(function (item) { return item.locked && !item.preview; });
+    if (window.IconSystem) window.IconSystem.render(bar);
+  }
+
+  function chooseTemplateFromControl() {
+    var select = document.getElementById('session-template-select');
+    var customInput = document.getElementById('session-custom-template-id');
+    var vm = templateViewModel();
+    if (!select || !vm || typeof vm.createSelection !== 'function') return false;
+    var selectedId = select.value || 'manual-session-v1';
+    var result = vm.createSelection(selectedId, {
+      licenseState: templateLicenseState(),
+      context: 'individual',
+      customTemplateId: selectedId === 'flagship-session-v1' && customInput ? customInput.value : '',
+    });
+    if (!result || !result.ok) {
+      templateSelectionFailure = { code: result && result.code ? result.code : 'template-selection-invalid' };
+      renderSessionTemplateControl();
+      App.showToast('当前模板不可用，请选择可用模板', 'warning');
+      return false;
+    }
+    currentTemplateSelection = result.selection;
+    templateSelectionDirty = true;
+    templateSelectionFailure = null;
+    renderSessionTemplateControl();
+    return true;
+  }
+
+  function prepareTemplateSelectionForSave() {
+    if (currentSessionId && !templateSelectionDirty) return { ok: true, selection: null };
+    if (!currentTemplateSelection) currentTemplateSelection = defaultTemplateSelection();
+    if (!templateSelectionDirty && currentSessionId) return { ok: true, selection: null };
+    var select = document.getElementById('session-template-select');
+    var customInput = document.getElementById('session-custom-template-id');
+    if (select && !chooseTemplateFromControl()) return { ok: false, error: { code: 'XJ_NOTES_TEMPLATE_INVALID', message: '模板选择不可用' } };
+    return { ok: true, selection: currentTemplateSelection };
+  }
+
+  function bindTemplateControls() {
+    if (templateControlsBound) return;
+    templateControlsBound = true;
+    var select = document.getElementById('session-template-select');
+    var customInput = document.getElementById('session-custom-template-id');
+    var plans = document.getElementById('session-template-plans');
+    if (select) select.addEventListener('change', chooseTemplateFromControl);
+    if (customInput) customInput.addEventListener('change', chooseTemplateFromControl);
+    if (plans) plans.addEventListener('click', function () { if (App && typeof App.openPlans === 'function') App.openPlans(); });
+    if (App && typeof App.onLicenseStateChange === 'function') App.onLicenseStateChange(renderSessionTemplateControl);
+  }
+
+  function renderClinicalTaskContext() {
+    var section = document.getElementById('clinical-task-context');
+    var list = document.getElementById('clinical-task-list');
+    var summary = document.getElementById('clinical-task-summary');
+    if (!section || !list || !summary) return;
+
+    list.innerHTML = '';
+    summary.textContent = '';
+    if (!currentClientId || !currentSessionId) {
+      section.hidden = true;
+      return;
+    }
+    section.hidden = false;
+
+    if (!window.ClinicalTaskViewModel || typeof window.ClinicalTaskViewModel.project !== 'function' ||
+        typeof Store.getClinicalTasksByClient !== 'function' || typeof Store.getSession !== 'function') {
+      summary.textContent = '暂时无法读取';
+      list.innerHTML = '<div class="clinical-task-error" role="status">任务上下文暂时不可用，请稍后重试。</div>';
+      return;
+    }
+
+    var selectedSession = Store.getSession(currentSessionId);
+    if (!selectedSession || String(selectedSession.clientId || '') !== currentClientId) {
+      summary.textContent = '会谈不可用';
+      list.innerHTML = '<div class="clinical-task-error" role="status">当前会谈不存在或不属于该来访者，任务上下文已关闭。</div>';
+      return;
+    }
+
+    var projected;
+    try {
+      projected = window.ClinicalTaskViewModel.project(
+        Store.getClinicalTasksByClient(currentClientId),
+        currentClientId,
+        currentSessionId,
+        { allowLaterSession: true }
+      );
+    } catch (error) {
+      projected = null;
+    }
+    if (!projected || projected.ok !== true || !projected.value || !Array.isArray(projected.value.active)) {
+      summary.textContent = '投影失败';
+      list.innerHTML = '<div class="clinical-task-error" role="status">任务上下文读取失败，当前记录内容未受影响。</div>';
+      return;
+    }
+
+    var invalidOrigins = 0;
+    var rows = projected.value.active.map(function (task) {
+      var origin = typeof Store.getSession === 'function' ? Store.getSession(task.originSessionId) : null;
+      if (!origin || String(origin.clientId || '') !== currentClientId) {
+        invalidOrigins += 1;
+        return '';
+      }
+      var isCurrent = task.originSessionId === currentSessionId;
+      var originLabel = isCurrent
+        ? '本节创建'
+        : '源自第' + (origin.sessionNumber || '?') + '节' + (origin.date ? ' · ' + origin.date : '');
+      var statusLabel = task.status === 'ai-draft' ? '待确认' : '跟进中';
+      var statusClass = task.status === 'ai-draft' ? 'clinical-task-state draft' : 'clinical-task-state';
+      var dueLabel = task.due ? ' · 截止 ' + task.due : '';
+      return '<div class="clinical-task-item" data-clinical-task-id="' + App.escapeHtml(task.id) + '">' +
+        '<div><div class="clinical-task-title">' + App.escapeHtml(task.title) + '</div>' +
+        '<div class="clinical-task-meta">' + App.escapeHtml(originLabel + dueLabel) + '</div></div>' +
+        '<span class="' + statusClass + '">' + statusLabel + '</span></div>';
+    }).filter(Boolean);
+
+    summary.textContent = rows.length + ' 项活动任务' + (invalidOrigins ? '，' + invalidOrigins + ' 项来源不可用' : '');
+    list.innerHTML = rows.length
+      ? rows.join('')
+      : '<div class="clinical-task-empty">当前会谈没有可继续跟进的活动任务。</div>';
+  }
+
+  window.renderClinicalTaskContext = renderClinicalTaskContext;
 
   function setWorkflow(workflow, persist) {
     currentWorkflow = workflow === 'quick' ? 'quick' : 'structured';
@@ -158,6 +384,10 @@
     currentClientId = sel.value || currentClientId;
     if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
     currentSessionId = null;
+    currentTemplateSelection = defaultTemplateSelection();
+    templateSelectionDirty = !!currentClientId;
+    templateSelectionFailure = null;
+    renderNoteSummary('');
     var sessSel = document.getElementById('sel-session');
     var upBtn = document.getElementById('btn-upload-transcript');
     var exBtn = document.getElementById('btn-export');
@@ -165,6 +395,8 @@
       sessSel.style.display = 'none';
       upBtn.style.display = 'none';
       exBtn.style.display = 'none';
+      renderSessionTemplateControl();
+      renderClinicalTaskContext();
       return;
     }
     var c = Store.getClient(currentClientId);
@@ -183,6 +415,8 @@
     setWorkflow(preferred === 'quick' ? 'quick' : 'structured', false);
     if (preferred !== 'quick') setRecordMode(preferred, false);
     updateContextLabel();
+    renderSessionTemplateControl();
+    renderClinicalTaskContext();
     if (!suppressClientDraftRestore) restoreDraft();
   };
 
@@ -190,13 +424,26 @@
   window.onSessionChange = function () {
     var sessSel = document.getElementById('sel-session');
     currentSessionId = sessSel.value || null;
+    renderNoteSummary('');
     // 清空所有编辑区
     ['f1','f2','f3','f4','f5','soap-s','soap-o','soap-a','soap-p','dap-d','dap-a','dap-p','f-free'].forEach(function (id) {
       var el = document.getElementById(id); if (el) el.value = '';
     });
-    if (!currentSessionId) return;
+    if (!currentSessionId) {
+      currentTemplateSelection = defaultTemplateSelection();
+      templateSelectionDirty = !!currentClientId;
+      templateSelectionFailure = null;
+      renderSessionTemplateControl();
+      renderClinicalTaskContext();
+      return;
+    }
     var s = Store.getSession(currentSessionId);
-    if (!s) return;
+    if (!s) { renderSessionTemplateControl(); renderClinicalTaskContext(); return; }
+    renderNoteSummary(s.summary);
+    currentTemplateSelection = typeof Store.getSessionTemplateSelection === 'function' ? Store.getSessionTemplateSelection(currentSessionId) : null;
+    templateSelectionDirty = !currentTemplateSelection;
+    templateSelectionFailure = null;
+    if (!currentTemplateSelection) currentTemplateSelection = defaultTemplateSelection();
     // 切换到对应模式并载入
     var target = 'free';
     if (s.soap && (s.soap.subjective || s.soap.objective || s.soap.assessment || s.soap.plan)) { target = 'soap'; }
@@ -213,6 +460,8 @@
     setWorkflow('structured', false);
     setRecordMode(target, false);
     updateContextLabel();
+    renderSessionTemplateControl();
+    renderClinicalTaskContext();
     restoreDraft();
     if (typeof Memory !== 'undefined' && Memory.record) Memory.record('session_opened', { summary: '打开了第' + s.sessionNumber + '节记录', relatedClientId: currentClientId });
   };
@@ -280,9 +529,56 @@
   }
 
   // silent=true 时为自动保存（不弹 toast、空内容直接跳过）
+  // XJ-5.1.9-desensitize-work-style：收集当前记录字段 → 跳转脱敏结果页（本地处理，数据不出本机）
+  window.openDesensitize = function () {
+    var sections = [];
+    var paneIds = ['pane-apa', 'pane-soap', 'pane-dap', 'pane-free'];
+    var collected = 0;
+    paneIds.forEach(function (paneId) {
+      var pane = document.getElementById(paneId);
+      if (!pane || pane.style.display === 'none') return;
+      pane.querySelectorAll('textarea').forEach(function (ta) {
+        var value = (ta.value || '').trim();
+        if (!value) return;
+        collected += 1;
+        var field = ta.closest('.field');
+        var label = field && field.querySelector('label') ? field.querySelector('label').textContent.trim() : '';
+        var NL = String.fromCharCode(10);
+        if (label) sections.push('## ' + label + NL + NL + value);
+        else sections.push(value);
+      });
+    });
+    if (!collected) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('当前记录为空，请先填写内容再生成脱敏文档', 'warning');
+      return;
+    }
+    var today = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
+    var docName = '咨询记录_' + today + '.md';
+    var NL2 = String.fromCharCode(10);
+    var docText = '# 咨询记录（' + today + '）' + NL2 + NL2 + sections.join(NL2 + NL2) + NL2;
+    try {
+      sessionStorage.setItem('xj_desensitize_task', JSON.stringify({
+        name: docName,
+        text: docText,
+        sourceLabel: '咨询记录',
+        savedAt: new Date().toISOString(),
+      }));
+    } catch (e) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('无法暂存脱敏任务，请重试', 'error');
+      return;
+    }
+    location.href = 'desensitize-result.html';
+  };
+
   window.saveNotes = function (silent) {
+    return (async function () {
     if (!currentClientId) {
       if (!silent) App.showToast('请先选择来访者', 'warning');
+      return false;
+    }
+    var templatePlan = prepareTemplateSelectionForSave();
+    if (!templatePlan.ok) {
+      if (!silent) App.showToast('模板选择无效：记录内容尚未保存', 'warning');
       return false;
     }
     var data = collectCurrent();
@@ -306,22 +602,28 @@
     if (data.dap) payload.dap = data.dap;
     if (data.transcript) payload.transcript = data.transcript;
 
+    var durableResult = null;
     if (currentSessionId) {
       // 更新已选会话（保留其原 sessionNumber/date 等）
       var existing = Store.getSession(currentSessionId);
       if (existing) {
-        Store.updateSessionFull(Object.assign({}, existing, payload, {
-          id: currentSessionId,
-          date: existing.date || payload.date,
-          startTime: existing.startTime || '',
-          endTime: existing.endTime || '',
-          durationMinutes: existing.durationMinutes || payload.durationMinutes
-        }));
+        try {
+          durableResult = await Store.updateSessionFull(Object.assign({}, existing, payload, {
+            id: currentSessionId,
+            date: existing.date || payload.date,
+            startTime: existing.startTime || '',
+            endTime: existing.endTime || '',
+            durationMinutes: existing.durationMinutes || payload.durationMinutes
+          }));
+        } catch (e) {
+          durableResult = { ok: false, error: { code: 'XJ_NOTES_SESSION_THROW', message: (e && e.message) || String(e) } };
+        }
       }
     } else {
       // 修复：保存后锁定到新创建的会话，避免连续点击「保存」反复生成重复节次
-      var created = Store.createSession(payload);
-      var newId = (created && created.id) ? created.id : null;
+      try { durableResult = await Store.createSessionDurable(payload); }
+      catch (e) { durableResult = { ok: false, error: { code: 'XJ_NOTES_SESSION_THROW', message: (e && e.message) || String(e) } }; }
+      var newId = (durableResult && durableResult.ok && durableResult.value) ? durableResult.value.id : null;
       currentSessionId = newId;
       // 直接刷新会话下拉（不触发 onClientChange，以免重复刷 AI 消息），并选中新建节次
       var sessSel2 = document.getElementById('sel-session');
@@ -336,8 +638,29 @@
         sessSel2.value = newId;
       }
     }
+    if (!durableResult || !durableResult.ok) {
+      if (!silent) App.showToast('保存失败：本地草稿已保留，请恢复存储后重试', 'error');
+      return false;
+    }
+    if (templatePlan.selection) {
+      var selectionResult;
+      try { selectionResult = await Store.saveSessionTemplateSelectionDurable(currentSessionId, templatePlan.selection); }
+      catch (e) { selectionResult = { ok: false, error: { code: 'XJ_NOTES_TEMPLATE_THROW', message: (e && e.message) || String(e) } }; }
+      if (!selectionResult || !selectionResult.ok) {
+        templateSelectionFailure = (selectionResult && selectionResult.error) || { code: 'XJ_NOTES_TEMPLATE_SAVE_FAILED', message: '模板选择保存失败' };
+        templateSelectionDirty = true;
+        renderSessionTemplateControl();
+        if (!silent) App.showToast('记录内容已保存，但模板选择未完成；请恢复存储后重试', 'error');
+        return false;
+      }
+      currentTemplateSelection = selectionResult.value || templatePlan.selection;
+      templateSelectionDirty = false;
+      templateSelectionFailure = null;
+    }
     clearDraft();
     updateContextLabel();
+    renderSessionTemplateControl();
+    renderClinicalTaskContext();
     if (!silent) {
       var saved = currentSessionId ? Store.getSession(currentSessionId) : null;
       var client = Store.getClient(currentClientId);
@@ -347,10 +670,12 @@
         text.textContent = '已保存到：' + client.name + ' · 第' + saved.sessionNumber + '节 · ' + (saved.date || App.todayStr());
         complete.classList.add('show');
       }
+      renderNoteSummary(saved && saved.summary);
       App.showToast('已保存', 'success');
     }
     if (typeof Memory !== 'undefined' && Memory.record) Memory.record('session_saved', { summary: '保存了咨询记录', relatedClientId: currentClientId });
     return true;
+    })();
   };
 
   window.sendToXj = function () {
@@ -396,25 +721,25 @@
   window.onTranscriptUpload = function (event) {
     var file = event.target.files[0];
     if (!file) return;
-    if (!App.featureGate('ai-analyze')) {
-      App.showToast('上传逐字稿 AI 分析需激活会员后使用', 'warning');
-      event.target.value = '';
-      return;
-    }
+    // P0#5 修复：逐字稿上传/读取是 Manual Free，不门控；仅 AI 分析部分需要权益
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); event.target.value = ''; return; }
     App.showToast('正在读取逐字稿…', 'info');
     var reader = new FileReader();
-    var onText = function (text) {
+    var onText = async function (text) {
       // 写入当前会话的 transcript（无选中会话则新建一条逐字稿会话）
       if (currentSessionId) {
         var ex = Store.getSession(currentSessionId);
-        if (ex) Store.updateSessionFull(Object.assign({}, ex, { transcript: text, hasTranscript: true }));
+        if (ex) {
+          var updated = await Store.updateSessionFull(Object.assign({}, ex, { transcript: text, hasTranscript: true }));
+          if (!updated || !updated.ok) { App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
+        }
       } else {
-        var r = Store.createSession({
+        var r = await Store.createSessionDurable({
           clientId: currentClientId, date: App.todayStr(), durationMinutes: 0, type: 'individual',
           recordKind: 'clinical', billing: null, transcript: text, hasTranscript: true, notes: '',
         });
-        if (r) currentSessionId = r.id;
+        if (!r || !r.ok || !r.value) { App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
+        currentSessionId = r.value.id;
         // 刷新会话下拉，标记逐字稿
         onClientChange();
         var sessSel = document.getElementById('sel-session');
@@ -424,8 +749,13 @@
       var chip = document.querySelector('.prompt-strip .chip[data-mode="free"]');
       if (chip) chip.click();
       document.getElementById('f-free').value = text;
-      App.showToast('逐字稿已载入，开始 AI 分析…', 'success');
-      aiAnalyzeTranscript(text);
+      App.showToast('逐字稿已载入', 'success');
+      // P0#5 修复：AI 分析单独门控 ai-analyze，上传本身是 Free
+      if (App.featureGate('ai-analyze')) {
+        aiAnalyzeTranscript(text);
+      } else {
+        App.showToast('AI 分析需会员及以上方案，逐字稿已保存至会话。', 'warning');
+      }
     };
     if (file.name.toLowerCase().endsWith('.docx')) {
       if (typeof mammoth !== 'undefined') {
@@ -565,8 +895,8 @@
   // ---------- 离开 / 跳转：自动保存 ----------
   function autoSaveSilent() { try { saveDraft(); } catch (e) {} }
   window.leavePage = function () { autoSaveSilent(); location.href = 'index.html'; };
-  window.finishAndGoReport = function () {
-    if (saveNotes(false)) location.href = 'report-writing.html?clientId=' + encodeURIComponent(currentClientId || '') + '&sessionId=' + encodeURIComponent(currentSessionId || '');
+  window.finishAndGoReport = async function () {
+    if (await saveNotes(false)) location.href = 'report-writing.html?clientId=' + encodeURIComponent(currentClientId || '') + '&sessionId=' + encodeURIComponent(currentSessionId || '');
   };
 
   window.scheduleNextSession = function () {
@@ -586,17 +916,51 @@
     if (!currentSessionId || !data || !data.notes) { App.showToast('请先保存含内容的咨询记录', 'warning'); return; }
     if (!App.featureGate('ai-notes') || typeof AI === 'undefined' || !AI.send) { App.showToast('生成摘要需激活 AI 功能', 'warning'); return; }
     App.showToast('正在生成会谈摘要…', 'info');
-    AI.send([{ role: 'system', content: '你是心理咨询记录助手。基于输入记录生成一段简洁、非诊断性的会谈摘要，只陈述已有材料，不补充事实。' }, { role: 'user', content: data.notes }], function (res) {
+    AI.send([{ role: 'system', content: '你是心理咨询记录助手。基于输入记录生成一段简洁、非诊断性的会谈摘要，只陈述已有材料，不补充事实。' }, { role: 'user', content: data.notes }], async function (res) {
       if (!res || res.error || !res.content) { App.showToast('生成摘要失败，请重试', 'error'); return; }
+      var summary = String(res.content).trim();
+      if (!summary) { App.showToast('模型返回了空摘要，请重试', 'error'); return; }
+      // 先展示真实生成结果，避免持久化异常让用户只看到加载状态消失。
+      renderNoteSummary(summary);
+      var box = document.getElementById('note-summary');
+      var status = box && box.querySelector('.note-summary-status');
+      if (status) status.textContent = '正在保存到本次会谈…';
       var s = Store.getSession(currentSessionId);
-      if (!s) return;
-      Store.updateSessionFull(Object.assign({}, s, { summary: String(res.content).trim() }));
+      if (!s) {
+        if (status) status.textContent = '未找到本次会谈，摘要仅保留在当前页面';
+        App.showToast('未找到本次会谈，摘要未写入本地', 'error');
+        return;
+      }
+      var saved;
+      try {
+        saved = await Store.updateSessionFull(Object.assign({}, s, { summary: summary }));
+      } catch (error) {
+        if (status) status.textContent = '保存失败，摘要仍在页面；请重试保存';
+        App.showToast('会谈摘要保存失败：摘要已保留，请恢复存储后重试', 'error');
+        return;
+      }
+      if (!saved || saved.ok !== true) {
+        if (status) status.textContent = '保存失败，摘要仍在页面；请重试保存';
+        App.showToast('会谈摘要保存失败：摘要已保留，请恢复存储后重试', 'error');
+        return;
+      }
+      if (status) status.textContent = '已保存到本次会谈';
+      renderNoteSummary(saved.value && saved.value.summary ? saved.value.summary : summary);
       App.showToast('会谈摘要已保存', 'success');
     });
   };
 
   App.initPage({ title: '咨询记录', subtitle: '', actions: '', onReady: function () {
+    bindTemplateControls();
     loadClients();
+    // P0 REPAIR 02: 动态设置 AI 填写按钮的 Pro/会员锁标识
+    try {
+      var aiFillLock = document.getElementById('ai-fill-lock');
+      if (aiFillLock && typeof App !== 'undefined' && typeof App.lockBadge === 'function') {
+        aiFillLock.innerHTML = App.lockBadge('ai-notes');
+        if (window.IconSystem) window.IconSystem.render(aiFillLock);
+      }
+    } catch (e) { /* ignore */ }
     // 支持从咨询日历跳转：?client=ID&session=ID 自动预选来访者与会话
     try {
       var params = new URLSearchParams(location.search);

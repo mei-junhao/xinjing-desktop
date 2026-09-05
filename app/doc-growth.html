@@ -2,40 +2,40 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>心镜 · AI 成长轨迹</title>
+<title>心镜 · AI 成长洞察</title>
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/agent.css">
 <style>
 .xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
 .xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
-.xj-premium-btn{position:relative}
-.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-premium-btn{position:relative;display:inline-flex;align-items:center;gap:4px}
+.xj-premium-btn .xj-lock-badge{font-size:9px;margin-left:2px;opacity:.8;line-height:1}
 .xj-locked-area{position:relative}
-.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
-.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:color-mix(in srgb,var(--paper-2) 94%,var(--bg) 6%);display:flex;align-items:center;justify-content:center;border-radius:8px;font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto;gap:6px}
+.xj-locked-area>.xj-lock-overlay .xj-lock-icon{display:inline-flex;align-items:center;gap:2px;font-size:13px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
-.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--accent-soft);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
 .preview-bar .sp{flex:1}
 .dc-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .dc-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
-.dc-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.dc-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .dc-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
 .dc-top .sp{flex:1}
 .dc-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
 .dc-body{flex:1;display:grid;grid-template-columns:280px 1fr;min-height:0;overflow:hidden}
 .dc-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.dc-left .dl-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.dc-left .dl-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--sans);flex-shrink:0;display:flex;align-items:center;gap:6px}
 .dc-left .dl-body{flex:1;overflow-y:auto;padding:12px}
 .stat-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);padding:14px;margin-bottom:10px}
 .stat-card .s-label{font:11px var(--sans);color:var(--ink-3);font-weight:600}
-.stat-card .s-value{font:24px var(--serif);font-weight:700;margin:4px 0}
+.stat-card .s-value{font:24px var(--sans);font-weight:700;margin:4px 0;font-variant-numeric:tabular-nums}
 .stat-card .s-sub{font:11px var(--sans);color:var(--ink-2)}
 .phase-bar{background:var(--bg-sunken);border-radius:6px;height:8px;margin:8px 0;overflow:hidden}
-.phase-bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .5s var(--ease)}
+.phase-bar .fill{height:100%;border-radius:6px;background:var(--accent);transition:width .5s var(--ease)}
 .dc-right{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
-.dc-right .dr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0;background:var(--paper-2)}
+.dc-right .dr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--sans);flex-shrink:0;background:var(--paper-2);display:flex;align-items:center;gap:6px}
 .dc-right .dr-body{flex:1;overflow-y:auto;padding:20px}
 .tl-item{display:flex;gap:12px;margin-bottom:0;position:relative}
 .tl-date{width:50px;font:11px var(--sans);color:var(--ink-3);text-align:right;padding-top:4px;flex-shrink:0}
@@ -49,7 +49,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .tl-line{width:1px;flex:1;background:var(--border);min-height:12px}
 .tl-card{flex:1;background:var(--paper-2);border:1px solid var(--border);border-radius:var(--r-card);padding:12px 14px;margin-bottom:12px;transition:var(--transition)}
 .tl-card:hover{border-color:var(--accent-line)}
-.tl-card.active{border-color:var(--accent);box-shadow:0 2px 8px rgba(139,147,199,.1)}
+.tl-card.active{border-color:var(--accent);box-shadow:var(--shadow-sm,0 1px 2px rgba(23,33,31,.08))}
 .tc-head{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .tc-num{font:600 13px var(--sans);color:var(--ink)}
 .tc-type{font:10px var(--sans);padding:2px 7px;border-radius:4px;font-weight:600}
@@ -64,30 +64,56 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .tl-connector{display:flex;align-items:center;gap:12px;padding:6px 0;margin-bottom:0}
 .tl-connector .conn-line{width:12px;height:1px;background:var(--green);flex-shrink:0}
 .tl-connector .conn-text{font:11px var(--sans);color:var(--green);font-weight:500}
+.growth-primary{height:36px;padding:0 12px;border:1px solid var(--cta-bg,var(--accent));border-radius:6px;background:var(--cta-bg,var(--accent));color:#fff;font:600 13px var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.growth-primary:disabled{cursor:not-allowed;opacity:.58}
+.growth-primary:focus-visible,.dc-top .back:focus-visible,.dc-top select:focus-visible{outline:2px solid var(--focus-ring,var(--accent));outline-offset:2px}
+.growth-source-status{font:12px/1.45 var(--sans);color:var(--ink-2);max-width:280px}
+.growth-state{border:1px solid var(--border);border-radius:var(--r-card);padding:20px;min-height:180px;font:14px/1.65 var(--sans);color:var(--ink-2);background:var(--paper-2)}
+.growth-state h3{font:600 16px var(--sans);color:var(--ink);margin:0 0 8px}
+.growth-state.warning{border-color:var(--warning,var(--orange));color:var(--ink-2)}
+.growth-state.error{border-color:var(--danger);color:var(--danger)}
+.growth-state .growth-retry{margin-top:16px}
+.growth-source-list{display:grid;gap:8px;margin-top:14px}
+.growth-source-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:6px;padding:10px 12px;background:var(--bg)}
+.growth-source-row strong{font:600 13px var(--sans);color:var(--ink)}
+.growth-source-row small{display:block;font:12px/1.5 var(--sans);color:var(--ink-3);overflow-wrap:anywhere}
+.growth-preview{display:grid;gap:16px}
+.growth-preview-summary{border-left:3px solid var(--green);padding:12px 14px;background:rgba(111,174,143,.06);font:15px/1.7 var(--sans);color:var(--ink-2);white-space:pre-wrap}
+.growth-change{border-top:1px solid var(--border);padding-top:12px}
+.growth-change h4{font:600 14px var(--sans);color:var(--ink);margin:0 0 4px}.growth-change p{font:14px/1.65 var(--sans);color:var(--ink-2);margin:0;white-space:pre-wrap}
+.growth-citations{display:flex;gap:6px;flex-wrap:wrap}.growth-citation{border:1px solid var(--border);border-radius:4px;padding:4px 6px;background:var(--bg-sunken);font:11px/1.45 var(--sans);color:var(--ink-3);overflow-wrap:anywhere}
+@media (max-width:760px){.dc-body{grid-template-columns:1fr}.dc-left{border-right:0;border-bottom:1px solid var(--border);max-height:180px}.growth-source-status{max-width:none;width:100%;order:4}.dc-top .sp{display:none}.growth-primary{margin-left:auto}}
+@media (prefers-reduced-motion:reduce){.phase-bar .fill,.tl-card{transition:none}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
+  <link rel="stylesheet" href="css/clinical-workspaces.css">
 </head>
-<body>
+<body data-output-mode="preview-only" data-xj-pattern="browser-list">
 
 <div class="preview-bar" id="preview-bar" style="display:none">
-  <span>🔒</span>
-  <span>会员预览模式 · 这是 <span class="xj-tier-badge pro">会员</span> <b>AI 成长轨迹</b> 会员增值功能，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后 AI 自动分析来访者成长轨迹与核心议题变化</span>
+  <i data-lucide="lock" aria-hidden="true"></i>
+  <span>会员预览模式 · 这是 <span class="xj-tier-badge pro">会员</span> <b>AI 成长洞察</b> 会员增值功能，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后 AI 自动分析来访者的阶段变化与核心议题变化</span>
   <span class="sp"></span>
   <span style="font:11px var(--sans);color:var(--ink-3)">文档中心 → <a href="doc-center.html" style="color:var(--accent)">返回</a></span>
 </div>
 
-<div class="dc-top">
-  <button class="back" onclick="location.href='doc-center.html'">← 返回文档中心</button>
-  <h2>AI 成长轨迹 <span class="sub">· 会员版C</span></h2>
-  <span class="sp"></span>
-  <select id="sel-client" onchange="loadTrajectory()"><option value="">选择来访者…</option></select>
-  <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span>
-</div>
+<header class="xj-workspace-header growth-workspace-header">
+  <div><span class="xj-workspace-eyebrow">个案空间 · AI 成长洞察</span><h1>成长趋势分析 <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span></h1></div>
+  <div class="xj-workspace-actions">
+    <button class="back" onclick="location.href='doc-center.html'"><i data-lucide="chevron-left"></i>返回文档中心</button>
+    <select id="sel-client" onchange="loadTrajectory()"><option value="">选择来访者…</option></select>
+    <button id="generate-preview" class="growth-primary" type="button" disabled title="请先选择包含已验证材料的来访者"><i data-lucide="sparkles"></i>生成阶段总结</button>
+  </div>
+</header>
+<div class="xj-context-strip growth-context-strip" id="growth-context-strip" aria-label="当前成长分析上下文"></div>
 
 <div class="dc-body">
 
   <div class="dc-left">
-    <div class="dl-head">📊 成长概览</div>
+    <div class="dl-head"><i data-lucide="chart-no-axes-combined"></i>成长概览</div>
     <div class="dl-body">
+      <nav class="growth-view-nav" aria-label="成长分析维度"><button type="button" class="active"><i data-lucide="activity"></i>总体趋势</button><button type="button" disabled title="等待来源与阶段摘要"><i data-lucide="heart-handshake"></i>关系主题</button><button type="button" disabled title="等待来源与阶段摘要"><i data-lucide="repeat-2"></i>重复模式</button><button type="button" disabled title="等待来源与阶段摘要"><i data-lucide="milestone"></i>关键节点</button></nav>
       <div class="stat-card">
         <div class="s-label">咨询节次</div>
         <div class="s-value" id="stat-sessions" style="color:var(--accent)">0</div>
@@ -108,20 +134,27 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
   </div>
 
   <div class="dc-right">
-    <div class="dr-head">📈 成长时间轴</div>
+    <div class="dr-head"><span><i data-lucide="chart-line"></i>成长时间轴</span><span id="growth-source-status" class="growth-source-status" aria-live="polite">请选择来访者以核对可用来源</span></div>
     <div class="dr-body" id="trajectory-body">
       <div class="xj-locked-area" style="min-height:400px">
-        <div class="xj-lock-overlay">🔒 选择来访者后，AI 生成成长轨迹</div>
-        <div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px">选择左侧来访者<br>AI 将自动分析所有材料<br>生成成长轨迹与核心议题变化</div>
+        <div class="xj-lock-overlay"><span class="xj-lock-icon"><i data-lucide="lock" aria-hidden="true"></i></span> AI 成长洞察（会员）</div>
+        <div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px">选择左侧来访者<br>AI 将自动分析所有材料<br>生成阶段变化与核心议题变化</div>
       </div>
     </div>
   </div>
 
+  <aside class="growth-insights-panel" aria-label="人工确认与临床边界">
+    <div class="xj-panel-heading"><div><small>人工确认</small><h2>阶段结论</h2></div><span class="xj-status-chip" id="growth-review-status" data-tone="warning">待来源</span></div>
+    <section class="growth-insight-section"><h3>来源边界</h3><p id="growth-source-boundary">尚未选择来访者。仅已验证来源可以进入成长摘要。</p></section>
+    <section class="growth-insight-section"><h3>需要谨慎</h3><div class="growth-boundary-note">成长趋势是基于记录的相关性观察，不能写成诊断结论或治疗因果。</div></section>
+    <section class="growth-insight-section"><h3>保存边界</h3><p>生成结果只在当前页面预览，不会自动写入个案、会谈、督导或报告。</p></section>
+  </aside>
+
 </div>
 
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/source-ref.js"></script><script src="js/case-space-view-model.js"></script><script src="js/clinical-context.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/longitudinal-summary.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/clinical-workspace-ui.js"></script><script src="js/app.js"></script>
 <script>
-App.initPage({ title: 'AI 成长轨迹', onReady: function () {
+App.initPage({ title: 'AI 成长洞察', onReady: function () {
   'use strict';
   var isMember = typeof App !== 'undefined' && App.featureGate && App.featureGate('ai-growth');
   var previewBar = document.getElementById('preview-bar');
@@ -133,15 +166,105 @@ App.initPage({ title: 'AI 成长轨迹', onReady: function () {
   }
 
   var sel = document.getElementById('sel-client');
+  var body = document.getElementById('trajectory-body');
+  var sourceStatus = document.getElementById('growth-source-status');
+  var previewButton = document.getElementById('generate-preview');
+  var reviewStatus = document.getElementById('growth-review-status');
+  var sourceBoundary = document.getElementById('growth-source-boundary');
+  function escapeHtml(value) { return App.escapeHtml ? App.escapeHtml(String(value || '')) : String(value || ''); }
+  function setStatus(value) { sourceStatus.textContent = value; }
+  function setReviewState(label, tone, detail) {
+    if (reviewStatus) {
+      reviewStatus.textContent = label;
+      reviewStatus.dataset.tone = tone || 'warning';
+    }
+    if (sourceBoundary && detail) sourceBoundary.textContent = detail;
+  }
+  function renderGrowthContext(clientId) {
+    if (!window.XJClinicalWorkspace) return;
+    window.XJClinicalWorkspace.renderContextStrip('growth-context-strip', { clientId: clientId, feature: 'ai-growth', preferRecentSession: false });
+  }
+  function setPreviewEnabled(enabled, reason) {
+    previewButton.disabled = !enabled;
+    previewButton.title = reason || '';
+  }
+  async function restoreRetry(clientId) {
+    if (!clientId || sel.value !== clientId) return;
+    try {
+      var refreshed = await LongitudinalSummary.prepare(clientId);
+      if (refreshed.ok && sel.value === clientId) setPreviewEnabled(true, '重新生成仅预览的纵向摘要');
+    } catch (error) {
+      // The existing recovery state remains visible when source verification is still unavailable.
+    }
+  }
+  function reasonText(reason) {
+    var messages = {
+      'no-verified-sources': '当前来访者没有可用于 AI 预览的已验证材料。',
+      'feature-locked': 'AI 成长洞察需要 Pro 权益。',
+      'compute-unavailable': '当前没有可用的 AI 算力，请检查设置后重试。',
+      'source-projection-cancelled': '来源核对已取消，请重新选择来访者。',
+      'source-projection-context-mismatch': '来访者上下文已变化，请重新选择。'
+    };
+    return messages[reason] || '来源暂时不可用，请稍后重新核对。';
+  }
+  function renderState(title, detail, tone, retry) {
+    body.innerHTML = '<section class="growth-state ' + (tone || '') + '"><h3>' + escapeHtml(title) + '</h3><p>' + escapeHtml(detail) + '</p>' + (retry ? '<button type="button" class="growth-primary growth-retry" id="growth-retry"><i data-lucide="refresh-cw"></i>重新核对来源</button>' : '') + '</section>';
+    if (window.IconSystem) window.IconSystem.render(body);
+    var retryButton = document.getElementById('growth-retry');
+    if (retryButton) retryButton.addEventListener('click', function () { window.loadTrajectory(); });
+  }
+  function renderSourceReadiness(prepared) {
+    var references = prepared.context.references || [];
+    var sessionCounts = {};
+    references.forEach(function (reference) { sessionCounts[reference.sessionId] = (sessionCounts[reference.sessionId] || 0) + 1; });
+    var sessionIds = Object.keys(sessionCounts).slice(0, 10);
+    var maximum = Math.max.apply(Math, sessionIds.map(function (id) { return sessionCounts[id]; }).concat([1]));
+    var bars = sessionIds.map(function (id, index) {
+      var session = Store.getSession ? Store.getSession(id) : null;
+      var label = session ? ('第' + (session.sessionNumber || index + 1) + '节') : ('来源' + (index + 1));
+      var height = Math.max(18, Math.round((sessionCounts[id] / maximum) * 100));
+      return '<span class="growth-source-bar" style="--bar-height:' + height + '%"><span>' + escapeHtml(label) + '</span></span>';
+    }).join('');
+    var rows = references.map(function (reference, index) {
+      var session = Store.getSession ? Store.getSession(reference.sessionId) : null;
+      var sessionLabel = session ? ('第' + (session.sessionNumber || '?') + '节 · ' + (App.formatDate(session.date || '') || '未记录日期')) : '会谈元数据不可用';
+      return '<div class="growth-source-row"><div><strong>已验证材料 ' + (index + 1) + '</strong><small>节点 ' + escapeHtml(reference.nodeId) + '</small><small>来源 ' + escapeHtml(reference.sourceId) + '</small></div><small>' + escapeHtml(sessionLabel) + '<br>会谈 ' + escapeHtml(reference.sessionId) + '</small></div>';
+    }).join('');
+    body.innerHTML = '<section class="growth-overview-grid"><div class="growth-overview-copy"><span class="xj-workspace-eyebrow">来源准备度</span><strong class="growth-primary-metric">' + references.length + '</strong><h3>个已验证来源可以进入阶段分析</h3><p>这只是来源覆盖情况，不代表临床改善程度。生成结果仍需人工核对。</p></div><div class="growth-source-chart" role="img" aria-label="各会谈已验证来源数量">' + (bars || '<span class="growth-source-bar" style="--bar-height:18%"><span>暂无</span></span>') + '</div></section><div class="growth-section-heading"><h3>本次分析将使用的来源</h3><span class="xj-status-chip" data-tone="success">只读投影</span></div><div class="growth-source-list">' + rows + '</div>';
+    setReviewState(references.length + ' 项待生成', 'warning', references.length + ' 个已验证来源已就绪；未验证或过期来源不会进入摘要。');
+  }
+  function renderPreview(preview) {
+    var changes = preview.changes.map(function (change) {
+      return '<section class="growth-change"><h4>' + escapeHtml(change.title) + '</h4><p>' + escapeHtml(change.detail) + '</p></section>';
+    }).join('');
+    var citations = preview.citations.map(function (citation) {
+      return '<span class="growth-citation">节点 ' + escapeHtml(citation.nodeId) + ' · 来源 ' + escapeHtml(citation.sourceId) + ' · 会谈 ' + escapeHtml(citation.sessionId) + '</span>';
+    }).join('');
+    body.innerHTML = '<section class="growth-preview" aria-live="polite"><section class="growth-overview-grid"><div class="growth-overview-copy"><span class="xj-workspace-eyebrow">阶段总结草稿</span><strong class="growth-primary-metric">' + preview.citations.length + '</strong><h3>个已验证来源支撑本次预览</h3><p>数字表示引用覆盖，不表示疗效或变化幅度。</p></div><div><h3>纵向摘要预览</h3><div class="growth-preview-summary">' + escapeHtml(preview.summary) + '</div></div></section>' +
+      (changes ? '<section><div class="growth-section-heading"><h3>变化线索</h3><span class="xj-status-chip" data-tone="warning">待人工确认</span></div>' + changes + '</section>' : '') +
+      '<section><div class="growth-section-heading"><h3>引用来源</h3><span class="xj-status-chip" data-tone="success">来源有效</span></div><div class="growth-citations">' + citations + '</div></section></section>';
+    setReviewState('待人工确认', 'warning', preview.citations.length + ' 个已验证来源支撑当前草稿；确认前不会写入正式临床对象。');
+  }
   Store.getClients().forEach(function (c) {
     var opt = document.createElement('option');
     opt.value = c.id; opt.textContent = c.name;
     sel.appendChild(opt);
   });
 
-  window.loadTrajectory = function () {
+  window.loadTrajectory = async function () {
     var clientId = sel.value;
-    if (!clientId) return;
+    if (clientId && window.XJClinicalWorkspace) window.XJClinicalWorkspace.setContext(clientId, '');
+    renderGrowthContext(clientId);
+    document.getElementById('stat-phase').textContent = '-';
+    document.getElementById('phase-fill').style.width = '0%';
+    document.getElementById('stat-phase-sub').textContent = '等待来源核对';
+    if (!clientId) {
+      setPreviewEnabled(false, '请先选择来访者');
+      setStatus('请选择来访者以核对可用来源');
+      renderState('等待选择来访者', '选择来访者后，系统只会核对已验证的材料来源。');
+      setReviewState('待来源', 'warning', '尚未选择来访者。仅已验证来源可以进入成长摘要。');
+      return;
+    }
     var client = Store.getClient(clientId);
     if (!client) return;
     var sessions = Store.getSessionsByClient ? Store.getSessionsByClient(clientId).sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); }) : [];
@@ -149,57 +272,107 @@ App.initPage({ title: 'AI 成长轨迹', onReady: function () {
     document.getElementById('stat-sessions').textContent = sessions.length;
     document.getElementById('stat-supervisions').textContent = supervisions.length;
 
-    if (!isMember) return;
-
-    var body = document.getElementById('trajectory-body');
-    body.innerHTML = '<div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:20px">AI 分析中…</div>';
-
-    var items = [];
-    sessions.forEach(function (s) {
-      if (s.date) items.push({ date: s.date, type: 'session', num: '第' + (s.sessionNumber || '?') + '节', text: (s.summary || s.transcript || '').slice(0, 120), tags: [] });
-    });
-    supervisions.forEach(function (sv) {
-      if (sv.date) items.push({ date: sv.date, type: 'supervision', num: '督导#' + (items.filter(function (x) { return x.type === 'supervision'; }).length + 1), text: (sv.content || '').slice(0, 120), tags: [] });
-    });
-    items.sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
-
-    // AI 生成洞察
-    var context = '来访者：' + client.name + '\n\n';
-    items.forEach(function (item) {
-      context += '[' + item.date + '] ' + item.num + ' ' + item.type + ': ' + item.text + '\n';
-    });
-    var sys = '你是心理咨询个案分析专家。请分析来访者的成长轨迹，输出 JSON：{"phase":"当前阶段","phaseProgress":百分比数字,"coreIssues":["核心议题变化"],"items":[{每个item用"insight":"AI洞察"}],"overallInsight":"整体成长洞察"}。只输出 JSON。';
-    AI.send([{ role: 'system', content: sys }, { role: 'user', content: context }], function (res) {
-      if (res && res.content && !res.error) {
-        try {
-          var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
-          document.getElementById('stat-phase').textContent = json.phase || '-';
-          document.getElementById('phase-fill').style.width = (json.phaseProgress || 0) + '%';
-          document.getElementById('stat-phase-sub').textContent = '已分析 ' + items.length + ' 条记录';
-          var html = '';
-          var prevDate = '';
-          items.forEach(function (item, i) {
-            var dotCls = 'tl-dot' + (item.type === 'supervision' ? ' supervision' : '') + (item.type === 'report' ? ' report' : '');
-            var insightText = (json.items && json.items[i] && json.items[i].insight) || '';
-            html += '<div class="tl-item">';
-            html += '<div class="tl-date">' + (item.date !== prevDate ? App.formatDate(item.date) : '') + '</div>';
-            html += '<div class="tl-dot-content"><div class="' + dotCls + '"></div><div class="tl-line"></div></div>';
-            html += '<div class="tl-card"><div class="tc-head"><span class="tc-num">' + App.escapeHtml(item.num) + '</span><span class="tc-type ' + item.type + '">' + (item.type === 'session' ? '咨询' : '督导') + '</span></div>';
-            html += '<div class="tc-summary">' + App.escapeHtml(item.text) + '</div>';
-            if (insightText) html += '<div class="tc-insight"><div class="insight-label">💡 AI 洞察</div>' + App.escapeHtml(insightText) + '</div>';
-            html += '</div></div>';
-            prevDate = item.date;
-          });
-          if (json.overallInsight) {
-            html += '<div class="tl-connector"><div class="conn-line"></div><div class="conn-text">📈 ' + App.escapeHtml(json.overallInsight) + '</div></div>';
-          }
-          body.innerHTML = html;
-        } catch (e) {
-          body.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 返回格式异常，请重试</div>';
-        }
+    if (!isMember) {
+      setPreviewEnabled(false, 'AI 成长洞察需要 Pro 权益');
+      setStatus('当前权益可查看功能说明，无法生成 AI 预览');
+      renderState('AI 成长洞察需要 Pro 权益', '升级后可从已验证材料生成带来源引用的临床预览。', 'warning');
+      setReviewState('权益受限', 'warning', '当前可以查看功能结构，但不能生成 AI 成长预览。');
+      return;
+    }
+    setPreviewEnabled(false, '正在核对已验证来源');
+    setStatus('正在核对已验证材料来源…');
+    renderState('正在核对来源', '不会读取或展示未通过来源校验的材料。');
+    try {
+      var prepared = await LongitudinalSummary.prepare(clientId);
+      if (sel.value !== clientId) return;
+      if (!prepared.ok) {
+        setPreviewEnabled(false, reasonText(prepared.reason));
+        setStatus(reasonText(prepared.reason));
+        renderState('暂不能生成预览', reasonText(prepared.reason), prepared.reason === 'no-verified-sources' ? 'warning' : 'error', prepared.reason !== 'feature-locked');
+        return;
       }
-    });
+      document.getElementById('stat-phase').textContent = '可预览';
+      document.getElementById('phase-fill').style.width = '100%';
+      document.getElementById('stat-phase-sub').textContent = '已核对 ' + prepared.context.references.length + ' 个来源';
+      setStatus('已核对 ' + prepared.context.references.length + ' 个已验证来源，可生成预览');
+      setPreviewEnabled(true, '生成仅预览的纵向摘要');
+      renderSourceReadiness(prepared);
+    } catch (error) {
+      setPreviewEnabled(false, '来源核对失败，请稍后重试');
+      setStatus('来源核对失败，请稍后重试');
+      renderState('来源核对失败', '请检查材料关联与来源状态后重试。', 'error', true);
+    }
   };
+  previewButton.addEventListener('click', async function () {
+    var clientId = sel.value;
+    if (!clientId || previewButton.disabled) return;
+    setPreviewEnabled(false, '正在生成预览');
+    setStatus('正在生成仅预览的纵向摘要…');
+    renderState('正在生成预览', '结果生成后会先核对来源与上下文，再显示在此处。');
+    var prepared;
+    try {
+      prepared = await LongitudinalSummary.prepare(clientId);
+      if (!prepared.ok || sel.value !== clientId) {
+        setStatus(reasonText(prepared && prepared.reason || 'source-projection-unavailable'));
+        renderState('暂不能生成预览', reasonText(prepared && prepared.reason || ''), 'warning', true);
+        return;
+      }
+      var run = ClinicalContext.createActionRun(prepared.context);
+      if (!run) {
+        setStatus('来源上下文未通过校验，未生成预览');
+        renderState('来源上下文未通过校验', '请重新核对材料关联后再试。', 'error');
+        return;
+      }
+      AI.send(prepared.context.messages, function (result) {
+        (async function () {
+          if (!result || result.error || !result.content) {
+            ClinicalContext.failActionRun(run.id, 'AI preview unavailable');
+            setStatus('AI 预览未生成，可检查算力或稍后重试');
+            renderState('AI 预览未生成', '未自动写入任何临床对象。请检查算力或稍后重试。', 'error', true);
+            await restoreRetry(clientId);
+            return;
+          }
+          if (sel.value !== clientId || !(await LongitudinalSummary.isCurrent(prepared.context))) {
+            ClinicalContext.failActionRun(run.id, 'context changed', 'stale');
+            setStatus('材料或来访者上下文已变化，旧预览未采用');
+            renderState('预览已过期', '材料或来访者上下文已变化，请重新核对来源后生成。', 'warning');
+            await restoreRetry(clientId);
+            return;
+          }
+          var parsed = LongitudinalSummary.parsePreview(result.content, prepared.context);
+          if (!parsed.ok) {
+            ClinicalContext.failActionRun(run.id, 'invalid preview citations');
+            setStatus('AI 结果缺少有效来源引用，未显示预览');
+            renderState('AI 结果未通过来源校验', '未自动写入任何临床对象。请重新生成预览。', 'error');
+            await restoreRetry(clientId);
+            return;
+          }
+          LongitudinalSummary.completePreviewActionRun(run.id, parsed.preview);
+          document.getElementById('stat-phase').textContent = '预览就绪';
+          document.getElementById('stat-phase-sub').textContent = '引用 ' + parsed.preview.citations.length + ' 个已验证来源';
+          setStatus('预览已生成；结果仅在当前页面显示，未写入临床对象');
+          renderPreview(parsed.preview);
+          setPreviewEnabled(true, '重新生成仅预览的纵向摘要');
+        })().catch(function () {
+          ClinicalContext.failActionRun(run.id, 'preview validation failed');
+          setStatus('预览核对失败，请重新生成');
+            renderState('预览核对失败', '未自动写入任何临床对象。请重新生成预览。', 'error', true);
+          restoreRetry(clientId);
+        });
+      });
+    } catch (error) {
+      setStatus('预览准备失败，请重新核对来源');
+      renderState('预览准备失败', '未自动写入任何临床对象。请重新核对来源后重试。', 'error', true);
+    }
+  });
+  if (window.IconSystem) window.IconSystem.render(document);
+  var initialContext = window.XJClinicalWorkspace && window.XJClinicalWorkspace.resolveContext({ preferRecentSession: false });
+  if (initialContext && initialContext.clientId && Array.from(sel.options).some(function (option) { return option.value === initialContext.clientId; })) {
+    sel.value = initialContext.clientId;
+    loadTrajectory();
+  } else {
+    renderGrowthContext('');
+  }
 }});
 </script>
 </body>

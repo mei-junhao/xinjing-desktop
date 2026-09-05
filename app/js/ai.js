@@ -5,8 +5,8 @@
    - 单层直连：根据用户填写的「模型名 + Base URL + 密钥」直连大模型
      （OpenAI 兼容 /chat/completions 接口）
    - 免费档（未填用户密钥）：统一走韩国代理（xinjingchat.online），
-     由代理按机器码做 ¥5 / 30 天额度门控：额度内用 DeepSeek-V4-Flash，
-     超额/过期自动降级到内置基础模型 Qwen3.5-4B。
+     默认请求 DeepSeek-V4-Pro 主力模型；仅当主力供应商失败时，
+     由服务端权威路由降级到 Qwen3.5-4B 免费兜底。
    - 用户填了自己的密钥且验证通过 → 用用户模型（最高优先）。
 
    密钥安全说明（重要变更）：
@@ -19,49 +19,138 @@
 const AI = (() => {
   'use strict';
 
-  // 试用代理基址（韩国服务器，HTTPS + 共享密钥 + 机器码鉴权）
-  const PROXY_BASE = 'https://xinjingchat.online/v1';
-  // 从 preload 桥接读取代理共享密钥（构建期注入，不入源码）
-  function getProxyKey() {
+  // 试用代理地址、共享密钥和机器码只在主进程中使用，渲染层仅声明试用请求。
+  const PRIMARY_TRIAL_MODEL = 'deepseek-v4-pro';
+  const FREE_FALLBACK_MODEL = 'Qwen/Qwen3.5-4B';
+  const BUILTIN_MODEL_SELECTION_KEY = 'aiModelSelection';
+  const BUILTIN_SELECTABLE_MODELS = new Set(['deepseek-v4-pro', 'deepseek-v4-flash', 'gpt-5.6']);
+
+  function readSelectedBuiltinModel() {
     try {
-      if (typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.appProxyKey) {
-        return window.__XJ_API__.appProxyKey() || '';
-      }
-    } catch (e) { /* ignore */ }
-    return '';
-  }
-  // 机器码：经 preload 桥接（主进程 getMachineCode，跨重装稳定）
-  let _mcPromise = null;
-  function getMachineCode() {
-    if (!_mcPromise) {
-      _mcPromise = Promise.resolve(
-        (typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.getMachineCode)
-          ? window.__XJ_API__.getMachineCode()
-          : ''
-      );
+      const settings = typeof Store !== 'undefined' && Store.getSettings ? Store.getSettings() : {};
+      const selection = settings && settings[BUILTIN_MODEL_SELECTION_KEY];
+      const model = selection && typeof selection.modelId === 'string' ? selection.modelId.trim() : '';
+      return BUILTIN_SELECTABLE_MODELS.has(model) ? model : PRIMARY_TRIAL_MODEL;
+    } catch (_) {
+      return PRIMARY_TRIAL_MODEL;
     }
-    return _mcPromise;
   }
-  // 构建一份试用代理配置（每次取最新代理密钥，避免 preload 未就绪时拿到空串）
+
   function buildTrialConfig(model) {
+    const selected = model || PRIMARY_TRIAL_MODEL;
+    const labels = {
+      'deepseek-v4-pro': 'DeepSeek V4 Pro（主力模型）',
+      'deepseek-v4-flash': 'DeepSeek V4 Flash（主力模型）',
+      'gpt-5.6': 'GPT Terra（主力模型）',
+    };
     return {
-      baseUrl: PROXY_BASE,
-      apiKey: getProxyKey(),
-      model: model,
-      label: model === 'deepseek-v4-flash' ? '试用 v4-flash' : '内置基础模型',
+      model: selected,
+      label: labels[selected] || '主力模型',
       isTrial: true,
     };
   }
-  // 内置基础模型（免费兜底，走代理；保留常量名供旧引用）
-  const BUILTIN_MODEL = buildTrialConfig('Qwen3.5-4B');
+  // 保留常量名供旧引用；实际默认请求主力，Qwen 只由服务端失败兜底。
+  const BUILTIN_MODEL = buildTrialConfig(PRIMARY_TRIAL_MODEL);
+  // 非 agent 与 Agent 共用同一主力模型路径，避免大师/督导/普通对话分裂。
+  function buildNonAgentTrialConfig() {
+    const selected = readSelectedBuiltinModel();
+    return {
+      model: selected,
+      label: buildTrialConfig(selected).label,
+      isTrial: true,
+    };
+  }
+
+  function getAiBridge() {
+    const bridge = typeof window !== 'undefined' ? window.__XJ_API__ : null;
+    if (!bridge || typeof bridge.aiRequest !== 'function' || typeof bridge.cancelAiRequest !== 'function' || typeof bridge.onAiChunk !== 'function') {
+      throw new Error('AI network bridge is unavailable');
+    }
+    return bridge;
+  }
+
+  function newAiRequestId() {
+    return 'ai_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 14);
+  }
+
+  function resultError(result, fallbackMessage) {
+    const detail = result && result.error && typeof result.error === 'object' ? result.error : {};
+    const error = new Error(detail.message || fallbackMessage || 'AI request failed');
+    if (detail.code) error.code = detail.code;
+    if (result && result.status) error.status = Number(result.status);
+    if (result && typeof result.bodyText === 'string') error.bodyText = result.bodyText;
+    return error;
+  }
+
+  function loadPiiSanitizer() {
+    if (typeof window === 'undefined') return Promise.reject(new Error('本地隐私脱敏模块不可用'));
+    if (window.XJPIISanitizer && typeof window.XJPIISanitizer.sanitizeMessages === 'function') {
+      return Promise.resolve(window.XJPIISanitizer);
+    }
+    if (window.__xjPiiSanitizerLoad) return window.__xjPiiSanitizerLoad;
+    if (typeof document === 'undefined' || !document.createElement) return Promise.reject(new Error('本地隐私脱敏模块不可用'));
+    window.__xjPiiSanitizerLoad = new Promise(function (resolve, reject) {
+      var script = document.createElement('script');
+      script.src = 'js/pii-sanitizer.js';
+      script.async = false;
+      script.onload = function () {
+        var api = window.XJPIISanitizer;
+        if (api && typeof api.sanitizeMessages === 'function') resolve(api);
+        else reject(new Error('本地隐私脱敏模块加载失败'));
+      };
+      script.onerror = function () { reject(new Error('本地隐私脱敏模块加载失败')); };
+      (document.head || document.documentElement).appendChild(script);
+    }).catch(function (error) {
+      window.__xjPiiSanitizerLoad = null;
+      throw error;
+    });
+    return window.__xjPiiSanitizerLoad;
+  }
+
+  async function requestAiBroker(config, body, options, onChunk) {
+    options = options || {};
+    const bridge = getAiBridge();
+    const requestId = newAiRequestId();
+    const signal = options.signal;
+    if (signal && signal.aborted) {
+      const aborted = new Error('已取消生成');
+      aborted.code = 'ABORT_ERR';
+      throw aborted;
+    }
+    const unsubscribe = bridge.onAiChunk(function (event) {
+      if (event && event.requestId === requestId && typeof onChunk === 'function') onChunk(event.chunk);
+    });
+    const cancel = function () { bridge.cancelAiRequest(requestId); };
+    if (signal) signal.addEventListener('abort', cancel, { once: true });
+    try {
+      return await bridge.aiRequest({
+        requestId: requestId,
+        kind: body ? 'chat' : 'quota',
+        config: {
+          baseUrl: config && config.baseUrl ? String(config.baseUrl) : '',
+          apiKey: config && config.apiKey ? String(config.apiKey) : '',
+          model: config && config.model ? String(config.model) : '',
+          isTrial: !!(config && config.isTrial),
+        },
+        body: body || undefined,
+        streaming: typeof onChunk === 'function',
+      });
+    } finally {
+      if (signal) signal.removeEventListener('abort', cancel);
+      if (typeof unsubscribe === 'function') unsubscribe();
+    }
+  }
 
   // 将可观测错误归一为安全分类；分类供诊断/UI 使用，原始错误不向外泄露。
   function classifyError(error) {
     if (!error) return 'provider_http';
     if (error.code === 'ABORT_ERR' || error.name === 'AbortError') return 'aborted';
     if (error.code === 'TRIAL_RATE_LIMIT') return 'rate_limit';
+    if (error.code === 'XJ_AI_ACCOUNT_SESSION_REQUIRED') return 'account_session_required';
+    if (error.code === 'XJ_AI_CREDENTIAL_MISSING') return 'auth';
     const status = Number(error.status || error.httpStatus || 0);
     const message = String(error.message || '').toLowerCase();
+    if (message.indexOf('account-session-required') >= 0 || message.indexOf('account session') >= 0) return 'account_session_required';
     if (status === 401 || status === 403 || /\b(401|403)\b|unauthori[sz]ed|invalid.*(key|token)|api.?key/.test(message)) return 'auth';
     if (status === 429 || /\b429\b|rate.?limit|quota|too many requests|额度|限流/.test(message)) return 'rate_limit';
     if (!status && /failed to fetch|fetch failed|network|dns|timeout|timed out|econn|enotfound|cors|网络|连接|超时/.test(message)) return 'network';
@@ -74,19 +163,25 @@ const AI = (() => {
   function safeFailureResult(error, options) {
     options = options || {};
     const errorCode = classifyError(error);
+    const transportState = options.transportState || 'manual-only';
     if (errorCode === 'aborted') {
-      return { error: '已取消生成', code: 'ABORT_ERR', errorCode: errorCode, interrupted: true, partialContent: options.partialContent || '' };
+      return { error: '已取消生成', code: 'ABORT_ERR', errorCode: errorCode, interrupted: true, partialContent: options.partialContent || '', transportState: transportState };
     }
     if (options.partial) {
-      return { error: '生成过程中断，请检查网络或服务状态', errorCode: errorCode, partialContent: options.partialContent || '' };
+      return { error: '生成过程中断，请检查网络或服务状态', errorCode: errorCode, partialContent: options.partialContent || '', transportState: transportState };
     }
     if (errorCode === 'rate_limit') {
-      return { error: '试用额度已用完，请稍后重试或配置自有 API 密钥', errorCode: errorCode };
+      return { error: '试用额度已用完，请稍后重试或配置自有 API 密钥', errorCode: errorCode, transportState: transportState };
     }
-    if (options.fallbackFailed) {
-      return { error: '模型调用失败（含内置兜底仍失败）', errorCode: 'builtin_fallback_failed', causeCode: errorCode, fallbackCode: options.fallbackCode || 'provider_http' };
+    if (errorCode === 'account_session_required') {
+      return {
+        error: '账号会话已失效或未登录，请重新登录后重试',
+        code: 'XJ_AI_ACCOUNT_SESSION_REQUIRED',
+        errorCode: errorCode,
+        transportState: transportState,
+      };
     }
-    return { error: '模型调用失败，请检查配置、网络或服务状态', errorCode: errorCode };
+    return { error: '模型调用失败，请检查配置、网络或服务状态', errorCode: errorCode, transportState: transportState };
   }
 
   // ---------- 试用额度（代理侧记账，服务端硬限额 ¥5 / 30 天 / 机器码）----------
@@ -122,13 +217,19 @@ const AI = (() => {
     emitQuota();
   }
   // 从 chat 响应头更新额度（代理每次响应都带 X-Quota-* / X-Tier）
+  function readResponseHeader(headers, name) {
+    if (!headers) return null;
+    if (typeof headers.get === 'function') return headers.get(name);
+    const lower = String(name || '').toLowerCase();
+    return Object.prototype.hasOwnProperty.call(headers, lower) ? headers[lower] : null;
+  }
   function updateQuotaFromHeaders(headers) {
-    if (!headers || typeof headers.get !== 'function') return;
+    if (!headers) return;
     try {
-      const p = headers.get('X-Quota-Percent');
-      const r = headers.get('X-Quota-Remaining');
-      const t = headers.get('X-Tier');
-      const rt = headers.get('X-Quota-Reset');
+      const p = readResponseHeader(headers, 'x-quota-percent');
+      const r = readResponseHeader(headers, 'x-quota-remaining');
+      const t = readResponseHeader(headers, 'x-tier');
+      const rt = readResponseHeader(headers, 'x-quota-reset');
       const info = {};
       if (p != null && p !== '') info.percent = parseInt(p, 10);
       if (r != null && r !== '') info.remainingYuan = parseFloat(r);
@@ -137,18 +238,13 @@ const AI = (() => {
       if (Object.keys(info).length) { info._fromServer = true; applyQuotaInfo(info); }
     } catch (e) { /* ignore */ }
   }
-  // 主动查询额度（GET /v1/quota?mid=...），供 UI 初始化展示与「刷新」按钮
+  // 主动查询额度（当前服务端 GET /quota?mid=...），供 UI 初始化展示与「刷新」按钮
   async function fetchQuota() {
     try {
-      const mc = await getMachineCode();
-      if (!mc) return QUOTA_CACHE;
-      const url = PROXY_BASE + '/quota?mid=' + encodeURIComponent(mc);
-      const headers = { 'Content-Type': 'application/json' };
-      const key = getProxyKey();
-      if (key) headers['Authorization'] = 'Bearer ' + key;
-      const resp = await fetch(url, { method: 'GET', headers: headers });
-      if (!resp.ok) return QUOTA_CACHE;
-      const data = await resp.json().catch(() => null);
+      const result = await requestAiBroker({ isTrial: true }, null, {});
+      if (!result || !result.ok) return QUOTA_CACHE;
+      let data = null;
+      try { data = JSON.parse(result.bodyText || ''); } catch (e) { data = null; }
       if (data && data.remainingYuan != null) {
         applyQuotaInfo({
           percent: data.percent != null ? data.percent : Math.max(0, Math.round((data.remainingYuan / QUOTA_TOTAL_YUAN) * 100)),
@@ -158,15 +254,14 @@ const AI = (() => {
           _fromServer: true,
         });
       }
-      updateQuotaFromHeaders(resp.headers);
+      updateQuotaFromHeaders(result.headers);
     } catch (e) { /* 离线/代理不可达：保留上次缓存或 null */ }
     return QUOTA_CACHE;
   }
   function getQuota() { return QUOTA_CACHE; }
-  // 试用档实际请求模型：代理确认降级(basic)则直接走 Qwen；否则乐观请求 v4-flash（代理会在超额时自动降级并回传 X-Tier）
+  // 试用档始终请求主力模型；是否需要兜底由服务器根据真实上游失败决定。
   function getTrialModel() {
-    if (QUOTA_CACHE.tier === 'basic') return 'Qwen3.5-4B';
-    return 'deepseek-v4-flash';
+    return readSelectedBuiltinModel();
   }
 
   // 模型是否支持 function-calling（tools）。
@@ -194,13 +289,13 @@ const AI = (() => {
   }
 
   // 当前生效的配置：用户已填密钥 且 已通过连接验证（verified===true）→ 用用户配置（最高优先）；
-  // 否则走试用代理：额度内 v4-flash，超额/过期由代理确认降级后回退 Qwen3.5-4B。
+  // 否则走试用代理主力 DeepSeek Pro；服务端失败时才回退 Qwen。
   // 关键修复（A3）：必须与 getTier 一致以 verified 为事实来源，避免「填错密钥谎报高性能」。
   function getActiveConfig() {
     const user = getConfig();
-    if (user && user.apiKey && String(user.apiKey).trim() && user.verified === true) {
+    if (user && user.apiKey && String(user.apiKey).trim() && user.baseUrl && String(user.baseUrl).trim() && user.verified === true) {
       return {
-        baseUrl: (user.baseUrl || '').trim() || BUILTIN_MODEL.baseUrl,
+        baseUrl: (user.baseUrl || '').trim(),
         apiKey: user.apiKey.trim(),
         model: (user.modelPreference || '').trim() || BUILTIN_MODEL.model,
         maxTokens: user.maxTokens || 4000,
@@ -211,11 +306,28 @@ const AI = (() => {
     return buildTrialConfig(getTrialModel());
   }
 
-  // 档位：'user' = 用户自有高性能模型（且已验证可用）；'builtin' = 免费/试用档（经韩国代理，
-  // 额度内 v4-flash，超额降级基础模型）。注意保留 'builtin' 字符串供 agent-core/shell/settings 既判定。
+  // 非 agent 默认配置：与 getActiveConfig 同源（用户自有 key 优先），
+  // 试用档固定走主力 DeepSeek Pro；服务端负责失败兜底。
+  function getNonAgentConfig() {
+    const user = getConfig();
+    if (user && user.apiKey && String(user.apiKey).trim() && user.baseUrl && String(user.baseUrl).trim() && user.verified === true) {
+      return {
+        baseUrl: (user.baseUrl || '').trim(),
+        apiKey: user.apiKey.trim(),
+        model: (user.modelPreference || '').trim() || BUILTIN_MODEL.model,
+        maxTokens: user.maxTokens || 4000,
+        label: '用户模型',
+        isUser: true,
+      };
+    }
+    return buildNonAgentTrialConfig();
+  }
+
+  // 档位：'user' = 用户自有高性能模型（且已验证可用）；'builtin' = 服务器主力模型试用档。
+  // 主力失败时由服务端决定是否切换 Qwen 兜底；客户端不提前改写模型。
   function getTier() {
     const user = getConfig();
-    return (user && user.apiKey && String(user.apiKey).trim() && user.verified === true) ? 'user' : 'builtin';
+    return (user && user.apiKey && String(user.apiKey).trim() && user.baseUrl && String(user.baseUrl).trim() && user.verified === true) ? 'user' : 'builtin';
   }
 
   // 真实连接测试：最小探测一次 chat/completions，返回 { ok, error? }。
@@ -329,20 +441,79 @@ const AI = (() => {
     return out;
   }
 
-  // 单层直连：根据传入的 config 直连大模型（OpenAI 兼容 /chat/completions）。
+  function createSseAccumulator(onDelta) {
+    let buffer = '';
+    let content = '';
+    let received = false;
+    function consume(line) {
+      if (!line || line.indexOf('data:') !== 0) return;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') return;
+      let packet;
+      try { packet = JSON.parse(payload); } catch (e) { return; }
+      const delta = packet && packet.choices && packet.choices[0] && packet.choices[0].delta;
+      const piece = delta && typeof delta.content === 'string' ? delta.content : '';
+      if (!piece) return;
+      received = true;
+      content += piece;
+      onDelta(piece, content);
+    }
+    return {
+      push: function (chunk) {
+        buffer += String(chunk || '');
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() || '';
+        lines.forEach(consume);
+      },
+      finish: function () {
+        if (buffer) consume(buffer);
+        buffer = '';
+        return { content: content, received: received };
+      },
+    };
+  }
+
+  function parseChatMessage(bodyText) {
+    let data = null;
+    try { data = JSON.parse(bodyText || ''); } catch (e) { data = null; }
+    if (!data || !Array.isArray(data.choices) || !data.choices.length) {
+      const preview = data && data.error && data.error.message ? data.error.message : '模型返回了非预期响应';
+      throw new Error(preview);
+    }
+    return data.choices[0].message || { content: '' };
+  }
+
+  function acceptCommercialProjection(value) {
+    if (!value || typeof value !== 'object') return null;
+    const normalized = typeof XJEntitlements !== 'undefined' && XJEntitlements.normalizeCommercialProjection
+      ? XJEntitlements.normalizeCommercialProjection(value)
+      : null;
+    if (!normalized) return null;
+    if (typeof Store !== 'undefined' && Store.setCommercialProjection) {
+      try { Store.setCommercialProjection(normalized); } catch (e) { /* projection cache is best effort */ }
+    }
+    return normalized;
+  }
+
+  // 单层调用：渲染层只组织模型请求，网络、重定向和凭据解密统一由主进程代理。
   async function callDirect(config, messages, options) {
     options = options || {};
-    const baseUrl = (config.baseUrl || 'https://api.openai.com').replace(/\/$/, '');
-    const url = baseUrl + '/chat/completions';
-    const model = config.model || 'Qwen/Qwen3.5-4B';
-    // H1 修复：apiKey 可能经 safeStorage 加密存储（前缀 'xj-enc:'），使用前需解密
-    let apiKey = config.apiKey || '';
-    if (apiKey.startsWith('xj-enc:') && typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.decryptSecret) {
-      try { apiKey = await window.__XJ_API__.decryptSecret(apiKey); } catch (e) { /* 解密失败用空串 */ apiKey = ''; }
+    const model = config.model || PRIMARY_TRIAL_MODEL;
+    const sanitizer = await loadPiiSanitizer().catch(function () { return null; });
+    if (!sanitizer || typeof sanitizer.sanitizeMessages !== 'function') {
+      const unavailable = new Error('本地隐私脱敏模块未就绪，已阻止发送');
+      unavailable.code = 'XJ_PII_SANITIZATION_UNAVAILABLE';
+      throw unavailable;
     }
-
+    const sanitized = sanitizer.sanitizeMessages(messages);
+    if (!sanitized || !sanitized.ok) {
+      const blocked = new Error('本地隐私脱敏未通过，已阻止发送');
+      blocked.code = 'XJ_PII_SANITIZATION_FAILED';
+      blocked.residual = sanitized && sanitized.residual ? sanitized.residual : [];
+      throw blocked;
+    }
     // 发送前归一化角色序列，防御硅基流动 20015
-    const safeMessages = normalizeMessageSequence(messages);
+    const safeMessages = normalizeMessageSequence(sanitized.messages);
     const body = {
       model,
       messages: safeMessages,
@@ -363,24 +534,10 @@ const AI = (() => {
       body.tools = options.tools;
       if (options.tool_choice) body.tool_choice = options.tool_choice;
     }
-
-    const headers = {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + apiKey,
-    };
-    // 试用代理档：附机器码供服务端按机器限额记账（X-Machine-Id）
-    if (config.isTrial) {
-      const mc = await getMachineCode();
-      if (mc) headers['X-Machine-Id'] = mc;
-    }
-    let resp;
+    const stream = streaming ? createSseAccumulator(options.onDelta) : null;
+    let result;
     try {
-      resp = await fetch(url, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(body),
-        signal: options.signal,
-      });
+      result = await requestAiBroker(config, body, options, stream ? stream.push : null);
     } catch (e) {
       if (e && (e.name === 'AbortError' || options.signal && options.signal.aborted)) {
         const abortErr = new Error('已取消生成');
@@ -390,141 +547,80 @@ const AI = (() => {
       throw e;
     }
 
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
+    if (!result || !result.ok) {
+      const status = Number(result && result.status || 0);
+      if (result && result.error && stream) {
+        const interrupted = stream.finish();
+        if (interrupted.received || result.error.code === 'ABORT_ERR') {
+          const interruptedErr = resultError(result, '生成过程已中断');
+          interruptedErr.partial = interrupted.received;
+          interruptedErr.partialContent = interrupted.content;
+          throw interruptedErr;
+        }
+      }
       // 试用限流：代理返回 429 + JSON {message}，优先展示友好文案（不进工具重试）
-      if (resp.status === 429 && config.isTrial) {
-        let msg = '免费试用次数已用完，请填写自有 API 密钥解锁无限额度。';
-        try { const j = JSON.parse(errText); if (j && j.message) msg = j.message; } catch (e) {}
-        const rlErr = new Error(msg);
+      if (status === 429 && config.isTrial) {
+        const rlErr = new Error('免费试用次数已用完，请填写自有 API 密钥解锁无限额度。');
         rlErr.code = 'TRIAL_RATE_LIMIT';
-        rlErr.status = resp.status;
+        rlErr.status = status;
         throw rlErr;
       }
       // 工具不支持类错误（部分模型对 tools 报 400）→ 去掉 tools 重试一次，避免硬失败
-      if (canTools && /tool|function_call|function-calling|tools/i.test(errText)) {
-        delete body.tools;
-        delete body.tool_choice;
+      if (canTools && result && result.error && result.error.code === 'XJ_AI_TOOLS_UNSUPPORTED') {
+        const retryBody = Object.assign({}, body);
+        delete retryBody.tools;
+        delete retryBody.tool_choice;
+        delete retryBody.stream;
         try {
-          const resp2 = await fetch(url, {
-            method: 'POST', headers: headers, body: JSON.stringify(body), signal: options.signal,
-          });
-          updateQuotaFromHeaders(resp2.headers);
-          if (resp2.ok) {
-            const data2 = await resp2.json().catch(() => null);
-            return data2 && data2.choices ? (data2.choices[0].message || { content: '' }) : { content: '' };
+          const retry = await requestAiBroker(config, retryBody, { signal: options.signal }, null);
+          updateQuotaFromHeaders(retry && retry.headers);
+          if (retry && retry.ok) {
+            return parseChatMessage(retry.bodyText);
           }
         } catch (e2) { /* 忽略，抛原错误 */ }
       }
-      const httpErr = new Error(`HTTP ${resp.status}: ${errText.slice(0, 100)}`);
-      httpErr.status = resp.status;
-      throw httpErr;
+      throw resultError(result, status ? ('HTTP ' + status) : 'AI network request failed');
     }
     // 读取代理回传的额度/档位响应头，实时更新 UI
-    updateQuotaFromHeaders(resp.headers);
+    updateQuotaFromHeaders(result.headers);
 
-    // 单大师使用 OpenAI 兼容 SSE；若端点忽略 stream 或没有 ReadableStream，兼容整包 JSON。
-    const contentType = resp.headers && typeof resp.headers.get === 'function'
-      ? (resp.headers.get('content-type') || '') : '';
-    if (streaming && resp.body && typeof resp.body.getReader === 'function'
-      && (!contentType || /text\/event-stream/i.test(contentType))) {
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let content = '';
-      let received = false;
-      const consume = function (line) {
-        if (!line || line.indexOf('data:') !== 0) return false;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === '[DONE]') return payload === '[DONE]';
-        let packet;
-        try { packet = JSON.parse(payload); } catch (e) { return false; }
-        const delta = packet && packet.choices && packet.choices[0] && packet.choices[0].delta;
-        const piece = delta && typeof delta.content === 'string' ? delta.content : '';
-        if (piece) {
-          received = true;
-          content += piece;
-          options.onDelta(piece, content);
-        }
-        return false;
-      };
-      try {
-        while (true) {
-          if (options.signal && options.signal.aborted) {
-            const abortErr = new Error('已取消生成');
-            abortErr.code = 'ABORT_ERR';
-            abortErr.partial = received;
-            abortErr.partialContent = content;
-            throw abortErr;
-          }
-          const chunk = await reader.read();
-          if (chunk.done) break;
-          buffer += decoder.decode(chunk.value, { stream: true });
-          const lines = buffer.split(/\r?\n/);
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            if (consume(line)) break;
-          }
-        }
-        buffer += decoder.decode();
-        if (buffer) consume(buffer);
-      } catch (e) {
-        if (e && e.code === 'ABORT_ERR') throw e;
-        const streamErr = new Error(e && e.message ? e.message : '流式响应读取失败');
-        if (e && (e.code === 'ABORT_ERR' || e.name === 'AbortError')) streamErr.code = 'ABORT_ERR';
-        streamErr.partial = received;
-        streamErr.partialContent = content;
-        throw streamErr;
+    const contentType = readResponseHeader(result.headers, 'content-type') || '';
+    if (streaming && /text\/event-stream/i.test(contentType)) {
+      const streamed = stream.finish();
+      if (options.signal && options.signal.aborted) {
+        const abortErr = new Error('已取消生成');
+        abortErr.code = 'ABORT_ERR';
+        abortErr.partial = streamed.received;
+        abortErr.partialContent = streamed.content;
+        throw abortErr;
       }
-      return { content: content };
+      return { content: streamed.content, commercial: acceptCommercialProjection(result.commercial) };
     }
-
-    const data = await resp.json().catch(() => null);
-    // 防御：非 JSON 响应（如网关 HTML 错误页）或缺少 choices 时给出清晰错误，
-    // 而非抛出难以理解的 "Unexpected token <" 或访问 undefined.choices（A7 修复）
-    if (!data || !Array.isArray(data.choices) || !data.choices.length) {
-      const preview = (data && typeof data === 'object' && (data.error && data.error.message))
-        ? data.error.message
-        : '模型返回了非预期响应';
-      throw new Error(preview);
-    }
-    // 返回整条 message 对象，保留 tool_calls（若有）
-    return data.choices[0].message || { content: '' };
+    const message = parseChatMessage(result.bodyText);
+    const commercial = acceptCommercialProjection(result.commercial);
+    if (commercial) message.commercial = commercial;
+    return message;
   }
 
-  // 统一入口：取生效配置直连大模型；出错返回 { error }。
-  // 真降级（A2 修复）：用户模型调用失败时回退到内置免费模型，而非直接抛错。
-  async function callWithFallback(messages, options) {
+  // 首版统一恢复策略：成功只报告 primary-ready；任何失败回到 manual-only，绝不跨服务重放临床请求。
+  async function callWithManualOnly(messages, options) {
     options = options || {};
-    const config = getActiveConfig();
+    const config = getNonAgentConfig();
     try {
       const message = await callDirect(config, messages, options);
       return {
         content: message.content || '',
         tool_calls: message.tool_calls,
+        commercial: message.commercial,
         tier: config.label,
+        transportState: 'primary-ready',
       };
     } catch (e) {
       // 首 token 已经交给 UI 后不可重放，否则用户会看到重复回答。
       if (e && (e.partial || e.code === 'ABORT_ERR' || e.name === 'AbortError')) {
-        return safeFailureResult(e, { partial: e.partial, partialContent: e.partialContent });
+        return safeFailureResult(e, { partial: e.partial, partialContent: e.partialContent, transportState: 'manual-only' });
       }
-      // 仅当当前确实用的是用户模型（非试用代理）才降级，避免无意义自递归
-      if (config.isUser && config.apiKey) {
-        try {
-          const builtinMsg = await callDirect(BUILTIN_MODEL, messages, options);
-          return {
-            content: builtinMsg.content || '',
-            tool_calls: builtinMsg.tool_calls,
-            tier: BUILTIN_MODEL.label,
-            degraded: true,
-            degradedReason: '用户模型调用失败（' + classifyError(e) + '），已自动降级到内置免费模型',
-          };
-        } catch (e2) {
-          return safeFailureResult(e, { fallbackFailed: true, fallbackCode: classifyError(e2) });
-        }
-      }
-      return safeFailureResult(e);
+      return safeFailureResult(e, { transportState: 'manual-only' });
     }
   }
 
@@ -592,13 +688,14 @@ ${transcript}
       },
     ];
 
-    callWithFallback(messages).then((res) => {
+    callWithManualOnly(messages).then((res) => {
       if (res.error) {
         callback({
           error: res.error,
           code: res.code,
           interrupted: res.interrupted,
           partialContent: res.partialContent,
+          transportState: res.transportState,
         });
         return;
       }
@@ -613,12 +710,12 @@ ${transcript}
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userMessage },
     ];
-    callWithFallback(messages).then((res) => {
+    callWithManualOnly(messages).then((res) => {
       if (res.error) {
-        callback({ error: res.error });
+        callback({ error: res.error, transportState: res.transportState });
         return;
       }
-      callback({ content: res.content });
+      callback({ content: res.content, commercial: res.commercial, transportState: res.transportState });
     });
   }
 
@@ -630,17 +727,26 @@ ${transcript}
       callback({ error: '空消息' });
       return;
     }
-    callWithFallback(messages, options).then((res) => {
+    callWithManualOnly(messages, options).then((res) => {
       if (res.error) {
-        callback({ error: res.error });
+        callback({
+          error: res.error,
+          code: res.code,
+          errorCode: res.errorCode,
+          interrupted: res.interrupted,
+          partialContent: res.partialContent,
+          transportState: res.transportState,
+        });
         return;
       }
-      callback({
-        content: res.content,
-        tier: res.tier,
-        tool_calls: res.tool_calls,
+        callback({
+          content: res.content,
+          tier: res.tier,
+          tool_calls: res.tool_calls,
+          commercial: res.commercial,
         interrupted: res.interrupted,
         partialContent: res.partialContent,
+        transportState: res.transportState,
       });
     });
   }
@@ -671,12 +777,12 @@ ${transcript}
       { role: 'system', content: system },
       { role: 'user', content: userContent },
     ];
-    callWithFallback(messages).then((res) => {
+    callWithManualOnly(messages).then((res) => {
       if (res.error) {
-        callback({ error: res.error });
+        callback({ error: res.error, transportState: res.transportState });
         return;
       }
-      callback({ content: res.content });
+      callback({ content: res.content, transportState: res.transportState });
     });
   }
 
@@ -687,6 +793,7 @@ ${transcript}
     supervise,
     // 新增：暴露当前生效配置与档位（供 Agent / 设置页判断与提示）
     getActiveConfig,
+    getNonAgentConfig,
     getTier,
     testConnection,
     // 测试可访问：发送前消息序列归一化（防御硅基流动 20015）

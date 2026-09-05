@@ -11,7 +11,7 @@ App.initPage({
 
     // sandbox preload 通过主进程读取真实应用版本，避免本地 require 在沙箱中失效。
     async function getAppVersion() {
-      var ver = '4.2.4';
+      var ver = '5.1.9';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
           ver = await window.__XJ_API__.getVersion() || ver;
@@ -31,26 +31,9 @@ App.initPage({
     setVersion();
     updateBackupTime();
 
-    // 手动检查更新（修复：此前 checkUpdate() 未定义，设置页按钮失效）
-    // 后端链路：__XJ_API__.checkForUpdates() -> IPC xj:check-updates
-    //          -> main.js checkForUpdatesFromRenderer()（有更新/出错会弹窗，
-    //          已最新给明确反馈）。此处仅同步界面状态文字。
-    window.checkUpdate = function () {
-      var info = document.getElementById('update-info');
-      if (info) info.textContent = '正在检查更新…';
-      try {
-        if (window.__XJ_API__ && typeof window.__XJ_API__.checkForUpdates === 'function') {
-          window.__XJ_API__.checkForUpdates();
-        }
-      } catch (e) { /* 忽略桥接异常，main.js 会兜底弹网络错误 */ }
-      // 安全兜底：3 秒后若仍停在"检查中"，按已最新处理
-      setTimeout(async function () {
-        if (info && info.textContent === '正在检查更新…') {
-          var v = await getAppVersion();
-          info.textContent = '已是最新版本 v' + v;
-        }
-      }, 3000);
-    };
+    // 检查更新：唯一权威实现在 js/settings-update-ui.js（typed 状态流、
+    // committed-only 成功文案、无 3 秒假兜底）。此处不再重复定义 window.checkUpdate，
+    // 避免加载顺序覆盖权威实现。
 
     // 主题 toggle 初始状态
     var themeToggle = document.getElementById('theme-toggle');
@@ -149,13 +132,28 @@ App.initPage({
 
   // 显示当前生效档位（内置 / 用户），供用户感知低性能 vs 高性能
   // 诚实化：必须 verified===true 才认作已接入高性能，否则如实显示「未验证」并引导重新验证
+  function selectedBuiltinModelLabel() {
+    var id = 'deepseek-v4-pro';
+    try {
+      var selection = (Store.getSettings() || {}).aiModelSelection;
+      if (selection && typeof selection.modelId === 'string') id = selection.modelId;
+    } catch (e) {}
+    return ({
+      'deepseek-v4-pro': 'DeepSeek V4 Pro（主力模型）',
+      'deepseek-v4-flash': 'DeepSeek V4 Flash（主力模型）',
+      'gpt-5.6': 'GPT Terra（主力模型）',
+    })[id] || id;
+  }
+
   function updateTierStatus() {
     const el = document.getElementById('api-tier-status');
     if (!el) return;
     let tier = 'builtin', cfg = null, unverified = false;
     try {
       if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier();
-      if (typeof AI !== 'undefined' && AI.getActiveConfig) cfg = AI.getActiveConfig();
+      // 非 agent 与 Agent 默认均展示服务器主力模型；Qwen 仅由服务端失败时兜底
+      if (typeof AI !== 'undefined' && AI.getNonAgentConfig) cfg = AI.getNonAgentConfig();
+      else if (typeof AI !== 'undefined' && AI.getActiveConfig) cfg = AI.getActiveConfig();
       const api = (Store.getSettings().apiConfig) || {};
       if (api.apiKey && api.verified !== true) unverified = true;
     } catch (e) { /* ignore */ }
@@ -164,12 +162,12 @@ App.initPage({
     } else if (unverified) {
       el.innerHTML = '🌱 <b>内置免费模型</b> · 你填的密钥<b>未验证</b>，点「接入高性能 AI」重新验证';
     } else {
-      el.innerHTML = '🌱 <b>内置免费模型</b> · ' + App.escapeHtml((cfg && cfg.model) || 'Qwen/Qwen3.5-4B') + '（低性能，仅普通任务）';
+      el.innerHTML = '🌱 <b>内置主力模型</b> · ' + App.escapeHtml((cfg && cfg.label) || (cfg && cfg.model) || selectedBuiltinModelLabel()) + '（默认对话模型）';
     }
     renderTrialQuota();
   }
 
-  // 试用额度展示（v1.7.0）：免费档显示剩余百分比进度条 + 购买引导；用户档不显示
+  // 试用额度展示：显示主力线路状态与剩余额度；用户档不显示
   function renderTrialQuota() {
     const box = document.getElementById('trial-quota-box');
     if (!box) return;
@@ -188,13 +186,13 @@ App.initPage({
       '<div style="font-size:12px;font-family:var(--sans);line-height:1.5;margin-bottom:6px">' +
         '🌱 <b>免费试用额度</b> · 剩余 <b>' + pctText + '</b>' +
         (remain != null ? '（约 ¥' + remain.toFixed(2) + ' / ¥5）' : '') +
-        (isBasic ? ' · <span style="color:#d98a3a">已降级为基础模型</span>' : ' · 当前使用 v4-flash') +
+        (isBasic ? ' · <span style="color:#d98a3a">主力线路暂不可用，将由服务器尝试免费兜底</span>' : ' · 当前使用 ' + App.escapeHtml(selectedBuiltinModelLabel())) +
       '</div>' +
       '<div style="height:8px;border-radius:6px;background:var(--accent-soft, rgba(139,147,199,.18));overflow:hidden">' +
         '<div style="height:100%;width:' + (pct == null ? 0 : Math.max(2, Math.min(100, pct))) + '%;background:' + barColor + ';transition:width .3s"></div>' +
       '</div>' +
       (reset ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">额度周期重置：' + App.escapeHtml(reset) + '</div>' : '') +
-      '<div style="font-size:11px;color:var(--muted);margin-top:4px">额度用尽或过期可<b>购买会员 / 增量包</b>恢复 v4-flash 高性能使用。</div>';
+      '<div style="font-size:11px;color:var(--muted);margin-top:4px">主力线路失败时才会切换到 Qwen 免费兜底；会员余额不足会明确提示并停止扣费。</div>';
   }
 
   window.saveApiConfig = async function () {
@@ -249,6 +247,10 @@ App.initPage({
       App.showToast('已保存 API 配置', 'success');
     }
     updateTierStatus();
+    if (!window.__xjSettingsModelSelectionBound) {
+      window.__xjSettingsModelSelectionBound = true;
+      window.addEventListener('xj:model-selection-changed', updateTierStatus);
+    }
   };
 
   // 一键清除自有配置，回到内置免费模型
@@ -302,26 +304,115 @@ App.initPage({
     if (bar) bar.style.width = Math.min(100, (info.approxDataSizeMB / 1024) * 100) + '%';
   }
 
-  window.backupData = async function () {
-    const json = await Store.exportAll();
-    const dateStr = App.formatDate(new Date(), true).replace(/-/g, '');
-    App.downloadFile(`心镜备份_${dateStr}.json`, json, 'application/json');
-    Store.saveSettings({ backupLastTime: new Date().toISOString() });
-    App.showToast('备份已下载', 'success');
-    updateBackupTime();
+  function backupErrorMessage(code) {
+    const messages = {
+      XJ_BACKUP_PASSPHRASE_TOO_SHORT: '恢复口令至少需要 12 个字符。',
+      XJ_BACKUP_AUTH_FAILED: '恢复口令错误，或备份文件已损坏/被修改。',
+      XJ_BACKUP_PACKAGE_INVALID: '这不是可识别的加密备份文件。',
+      XJ_BACKUP_PACKAGE_UNSUPPORTED: '备份版本不受当前版本支持。',
+      XJ_BACKUP_KDF_UNSUPPORTED: '该备份属于设备自动备份，请在原设备恢复，或使用恢复口令备份跨设备迁移。',
+      XJ_BACKUP_PAYLOAD_HASH_MISMATCH: '备份完整性校验失败，当前数据未改变。',
+      XJ_BACKUP_SAFETY_WRITE_FAILED: '恢复前安全快照创建失败，当前数据未改变。',
+      XJ_IMPORT_DURABLE_FAILED: '数据写入失败，当前数据未改变。',
+      XJ_BACKUP_SENDER_DENIED: '备份请求来源未通过安全校验。',
+    };
+    return messages[code] || '备份操作失败，当前数据未改变。';
+  }
+
+  function requestBackupPassphrase(mode) {
+    return new Promise(function (resolve) {
+      var overlay = document.getElementById('backup-passphrase-modal');
+      if (!overlay || !App || typeof App.openModal !== 'function') { resolve(null); return; }
+      var title = document.getElementById('backup-passphrase-title');
+      var description = document.getElementById('backup-passphrase-description');
+      var input = document.getElementById('backup-passphrase');
+      var confirm = document.getElementById('backup-passphrase-confirm');
+      var confirmRow = document.getElementById('backup-passphrase-confirm-row');
+      var restoreRow = document.getElementById('backup-restore-confirm-row');
+      var restoreCheck = document.getElementById('backup-restore-confirm');
+      var error = document.getElementById('backup-passphrase-error');
+      var submit = document.getElementById('backup-passphrase-submit');
+      var result = null;
+      var settled = false;
+      var minimum = window.XJBackupCrypto && window.XJBackupCrypto.PASSPHRASE_MIN_LENGTH || 12;
+      function finish(value) {
+        if (settled) return;
+        settled = true;
+        if (input) input.value = '';
+        if (confirm) confirm.value = '';
+        if (restoreCheck) restoreCheck.checked = false;
+        resolve(value);
+      }
+      if (title) title.textContent = mode === 'export' ? '设置恢复口令' : '输入恢复口令';
+      if (description) description.textContent = mode === 'export'
+        ? '该口令用于在其他设备恢复此备份。口令不会保存；丢失后无法找回。'
+        : '恢复会替换当前业务数据，但会保留当前设置和 API 密钥。请输入创建备份时的恢复口令。';
+      if (confirmRow) confirmRow.style.display = mode === 'export' ? 'block' : 'none';
+      if (restoreRow) restoreRow.style.display = mode === 'restore' ? 'block' : 'none';
+      if (error) error.textContent = '';
+      if (submit) {
+        submit.textContent = mode === 'export' ? '导出加密备份' : '验证并恢复';
+        submit.onclick = function () {
+          var passphrase = input ? input.value : '';
+          if (Array.from(passphrase).length < minimum || !passphrase.trim()) {
+            if (error) error.textContent = '恢复口令至少需要 ' + minimum + ' 个字符。';
+            if (input) input.focus();
+            return;
+          }
+          if (mode === 'export' && passphrase !== (confirm ? confirm.value : '')) {
+            if (error) error.textContent = '两次输入的恢复口令不一致。';
+            if (confirm) confirm.focus();
+            return;
+          }
+          if (mode === 'restore' && (!restoreCheck || !restoreCheck.checked)) {
+            if (error) error.textContent = '请先确认会替换当前业务数据。';
+            return;
+          }
+          result = { passphrase: passphrase, confirmed: true };
+          App.closeModal('backup-passphrase-modal');
+        };
+      }
+      App.bindModalClose('backup-passphrase-modal');
+      App.openModal('backup-passphrase-modal', {
+        initialFocus: '#backup-passphrase',
+        onClose: function () { finish(result); },
+      });
+    });
+  }
+
+  var dataSafetyController = null;
+  if (window.XJSettingsDataSafetyController && typeof window.XJSettingsDataSafetyController.createSettingsDataSafetyController === 'function') {
+    dataSafetyController = window.XJSettingsDataSafetyController.createSettingsDataSafetyController({
+      requestPassphrase: requestBackupPassphrase,
+      bridge: window.__XJ_API__ || {},
+      store: Store,
+      ui: {
+        showToast: function (message, type) { App.showToast(message, type); },
+        downloadFile: function (name, content, mime) { App.downloadFile(name, content, mime); },
+        formatDate: function (date, compact) { return App.formatDate(date, compact); },
+        updateBackupTime: updateBackupTime,
+        reload: function () { setTimeout(function () { location.reload(); }, 800); },
+      },
+    });
+  }
+
+  window.backupData = function () {
+    if (!dataSafetyController) {
+      App.showToast('加密备份暂不可用，请恢复后重试', 'error');
+      return Promise.resolve({ ok: false, errorCode: 'XJ_BACKUP_CONTROLLER_UNAVAILABLE', value: null });
+    }
+    return dataSafetyController.backup();
   };
 
-  window.restoreData = async function (event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const text = await file.text();
-    try {
-      await Store.importAll(text);
-      App.showToast('数据已恢复', 'success');
-      setTimeout(() => location.reload(), 800);
-    } catch (e) {
-      App.showToast('恢复失败：文件格式错误', 'error');
+  window.restoreData = function (event) {
+    var inputElement = event && event.target ? event.target : null;
+    var file = inputElement && inputElement.files ? inputElement.files[0] : null;
+    if (!file) return Promise.resolve({ ok: false, errorCode: 'no-file', value: null });
+    if (!dataSafetyController) {
+      App.showToast('加密恢复暂不可用，请恢复后重试', 'error');
+      return Promise.resolve({ ok: false, errorCode: 'XJ_RESTORE_CONTROLLER_UNAVAILABLE', value: null });
     }
+    return dataSafetyController.restore({ file: file, inputElement: inputElement });
   };
 
   window.clearAllData = function () {
@@ -510,12 +601,19 @@ App.initPage({
     const onEl = document.getElementById('backup-email-on');
     cfg.email = (emailEl && emailEl.value || '').trim();
     cfg.emailEnabled = !!(onEl && onEl.checked);
-    Store.saveSettings({ backup: cfg });
     try {
       if (window.__XJ_API__ && typeof window.__XJ_API__.saveBackupConfig === 'function') {
-        await window.__XJ_API__.saveBackupConfig(cfg);
+        var saved = await window.__XJ_API__.saveBackupConfig(cfg);
+        if (!saved || saved.ok !== true) {
+          App.showToast(backupErrorMessage(saved && saved.errorCode), 'error');
+          return false;
+        }
       }
-    } catch (e) { /* ignore */ }
+      Store.saveSettings({ backup: cfg });
+    } catch (_) {
+      App.showToast('备份设置保存失败，请恢复后重试', 'error');
+      return false;
+    }
     const msg = document.getElementById('backup-settings-msg');
     if (msg) msg.textContent = '已保存 ✓';
     App.showToast('备份设置已保存', 'success');
@@ -666,6 +764,61 @@ App.initPage({
     if (sw) sw.setAttribute('aria-checked', String(isThemeDark()));
   }
 
+  function initWritingStyleToggle() {
+    const toggle = document.getElementById('writing-style-toggle');
+    const status = document.getElementById('writing-style-status');
+    if (!toggle) return;
+
+    function enabled() {
+      const settings = typeof Store !== 'undefined' && Store.getSettings ? Store.getSettings() : {};
+      if (typeof PromptGovernance !== 'undefined' && PromptGovernance.isWritingStyleEnabled) {
+        return PromptGovernance.isWritingStyleEnabled(settings);
+      }
+      return !settings.promptGovernance || settings.promptGovernance.writingStyleEnabled !== false;
+    }
+    function sync(message) {
+      const active = enabled();
+      toggle.classList.toggle('on', active);
+      toggle.setAttribute('aria-checked', String(active));
+      if (status) status.textContent = message || (active ? '已启用口语化表达，不影响事实与来源限制' : '已关闭口语化表达，事实与来源限制继续生效');
+    }
+
+    sync();
+    toggle.addEventListener('click', async function () {
+      if (typeof Store === 'undefined' || !Store.getSettings || !Store.saveSettingsDurable) {
+        if (status) status.textContent = '本地设置尚未就绪，未改变表达风格';
+        return;
+      }
+      const current = Store.getSettings() || {};
+      const currentGovernance = current.promptGovernance && typeof current.promptGovernance === 'object' ? current.promptGovernance : {};
+      const next = !enabled();
+      toggle.disabled = true;
+      const result = await Store.saveSettingsDurable({ promptGovernance: Object.assign({}, currentGovernance, { writingStyleEnabled: next }) });
+      toggle.disabled = false;
+      if (!result || !result.ok) {
+        sync('本地设置未保存，表达风格保持不变');
+        return;
+      }
+      sync(next ? '已启用口语化表达，不影响事实与来源限制' : '已关闭口语化表达，事实与来源限制继续生效');
+    });
+  }
+
+  function initPrivacyObservabilityUI() {
+    if (!window.XJSettingsObservabilityController || typeof window.XJSettingsObservabilityController.createSettingsObservabilityController !== 'function') return;
+    var controller = window.XJSettingsObservabilityController.createSettingsObservabilityController({
+      elements: {
+        toggle: document.getElementById('privacy-consent-toggle'),
+        status: document.getElementById('privacy-observability-status'),
+        count: document.getElementById('privacy-observability-count'),
+        exportButton: document.getElementById('privacy-export-btn'),
+        clearButton: document.getElementById('privacy-clear-btn'),
+        revokeButton: document.getElementById('privacy-revoke-btn'),
+      },
+      app: App,
+    });
+    controller.initialize();
+  }
+
   function fmtDate(ms) {
     if (!ms) return '终身';
     const d = new Date(ms);
@@ -730,6 +883,123 @@ App.initPage({
       else detail.textContent = '手工执业工作流与 2K 关键词资料检索';
     }
     if (badge) badge.innerHTML = App.membershipBadge();
+  }
+
+  // ============================================================
+  // v5.0.2 桌面账号投影（contract-v502-desktop-auth-session-membership-v1）
+  // 登录状态与会员档位只展示主进程返回的服务器权威投影；
+  // 网络失败/未知档位 fail-closed 显示「不可用/未知」，绝不编造会员身份。
+  // ============================================================
+  var DESKTOP_TIER_LABEL = { free: '免费版', pro: '会员版 (Pro)', flagship: '旗舰版 (Flagship)' };
+
+  function desktopAccountBridge() {
+    return window.__XJ_API__ && window.__XJ_API__.account ? window.__XJ_API__.account : null;
+  }
+
+  function fmtMembershipFetchedAt(iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      var p = function (n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    } catch (e) { return ''; }
+  }
+
+  function renderDesktopAccountStatus(snapshot) {
+    var statusEl = document.getElementById('desktop-account-status');
+    var badgeEl = document.getElementById('desktop-account-badge');
+    var memberEl = document.getElementById('desktop-account-membership');
+    if (!statusEl || !badgeEl || !memberEl) return;
+    if (!snapshot || snapshot.authenticated !== true) {
+      statusEl.textContent = '未登录';
+      badgeEl.className = 'badge warn';
+      badgeEl.textContent = '未登录';
+      memberEl.textContent = '未登录：会员信息以登录后的服务器核验为准';
+      return;
+    }
+    var account = snapshot.account || {};
+    statusEl.textContent = (account.email || '已登录') + (account.accountId ? ' · ' + account.accountId : '');
+    badgeEl.className = 'badge ok';
+    badgeEl.textContent = '已登录';
+    var m = snapshot.membership;
+    if (m && m.status === 'ok' && m.serverAuthoritative === true && DESKTOP_TIER_LABEL[m.tier]) {
+      memberEl.textContent = DESKTOP_TIER_LABEL[m.tier] + (fmtMembershipFetchedAt(m.fetchedAt) ? '（核验于 ' + fmtMembershipFetchedAt(m.fetchedAt) + '）' : '');
+    } else if (m && m.status === 'error') {
+      memberEl.textContent = '会员信息获取失败（服务器为唯一权威）：' + (m.errorCode || 'unknown') + '，请点击刷新重试';
+    } else {
+      memberEl.textContent = '会员信息未知：服务器未返回可信档位';
+    }
+  }
+
+  function initDesktopAccountPanel() {
+    var bridge = desktopAccountBridge();
+    var statusEl = document.getElementById('desktop-account-status');
+    if (!statusEl) return;
+    if (!bridge) {
+      renderDesktopAccountStatus(null);
+      return;
+    }
+    var refreshBtn = document.getElementById('desktop-account-refresh');
+    var refreshing = false;
+
+    function refreshSnapshot() {
+      bridge.status().then(function (snapshot) {
+        renderDesktopAccountStatus(snapshot);
+      }).catch(function () { renderDesktopAccountStatus(null); });
+    }
+
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', function () {
+        if (refreshing) return;
+        refreshing = true;
+        refreshBtn.disabled = true;
+        var memberEl = document.getElementById('desktop-account-membership');
+        if (memberEl) memberEl.textContent = '正在向服务器核验会员信息…';
+        bridge.refreshMembership().then(function () {
+          refreshSnapshot();
+        }).catch(function () {
+          refreshSnapshot();
+        }).finally(function () {
+          refreshing = false;
+          refreshBtn.disabled = false;
+        });
+      });
+    }
+
+    // 登出：事件委托到 document。设置页的布局注入/图标渲染会重建 DOM 节点，
+    // 直接 addEventListener 绑在按钮上会因节点被替换而失效；委托按当前节点命中。
+    if (!document.body.dataset.logoutDelegated) {
+      document.body.dataset.logoutDelegated = '1';
+      document.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('#desktop-account-logout') : null;
+        if (!btn || btn.dataset.logoutPending === '1') return;
+        btn.dataset.logoutPending = '1';
+        btn.disabled = true;
+        btn.textContent = '退出中…';
+        bridge.logout().then(function (result) {
+          if (result && result.revoke && result.revoke.ok === false) {
+            console.warn('logout: server revoke reported ' + (result.revoke.error && result.revoke.error.code || 'failure'));
+          }
+          if (result && result.navigation && result.navigation.ok === false) {
+            console.warn('logout: main navigation reported ' + (result.navigation.error && result.navigation.error.code || 'failure'));
+          }
+        }).catch(function (e) {
+          console.warn('logout: ipc failed');
+        }).finally(function () {
+          // 主进程已完成有界导航；此处保留 250ms 兜底，并再加 replace 兜底。
+          window.setTimeout(function () {
+            try { window.location.replace('account.html'); }
+            catch (err) { window.location.href = 'account.html'; }
+          }, 250);
+        });
+      });
+    }
+
+    if (typeof bridge.onChanged === 'function') {
+      bridge.onChanged(function () { refreshSnapshot(); });
+    }
+    refreshSnapshot();
   }
 
   function initSkinSelector() {
@@ -1060,6 +1330,7 @@ App.initPage({
     initSkinSelector();
     renderMembershipSummary();
     App.onLicenseStateChange(renderMembershipSummary);
+    initDesktopAccountPanel();
     updateTierStatus();
     // ===== 账号：称呼 / 执业取向 编辑（此前按钮无处理函数，点击无效）=====
     function loadProfile() {
@@ -1070,8 +1341,10 @@ App.initPage({
       if (orientEl) orientEl.textContent = s.orientation ? s.orientation : '未设置';
     }
     var _editField = null;
+    var _editReturnFocus = null;
     function openAccountEdit(field) {
       _editField = field;
+      _editReturnFocus = document.activeElement;
       var s = (Store.getSettings().profile) || {};
       var title = document.getElementById('account-edit-title');
       var input = document.getElementById('account-edit-input');
@@ -1101,12 +1374,16 @@ App.initPage({
       loadProfile();
       var modal = document.getElementById('account-edit-modal');
       if (modal) modal.style.display = 'none';
+      if (_editReturnFocus && typeof _editReturnFocus.focus === 'function') _editReturnFocus.focus();
       _editField = null;
+      _editReturnFocus = null;
     }
     function closeAccountEdit() {
       var modal = document.getElementById('account-edit-modal');
       if (modal) modal.style.display = 'none';
+      if (_editReturnFocus && typeof _editReturnFocus.focus === 'function') _editReturnFocus.focus();
       _editField = null;
+      _editReturnFocus = null;
     }
     var btnName = document.getElementById('btn-edit-name');
     var btnOrient = document.getElementById('btn-edit-orient');
@@ -1121,6 +1398,7 @@ App.initPage({
     if (modalOverlay) modalOverlay.addEventListener('click', function (e) { if (e.target === modalOverlay) closeAccountEdit(); });
     if (editInput) editInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); saveAccountEdit(); }
+      if (e.key === 'Escape') { e.preventDefault(); closeAccountEdit(); }
     });
     loadProfile();
     // v3.4.1: 暴露给 settings.html 内联脚本使用
@@ -1140,6 +1418,8 @@ App.initPage({
     loadUserDocUI();
     loadSupervisorUI();
     initThemeToggle();
+    initWritingStyleToggle();
+    initPrivacyObservabilityUI();
     renderLicenseInfo();
   },
 });

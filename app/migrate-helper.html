@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -52,7 +52,7 @@ button:active{
     .xj-step-connector.xj-filled{background:var(--accent,#9E5A3C)}
     /* progress bar animation */
     @keyframes xjProgressFill{from{width:0}to{width:100%}}
-    .xj-progress-bar{transition:width .5s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--accent,#9E5A3C),rgba(158,90,60,.7));border-radius:999px;height:6px;overflow:hidden}
+    .xj-progress-bar{transition:width .5s cubic-bezier(.4,0,.2,1);background:var(--xj-accent,var(--accent,#147d70));border-radius:999px;height:6px;overflow:hidden}
     .xj-progress-bar.xj-animate{animation:xjProgressFill 1.2s cubic-bezier(.4,0,.2,1) forwards}
     /* content area fade-in per step */
     @keyframes xjStepFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
@@ -70,15 +70,28 @@ button:active{
     .migration-direct-card h1{margin:0 0 10px;font-size:22px;letter-spacing:0}
     .migration-direct-card p{margin:0 0 20px;color:var(--xj-text-2,#52605c);font-size:15px;line-height:1.7}
     .migration-direct-card a{display:inline-flex;min-height:40px;align-items:center;padding:0 14px;border-radius:6px;background:var(--xj-accent,#147d70);color:#fff;text-decoration:none}
+    .migration-direct-card ol.migration-phases{margin:0 0 18px;padding:0;list-style:none;display:grid;gap:8px}
+    .migration-direct-card ol.migration-phases li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--xj-border,#d7e0dd);border-radius:6px;background:var(--xj-surface,#fff)}
+    .migration-direct-card ol.migration-phases li b{flex:0 0 44px;color:var(--xj-accent,#147d70);font-size:14px}
+    .migration-direct-card ol.migration-phases li span{font-size:13px;color:var(--xj-text-2,#52605c);line-height:1.6}
+    .migration-direct-card .migration-risk{margin:0 0 18px;padding:12px 14px;border:1px solid var(--warning,#d8a542);border-radius:6px;background:var(--orange-soft,#fff8e8);color:#6b4a08;font-size:13px;line-height:1.7}
+    @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
   </style>
 <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="utility-window">
   <main class="migration-direct" id="migration-direct" hidden>
     <section class="migration-direct-card">
       <h1>数据迁移工具</h1>
-      <p>此页面由心镜在升级时自动调用，用于读取旧版本的本地数据。无需手动操作，也不会上传临床资料。</p>
+      <p>此页面由心镜在升级时自动调用，用于读取旧版本的本地数据。升级按以下四阶段进行，无需手动操作，也不会上传临床资料。</p>
+      <ol class="migration-phases">
+        <li><b>验证</b><span>校验旧版本数据是否可读、结构是否完整。</span></li>
+        <li><b>迁移</b><span>把通过校验的数据写入当前版本。</span></li>
+        <li><b>复核</b><span>确认关键记录数量与来源引用一致。</span></li>
+        <li><b>回滚</b><span>迁移异常时恢复迁移前的安全快照。</span></li>
+      </ol>
+      <div class="migration-risk" role="note"><b>不可逆风险：</b>迁移一旦写入当前版本，旧库中的部分字段可能无法自动还原；回滚依赖迁移前自动创建的安全快照。请勿在迁移过程中强制关闭心镜。</div>
       <a href="index.html">返回心镜工作台</a>
     </section>
   </main>

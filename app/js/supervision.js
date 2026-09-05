@@ -16,6 +16,164 @@ App.initPage({
     var latestSupervision = null;
     var draftKey = 'xj_sup_v31_draft';
     var chatKey = 'xj_sup_v31_chat';
+    var packageInspection = null;
+    var installedPackage = null;
+    var uploadState = 'idle';
+    var uploadStateHistory = ['idle'];
+    var uploadPendingFile = null;
+    var uploadOperation = null;
+    var uploadSequence = 0;
+    var uploadLastFileName = '';
+    var lastFailedRequest = null;
+    var activeSupervisionController = null;
+
+    // XJ519-Z4：AI 督导生成链路不得同步阻塞 renderer。
+    // 原 ClinicalContextView.confirmSend 使用 window.confirm——原生模态会冻结渲染主线程
+    // （审计观测：Runtime.evaluate 超时、CPU 0、无 CDP 可见对话框）。改为 DOM 确认（异步可交互）。
+    function confirmContextSendAsync(context) {
+      return new Promise(function (resolve) {
+        if (!context || !context.ok) { resolve(false); return; }
+        if (typeof App === 'undefined' || typeof App.confirmDialog !== 'function') {
+          App.showToast('确认组件未就绪，本次发送已阻止', 'error');
+          resolve(false);
+          return;
+        }
+        var lines = (context.sources || []).map(function (source, index) {
+          var label = (source && source.label) || ('来源' + (index + 1));
+          var chars = source && source.chars != null ? '（约 ' + source.chars + ' 字）' : '';
+          return '· ' + label + (source && source.truncated ? '（已截断）' : '') + chars;
+        });
+        var message = '将发送以下上下文（约 ' + (context.estimatedChars || 0) + ' 字）：\n' + (lines.join('\n') || '仅本轮指令');
+        var settled = false;
+        var overlay = App.confirmDialog(message, function () {
+          if (!settled) { settled = true; resolve(true); }
+          return true;
+        });
+        if (overlay && typeof overlay.querySelector === 'function') {
+          var cancel = overlay.querySelector('[data-modal-cancel]');
+          if (cancel) cancel.addEventListener('click', function () {
+            if (!settled) { settled = true; resolve(false); }
+          }, { once: true });
+        }
+      });
+    }
+
+    function setPackageState(state, label, detail) {
+      var status = document.getElementById('sup-package-status');
+      var copy = document.getElementById('sup-package-detail');
+      if (status) { status.dataset.state = state || 'locked'; status.textContent = label || '未安装'; }
+      if (copy) copy.textContent = detail || '';
+    }
+
+    function packageDescription(descriptor) {
+      if (!descriptor) return '';
+      var provider = descriptor.providerPolicy && descriptor.providerPolicy.mode === 'local-only' ? '本机处理' : '受信服务';
+      return String(descriptor.displayName || '受控督导包') + ' · v' + String(descriptor.packageVersion || '') + ' · ' + provider;
+    }
+
+    function updatePackageButtons() {
+      var install = document.getElementById('sup-package-install');
+      var run = document.getElementById('sup-package-run');
+      var remove = document.getElementById('sup-package-remove');
+      var allowed = typeof App !== 'undefined' && App.featureGate && App.featureGate('custom-supervisors');
+      if (install) install.disabled = !packageInspection || !packageInspection.inspectionToken;
+      if (run) run.disabled = !installedPackage || !allowed;
+      if (remove) remove.disabled = !installedPackage;
+    }
+
+    function showInstalledPackage(result) {
+      var list = result && result.ok && Array.isArray(result.packages) ? result.packages : [];
+      installedPackage = list.length ? list[0] : null;
+      if (!installedPackage) {
+        setPackageState('locked', '未安装', '仅接受作者签发的加密 .xjsup 文件；检查、授权和解密均在本机主进程完成。');
+      } else if (installedPackage.status === 'locked') {
+        setPackageState('locked', '已安装 · 已锁定', packageDescription(installedPackage) + ' · ' + (installedPackage.reason || '需要旗舰授权'));
+      } else {
+        setPackageState('installed', '已安装 · 可运行', packageDescription(installedPackage));
+      }
+      updatePackageButtons();
+    }
+
+    function bindControlledPackage() {
+      var fileInput = document.getElementById('sup-package-file');
+      var importButton = document.getElementById('sup-package-import');
+      var installButton = document.getElementById('sup-package-install');
+      var runButton = document.getElementById('sup-package-run');
+      var removeButton = document.getElementById('sup-package-remove');
+      if (!fileInput || !importButton || !window.SupervisionPackage) return;
+      importButton.addEventListener('click', function () { fileInput.click(); });
+      fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (!file) return;
+        setPackageState('loading', '检查中', '正在验证文件格式、作者签名和密文完整性……');
+        window.SupervisionPackage.inspectFile(file).then(function (result) {
+          if (!result || !result.ok) {
+            packageInspection = null;
+            setPackageState('locked', '检查未通过', (result && result.message) || '技能包不可用');
+            updatePackageButtons();
+            return;
+          }
+          packageInspection = result;
+          setPackageState('available', '已检查 · 等待确认', packageDescription(result.descriptor) + ' · 请确认后再安装');
+          updatePackageButtons();
+        });
+      });
+      if (installButton) installButton.addEventListener('click', function () {
+        if (!packageInspection) return;
+        if (!App.featureGate('custom-supervisors')) {
+          setPackageState('locked', '已检查 · 需要旗舰', '技能包预览可用，但安装和运行需要旗舰版授权。');
+          updatePackageButtons();
+          return;
+        }
+        setPackageState('loading', '安装中', '正在重新验权并保存加密密文……');
+        window.SupervisionPackage.installInspection(packageInspection).then(function (result) {
+          if (!result || !result.ok) {
+            setPackageState('locked', '安装未通过', (result && result.message) || '技能包未安装');
+            updatePackageButtons();
+            return;
+          }
+          packageInspection = null;
+          installedPackage = result.descriptor;
+          setPackageState('installed', '已安装 · 可运行', packageDescription(installedPackage));
+          updatePackageButtons();
+          App.showToast('受控督导包已安装；运行时仍会再次检查授权和撤销状态', 'success');
+        });
+      });
+      if (runButton) runButton.addEventListener('click', function () {
+        if (!installedPackage) return;
+        setPackageState('loading', '授权中', '正在主进程内校验设备绑定、撤销状态和版本高水位……');
+        window.SupervisionPackage.run(installedPackage.packageId, installedPackage.packageVersion).then(function (result) {
+          if (!result || !result.ok) {
+            setPackageState('locked', '运行已锁定', (result && result.message) || '技能包暂不可运行');
+            updatePackageButtons();
+            return;
+          }
+          installedPackage = result.descriptor || installedPackage;
+          setPackageState('installed', '已授权 · 本机处理', '本次督导方法已在主进程内解密并使用，Renderer 未取得包正文。');
+          updatePackageButtons();
+          App.showToast('受控督导包已授权运行', 'success');
+        });
+      });
+      if (removeButton) removeButton.addEventListener('click', function () {
+        if (!installedPackage || !window.confirm('移除这个受控督导包？既有督导记录不会删除。')) return;
+        window.SupervisionPackage.removePackage(installedPackage.packageId, installedPackage.packageVersion).then(function (result) {
+          if (!result || !result.ok) { App.showToast((result && result.message) || '移除失败', 'error'); return; }
+          installedPackage = null;
+          showInstalledPackage({ ok: true, packages: [] });
+          App.showToast('受控督导包已移除，既有记录保留', 'success');
+        });
+      });
+      window.SupervisionPackage.listInstalled().then(showInstalledPackage);
+      if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+        window.__XJ_API__.onLicenseState(function () {
+          updatePackageButtons();
+          if (installedPackage) window.SupervisionPackage.getRuntimeDescriptor(installedPackage.packageId, installedPackage.packageVersion).then(function (result) {
+            if (result && result.ok) showInstalledPackage({ ok: true, packages: [result.descriptor] });
+          });
+        });
+      }
+    }
 
     function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
     function showMaterialSource(material) {
@@ -23,8 +181,36 @@ App.initPage({
       if (!host || !material || document.getElementById('sup-material-source')) return;
       var source = document.createElement('div');
       source.id = 'sup-material-source'; source.style.cssText = 'margin:8px 0;padding:8px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;font-size:12px;color:var(--ink-2)';
-      source.textContent = 'AI 上下文来源：当前材料「' + (material.source.name || material.title) + '」' + (material.clientId ? '、已关联来访者' : '；未归档，保存前请选择来访者');
+      source.textContent = 'AI 上下文来源：当前材料「' + (material.source.name || material.title) + '」' + (material.clientId ? '、已关联来访者' : '；未绑定来访者，将作为独立督导保存');
       host.insertBefore(source, host.firstChild);
+    }
+
+    function updateContextState() {
+      var state = document.getElementById('sup-context-state');
+      if (!state) return;
+      state.textContent = currentClientId ? '已关联来访者' : '独立督导';
+      state.title = currentClientId ? '本次督导将关联当前来访者' : '本次督导不会关联任何来访者或会谈';
+    }
+
+    function clearBoundContext(resetMessage, toastMessage) {
+      var material = currentMaterialWorkspace();
+      var wasBound = !!currentClientId || !!(material && material.clientId);
+      if (!wasBound) return;
+      materialId = '';
+      materialTA.value = '';
+      input.value = '';
+      messages = [];
+      chat.innerHTML = '<div class="msg ai"><div class="src">小镜</div>' + resetMessage + '</div>';
+      var source = document.getElementById('sup-material-source');
+      if (source) source.remove();
+      var impression = document.getElementById('impression-body');
+      if (impression) impression.innerHTML = '<div class="ab-empty"><span class="big"><i data-lucide="brain-circuit"></i></span>输入或上传材料后，生成整体印象开始督导</div>';
+      var deepen = document.getElementById('deepen-body');
+      if (deepen) deepen.innerHTML = '<div class="ab-empty">尚未生成深化分析</div>';
+      try { localStorage.removeItem(draftKey); localStorage.removeItem(chatKey); } catch (e) {}
+      if (App.setActiveClientId) App.setActiveClientId('');
+      if (window.IconSystem) window.IconSystem.render(chat);
+      App.showToast(toastMessage, 'info');
     }
 
     // 来访者列表
@@ -142,6 +328,7 @@ App.initPage({
       if (unlock) unlock.style.display = App.canUse('ai-supervise') ? 'none' : '';
     }
     syncAccessUI();
+    updateContextState();
     if (App.onLicenseStateChange) App.onLicenseStateChange(syncAccessUI);
 
     // Tab 切换
@@ -152,19 +339,36 @@ App.initPage({
       document.getElementById('material-block').style.display = tab === 'material' ? '' : 'none';
     };
 
+    window.toggleMaterialPanel = function () {
+      var panel = document.getElementById('mat-panel');
+      var toggle = document.getElementById('sup-material-toggle');
+      if (!panel || !toggle) return false;
+      var open = !panel.classList.contains('open');
+      panel.classList.toggle('open', open);
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.textContent = open ? '收起材料' : '展开材料';
+      return open;
+    };
+
     // 来访者选择 → 加载会话历史
     window.onClientChange = function () {
       var cid = selClient.value;
       var continueButton = document.getElementById('continue-supervision');
       if (!cid) {
+        clearBoundContext('当前为独立督导。请重新输入不关联来访者的材料，或直接开始提问。', '已清除上一位来访者的材料和对话，现为独立督导');
         currentClientId = null;
         currentSessionId = '';
         latestSupervision = null;
         if (continueButton) continueButton.style.display = 'none';
+        updateContextState();
         renderSessionHistory([]);
         return;
       }
+      if (currentClientId && currentClientId !== cid) {
+        clearBoundContext('已清除上一位来访者的材料和对话，正在切换到新的来访者。', '已清除上一位来访者的材料和对话');
+      }
       currentClientId = cid;
+      updateContextState();
       if (App.setActiveClientId) App.setActiveClientId(currentClientId);
       if (materialId && Store.reconcileMaterialContext) Store.reconcileMaterialContext(materialId, currentClientId, currentSessionId || null, {});
       var client = Store.getClient(cid);
@@ -189,7 +393,7 @@ App.initPage({
       var box = document.getElementById('session-history');
       if (!sessions || !sessions.length) {
         box.innerHTML = '<div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">' +
-          (currentClientId ? '暂无会话记录' : '请先选择来访者') + '</div>';
+          (currentClientId ? '暂无会话记录' : '当前为独立督导；可直接输入或上传材料') + '</div>';
         return;
       }
       box.innerHTML = sessions.map(function (s) {
@@ -278,6 +482,20 @@ App.initPage({
     }
     function removeTyping() { var t = document.getElementById('sup-typing'); if (t) t.remove(); }
 
+    function addErrorCard(message, request) {
+      lastFailedRequest = request || null;
+      var div = document.createElement('div');
+      div.className = 'msg ai sup-error-card';
+      div.innerHTML = '<div class="src">小镜</div>' +
+        '<div class="sup-error-detail">' + App.escapeHtml(message || '模型没有返回结果') + '</div>' +
+        '<div class="sup-error-actions">' +
+        '<button type="button" class="primary" data-sup-retry>重试</button>' +
+        '<button type="button" data-sup-settings>检查模型配置</button>' +
+        '</div>';
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
     function buildMessages(userText, isImpression) {
       var sys = (typeof Supervisors !== 'undefined' && Supervisors.buildSystemPrompt)
         ? Supervisors.buildSystemPrompt(curOrient)
@@ -295,22 +513,25 @@ App.initPage({
       return [{ role: 'system', content: sys }].concat(hist).concat([{ role: 'user', content: userContent }]);
     }
 
-    function callAI(msgs) {
+    function callAI(msgs, signal) {
       return new Promise(function (resolve) {
         if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
         var input = materialTA ? materialTA.value.trim() : '';
         var finalMessage = msgs[msgs.length - 1] || {};
         var context = ClinicalContext.build('supervision-ai', { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId }, { system: (msgs[0] && msgs[0].content) || '', inputText: input, instruction: finalMessage.content || '', history: msgs.slice(1, -1) });
-        if (!context.ok) { resolve({ error: '当前上下文无效，请重新选择来访者或材料' }); return; }
+        if (!context.ok) { resolve({ error: '当前上下文无效，请检查材料或关联信息' }); return; }
         if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.sup-main') || document.body, context);
-        if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { resolve({ error: '用户已取消本次 AI 督导' }); return; }
-        var run = ClinicalContext.createActionRun(context);
-        if (!run) { resolve({ error: '无法确认材料归属' }); return; }
-        AI.send(context.messages, function (res) {
-          var currentInput = materialTA ? materialTA.value.trim() : '';
-          if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentInput, { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); resolve({ error: '上下文已变更，旧结果未采用' }); return; }
-          if (res && res.content && !res.error) { ClinicalContext.completeActionRun(run.id, { kind: 'supervision-response', ref: materialId || currentClientId || '' }); resolve({ content: res.content }); }
-          else { ClinicalContext.failActionRun(run.id, (res && res.error) || '无响应'); resolve({ error: (res && res.error) || '无响应' }); }
+        // XJ519-Z4：上下文确认改为异步 DOM 确认，不再使用 window.confirm 同步阻塞。
+        confirmContextSendAsync(context).then(function (confirmed) {
+          if (!confirmed) { resolve({ error: '用户已取消本次 AI 督导', cancelled: true }); return; }
+          var run = ClinicalContext.createActionRun(context);
+          if (!run) { resolve({ error: '无法确认材料归属' }); return; }
+          AI.send(context.messages, function (res) {
+            var currentInput = materialTA ? materialTA.value.trim() : '';
+            if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentInput, { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); resolve({ error: '上下文已变更，旧结果未采用' }); return; }
+            if (res && res.content && !res.error) { ClinicalContext.completeActionRun(run.id, { kind: 'supervision-preview', summary: res.content, citations: [] }); resolve({ content: res.content }); }
+            else { ClinicalContext.failActionRun(run.id, (res && res.error) || '无响应'); resolve({ error: (res && res.error) || '无响应', code: res && res.code, errorCode: res && res.errorCode, interrupted: !!(res && res.interrupted) }); }
+          }, signal ? { signal: signal } : undefined);
         });
       });
     }
@@ -391,16 +612,47 @@ App.initPage({
       sendToAI(text, false);
     };
 
-    async function sendToAI(text, isImpression) {
+    chat.addEventListener('click', function (event) {
+      var retry = event.target.closest ? event.target.closest('[data-sup-retry]') : null;
+      var settings = event.target.closest ? event.target.closest('[data-sup-settings]') : null;
+      if (retry && lastFailedRequest && !busy) {
+        var request = lastFailedRequest;
+        lastFailedRequest = null;
+        sendToAI(request.text, request.isImpression, true);
+      } else if (settings) {
+        location.href = 'settings.html';
+      }
+    });
+
+    async function sendToAI(text, isImpression, isRetry) {
       if (busy) return;
-      if (!isImpression) addMsg('me', text);
+      if (!isImpression && !isRetry) addMsg('me', text);
       addTyping();
       busy = true;
+      // XJ519-Z4：请求期间提供真实的取消动作（AbortController → ai.js 桥接取消），
+      // 主线程保持可交互；取消、成功、失败三种终态分开显示。
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      activeSupervisionController = controller;
+      var typingEl = document.getElementById('sup-typing');
+      if (typingEl && controller) {
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = '取消生成';
+        cancelBtn.style.cssText = 'margin-left:10px;padding:2px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--ink-2);cursor:pointer';
+        cancelBtn.addEventListener('click', function () {
+          try { if (activeSupervisionController) activeSupervisionController.abort(); } catch (e) { /* 已取消 */ }
+        });
+        typingEl.appendChild(cancelBtn);
+      }
       try {
         var msgs = buildMessages(text, isImpression);
-        var r = await callAI(msgs);
+        var r = await callAI(msgs, controller ? controller.signal : null);
         removeTyping();
-        if (r && !r.error) {
+        if (r && r.cancelled) {
+          addMsg('ai', '已取消本次 AI 督导（上下文未发送）。');
+        } else if (r && r.code === 'ABORT_ERR') {
+          addMsg('ai', '已取消生成。');
+        } else if (r && !r.error) {
           addMsg('ai', r.content);
           if (isImpression) {
             renderImpression(r.content);
@@ -412,21 +664,23 @@ App.initPage({
             switchTab('deepen');
           }
         } else {
-          addMsg('ai', '生成失败：' + ((r && r.error) || '未知错误'));
+          var reason = (r && r.error) || '未知错误';
+          addErrorCard('生成失败：' + reason + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
         }
       } catch (e) {
         removeTyping();
-        addMsg('ai', '执行异常：' + (e && e.message));
+        addErrorCard('执行异常：' + ((e && e.message) || '未知错误') + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
       }
+      activeSupervisionController = null;
       busy = false;
     }
 
-    window.saveSup = function () {
+    window.saveSup = async function () {
       if (!messages.length) { App.showToast('无内容可保存', 'warning'); return; }
       var full = messages.map(function (m) { return (m.role === 'user' ? '咨询师：' : '督导师：') + m.content; }).join('\n\n');
       var modeName = curOrientName;
       if (typeof Store !== 'undefined' && typeof Store.saveAiSupervision === 'function') {
-        var saved = Store.saveAiSupervision({
+        var savedResult = await Store.saveAiSupervisionDurable({
           supervisorName: modeName,
           clientId: currentClientId || '',
           sessionId: currentSessionId,
@@ -434,9 +688,11 @@ App.initPage({
           context: materialTA.value.trim(),
           content: full,
         });
+        if (!savedResult || !savedResult.ok) { App.showToast('保存失败：督导草稿已保留，请恢复存储后重试', 'error'); return; }
+        var saved = savedResult.value;
         if (saved && materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { supervision: 'completed' }, artifacts: { supervisionId: saved.id } });
       }
-      App.showToast('已保存督导记录', 'success');
+      App.showToast(currentClientId ? '已保存督导记录' : '已保存独立督导记录', 'success');
       if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '完成了 AI 督导' });
     };
 
@@ -449,34 +705,231 @@ App.initPage({
       App.showToast('已导出 Word 文档', 'success');
     };
 
-    // 手动上传案例报告 → 载入材料区
-    window.onReportFileUpload = function (event) {
-      var file = event.target.files[0];
-      if (!file) return;
-      var name = file.name.toLowerCase();
-      App.showToast('正在读取报告…', 'info');
-      var onText = function (text) {
-        var cur = materialTA.value.trim();
-        materialTA.value = (cur ? cur + '\n\n' : '') + '【上传的案例报告：' + file.name + '】\n' + text;
-        try { localStorage.setItem(draftKey, materialTA.value); } catch (e) {}
-        App.showToast('案例报告已载入材料区', 'success');
-        switchTab('material');
+    // 手动上传案例报告 → 载入材料区（本地 FileReader；只更新材料草稿，不写正式督导记录）
+    function uploadActive(operation) {
+      return !!operation && uploadOperation === operation && !operation.cancelled;
+    }
+
+    function uploadProgressValue(value) {
+      var number = Number(value);
+      if (!isFinite(number)) return 0;
+      return Math.max(0, Math.min(100, Math.round(number)));
+    }
+
+    function resetReportFileInput() {
+      var inputEl = document.getElementById('sup-report-file');
+      if (inputEl) inputEl.value = '';
+    }
+
+    function setUploadState(state, detail, progress) {
+      var labels = {
+        idle: '等待上传',
+        uploading: '正在读取',
+        progress: '读取进度',
+        success: '已载入',
+        failure: '读取失败',
+        retry: '正在重试',
+        cancel: '已取消'
       };
-      var reader = new FileReader();
-      if (name.endsWith('.docx')) {
-        if (typeof mammoth !== 'undefined') {
-          reader.onload = function (ev) {
-            mammoth.extractRawText({ arrayBuffer: ev.target.result }).then(function (r) { onText(r.value); })
-              .catch(function () { App.showToast('docx 解析失败', 'error'); });
-          };
-          reader.readAsArrayBuffer(file);
-        } else { App.showToast('docx 解析库未加载', 'warning'); }
-      } else {
-        reader.onload = function (ev) { onText(ev.target.result); };
-        reader.readAsText(file, 'UTF-8');
+      var defaults = {
+        idle: '可选择 .txt 或 .docx 报告；读取结果只会写入临床材料草稿。',
+        uploading: '正在打开文件；尚未写入材料或草稿。',
+        progress: '正在读取文件内容；尚未写入材料或草稿。',
+        success: '报告内容已写入临床材料区；尚未写入正式督导记录。',
+        failure: '读取失败，材料与草稿均未改变。请检查原因后重试。',
+        retry: '正在使用同一个文件重试；当前材料与草稿保持不变。',
+        cancel: '已取消读取；材料与草稿均未改变。'
+      };
+      uploadState = state || 'idle';
+      uploadStateHistory.push(uploadState);
+      if (uploadStateHistory.length > 120) uploadStateHistory.shift();
+      var status = document.getElementById('sup-upload-status');
+      var label = document.getElementById('sup-upload-status-label');
+      var fileLabel = document.getElementById('sup-upload-status-file');
+      var detailLabel = document.getElementById('sup-upload-status-detail');
+      var progressWrap = document.getElementById('sup-upload-progress-wrap');
+      var progressBar = document.getElementById('sup-upload-progress');
+      var progressFill = document.getElementById('sup-upload-progress-bar');
+      var retryButton = document.getElementById('sup-upload-retry');
+      var cancelButton = document.getElementById('sup-upload-cancel');
+      var currentProgress = uploadProgressValue(progress);
+      if (status) status.setAttribute('data-upload-state', uploadState);
+      if (label) label.textContent = labels[uploadState] || labels.idle;
+      if (fileLabel) fileLabel.textContent = (uploadPendingFile && uploadPendingFile.name) || uploadLastFileName || '未选择文件';
+      if (detailLabel) detailLabel.textContent = detail || defaults[uploadState] || defaults.idle;
+      var showProgress = uploadState === 'uploading' || uploadState === 'progress' || uploadState === 'retry';
+      if (progressWrap) progressWrap.hidden = !showProgress;
+      if (progressBar) progressBar.setAttribute('aria-valuenow', String(currentProgress));
+      if (progressFill) progressFill.style.width = currentProgress + '%';
+      var canRetry = uploadState === 'failure' && !!uploadPendingFile && !uploadOperation;
+      var canCancel = (uploadState === 'uploading' || uploadState === 'progress' || uploadState === 'retry' || uploadState === 'failure') && (!!uploadPendingFile || !!uploadOperation);
+      if (retryButton) {
+        retryButton.hidden = !canRetry;
+        retryButton.disabled = !canRetry;
+        retryButton.title = canRetry ? '使用同一文件再次读取' : '读取失败后才可重试';
       }
-      event.target.value = '';
+      if (cancelButton) {
+        cancelButton.hidden = !canCancel;
+        cancelButton.disabled = !canCancel;
+        cancelButton.title = canCancel ? '取消读取并放弃待重试文件' : '当前没有正在读取的文件';
+      }
+    }
+
+    function uploadErrorMessage(error) {
+      if (error && (error.name === 'AbortError' || error.code === 'ABORTED')) return '读取已取消';
+      if (error && error.code === 'STALE') return '读取结果已失效，未采用';
+      var message = error && (error.message || error.name);
+      return message ? String(message) : '文件读取或解析失败';
+    }
+
+    function readReportFileWithReader(file, operation, asArrayBuffer) {
+      return new Promise(function (resolve, reject) {
+        var reader;
+        try { reader = new FileReader(); } catch (error) { reject(error); return; }
+        operation.reader = reader;
+        var settled = false;
+        function rejectOnce(error) {
+          if (settled) return;
+          settled = true;
+          reject(error);
+        }
+        reader.onloadstart = function () {
+          if (uploadActive(operation)) setUploadState('uploading', '正在读取「' + file.name + '」；尚未写入材料或草稿。', 0);
+        };
+        reader.onprogress = function (event) {
+          if (!uploadActive(operation)) return;
+          var percent = event && event.lengthComputable ? (event.loaded / Math.max(1, event.total)) * 100 : 50;
+          setUploadState('progress', '正在读取「' + file.name + '」；尚未写入材料或草稿。', percent);
+        };
+        reader.onerror = function () { rejectOnce(reader.error || new Error('文件读取失败')); };
+        reader.onabort = function () { rejectOnce({ code: 'ABORTED', name: 'AbortError', message: '读取已取消' }); };
+        reader.onload = function (event) {
+          if (!uploadActive(operation)) { rejectOnce({ code: 'STALE', message: '读取结果已失效' }); return; }
+          settled = true;
+          resolve(event && event.target ? event.target.result : reader.result);
+        };
+        try {
+          if (asArrayBuffer) reader.readAsArrayBuffer(file);
+          else reader.readAsText(file, 'UTF-8');
+        } catch (error) { rejectOnce(error); }
+      });
+    }
+
+    function readReportFile(file, operation) {
+      var name = String(file.name || '').toLowerCase();
+      if (!name.endsWith('.docx')) return readReportFileWithReader(file, operation, false);
+      return readReportFileWithReader(file, operation, true).then(function (arrayBuffer) {
+        if (!uploadActive(operation)) throw { code: 'ABORTED', name: 'AbortError', message: '读取已取消' };
+        if (typeof mammoth === 'undefined' || typeof mammoth.extractRawText !== 'function') throw new Error('docx 解析库未加载');
+        var extracted;
+        try { extracted = mammoth.extractRawText({ arrayBuffer: arrayBuffer }); } catch (error) { throw error; }
+        return Promise.resolve(extracted).then(function (result) {
+          if (!uploadActive(operation)) throw { code: 'ABORTED', name: 'AbortError', message: '读取已取消' };
+          if (!result || typeof result.value !== 'string') throw new Error('docx 解析未返回文本');
+          return result.value;
+        });
+      });
+    }
+
+    function finishUploadCancel(operation) {
+      if (operation && operation.cancelSettled) return;
+      if (operation) operation.cancelSettled = true;
+      if (!operation || uploadOperation === operation) uploadOperation = null;
+      uploadPendingFile = null;
+      uploadLastFileName = '';
+      resetReportFileInput();
+      setUploadState('cancel', '已取消读取；材料与草稿均未改变。');
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('已取消报告读取，材料与草稿未改变', 'info');
+      window.setTimeout(function () {
+        if (!uploadOperation && uploadState === 'cancel') setUploadState('idle', '可再次选择报告文件；材料与草稿保持不变。');
+      }, 0);
+    }
+
+    function failReportUpload(operation, error) {
+      if (!uploadActive(operation)) return;
+      uploadOperation = null;
+      uploadPendingFile = operation.file;
+      uploadLastFileName = operation.file.name;
+      var reason = uploadErrorMessage(error);
+      setUploadState('failure', reason + '；材料与草稿均未改变。');
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('报告读取失败：' + reason, 'error');
+    }
+
+    function completeReportUpload(operation, text) {
+      if (!uploadActive(operation)) return;
+      if (typeof text !== 'string' || !text.trim()) { failReportUpload(operation, new Error('报告内容为空')); return; }
+      var before = materialTA.value;
+      var next = before + (before.trim() ? '\n\n' : '') + '【上传的案例报告：' + operation.file.name + '】\n' + text;
+      try {
+        materialTA.value = next;
+        localStorage.setItem(draftKey, next);
+      } catch (error) {
+        materialTA.value = before;
+        failReportUpload(operation, new Error('草稿保存失败，未完成载入'));
+        return;
+      }
+      uploadOperation = null;
+      uploadPendingFile = null;
+      uploadLastFileName = operation.file.name;
+      resetReportFileInput();
+      setUploadState('success', '报告「' + operation.file.name + '」已写入临床材料区；尚未写入正式督导记录。', 100);
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('案例报告已载入材料区', 'success');
+      switchTab('material');
+    }
+
+    function startReportUpload(file, isRetry) {
+      if (!file || !file.name) return;
+      var previous = uploadOperation;
+      if (previous) {
+        previous.cancelled = true;
+        try { if (previous.reader && previous.reader.readyState === 1) previous.reader.abort(); } catch (ignore) {}
+      }
+      var operation = { id: ++uploadSequence, file: file, reader: null, cancelled: false, cancelSettled: false };
+      uploadOperation = operation;
+      uploadPendingFile = file;
+      uploadLastFileName = file.name;
+      setUploadState(isRetry ? 'retry' : 'uploading', isRetry ? '正在使用同一个文件重试；当前材料与草稿保持不变。' : '正在读取「' + file.name + '」；尚未写入材料或草稿。', 0);
+      setUploadState('progress', '正在读取「' + file.name + '」；尚未写入材料或草稿。', 0);
+      readReportFile(file, operation).then(function (text) {
+        completeReportUpload(operation, text);
+      }).catch(function (error) {
+        if (!uploadActive(operation)) return;
+        if (operation.cancelled || (error && (error.code === 'ABORTED' || error.name === 'AbortError'))) finishUploadCancel(operation);
+        else failReportUpload(operation, error);
+      });
+    }
+
+    window.retryReportFileUpload = function () {
+      if (uploadOperation || !uploadPendingFile) return;
+      startReportUpload(uploadPendingFile, true);
     };
+
+    window.cancelReportFileUpload = function () {
+      var operation = uploadOperation;
+      if (operation) {
+        operation.cancelled = true;
+        try { if (operation.reader && operation.reader.readyState === 1) operation.reader.abort(); } catch (ignore) {}
+        finishUploadCancel(operation);
+        return;
+      }
+      if (uploadPendingFile) finishUploadCancel(null);
+    };
+
+    window.onReportFileUpload = function (event) {
+      var target = event && event.target;
+      var file = target && target.files && target.files[0];
+      if (!file) return;
+      startReportUpload(file, false);
+    };
+
+    window.__xjSupervisionUpload = {
+      getState: function () {
+        return { state: uploadState, history: uploadStateHistory.slice(), pendingFileName: uploadPendingFile ? uploadPendingFile.name : '', lastFileName: uploadLastFileName, readerState: uploadOperation && uploadOperation.reader ? uploadOperation.reader.readyState : null };
+      },
+      resetHistory: function () { uploadStateHistory = [uploadState]; }
+    };
+
+    bindControlledPackage();
 
     // 从「撰写报告」跳转而来：选择来访者并预填案例报告
     try {

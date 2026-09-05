@@ -1,217 +1,249 @@
 /**
- * license-core.js — 心镜 XinJing 激活码核心（开发者出码 + 客户端校验共用）
- * 纯离线方案：HMAC-SHA256 签名，不依赖任何服务器。
- *
- * 码结构（base32，RFC4648，无填充）：
- *   XJ-XXXX-XXXX-...
- *   解码后明文 = identity + "\n" + sig(前32位十六进制)
- *   identity 为用户标识（邮箱/姓名），sig = HMAC-SHA256(SECRET, identity)
+ * XinJing v2 license verification.
+ * The packaged client contains public keys only and cannot issue licenses.
  */
 'use strict';
 
 const crypto = require('crypto');
-
-// 主密钥：本文件不再硬编码任何密钥。
-// 构建/运行时由 scripts/codegen-secret.js 从 .license-secret（gitignored）或环境变量 LICENSE_SECRET
-// 注入到 secret.generated.js（gitignored），再在此处读取。源码仓库与 git 历史中均不含密钥字面量。
-let SECRET = '';
-// M6 修复：增加一层轻量混淆——从 secret.generated 读取后做简单逆序+偏移还原，
-// 使密钥不以原始字面量出现在内存中过久，增加逆向成本。
-// 注意：真正的安全防线是服务端验证（云激活），本地 HMAC 仅作快速校验。
-function _revealSecret(raw) {
-  if (!raw) return '';
-  // 仅对带混淆标记前缀 'obf:' 的密钥做逆序还原，兼容明文密钥（开发态 / 环境变量）
-  if (raw.startsWith('obf:')) {
-    try {
-      var buf = Buffer.from(raw.slice(4), 'base64');
-      return buf.toString('utf8').split('').reverse().join('');
-    } catch (e) {
-      return raw.slice(4); // 降级：去掉前缀直接用
-    }
-  }
-  return raw; // 明文密钥直接返回
-}
-try { SECRET = _revealSecret(require('./secret.generated').SECRET); } catch (e) { /* 开发态可能尚未生成 */ }
-if (!SECRET) { try { SECRET = require('./.license-secret').SECRET; } catch (e) { /* 本机持有 */ } }
-if (!SECRET) { SECRET = process.env.LICENSE_SECRET || ''; }
-if (!SECRET) {
-  throw new Error('[license-core] 未找到 LICENSE_SECRET：请先运行 node scripts/codegen-secret.js，或在 .license-secret / 环境变量中提供');
-}
+const KEY_REGISTRY = require('./license-public-keys');
 
 const TRIAL_DAYS = 90;
-// AI 助手 / AI 督导 的免费试用窗口：安装后 60 天内无限制免费使用（此后需激活）。
-// 与 90 天基础试用相互独立：0~30 天 AI 免费 + 基础可用；31~90 天 AI 锁定 + 基础可用；90 天后受限。
 const AI_TRIAL_DAYS = 60;
+const PAID_TIERS = Object.freeze(['pro', 'custom']);
+const LICENSE_SCHEMA_VERSION = 2;
+const REVOCATION_SCHEMA_VERSION = 1;
+const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
-// 付费分层（Freemium）：
-//   pro    = 标准付费版（解锁 AI 助手 / 多位置备份等拓展功能）
-//   custom = 定制旗舰版（在 pro 基础上叠加定制功能，如内嵌多大师对话引擎）
-//   full   = 旧激活码（无 tier 前缀，祖父条款，权益等同 pro）
-//   free   = 未激活（基础功能免费，AI 助手锁定）
-const PAID_TIERS = ['pro', 'custom', 'full'];
+const CLAIM_FIELDS = Object.freeze([
+  'schemaVersion', 'licenseId', 'tier', 'subjectId', 'machineCodeHash',
+  'issuedAt', 'expiresAt', 'keyId', 'signature',
+]);
+const REVOCATION_FIELDS = Object.freeze([
+  'schemaVersion', 'listVersion', 'issuedAt', 'expiresAt', 'keyId',
+  'revokedLicenseIds', 'signature',
+]);
 
-// 从 identity 字符串解析 tier（'pro:xxx' / 'custom:xxx' / 'xxx'）
-function parseTier(identity) {
-  if (!identity) return 'free';
-  const idx = identity.indexOf(':');
-  if (idx === -1) return 'full'; // 旧激活码无前缀 = 完整解锁（祖父条款）
-  const t = identity.slice(0, idx).toLowerCase();
-  if (t === 'pro' || t === 'custom') return t;
-  return 'full'; // 未知前缀按旧版完整解锁处理
-}
-
-// 拆分 tier 与真实展示标识（去掉 tier 前缀）
-function splitIdentity(identity) {
-  if (!identity) return { tier: 'free', identity: '' };
-  const idx = identity.indexOf(':');
-  if (idx === -1) return { tier: 'full', identity };
-  const t = identity.slice(0, idx).toLowerCase();
-  if (t === 'pro' || t === 'custom') return { tier: t, identity: identity.slice(idx + 1) };
-  return { tier: 'full', identity };
-}
-
-// ---------- base32（手动实现，兼容 Electron 内置 Node 18） ----------
-const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-
-function base32Encode(buf) {
-  let bits = 0, value = 0, out = '';
-  for (let i = 0; i < buf.length; i++) {
-    value = ((value << 8) | buf[i]) & 0xffffffff;
-    bits += 8;
-    while (bits >= 5) {
-      out += B32[(value >>> (bits - 5)) & 31];
-      bits -= 5;
-    }
-    value &= (1 << bits) - 1; // 仅保留剩余低位，防止溢出
+function stableJson(value) {
+  if (Array.isArray(value)) return '[' + value.map(stableJson).join(',') + ']';
+  if (value && typeof value === 'object') {
+    return '{' + Object.keys(value).sort().map((key) => JSON.stringify(key) + ':' + stableJson(value[key])).join(',') + '}';
   }
-  if (bits > 0) {
-    out += B32[(value << (5 - bits)) & 31];
-  }
-  return out;
+  return JSON.stringify(value);
 }
 
-function base32Decode(str) {
-  let bits = 0, value = 0;
-  const out = [];
-  for (let i = 0; i < str.length; i++) {
-    const idx = B32.indexOf(str[i]);
-    if (idx === -1) continue;
-    value = ((value << 5) | idx) & 0xffffffff;
-    bits += 5;
-    if (bits >= 8) {
-      out.push((value >>> (bits - 8)) & 0xff);
-      bits -= 8;
-    }
-    value &= (1 << bits) - 1; // 仅保留剩余低位，防止溢出
-  }
-  return Buffer.from(out);
+function base64urlDecode(value) {
+  const text = String(value || '');
+  if (!/^[A-Za-z0-9_-]+$/.test(text)) throw new Error('invalid base64url');
+  const normalized = text.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = normalized.length % 4 ? '='.repeat(4 - (normalized.length % 4)) : '';
+  return Buffer.from(normalized + padding, 'base64');
 }
 
-// ---------- 内部工具 ----------
-function hmacHex(identity) {
-  return crypto.createHmac('sha256', SECRET).update(String(identity)).digest('hex');
+function machineCodeHash(machineCode) {
+  const normalized = String(machineCode || '').trim();
+  if (!normalized) return '';
+  return 'sha256:' + crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
-function cleanKeyInput(key) {
-  let s = String(key || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
-  if (s.startsWith('XJ')) s = s.slice(2); // 去掉前缀，X/J 本身是合法 base32 字符
-  return s;
+function exactIso(value) {
+  if (typeof value !== 'string') return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime()) || date.toISOString() !== value) return null;
+  return date;
 }
 
-// ---------- 对外 API ----------
-// encodeKey(identity, tier, machineCode, expiresAt)
-//   machineCode 为空 → 旧格式（仅 identity，向后兼容，视为终身）
-//   machineCode 非空 → 绑定机器码：sig = HMAC(id + "|" + mc + "|" + expiresAt)
-//   expiresAt: 毫秒时间戳；0 或省略 = 终身
-function encodeKey(identity, tier, machineCode, expiresAt) {
-  let id = String(identity || '').trim().slice(0, 64);
-  if (!id) throw new Error('身份标识不能为空');
-  const t = (tier || '').toLowerCase();
-  if (t === 'pro' || t === 'custom') id = t + ':' + id; // 把 tier 编码进 identity 前缀
-  const mc = machineCode ? String(machineCode).trim() : '';
-  const exp = (typeof expiresAt === 'number' && expiresAt > 0) ? expiresAt : 0; // 0 = 终身
-  if (!mc) {
-    // 旧格式（无机器码绑定），终身，保持向后兼容
-    const sig = hmacHex(id).slice(0, 32);
-    const raw = Buffer.from(id + '\n' + sig, 'utf8');
-    const grouped = base32Encode(raw).match(/.{1,4}/g).join('-');
-    return 'XJ-' + grouped;
-  }
-  // 机器码绑定格式（含有效期）：id \n mc \n expiresAt \n sig
-  const sig = hmacHex(id + '|' + mc + '|' + String(exp)).slice(0, 32);
-  const raw = Buffer.from(id + '\n' + mc + '\n' + String(exp) + '\n' + sig, 'utf8');
-  const grouped = base32Encode(raw).match(/.{1,4}/g).join('-');
-  return 'XJ-' + grouped;
+function hasExactFields(object, fields) {
+  if (!object || typeof object !== 'object' || Array.isArray(object)) return false;
+  const actual = Object.keys(object).sort();
+  const expected = fields.slice().sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
 }
 
-// verifyKey(key, machineCode)
-//   机器码绑定校验：码内机器码为空 → 不校验；非空 → 必须与当前机器码一致
-//   有效期：码内含 expiresAt（毫秒时间戳，0=终身）；expired 由当前时间判定
-//   返回 { valid, identity, tier, machineCode(码内), machineMatch, expiresAt, expired }
-function verifyKey(key, machineCode) {
-  const empty = { valid: false, identity: '', tier: 'free', machineCode: '', machineMatch: true, expiresAt: 0, expired: false };
+function publicKeyFor(registry, keyId) {
+  const pem = registry && Object.prototype.hasOwnProperty.call(registry, keyId) ? registry[keyId] : '';
+  if (typeof pem !== 'string' || !pem.includes('BEGIN PUBLIC KEY')) return null;
+  try { return crypto.createPublicKey(pem); } catch (error) { return null; }
+}
+
+function verifySignature(payload, signature, publicKey) {
   try {
-    const clean = cleanKeyInput(key);
-    if (!clean) return empty;
-    const text = base32Decode(clean).toString('utf8');
-    const parts = text.split('\n');
-    const rawIdentity = parts[0];
-    if (!rawIdentity) return empty;
-    const embeddedMc = parts.length >= 3 ? parts[1] : '';
-    let sig, expiresAt = 0;
-    if (parts.length >= 4) {
-      // 新格式：id \n mc \n expiresAt \n sig
-      expiresAt = parseInt(parts[2], 10) || 0;
-      sig = parts[3];
-    } else if (parts.length === 3) {
-      // 旧机器码格式（无有效期，视为终身）：id \n mc \n sig
-      sig = parts[2];
-    } else {
-      // 旧无机器码格式（视为终身）：id \n sig
-      sig = parts[1];
-    }
-    if (!sig) return empty;
-    const validSig = parts.length >= 4
-      ? sig === hmacHex(rawIdentity + '|' + embeddedMc + '|' + String(expiresAt)).slice(0, 32)
-      : (parts.length === 3
-        ? sig === hmacHex(rawIdentity + '|' + embeddedMc).slice(0, 32)
-        : sig === hmacHex(rawIdentity).slice(0, 32));
-    const currentMc = machineCode ? String(machineCode).trim() : '';
-    const machineMatch = (embeddedMc === '' || embeddedMc === currentMc);
-    const expired = (expiresAt !== 0 && Date.now() > expiresAt);
-    const valid = validSig && machineMatch;
-    const sp = splitIdentity(rawIdentity);
-    return {
-      valid,
-      identity: sp.identity,
-      tier: validSig ? sp.tier : 'free',
-      machineCode: embeddedMc,
-      machineMatch,
-      expiresAt,
-      expired,
-    };
-  } catch (e) {
-    return empty;
+    const bytes = base64urlDecode(signature);
+    if (bytes.length !== 64) return false;
+    return crypto.verify(null, Buffer.from(stableJson(payload), 'utf8'), publicKey, bytes);
+  } catch (error) {
+    return false;
   }
+}
+
+function decodeActivationCode(input) {
+  if (input && typeof input === 'object' && !Array.isArray(input)) return { ok: true, claim: input };
+  const text = String(input || '').trim();
+  if (!text) return { ok: false, errorCode: 'empty' };
+  if (!text.startsWith('XJ2-')) {
+    return { ok: false, errorCode: 'legacy-license', migrationRequired: /^XJ-/i.test(text) };
+  }
+  try {
+    const compact = text.slice(4).replace(/\s/g, '');
+    if (!compact || compact.length > 16384) return { ok: false, errorCode: 'malformed' };
+    const claim = JSON.parse(base64urlDecode(compact).toString('utf8'));
+    return { ok: true, claim };
+  } catch (error) {
+    return { ok: false, errorCode: 'malformed' };
+  }
+}
+
+function normalizeClaim(raw) {
+  if (!hasExactFields(raw, CLAIM_FIELDS)) return { ok: false, errorCode: 'malformed' };
+  if (raw.schemaVersion !== LICENSE_SCHEMA_VERSION) return { ok: false, errorCode: 'unsupported-schema' };
+  if (!/^lic_[A-Za-z0-9_-]{8,80}$/.test(raw.licenseId)) return { ok: false, errorCode: 'malformed' };
+  if (!PAID_TIERS.includes(raw.tier)) return { ok: false, errorCode: 'invalid-tier' };
+  if (!/^sub_[A-Za-z0-9_-]{6,120}$/.test(raw.subjectId)) return { ok: false, errorCode: 'malformed' };
+  if (!/^sha256:[a-f0-9]{64}$/.test(raw.machineCodeHash)) return { ok: false, errorCode: 'malformed' };
+  if (!/^[A-Za-z0-9._-]{3,80}$/.test(raw.keyId)) return { ok: false, errorCode: 'unknown-key' };
+  if (!/^[A-Za-z0-9_-]{80,100}$/.test(raw.signature)) return { ok: false, errorCode: 'invalid-signature' };
+  const issuedAt = exactIso(raw.issuedAt);
+  const expiresAt = exactIso(raw.expiresAt);
+  if (!issuedAt || !expiresAt || expiresAt <= issuedAt) return { ok: false, errorCode: 'invalid-time' };
+  return { ok: true, claim: Object.assign({}, raw), issuedAt, expiresAt };
+}
+
+function licensePayload(claim) {
+  return {
+    schemaVersion: claim.schemaVersion,
+    licenseId: claim.licenseId,
+    tier: claim.tier,
+    subjectId: claim.subjectId,
+    machineCodeHash: claim.machineCodeHash,
+    issuedAt: claim.issuedAt,
+    expiresAt: claim.expiresAt,
+    keyId: claim.keyId,
+  };
+}
+
+function revocationPayload(list) {
+  return {
+    schemaVersion: list.schemaVersion,
+    listVersion: list.listVersion,
+    issuedAt: list.issuedAt,
+    expiresAt: list.expiresAt,
+    keyId: list.keyId,
+    revokedLicenseIds: list.revokedLicenseIds,
+  };
+}
+
+function verifyRevocationList(input, options) {
+  options = options || {};
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const registry = options.publicKeys || KEY_REGISTRY.revocation;
+  if (!hasExactFields(input, REVOCATION_FIELDS)) return { valid: false, errorCode: 'revocation-malformed' };
+  if (input.schemaVersion !== REVOCATION_SCHEMA_VERSION) return { valid: false, errorCode: 'revocation-schema' };
+  if (!Number.isInteger(input.listVersion) || input.listVersion < 1) return { valid: false, errorCode: 'revocation-version' };
+  const issuedAt = exactIso(input.issuedAt);
+  const expiresAt = exactIso(input.expiresAt);
+  if (!issuedAt || !expiresAt || expiresAt <= issuedAt) return { valid: false, errorCode: 'revocation-time' };
+  if (issuedAt.getTime() > now + CLOCK_SKEW_MS) return { valid: false, errorCode: 'revocation-not-yet-valid' };
+  if (expiresAt.getTime() < now) return { valid: false, errorCode: 'revocation-expired' };
+  const minimumVersion = Number(options.minimumVersion || 0);
+  if (input.listVersion < minimumVersion) return { valid: false, errorCode: 'revocation-rollback' };
+  if (!Array.isArray(input.revokedLicenseIds)) return { valid: false, errorCode: 'revocation-malformed' };
+  const revoked = input.revokedLicenseIds.map(String);
+  if (revoked.some((id) => !/^lic_[A-Za-z0-9_-]{8,80}$/.test(id))) return { valid: false, errorCode: 'revocation-malformed' };
+  if (new Set(revoked).size !== revoked.length || revoked.some((id, index) => index > 0 && revoked[index - 1] > id)) {
+    return { valid: false, errorCode: 'revocation-order' };
+  }
+  const publicKey = publicKeyFor(registry, input.keyId);
+  if (!publicKey) return { valid: false, errorCode: 'revocation-unknown-key' };
+  if (!verifySignature(revocationPayload(input), input.signature, publicKey)) return { valid: false, errorCode: 'revocation-signature' };
+  return { valid: true, list: Object.assign({}, input), listVersion: input.listVersion, revokedLicenseIds: revoked };
+}
+
+function invalidResult(errorCode, extra) {
+  return Object.assign({
+    valid: false,
+    errorCode,
+    identity: '',
+    subjectId: '',
+    tier: 'free',
+    licenseId: '',
+    machineCodeHash: '',
+    machineMatch: true,
+    issuedAt: '',
+    expiresAt: 0,
+    expired: errorCode === 'expired',
+    migrationRequired: errorCode === 'legacy-license' || errorCode === 'legacy-record',
+  }, extra || {});
+}
+
+function verifyKey(input, machineCode, options) {
+  options = options || {};
+  const decoded = decodeActivationCode(input);
+  if (!decoded.ok) return invalidResult(decoded.errorCode, { migrationRequired: !!decoded.migrationRequired });
+  const normalized = normalizeClaim(decoded.claim);
+  if (!normalized.ok) return invalidResult(normalized.errorCode);
+  const claim = normalized.claim;
+  const registry = options.publicKeys || KEY_REGISTRY.license;
+  const publicKey = publicKeyFor(registry, claim.keyId);
+  if (!publicKey) return invalidResult('unknown-key', { licenseId: claim.licenseId, keyId: claim.keyId });
+  if (!verifySignature(licensePayload(claim), claim.signature, publicKey)) {
+    return invalidResult('invalid-signature', { licenseId: claim.licenseId, keyId: claim.keyId });
+  }
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  if (normalized.issuedAt.getTime() > now + CLOCK_SKEW_MS) return invalidResult('not-yet-valid', { licenseId: claim.licenseId });
+  if (normalized.expiresAt.getTime() < now) return invalidResult('expired', { licenseId: claim.licenseId, expiresAt: normalized.expiresAt.getTime() });
+  const expectedMachineHash = machineCodeHash(machineCode);
+  const machineMatch = !!expectedMachineHash && crypto.timingSafeEqual(Buffer.from(claim.machineCodeHash), Buffer.from(expectedMachineHash));
+  if (!machineMatch) return invalidResult('machine-mismatch', { licenseId: claim.licenseId, machineCodeHash: claim.machineCodeHash, machineMatch: false });
+
+  if (options.requireRevocation !== false) {
+    const revocation = verifyRevocationList(options.revocationList, {
+      now,
+      minimumVersion: options.minimumRevocationVersion,
+      publicKeys: options.revocationPublicKeys,
+    });
+    if (!revocation.valid) return invalidResult(revocation.errorCode, { licenseId: claim.licenseId });
+    if (revocation.revokedLicenseIds.includes(claim.licenseId)) return invalidResult('revoked', { licenseId: claim.licenseId });
+  }
+
+  return {
+    valid: true,
+    errorCode: '',
+    claim,
+    identity: claim.subjectId,
+    subjectId: claim.subjectId,
+    tier: claim.tier,
+    licenseId: claim.licenseId,
+    machineCodeHash: claim.machineCodeHash,
+    machineMatch: true,
+    issuedAt: claim.issuedAt,
+    expiresAt: normalized.expiresAt.getTime(),
+    expired: false,
+    migrationRequired: false,
+    keyId: claim.keyId,
+  };
+}
+
+function verifyStoredRecord(record, machineCode, options) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) {
+    return invalidResult('missing-record');
+  }
+  if (record.schemaVersion !== LICENSE_SCHEMA_VERSION || !record.claim || typeof record.claim !== 'object' || Array.isArray(record.claim)) {
+    return invalidResult('legacy-record', { migrationRequired: true });
+  }
+  return verifyKey(record.claim, machineCode, options);
 }
 
 function trialStatus(firstLaunchTs, nowTs) {
   const now = nowTs || Date.now();
   const daysPassed = Math.floor((now - firstLaunchTs) / 86400000);
   const daysLeft = TRIAL_DAYS - daysPassed;
-  return daysLeft > 0
-    ? { state: 'active', daysLeft }
-    : { state: 'expired', daysLeft: 0 };
+  return daysLeft > 0 ? { state: 'active', daysLeft } : { state: 'expired', daysLeft: 0 };
 }
 
-// AI 免费试用状态：基于「真正的首次安装时间」（跨重装稳定，见 main.js resolveFirstInstall）
 function aiTrialStatus(firstInstallTs, nowTs) {
   const now = nowTs || Date.now();
   const daysPassed = Math.floor((now - firstInstallTs) / 86400000);
   const daysLeft = AI_TRIAL_DAYS - daysPassed;
-  return daysLeft > 0
-    ? { active: true, daysLeft }
-    : { active: false, daysLeft: 0 };
+  return daysLeft > 0 ? { active: true, daysLeft } : { active: false, daysLeft: 0 };
 }
 
 function overallMode(activated, trial) {
@@ -220,15 +252,18 @@ function overallMode(activated, trial) {
 }
 
 module.exports = {
-  SECRET,
   TRIAL_DAYS,
   AI_TRIAL_DAYS,
   PAID_TIERS,
-  encodeKey,
+  LICENSE_SCHEMA_VERSION,
+  REVOCATION_SCHEMA_VERSION,
+  decodeActivationCode,
+  machineCodeHash,
+  stableJson,
   verifyKey,
+  verifyStoredRecord,
+  verifyRevocationList,
   trialStatus,
   aiTrialStatus,
   overallMode,
-  parseTier,
-  splitIdentity
 };

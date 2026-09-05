@@ -7,21 +7,23 @@
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/components.css">
 <style>
-:root{--accent:#8b93c7;--accent-hover:#7a85bb;--ink:#2d2d3a;--ink-2:#5a5a6e;--ink-3:#8a8a9e;--border:#e2e2ec;--paper:#f8f8fc;--paper-2:#ffffff;--bg:#f0f0f8}
+/* v5.0.0 workbench 语言：颜色全部来自共享 token（workbench.css / xj-ui-system.css），不再自带 4.2 时代配色 */
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;display:flex;flex-direction:column}
 
 .chat-container{flex:1;display:flex;flex-direction:column;max-width:900px;margin:0 auto;width:100%;padding:0 24px}
 
 .chat-header{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border);flex-shrink:0}
 .chat-header .logo{display:flex;align-items:center;gap:10px}
-.chat-header .logo-icon{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#9b8bc7);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700}
+.chat-header .logo-icon{width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:16px;font-weight:700}
 .chat-header .logo-title{font-size:18px;font-weight:600;color:var(--ink)}
 .chat-header .logo-sub{font-size:12px;color:var(--ink-3);margin-top:1px}
 .chat-header .actions{display:flex;align-items:center;gap:8px}
-.chat-header .btn{padding:6px 14px;border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer;background:var(--paper-2);color:var(--ink-2);transition:all .2s}
+.chat-membership-status{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--paper);color:var(--ink-3);font-size:11px;white-space:nowrap}
+.chat-membership-status.pro,.chat-membership-status.custom{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.chat-header .btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;background:var(--paper-2);color:var(--ink-2);transition:color .18s ease,background-color .18s ease,border-color .18s ease}
 .chat-header .btn:hover{border-color:var(--accent);color:var(--accent)}
-.chat-header .btn.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
-.chat-header .btn.pri:hover{background:var(--accent-hover)}
+.chat-header .btn.pri{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}
+.chat-header .btn.pri:hover{background:var(--cta-bg-hover,var(--accent-hover))}
 
 .chat-msgs{flex:1;overflow-y:auto;padding:20px 0;display:flex;flex-direction:column;gap:20px}
 .chat-msgs::-webkit-scrollbar{width:6px}
@@ -32,11 +34,15 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
 .chat-msg{display:flex;gap:12px}
 .chat-msg.user{flex-direction:row-reverse}
 .chat-msg .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.chat-msg.assistant .avatar{background:linear-gradient(135deg,var(--accent),#9b8bc7);color:#fff}
+.chat-msg.assistant .avatar{background:var(--accent-soft);color:var(--accent)}
 .chat-msg.user .avatar{background:var(--border);color:var(--ink-2)}
-.chat-msg .bubble{max-width:70%;padding:12px 16px;border-radius:18px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
-.chat-msg.assistant .bubble{background:var(--paper-2);border:1px solid var(--border);border-radius:18px 18px 18px 4px}
-.chat-msg.user .bubble{background:var(--accent);color:#fff;border-radius:18px 18px 4px 18px}
+.chat-msg .bubble{max-width:70%;padding:12px 16px;border-radius:8px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.chat-msg.assistant .bubble{background:var(--paper-2);border:1px solid var(--border);border-radius:8px 8px 8px 3px}
+.chat-msg.user .bubble{background:var(--accent);color:#fff;border-radius:8px 8px 3px 8px}
+.commercial-meta{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;line-height:1.4;color:var(--ink-3)}
+.commercial-meta-item{white-space:nowrap}
+.commercial-meta-item.commercial-status{color:var(--ink-2);font-weight:600}
+.commercial-meta-item.commercial-amount{color:var(--accent);font-weight:600}
 
 .chat-msg.system{justify-content:center}
 .chat-msg.system .bubble{background:var(--paper);border:none;color:var(--ink-3);font-size:12px;padding:6px 12px;border-radius:6px}
@@ -50,31 +56,53 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
 
 .chat-input-row{padding:16px 0;border-top:1px solid var(--border);flex-shrink:0;display:flex;gap:12px;align-items:flex-end}
 .chat-input-area{flex:1;position:relative}
-.chat-input{width:100%;min-height:44px;max-height:160px;padding:12px 52px 12px 16px;border:1px solid var(--border);border-radius:16px;font-size:14px;line-height:1.6;font-family:inherit;background:var(--paper-2);color:var(--ink);resize:none;transition:all .2s}
-.chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(139,147,199,.1)}
+.chat-input{width:100%;min-height:44px;max-height:160px;padding:12px 52px 12px 16px;border:1px solid var(--border);border-radius:8px;font-size:14px;line-height:1.6;font-family:inherit;background:var(--paper-2);color:var(--ink);resize:none;transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
+.chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .chat-input::placeholder{color:var(--ink-3)}
-.chat-input-row .voice-btn{position:absolute;right:12px;bottom:12px;width:28px;height:28px;border-radius:50%;border:none;background:transparent;cursor:pointer;color:var(--ink-3);font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.chat-input-row .voice-btn{position:absolute;right:12px;bottom:12px;width:28px;height:28px;border-radius:50%;border:none;background:transparent;cursor:pointer;color:var(--ink-3);font-size:16px;display:flex;align-items:center;justify-content:center;transition:color .18s ease,background-color .18s ease,opacity .18s ease}
 .chat-input-row .voice-btn:hover{color:var(--accent)}
-.chat-input-row .voice-btn.recording{color:#ff6b6b;animation:pulse 1.5s infinite}
+.chat-input-row .voice-btn.recording{color:var(--danger,#b54747)}
 
-.chat-send{width:44px;height:44px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
-.chat-send:hover{background:var(--accent-hover)}
+.chat-send{width:44px;height:44px;border:none;border-radius:6px;background:var(--cta-bg,var(--accent));color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
+.chat-send:hover{background:var(--cta-bg-hover,var(--accent-hover))}
 .chat-send:disabled{opacity:.5;cursor:not-allowed}
 
-.welcome-card{background:var(--paper-2);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px}
+.welcome-card{background:var(--paper-2);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:20px}
 .welcome-card .title{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:12px}
 .welcome-card .desc{font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:16px}
 .welcome-card .quick-actions{display:flex;flex-wrap:wrap;gap:8px}
-.welcome-card .quick-btn{padding:8px 14px;border:1px solid var(--border);border-radius:999px;font-size:12px;color:var(--ink-2);cursor:pointer;background:transparent;transition:all .2s}
-.welcome-card .quick-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(139,147,199,.05)}
+.welcome-card .quick-btn{padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--ink-2);cursor:pointer;background:transparent;transition:border-color .16s,color .16s,background .16s}
+.welcome-card .quick-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 
-.tier-banner{padding:8px 16px;border-radius:8px;font-size:12px;margin-bottom:16px;text-align:center}
-.tier-banner.free{background:#fff8e7;color:#b8860b}
-.tier-banner.pro{background:#e7f3ff;color:#1e88e5}
-.tier-banner.custom{background:#f3e7ff;color:#7b1fa2}
+
+/* AI 输出草稿边界（run id + 来源快照 + 取消 + 人工确认） */
+.chat-msg.assistant .bubble .chat-draft-meta{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;font-size:11px;line-height:1.5;color:var(--ink-3)}
+.chat-draft-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chat-draft-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.chat-draft-badge.confirmed{background:var(--green-soft,var(--accent-soft));color:var(--green,var(--accent))}
+.chat-draft-run{color:var(--ink-3)}
+.chat-draft-source{display:flex;align-items:flex-start;gap:5px;color:var(--ink-2)}
+.chat-draft-source i{width:13px;height:13px;flex-shrink:0;margin-top:1px}
+.chat-draft-actions{display:flex;gap:8px;margin-top:2px}
+.chat-draft-btn{padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:var(--paper);color:var(--ink-2);font:600 11px var(--sans,inherit);cursor:pointer}
+.chat-draft-btn.confirm{border-color:var(--accent);background:var(--accent);color:#fff}
+.chat-draft-btn.cancel{border-color:var(--danger,var(--red,#b54747));color:var(--danger,var(--red,#b54747))}
+.chat-draft-btn:disabled{opacity:.5;cursor:not-allowed}
+@media (prefers-reduced-motion:reduce){.chat-draft-btn{transition:none}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
+  <link rel="stylesheet" href="css/clinical-workspaces.css">
 </head>
-<body>
+<body data-xj-pattern="conversation">
+  <div class="chat-structure-shell" data-xj-structure="conversation">
+    <aside class="chat-history-panel" aria-label="对话历史">
+      <div class="chat-history-brand"><img src="vendor/xinjing-mark.png" alt="心镜"><strong>小镜</strong><span class="xj-status-chip">本机</span></div>
+      <label class="chat-history-search"><i data-lucide="search"></i><input id="chat-history-search" type="search" placeholder="搜索对话与来访者" aria-label="搜索对话与来访者"></label>
+      <div class="chat-history-list" id="chat-history-list"><div class="xj-workspace-loading"><p>正在读取本机上下文…</p></div></div>
+      <div class="chat-local-boundary"><i data-lucide="hard-drive"></i><span><strong>本机优先</strong><small>当前内容未发送到云端</small></span></div>
+    </aside>
+    <main class="chat-workspace-main">
   <div class="chat-container">
     <div class="chat-header">
       <div class="logo">
@@ -92,16 +120,27 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
 
     <div class="chat-msgs" id="chat-msgs"></div>
 
+    <!-- XJ-5.1.0-005：Pi Workbench 主界面（任务轨迹/计划工具轨迹/approval 卡/暂停继续取消/材料入口/会员门禁/空错加载态） -->
+    <section class="pi-workbench" id="pi-workbench-root" aria-label="Pi 工作台"></section>
+
     <div class="chat-input-row">
       <div class="chat-input-area">
         <textarea class="chat-input" id="chat-input" placeholder="问小镜工作概况，或描述你准备处理的事项..." rows="1"></textarea>
         <button class="voice-btn" id="voice-btn" aria-label="语音输入" onclick="toggleVoice()"><i data-lucide="mic"></i></button>
       </div>
-      <button class="chat-send" id="chat-send" aria-label="发送" onclick="sendMsg()"><i data-lucide="arrow-up"></i></button>
+      <button class="chat-send" id="chat-send" aria-label="发送" title="发送"><i data-lucide="arrow-up"></i></button>
     </div>
   </div>
+    </main>
+    <aside class="chat-context-panel" aria-label="当前临床上下文">
+      <div class="xj-panel-heading"><div><small>本轮材料</small><h2>临床上下文</h2></div><span class="xj-status-chip" id="chat-context-status">只读</span></div>
+      <section class="chat-context-section"><h3>当前上下文</h3><div class="xj-context-strip" id="chat-context-strip"></div></section>
+      <section class="chat-context-section"><h3>已确认来源</h3><div id="chat-source-list"><div class="xj-workspace-empty"><p>选择来访者后显示已验证材料。</p></div></div></section>
+      <section class="chat-context-section"><h3>临床边界</h3><p class="chat-context-copy">小镜输出仅作草稿，不会自动写入正式记录。保存前请确认来访者、会谈和来源。</p></section>
+    </aside>
+  </div>
 
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/source-ref.js"></script><script src="js/case-space-view-model.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/clinical-workspace-ui.js"></script><script src="js/app.js"></script>
 <script src="js/chat-home.js"></script>
 </body>
 </html>

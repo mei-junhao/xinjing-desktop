@@ -18,7 +18,7 @@
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  background: var(--accent, #8B93C7);
+  background: var(--accent, #147d70);
   color: #fff;
   font-size: 22px;
   line-height: 1;
@@ -29,7 +29,6 @@
   transition: transform .15s, box-shadow .15s;
 }
 .xj-agent-start-btn:hover {
-  transform: translateY(-1px);
   box-shadow: 0 6px 18px var(--shadow-lg, rgba(0,0,0,.22));
 }
 
@@ -97,7 +96,7 @@
 
 .xj-agent-header {
   padding: 12px 16px;
-  background: var(--accent, #8B93C7);
+  background: var(--accent, #147d70);
   color: #fff;
   display: flex;
   align-items: center;
@@ -106,7 +105,7 @@
 .xj-agent-title {
   font-size: 14px;
   font-weight: 600;
-  font-family: var(--serif, Georgia, serif);
+  font-family: var(--sans, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   letter-spacing: .5px;
 }
 .xj-agent-toggle {
@@ -167,7 +166,7 @@
 }
 .xj-agent-user {
   align-self: flex-end;
-  background: var(--accent, #8B93C7);
+  background: var(--accent, #147d70);
   color: #fff;
 }
 .xj-agent-ai {
@@ -219,7 +218,7 @@
 .xj-agent-confirm-card {
   align-self: stretch;
   background: var(--card, #fff);
-  border: 1px solid var(--accent, #8B93C7);
+  border: 1px solid var(--accent, #147d70);
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: 0 4px 14px var(--shadow, rgba(0,0,0,.1));
@@ -227,7 +226,7 @@
 .xj-agent-confirm-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--accent, #8B93C7);
+  color: var(--accent, #147d70);
   margin-bottom: 6px;
 }
 .xj-agent-confirm-tool {
@@ -273,7 +272,7 @@
   font-family: var(--sans, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif);
   outline: none;
 }
-.xj-agent-input:focus { border-color: var(--accent, #8B93C7); }
+.xj-agent-input:focus { border-color: var(--accent, #147d70); }
 
 /* 锁定横幅 */
 .xj-agent-lock {
@@ -283,7 +282,7 @@
 .xj-agent-lock-inner {
   font-size: 13px;
   color: var(--clay, #9c5a3c);
-  background: var(--accent-soft, rgba(139,147,199,.12));
+  background: var(--accent-soft, rgba(20,125,112,.12));
   border-radius: 10px;
   padding: 12px 14px;
   line-height: 1.6;
@@ -305,4 +304,20 @@
 .dark .xj-agent-tier.tier-user {
   color: #9fd0b0;
   background: rgba(110,126,98,.22);
+}
+
+/* v5.0.2 无障碍与动效契约：focus-visible + reduced-motion（typing 指示只在真实加载时保留） */
+.xj-agent-start-btn:focus-visible,
+.xj-agent-toggle:focus-visible,
+.xj-agent-input:focus-visible,
+.xj-agent-panel button:focus-visible,
+.xj-agent-panel a:focus-visible {
+  outline: 2px solid var(--accent, #147d70);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .xj-typing-dot { animation: none; opacity: .5; }
+  .xj-agent-start-btn, .xj-agent-panel, .xj-agent-toggle {
+    transition-duration: .01ms !important;
+  }
 }

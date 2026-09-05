@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    心镜 XinJing · 设计令牌层（tokens.css）
    - 语义层：间距/圆角/字体/动效/层级——皮肤无关
    - 颜色层：按皮肤(skin)组织
@@ -21,6 +21,26 @@
   --gap-lg: 24px;
 
   --ease: cubic-bezier(.22, 1, .36, 1);
+
+  /* v5.0.2 motion contract (160-240ms toast/panel; hover/skin ~180ms) */
+  --motion-hover: 180ms;
+  --motion-skin: 180ms;
+  --motion-toast: 180ms;
+  --motion-panel: 200ms;
+
+  /* v5.0.2 spacing scale (4/8/12/16/24/32/48) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* v5.0.2 control heights (36/40/44) */
+  --ctl-sm: 36px;
+  --ctl-md: 40px;
+  --ctl-lg: 44px;
 
   --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
   --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
@@ -491,69 +511,49 @@
   animation: none;
 }
 
-/* ---------- 会员版 Pro：标准暖色治愈 ---------- */
+/* ---------- 会员版 Pro：金色档位标识（v5.0.0 workbench 语言：平面、无装饰渐变） ---------- */
 [data-tier="pro"] .brand .mark,
 [data-tier="full"] .brand .mark {
-  background: linear-gradient(135deg, #f8d36b 0%, #e3a52f 100%);
+  background: #e3a52f;
   color: #5b3b00;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.5), 0 4px 14px rgba(227,165,47,.5);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.35), 0 2px 8px rgba(227,165,47,.28);
 }
 
-/* ---------- 旗舰版 Custom：精致暖调 ---------- */
+/* ---------- 旗舰版 Custom：青金档位标识（v5.0.0 workbench 语言：平面、无动画） ---------- */
 [data-tier="custom"] .brand .mark {
-  background: linear-gradient(135deg, #2F8F83 0%, #E08D5B 50%, #C89060 100%);
+  background: #2F8F83;
   color: #fff;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.45), 0 4px 16px rgba(180,130,100,.4);
-  background-size: 200% 200%;
-  animation: tierGradient 6s ease infinite;
-}
-@keyframes tierGradient {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.3), 0 2px 8px rgba(47,143,131,.28);
 }
 [data-tier="custom"] .topbar {
-  background: var(--bg-glass);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom-color: rgba(236,229,217,.6);
+  background: var(--bg-elevated);
+  border-bottom-color: var(--border);
 }
 [data-tier="custom"] .sidebar {
-  box-shadow: 2px 0 20px rgba(46,42,38,.06);
-}
-[data-tier="custom"] .sidebar::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 80px;
-  background: linear-gradient(to top, var(--accent-soft), transparent);
-  pointer-events: none;
-  opacity: .5;
+  box-shadow: none;
 }
 [data-tier="custom"] .stat-card:hover {
-  box-shadow: 0 0 0 6px var(--shell), 0 0 0 7px var(--hair-strong),
-              0 18px 40px var(--scrim),
-              0 0 30px rgba(47,143,131,.08);
+  box-shadow: var(--shadow);
 }
 [data-tier="custom"] .nav-item.active::before {
-  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  background: var(--accent);
 }
 [data-tier="custom"] .actions button.primary,
 [data-tier="custom"] .quick button.primary,
 [data-tier="custom"] .ai-actions button.primary,
 [data-tier="custom"] .dock-actions button.primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 2px 8px rgba(47,143,131,.2);
+  background: var(--cta-bg, var(--accent));
+  box-shadow: var(--shadow-sm);
 }
 [data-tier="custom"] .actions button.primary:hover,
 [data-tier="custom"] .quick button.primary:hover,
 [data-tier="custom"] .ai-actions button.primary:hover,
 [data-tier="custom"] .dock-actions button.primary:hover {
-  box-shadow: 0 4px 16px rgba(47,143,131,.3);
-  transform: translateY(-1px);
+  background: var(--cta-bg-hover, var(--accent-hover));
+  box-shadow: var(--shadow);
 }
 [data-tier="custom"] .editor blockquote {
-  border-left: 3px solid;
-  border-image: linear-gradient(180deg, var(--accent), var(--accent-2)) 1;
+  border-left: 3px solid var(--accent);
 }
 /* ============================================================
    心镜 XinJing · 会员与门控视觉系统
@@ -574,31 +574,25 @@
   border: 1px solid rgba(155, 133, 199, 0.25);
 }
 .xj-tier-badge.trial {
-  background: var(--accent-soft, rgba(139, 147, 199, 0.1)); color: var(--accent, #8B93C7);
-  border: 1px solid rgba(139, 147, 199, 0.2);
+  background: var(--accent-soft, rgba(20, 125, 112, 0.1)); color: var(--accent, #147d70);
+  border: 1px solid color-mix(in srgb, var(--accent, #147d70) 22%, transparent);
 }
 .xj-lock-badge {
   background: rgba(0, 0, 0, 0.04); color: var(--ink-3, #99A1B3);
   border: 1px solid var(--border, rgba(0, 0, 0, 0.08)); cursor: help;
 }
 .xj-lock-badge:hover { color: var(--accent); }
-.xj-premium-btn { position: relative; }
-.xj-premium-btn::after {
-  content: '🔒'; font-size: 9px; position: absolute;
-  top: 2px; right: 4px; opacity: .6;
-}
+/* P0 REPAIR 02: 移除 emoji 伪元素，改用独立 flex 元素 + Lucide/SVG 锁图标 */
+.xj-premium-btn { position: relative; display: inline-flex; align-items: center; gap: 4px; }
 .xj-locked-area { position: relative; }
 .xj-locked-area > .xj-lock-overlay {
   position: absolute; inset: 0; z-index: 10;
   background: rgba(246, 248, 252, 0.78);
-  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
-  display: flex; align-items: center; justify-content: center;
+  /* Golden foundation: locked surfaces stay opaque; no glass blur. */
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   border-radius: var(--r-card, 14px);
   font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--ink-3, #646B7D);
   pointer-events: auto;
-}
-.xj-locked-area > .xj-lock-overlay::before {
-  content: "🔒"; margin-right: 6px; font-size: 14px; opacity: 0.7;
 }
 :root.dark .xj-locked-area > .xj-lock-overlay,
 [data-skin="editorial"].dark .xj-locked-area > .xj-lock-overlay {

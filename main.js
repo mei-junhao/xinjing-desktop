@@ -8,18 +8,30 @@ const {
   nativeImage,
   dialog,
   ipcMain,
+  net: electronNet,
   shell,
-  safeStorage,
-  autoUpdater: electronAutoUpdater
+  safeStorage
 } = require('electron');
-const { autoUpdater } = require('electron-updater');
+// 2026-08-03 修复：本机 Chromium GPU 进程无法初始化（GPU process FATAL "isn't usable"）
+// → 主进程启动即退出、窗口加载 net::ERR_FAILED。禁用硬件加速（软件渲染）根治此类环境。
+// 对正常桌面用户无功能影响（表单类 UI 用软件渲染无感知差异）。
+app.disableHardwareAcceleration();
 const license = require('./license-core');
 const entitlements = require('./app/js/entitlements');
+const supervisionPackageCore = require('./supervision-package-core');
+const recipientGrantBoundary = require('./app/js/recipient-grant-production-boundary.js');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const backupCrypto = require('./app/js/backup-crypto.js');
+const { createCommercialFacade } = require('./app/js/commercial-ipc-facade.js');
+const { normalizeServerBalance } = require('./app/js/server-balance-projection.js');
+const { createPiProductionRuntime } = require('./app/js/pi/bridge/pi-production-runtime-v1.js');
+const dns = require('dns').promises;
+const nodeNet = require('net');
+const { TextDecoder: NodeTextDecoder } = require('util');
 
 // v3.6.7：资料库支持 .doc/.docx（mammoth 解析 docx；.doc 尽力抽取）
 let mammoth = null;
@@ -34,7 +46,7 @@ const clinicalMaterialSelections = new Map();
 let RagIndex = null;
 let ragIndex = null;
 let APP_PROXY_KEY = '';
-try { APP_PROXY_KEY = require('./secret.generated').APP_PROXY_KEY || ''; } catch (e) { APP_PROXY_KEY = ''; }
+try { APP_PROXY_KEY = require('./proxy-secret.generated').APP_PROXY_KEY || ''; } catch (e) { APP_PROXY_KEY = ''; }
 try {
   RagIndex = require('./rag-index.js');
 } catch (e) {
@@ -46,11 +58,11 @@ try {
 // 加密后数据仅当前用户/机器可解密。加密前缀 'xj-enc:' 标识已加密。
 function encryptSecret(plain) {
   try {
-    if (!plain || typeof plain !== 'string') return plain;
-    if (!safeStorage.isEncryptionAvailable()) return plain; // 降级：不加密（如 Linux 无 libsecret）
+    if (!plain || typeof plain !== 'string') return '';
+    if (!safeStorage.isEncryptionAvailable()) return '';
     const buf = safeStorage.encryptString(plain);
     return 'xj-enc:' + buf.toString('base64');
-  } catch (e) { return plain; }
+  } catch (e) { return ''; }
 }
 function decryptSecret(stored) {
   try {
@@ -61,13 +73,1039 @@ function decryptSecret(stored) {
   } catch (e) { return ''; }
 }
 
+const AI_PROXY_BASE = 'https://xinjingchat.online/v1';
+const AI_QUOTA_BASE = AI_PROXY_BASE.replace(/\/v1$/, '');
+const AI_REQUEST_MAX_BYTES = 2 * 1024 * 1024;
+const AI_RESPONSE_MAX_BYTES = 4 * 1024 * 1024;
+const AI_REDIRECT_LIMIT = 3;
+const AI_REQUEST_TIMEOUT_MS = 120000;
+const activeAiRequests = new Map();
+let commercialFacadePromise = null;
+let recipientGrantBoundaryPromise = null;
+
+const RECIPIENT_GRANT_CHANNELS = Object.freeze({
+  getProjection: 'xj:recipientGrant:getProjection',
+  getAuditPage: 'xj:recipientGrant:getAuditPage',
+});
+
+// 受控督导技能包：只在主进程持有解密后的最小描述，渲染进程永远只收到脱敏元数据。
+const SUPERVISION_PACKAGE_MAX_BYTES = supervisionPackageCore.DEFAULT_LIMITS.maxPackageBytes;
+const supervisionPackageInspections = new Map();
+const supervisionPackageRuntimeCache = new Map();
+let supervisionDeviceIdentityCache = null;
+
+function isPrivateNetworkAddress(address) {
+  const value = String(address || '').trim().toLowerCase().replace(/^\[|\]$/g, '').split('%')[0];
+  if (!value) return true;
+  if (nodeNet.isIPv4(value)) {
+    const parts = value.split('.').map(Number);
+    return parts[0] === 0 || parts[0] === 10 || parts[0] === 127 ||
+      (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) ||
+      (parts[0] === 169 && parts[1] === 254) ||
+      (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+      (parts[0] === 192 && parts[1] === 0 && (parts[2] === 0 || parts[2] === 2)) ||
+      (parts[0] === 192 && parts[1] === 168) ||
+      (parts[0] === 198 && (parts[1] === 18 || parts[1] === 19 || (parts[1] === 51 && parts[2] === 100))) ||
+      (parts[0] === 203 && parts[1] === 0 && parts[2] === 113) ||
+      (parts[0] >= 224);
+  }
+  if (nodeNet.isIPv6(value)) {
+    const mappedDotted = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mappedDotted) return isPrivateNetworkAddress(mappedDotted[1]);
+    const mappedHex = value.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+    if (mappedHex) {
+      const high = parseInt(mappedHex[1], 16);
+      const low = parseInt(mappedHex[2], 16);
+      return isPrivateNetworkAddress([(high >> 8) & 255, high & 255, (low >> 8) & 255, low & 255].join('.'));
+    }
+    const first = parseInt(value.split(':')[0] || '0', 16);
+    if (first < 0x2000 || first > 0x3fff) return true;
+    if (/^2001:(?:0{0,3}0|db8)(?::|$)/.test(value) || /^2002(?::|$)/.test(value)) return true;
+    return false;
+  }
+  return true;
+}
+
+async function validateAiDestination(rawUrl) {
+  let parsed;
+  try { parsed = new URL(String(rawUrl || '')); } catch (e) { throw new Error('AI endpoint URL is invalid'); }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error('AI endpoint must use HTTPS without URL credentials');
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!hostname || hostname === 'localhost' || hostname.endsWith('.localhost')) throw new Error('AI endpoint host is not allowed');
+  if (nodeNet.isIP(hostname)) {
+    if (isPrivateNetworkAddress(hostname)) throw new Error('AI endpoint resolves to a private address');
+  } else {
+    const addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+    if (!addresses.length || addresses.some((item) => isPrivateNetworkAddress(item.address))) {
+      throw new Error('AI endpoint resolves to a private address');
+    }
+  }
+  return parsed;
+}
+
+function isTrustedRendererEvent(event) {
+  try {
+    const frameUrl = new URL(event.senderFrame.url);
+    return frameUrl.protocol === 'http:' && frameUrl.hostname === '127.0.0.1' && Number(frameUrl.port) === Number(PORT);
+  } catch (e) { return false; }
+}
+
+function aiResponseHeaders(headers) {
+  const allowed = ['content-type', 'x-quota-percent', 'x-quota-remaining', 'x-tier', 'x-quota-reset'];
+  const result = {};
+  allowed.forEach((name) => {
+    const value = headers && headers.get ? headers.get(name) : null;
+    if (value != null && value !== '') result[name] = String(value).slice(0, 512);
+  });
+  return result;
+}
+
+async function fetchAiWithRedirects(initialUrl, options, signal) {
+  let current = await validateAiDestination(initialUrl);
+  let currentOptions = Object.assign({}, options);
+  for (let redirectCount = 0; redirectCount <= AI_REDIRECT_LIMIT; redirectCount++) {
+    const response = await electronNet.fetch(current.toString(), Object.assign({}, currentOptions, { redirect: 'manual', signal }));
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+    const location = response.headers.get('location');
+    if (!location || redirectCount === AI_REDIRECT_LIMIT) throw new Error('AI endpoint redirect was rejected');
+    const next = await validateAiDestination(new URL(location, current).toString());
+    if (next.origin !== current.origin) throw new Error('AI endpoint cross-origin redirect was rejected');
+    if (response.status === 303 || ((response.status === 301 || response.status === 302) && currentOptions.method === 'POST')) {
+      currentOptions = Object.assign({}, currentOptions, { method: 'GET' });
+      delete currentOptions.body;
+      currentOptions.headers = Object.assign({}, currentOptions.headers);
+      delete currentOptions.headers['Content-Type'];
+    }
+    current = next;
+  }
+  throw new Error('AI endpoint redirect limit exceeded');
+}
+
+async function readAiResponse(response, onChunk) {
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    const text = await response.text();
+    if (Buffer.byteLength(text, 'utf8') > AI_RESPONSE_MAX_BYTES) throw new Error('AI response exceeded the size limit');
+    if (onChunk) onChunk(text);
+    return text;
+  }
+  const reader = response.body.getReader();
+  const decoder = new NodeTextDecoder();
+  let total = 0;
+  let text = '';
+  while (true) {
+    const part = await reader.read();
+    if (part.done) break;
+    total += part.value.byteLength;
+    if (total > AI_RESPONSE_MAX_BYTES) {
+      try { await reader.cancel(); } catch (e) {}
+      throw new Error('AI response exceeded the size limit');
+    }
+    const chunk = decoder.decode(part.value, { stream: true });
+    text += chunk;
+    if (onChunk) onChunk(chunk);
+  }
+  const tail = decoder.decode();
+  if (tail) {
+    text += tail;
+    if (onChunk) onChunk(tail);
+  }
+  return text;
+}
+
+function normalizeAiRequestPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('AI request payload is invalid');
+  const payloadKeys = Object.keys(payload);
+  if (payloadKeys.some((key) => !['requestId', 'kind', 'config', 'body', 'streaming'].includes(key))) throw new Error('AI request payload contains unknown fields');
+  const requestId = String(payload.requestId || '');
+  if (!/^[A-Za-z0-9_-]{12,80}$/.test(requestId)) throw new Error('AI request ID is invalid');
+  const kind = payload.kind === 'quota' ? 'quota' : (payload.kind === 'chat' ? 'chat' : '');
+  if (!kind) throw new Error('AI request kind is invalid');
+  const config = payload.config && typeof payload.config === 'object' ? payload.config : {};
+  if (Array.isArray(config) || Object.keys(config).some((key) => !['baseUrl', 'apiKey', 'model', 'isTrial'].includes(key))) {
+    throw new Error('AI request config is invalid');
+  }
+  const isTrial = config.isTrial === true;
+  const model = String(config.model || '').trim();
+  if (kind === 'chat' && (!model || model.length > 200)) throw new Error('AI model is invalid');
+  const rawBaseUrl = String(config.baseUrl || '').trim();
+  if (rawBaseUrl.length > 2048) throw new Error('AI endpoint is invalid');
+  let baseUrl = rawBaseUrl;
+  if (kind === 'chat' && !isTrial) {
+    let parsedBase;
+    try { parsedBase = new URL(rawBaseUrl); } catch (e) { throw new Error('AI endpoint is invalid'); }
+    if (parsedBase.protocol !== 'https:' || parsedBase.username || parsedBase.password || parsedBase.search || parsedBase.hash) {
+      throw new Error('AI endpoint is invalid');
+    }
+    parsedBase.pathname = parsedBase.pathname.replace(/\/+$/, '');
+    baseUrl = parsedBase.toString().replace(/\/$/, '');
+  }
+  const body = payload.body && typeof payload.body === 'object' && !Array.isArray(payload.body) ? payload.body : null;
+  if (kind === 'chat' && !body) throw new Error('AI request body is invalid');
+  if (kind === 'quota' && (body || payload.streaming === true || !isTrial)) throw new Error('AI quota request is invalid');
+  if (kind === 'chat') {
+    const bodyKeys = Object.keys(body);
+    const allowedBodyKeys = ['model', 'messages', 'temperature', 'max_tokens', 'stream', 'chat_template_kwargs', 'tools', 'tool_choice'];
+    if (bodyKeys.some((key) => !allowedBodyKeys.includes(key))) throw new Error('AI request body contains unknown fields');
+    if (body.model !== model || (body.stream === true) !== (payload.streaming === true)) throw new Error('AI request body does not match its envelope');
+    if (!Array.isArray(body.messages) || !body.messages.length || body.messages.length > 400) throw new Error('AI message list is invalid');
+    body.messages.forEach((message) => {
+      if (!message || typeof message !== 'object' || Array.isArray(message) || !['system', 'user', 'assistant', 'tool'].includes(message.role)) {
+        throw new Error('AI message is invalid');
+      }
+    });
+    if (typeof body.max_tokens !== 'number' || !Number.isFinite(body.max_tokens) || body.max_tokens < 1 || body.max_tokens > 131072) {
+      throw new Error('AI token limit is invalid');
+    }
+    if (typeof body.temperature !== 'number' || !Number.isFinite(body.temperature) || body.temperature < 0 || body.temperature > 2) {
+      throw new Error('AI temperature is invalid');
+    }
+  }
+  const bodyText = kind === 'chat' ? JSON.stringify(body) : '';
+  if (Buffer.byteLength(bodyText, 'utf8') > AI_REQUEST_MAX_BYTES) throw new Error('AI request exceeded the size limit');
+  const storedKey = String(config.apiKey || '');
+  if (storedKey.length > 16384) throw new Error('AI credential is invalid');
+  if (kind === 'chat' && isTrial && (baseUrl || storedKey)) throw new Error('Trial requests cannot supply endpoint credentials');
+  if (kind === 'chat' && !isTrial && (!baseUrl || !storedKey)) throw new Error('BYOK request config is incomplete');
+  const apiKey = isTrial ? APP_PROXY_KEY : decryptSecret(storedKey);
+  if (/\r|\n|\0/.test(apiKey)) throw new Error('AI credential is invalid');
+  return {
+    requestId,
+    kind,
+    isTrial,
+    model,
+    baseUrl: isTrial ? AI_PROXY_BASE : baseUrl,
+    apiKey,
+    bodyText,
+    streaming: payload.streaming === true,
+  };
+}
+
+function commercialDeviceBinding() {
+  return crypto.createHash('sha256')
+    .update('xj-commercial-device-v1:' + getMachineCode())
+    .digest('hex');
+}
+
+// 商业 IPC 的设备和授权摘要只由主进程生成。渲染层可以提交业务事件，
+// 但不能伪造设备绑定、签名有效性、授权主体或撤销 epoch。
+function trustedCommercialContext() {
+  const state = licenseState || computeState();
+  const revocationEpoch = Number.isSafeInteger(state.revocationVersion) && state.revocationVersion >= 0 ? state.revocationVersion : 0;
+  const signatureValid = state.activated === true && state.revocationValid === true;
+  return {
+    deviceBindingHash: commercialDeviceBinding(),
+    revocationEpoch,
+    signedEvidence: {
+      signatureValid,
+      clockValid: Number.isSafeInteger(Date.now()),
+      subscriptionId: signatureValid && state.licenseId ? state.licenseId : '',
+      tier: state.tier || 'free',
+      revocationEpoch,
+    },
+  };
+}
+
+async function ensureCommercialFacade() {
+  if (!commercialFacadePromise) {
+    commercialFacadePromise = createCommercialFacade({
+      filePath: path.join(userDataDir(), 'commercial-envelope-v3.json'),
+      deviceId: commercialDeviceBinding(),
+      trustedReconciliation: false,
+      trustedContextProvider: trustedCommercialContext,
+    });
+    commercialFacadePromise.catch(() => { commercialFacadePromise = null; });
+  }
+  return commercialFacadePromise;
+}
+
+async function ensureRecipientGrantBoundary() {
+  if (!recipientGrantBoundaryPromise) {
+    recipientGrantBoundaryPromise = (async () => {
+      const repository = recipientGrantBoundary.createDurableRecipientGrantRepository({
+        filePath: path.join(userDataDir(), 'recipient-grant-evidence-v1.json'),
+      });
+      await repository.initialize();
+      return recipientGrantBoundary.createRecipientGrantBoundary({
+        repository,
+        entitlements,
+        xjsupCore: supervisionPackageCore,
+      });
+    })();
+    recipientGrantBoundaryPromise.catch(() => { recipientGrantBoundaryPromise = null; });
+  }
+  return recipientGrantBoundaryPromise;
+}
+
+function recipientGrantFailure(errorCode) {
+  return Object.freeze({
+    ok: false,
+    errorCode: String(errorCode || 'recipient-grant-failed'),
+    freeManualAllowed: true,
+  });
+}
+
+function registerRecipientGrantIpc(targetIpcMain, options) {
+  const target = targetIpcMain || ipcMain;
+  const input = options || {};
+  const boundaryProvider = input.boundaryProvider || ensureRecipientGrantBoundary;
+  const trustedEvent = input.isTrustedEvent || isTrustedRendererEvent;
+  Object.entries(RECIPIENT_GRANT_CHANNELS).forEach(([method, channel]) => {
+    target.handle(channel, async (event, payload) => {
+      if (!trustedEvent(event)) return recipientGrantFailure('untrusted-renderer');
+      try {
+        const boundary = await boundaryProvider();
+        const api = boundary.publicApi();
+        if (typeof api[method] !== 'function') return recipientGrantFailure('unsupported-operation');
+        return await api[method](payload);
+      } catch (error) {
+        return recipientGrantFailure(error && (error.errorCode || error.code));
+      }
+    });
+  });
+  return Object.freeze({ channels: RECIPIENT_GRANT_CHANNELS });
+}
+
+function commercialFailure(errorCode) {
+  return { ok: false, errorCode: errorCode || 'durable-read-failed', retryable: false };
+}
+
+function normalizeServerModelCatalog(body) {
+  // Production 031+ returns the catalog envelope directly; older loopback
+  // fixtures wrapped it in `value`. Accept both without weakening validation.
+  if (!body || body.ok !== true) return null;
+  const value = body && body.value && typeof body.value === 'object' ? body.value : body;
+  if (!value || typeof value !== 'object' || !Array.isArray(value.models)) return null;
+  const models = value.models.filter((entry) => entry && typeof entry === 'object' && entry.fallbackOnly !== true)
+    .map((entry) => ({
+      modelId: typeof entry.modelId === 'string' ? entry.modelId : '',
+      displayName: typeof entry.displayName === 'string' ? entry.displayName : '',
+      provider: typeof entry.provider === 'string' ? entry.provider : '',
+      upstreamModel: typeof entry.upstreamModel === 'string' ? entry.upstreamModel : '',
+      aliases: Array.isArray(entry.aliases) ? entry.aliases.filter((v) => typeof v === 'string').slice(0, 16) : [],
+      inputPrice: Number.isFinite(Number(entry.inputPrice)) ? Number(entry.inputPrice) : 0,
+      outputPrice: Number.isFinite(Number(entry.outputPrice)) ? Number(entry.outputPrice) : 0,
+      cachedInputPrice: entry.cachedInputPrice == null ? null : Number(entry.cachedInputPrice),
+      currency: typeof entry.currency === 'string' ? entry.currency : 'USD',
+      billingUnit: typeof entry.billingUnit === 'string' ? entry.billingUnit : 'per-1M-tokens',
+      catalogRevision: typeof entry.catalogRevision === 'string' ? entry.catalogRevision : '',
+      capabilities: entry.capabilities && typeof entry.capabilities === 'object' ? {
+        chat: entry.capabilities.chat === true,
+        streaming: entry.capabilities.streaming === true,
+        tools: entry.capabilities.tools === true,
+        contextTokens: Number.isFinite(Number(entry.capabilities.contextTokens)) ? Number(entry.capabilities.contextTokens) : 0,
+      } : { chat: true, streaming: false, tools: false, contextTokens: 0 },
+    }))
+    .filter((entry) => entry.modelId && entry.displayName && entry.catalogRevision);
+  if (!models.length || typeof value.catalogRevision !== 'string' || !value.catalogRevision) return null;
+  return {
+    schemaVersion: Number(value.schemaVersion) || 1,
+    catalogRevision: value.catalogRevision,
+    settlementCurrency: typeof value.settlementCurrency === 'string' ? value.settlementCurrency : 'CNY',
+    fxRateUsdToCny: Number.isFinite(Number(value.fxRateUsdToCny)) ? Number(value.fxRateUsdToCny) : 7,
+    billingUnit: typeof value.billingUnit === 'string' ? value.billingUnit : 'per-1M-tokens',
+    models,
+  };
+}
+
+async function readServerModelCatalog(payload) {
+  if (!isEmptyCommercialReadPayload(payload)) return commercialFailure('invalid-request');
+  if (!ACCOUNT_API_BASE) return commercialFailure('server-model-catalog-unavailable');
+  try {
+    const machineCode = getMachineCode();
+    if (!machineCode) return commercialFailure('server-model-catalog-unavailable');
+    const sessionToken = authenticatedAccountSessionToken();
+    if (!sessionToken) return commercialFailure('server-model-catalog-unavailable');
+    const response = await accountNodeRequest(ACCOUNT_API_BASE + '/account/model-catalog', {
+      method: 'GET',
+      // Account routes must receive the account session as Authorization. The
+      // proxy key is intentionally not used here because older deployments
+      // interpret Authorization before X-Account-Session.
+      headers: {
+        Accept: 'application/json',
+        Authorization: 'Bearer ' + sessionToken,
+        'X-Account-Session': sessionToken,
+        'X-Machine-Id': machineCode,
+      },
+      body: '',
+      timeoutMs: ACCOUNT_REQUEST_TIMEOUT_MS,
+    });
+    if (!response || response.status < 200 || response.status >= 300) return commercialFailure('server-model-catalog-unavailable');
+    let body;
+    try { body = JSON.parse(response.bodyText || ''); } catch (_) { return commercialFailure('server-model-catalog-unavailable'); }
+    const value = normalizeServerModelCatalog(body);
+    return value ? { ok: true, value, revision: null, idempotent: false } : commercialFailure('server-model-catalog-unavailable');
+  } catch (_) {
+    return commercialFailure('server-model-catalog-unavailable');
+  }
+}
+
+function isEmptyCommercialReadPayload(payload) {
+  if (payload === undefined || payload === null) return true;
+  return typeof payload === 'object' && !Array.isArray(payload) && Object.keys(payload).length === 0;
+}
+
+async function handleCommercialChannel(method, event, payload) {
+  if (!isTrustedRendererEvent(event)) return commercialFailure('sensitive-field-rejected');
+  if (method === 'getServerModelCatalog') return readServerModelCatalog(payload);
+  if (method === 'getModelPriceCatalog') {
+    if (!isEmptyCommercialReadPayload(payload)) return commercialFailure('invalid-request');
+    return { ok: true, value: {}, revision: null, idempotent: false };
+  }
+  if (method === 'getAccountBalance') return readServerAccountBalance(payload);
+  try {
+    const facade = await ensureCommercialFacade();
+    return await facade[method](payload);
+  } catch (error) {
+    return commercialFailure(error && error.errorCode);
+  }
+}
+
+async function readServerAccountBalance(payload) {
+  if (!isEmptyCommercialReadPayload(payload)) return commercialFailure('invalid-request');
+  const sessionToken = authenticatedAccountSessionToken();
+  if (!ACCOUNT_API_BASE || !sessionToken) return commercialFailure('server-balance-unavailable');
+  try {
+    const response = await accountNodeRequest(ACCOUNT_API_BASE + '/account/balance', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + sessionToken,
+        'X-Account-Session': sessionToken,
+      },
+      body: '{}',
+      timeoutMs: ACCOUNT_REQUEST_TIMEOUT_MS,
+    });
+    if (!response || response.status < 200 || response.status >= 300) return commercialFailure('server-balance-unavailable');
+    let body;
+    try { body = JSON.parse(response.bodyText || ''); } catch (_) { return commercialFailure('server-balance-unavailable'); }
+    const value = normalizeServerBalance(body, new Date().toISOString());
+    return value ? { ok: true, value, revision: null, idempotent: false } : commercialFailure('server-balance-unavailable');
+  } catch (_) {
+    return commercialFailure('server-balance-unavailable');
+  }
+}
+
+async function processCommercialAiRequest(request) {
+  if (!request || request.kind !== 'chat') return null;
+  const mode = request.isTrial ? 'trial' : 'byok';
+  try {
+    const facade = await ensureCommercialFacade();
+    const result = await facade.processNonMoneyRequest({
+      billingMode: mode,
+      operationId: 'commercial-' + request.requestId,
+    });
+    if (!result || result.ok !== true) {
+      return { ok: false, errorCode: result && result.errorCode || 'durable-write-failed' };
+    }
+    return { ok: true, billing: result.value, revision: result.revision };
+  } catch (error) {
+    return { ok: false, errorCode: error && error.errorCode || 'durable-read-failed' };
+  }
+}
+
+function aiResponseRequiresAccountSession(bodyText) {
+  if (typeof bodyText !== 'string' || !bodyText) return false;
+  let payload = null;
+  try { payload = JSON.parse(bodyText); } catch (e) { payload = null; }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const values = [payload.error, payload.code, payload.message]
+    .map((value) => typeof value === 'string' ? value.toLowerCase() : '')
+    .filter(Boolean);
+  return values.some((value) => value === 'account-session-required' || value.includes('account-session-required'));
+}
+
+function authenticatedAccountSessionToken() {
+  const value = typeof accountSessionToken === 'string' ? accountSessionToken : '';
+  return accountSessionState.status === 'authenticated'
+    && value.length >= ACCOUNT_TOKEN_MIN_LEN
+    && value.length <= ACCOUNT_TOKEN_MAX_LEN
+    ? value
+    : '';
+}
+
+function builtInServiceHeaders(baseHeaders) {
+  const headers = Object.assign({}, baseHeaders || {});
+  if (APP_PROXY_KEY) headers.Authorization = 'Bearer ' + APP_PROXY_KEY;
+  const sessionToken = authenticatedAccountSessionToken();
+  if (sessionToken) headers['X-Account-Session'] = sessionToken;
+  return headers;
+}
+
+async function handleAiRequest(event, payload) {
+  if (!isTrustedRendererEvent(event)) return { ok: false, error: { code: 'XJ_IPC_SENDER_DENIED', message: 'AI request sender was rejected' } };
+  let request;
+  try { request = normalizeAiRequestPayload(payload); } catch (e) {
+    return { ok: false, error: { code: 'XJ_AI_REQUEST_INVALID', message: e.message } };
+  }
+  if (request.isTrial && !APP_PROXY_KEY && !authenticatedAccountSessionToken()) {
+    return { ok: false, error: { code: 'XJ_AI_ACCOUNT_SESSION_REQUIRED', message: '账号会话已失效或未登录，请重新登录后重试' } };
+  }
+  if (!request.isTrial && !request.apiKey) return { ok: false, error: { code: 'XJ_AI_CREDENTIAL_MISSING', message: 'AI credential is unavailable' } };
+  const commercial = await processCommercialAiRequest(request);
+  if (commercial && commercial.ok !== true) {
+    return { ok: false, error: { code: 'XJ_COMMERCIAL_' + commercial.errorCode.toUpperCase().replace(/[^A-Z0-9_]/g, '_'), message: 'Commercial request state is unavailable' } };
+  }
+  if (activeAiRequests.has(request.requestId)) return { ok: false, error: { code: 'XJ_AI_REQUEST_DUPLICATE', message: 'AI request ID is already active' } };
+  const activeForSender = Array.from(activeAiRequests.values()).filter((item) => item.senderId === event.sender.id).length;
+  if (activeForSender >= 4) return { ok: false, error: { code: 'XJ_AI_REQUEST_LIMIT', message: 'Too many AI requests are active' } };
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, AI_REQUEST_TIMEOUT_MS);
+  activeAiRequests.set(request.requestId, { controller, senderId: event.sender.id });
+  try {
+    let url;
+    let options;
+    if (request.kind === 'quota') {
+      const machineCode = getMachineCode();
+      url = AI_QUOTA_BASE + '/quota?mid=' + encodeURIComponent(machineCode);
+      const headers = builtInServiceHeaders({ Accept: 'application/json', 'X-Machine-Id': machineCode });
+      options = { method: 'GET', headers };
+    } else {
+      url = request.baseUrl.replace(/\/$/, '') + '/chat/completions';
+      let headers = { 'Content-Type': 'application/json' };
+      if (request.isTrial) {
+        headers = builtInServiceHeaders(headers);
+        headers['X-Machine-Id'] = getMachineCode();
+      } else {
+        headers.Authorization = 'Bearer ' + request.apiKey;
+      }
+      options = { method: 'POST', headers, body: request.bodyText };
+    }
+    const response = await fetchAiWithRedirects(url, options, controller.signal);
+    const responseType = response.headers.get('content-type') || '';
+    const shouldStream = request.streaming && response.ok && /text\/event-stream/i.test(responseType);
+    const bodyText = await readAiResponse(response, shouldStream ? (chunk) => {
+      if (!event.sender.isDestroyed()) event.sender.send('xj:ai-chunk', { requestId: request.requestId, chunk });
+    } : null);
+    const headers = aiResponseHeaders(response.headers);
+    if (!response.ok) {
+      let code = 'XJ_AI_PROVIDER_HTTP';
+      let message = 'AI provider rejected the request';
+      if (request.isTrial && aiResponseRequiresAccountSession(bodyText)) {
+        code = 'XJ_AI_ACCOUNT_SESSION_REQUIRED';
+        message = '账号会话已失效或未登录，请重新登录后重试';
+      } else if (response.status === 401 || response.status === 403) {
+        code = 'XJ_AI_AUTH_FAILED';
+        message = 'AI credential was rejected';
+      } else if (response.status === 429) {
+        code = 'XJ_AI_RATE_LIMIT';
+        message = 'AI request limit was reached';
+      } else if (response.status === 400 && /tool|function_call|function-calling|tools/i.test(bodyText)) {
+        code = 'XJ_AI_TOOLS_UNSUPPORTED';
+        message = 'AI model rejected tool calling';
+      }
+      return { ok: false, status: response.status, headers, bodyText: '', error: { code, message } };
+    }
+    return { ok: true, status: response.status, headers, bodyText: shouldStream ? '' : bodyText, commercial: commercial || undefined };
+  } catch (e) {
+    const aborted = controller.signal.aborted || (e && e.name === 'AbortError');
+    return {
+      ok: false,
+      error: {
+        code: timedOut ? 'XJ_AI_TIMEOUT' : (aborted ? 'ABORT_ERR' : 'XJ_AI_NETWORK_FAILED'),
+        message: timedOut ? 'AI request timed out' : (aborted ? 'AI request was cancelled' : 'AI network request failed'),
+      },
+      commercial: commercial || undefined,
+    };
+  } finally {
+    clearTimeout(timeout);
+    activeAiRequests.delete(request.requestId);
+  }
+}
+
+function applyWindowSecurity(windowRef) {
+  if (!windowRef || !windowRef.webContents) return;
+  const allowedOrigin = () => 'http://127.0.0.1:' + PORT;
+  windowRef.webContents.on('will-navigate', (event, targetUrl) => {
+    try {
+      if (new URL(targetUrl).origin !== allowedOrigin()) event.preventDefault();
+    } catch (e) { event.preventDefault(); }
+  });
+  windowRef.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  windowRef.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+}
+
+// ---- v5.0.2 桌面强制登录门禁 + 账号会话（contract-v502-desktop-auth-session-membership-v1）----
+// 原则：
+//  - 未登录不得进入业务路由：主进程 webRequest 对 mainFrame 强制重定向 account.html（渲染层无法绕过）。
+//  - session token 只存主进程：safeStorage 加密落盘（xj-enc:），绝不出现在渲染进程、日志或交付物中。
+//  - 会员投影以服务器为唯一权威：网络失败、未知账号/档位、缺 serverAuthoritative 一律 fail-closed，不得视为成功。
+//  - 凭据/验证码/token 永不写日志（只记录错误码）。
+const XJAccountClientModule = require('./app/js/account-client.js');
+const ACCOUNT_REQUEST_TIMEOUT_MS = 15000;
+const ACCOUNT_RESPONSE_MAX_BYTES = 256 * 1024;
+const ACCOUNT_TOKEN_MIN_LEN = 16;
+const ACCOUNT_TOKEN_MAX_LEN = 512;
+const ACCOUNT_REVOKE_TIMEOUT_MS = 3000;
+const ACCOUNT_NAV_TIMEOUT_MS = 5000;
+
+function resolveAccountApiBase() {
+  const override = String(process.env.XJ_ACCOUNT_API_BASE || '').trim();
+  if (process.env.XJ_AGENT_ACCEPTANCE === '1' || process.env.XJ463_HEALTH_PROBE === '1') {
+    if (!override) return '';
+    try {
+      const parsed = new URL(override);
+      const loopback = parsed.hostname === '127.0.0.1' || parsed.hostname === '::1' || parsed.hostname === 'localhost';
+      if (parsed.protocol === 'http:' && loopback && !parsed.username && !parsed.password) {
+        return override.replace(/\/+$/, '');
+      }
+    } catch (e) { /* fail-closed */ }
+    return '';
+  }
+  const candidate = override || AI_QUOTA_BASE;
+  try {
+    const parsed = new URL(candidate);
+    const loopback = parsed.hostname === '127.0.0.1' || parsed.hostname === '::1' || parsed.hostname === 'localhost';
+    const secureOk = parsed.protocol === 'https:' && !parsed.username && !parsed.password;
+    const loopbackOk = parsed.protocol === 'http:' && loopback;
+    if (secureOk || loopbackOk) return candidate.replace(/\/+$/, '');
+  } catch (e) { /* fail-closed */ }
+  return '';
+}
+const ACCOUNT_API_BASE = resolveAccountApiBase();
+
+function accountNodeRequest(url, options) {
+  // node http/https 传输：独立于渲染进程 session 的默认拒网；硬超时、体积上限、拒绝重定向。
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try { parsed = new URL(url); } catch (e) { const err = new Error('endpoint-invalid'); err.code = 'network-error'; reject(err); return; }
+    if (process.env.XJ_AGENT_ACCEPTANCE === '1' || process.env.XJ463_HEALTH_PROBE === '1') {
+      const loopback = parsed.hostname === '127.0.0.1' || parsed.hostname === '::1' || parsed.hostname === 'localhost';
+      if (parsed.protocol !== 'http:' || !loopback) {
+        const err = new Error('acceptance-network-denied');
+        err.code = 'network-error';
+        reject(err);
+        return;
+      }
+    }
+    const lib = parsed.protocol === 'https:' ? require('https') : require('http');
+    const body = typeof options.body === 'string' ? options.body : '';
+    const headers = Object.assign({}, options.headers || {});
+    headers['Content-Length'] = Buffer.byteLength(body, 'utf8');
+    const req = lib.request({
+      method: options.method || 'POST',
+      protocol: parsed.protocol,
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      headers,
+      timeout: Number.isFinite(options.timeoutMs) && options.timeoutMs > 0 ? options.timeoutMs : ACCOUNT_REQUEST_TIMEOUT_MS,
+      rejectUnauthorized: parsed.protocol === 'https:',
+    }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400) {
+        res.resume();
+        const err = new Error('redirect-rejected'); err.code = 'network-error';
+        res.destroy(err);
+        return;
+      }
+      res.setEncoding('utf8');
+      let text = '';
+      let overflow = false;
+      res.on('data', (chunk) => {
+        if (overflow) return;
+        text += chunk;
+        if (text.length > ACCOUNT_RESPONSE_MAX_BYTES) { overflow = true; text = ''; res.destroy(new Error('response-too-large')); }
+      });
+      res.on('end', () => resolve({ status: res.statusCode || 0, bodyText: overflow ? '' : text }));
+      res.on('error', (error) => reject(error));
+    });
+    req.on('timeout', () => { const err = new Error('request-timeout'); err.code = 'timeout'; req.destroy(err); });
+    req.on('error', (error) => reject(error));
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+function createMainAccountClient() {
+  return XJAccountClientModule.createAccountClient({
+    baseUrl: ACCOUNT_API_BASE,
+    request: accountNodeRequest,
+    timeoutMs: ACCOUNT_REQUEST_TIMEOUT_MS,
+  });
+}
+
+const accountSessionState = {
+  status: 'anonymous', // anonymous | restoring | authenticated
+  account: null,
+  membership: null,
+  lastError: null,
+};
+let accountSessionToken = '';
+let accountLastLogout = null;
+let accountBootstrapPromise = null;
+
+function accountSessionFile() { return path.join(userDataDir(), 'account-session-v1.json'); }
+
+async function loadPersistedAccountToken() {
+  const f = accountSessionFile();
+  let parsed = null;
+  try { parsed = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return null; }
+  if (!parsed || parsed.version !== 1 || typeof parsed.tokenEnc !== 'string') return null;
+  const accountId = /^[A-Za-z0-9_-]{4,140}$/.test(String(parsed.accountId || '')) ? String(parsed.accountId) : '';
+  const email = typeof parsed.email === 'string' && parsed.email.length <= 254 ? parsed.email : '';
+  // safeStorage 后端在 app ready 后仍可能短暂未就绪（DPAPI 密钥加载竞态），
+  // 解密瞬时失败时做有界重试，避免「有已保存会话却因启动时序回退到登录页」。
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const token = decryptSecret(parsed.tokenEnc);
+    if (token && token.length >= ACCOUNT_TOKEN_MIN_LEN && token.length <= ACCOUNT_TOKEN_MAX_LEN) {
+      return { token, accountId, email };
+    }
+    if (attempt < 11) await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return null;
+}
+
+function persistAccountSession(token, account) {
+  try {
+    const tokenEnc = encryptSecret(token);
+    if (!tokenEnc) return false; // safeStorage 不可用：fail-closed，不落盘明文
+    const payload = {
+      version: 1,
+      tokenEnc,
+      accountId: (account && account.accountId) || '',
+      email: (account && account.email) || '',
+      savedAt: new Date().toISOString(),
+    };
+    const file = accountSessionFile();
+    const tmp = file + '.' + process.pid + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(payload), 'utf8');
+    fs.renameSync(tmp, file);
+    return true;
+  } catch (e) { return false; }
+}
+
+function clearPersistedAccountSession() {
+  try { fs.unlinkSync(accountSessionFile()); } catch (e) { /* 不存在即视为已清除 */ }
+}
+
+function accountMembershipErrorProjection(code) {
+  return { status: 'error', errorCode: String(code || 'membership-unavailable').slice(0, 64), serverAuthoritative: false, fetchedAt: new Date().toISOString() };
+}
+
+function accountMembershipOkProjection(result) {
+  return { status: 'ok', tier: result.tier, accountId: result.accountId, serverAuthoritative: true, fetchedAt: new Date().toISOString() };
+}
+
+async function fetchAuthoritativeMembership(token) {
+  try {
+    const result = await createMainAccountClient().membership(token);
+    if (!result || result.ok !== true) return accountMembershipErrorProjection(result && result.error ? result.error.code : 'membership-unavailable');
+    return accountMembershipOkProjection(result);
+  } catch (e) {
+    return accountMembershipErrorProjection('membership-unavailable');
+  }
+}
+
+function sanitizedAccountStatus(extra) {
+  return Object.freeze(Object.assign({
+    authenticated: accountSessionState.status === 'authenticated',
+    status: accountSessionState.status,
+    account: accountSessionState.account ? { accountId: accountSessionState.account.accountId, email: accountSessionState.account.email } : null,
+    membership: accountSessionState.membership || null,
+    lastError: accountSessionState.lastError || null,
+    lastLogout: accountLastLogout || null,
+  }, extra || {}));
+}
+
+function broadcastAccountChanged(reason) {
+  const payload = sanitizedAccountStatus({ reason: String(reason || 'changed').slice(0, 32) });
+  [mainWindow, activationWindow].forEach((win) => {
+    try { if (win && !win.isDestroyed()) win.webContents.send('xj:account:changed', payload); } catch (e) { /* 窗口竞争销毁时忽略 */ }
+  });
+}
+
+function applyAuthenticatedSession(token, account) {
+  accountSessionToken = String(token || '');
+  accountSessionState.status = 'authenticated';
+  accountSessionState.account = { accountId: String(account.accountId || ''), email: String(account.email || '') };
+  accountSessionState.lastError = null;
+  accountLastLogout = null;
+  persistAccountSession(accountSessionToken, accountSessionState.account);
+}
+
+function resetAccountSession(reason) {
+  accountSessionToken = '';
+  accountSessionState.status = 'anonymous';
+  accountSessionState.account = null;
+  accountSessionState.membership = null;
+  accountSessionState.lastError = reason || null;
+  clearPersistedAccountSession();
+}
+
+async function bootstrapAccountSession() {
+  if (accountSessionState.status === 'authenticated') return sanitizedAccountStatus();
+  accountSessionState.status = 'restoring';
+  const persisted = await loadPersistedAccountToken();
+  if (!persisted) {
+    accountSessionState.status = 'anonymous';
+    return sanitizedAccountStatus({ restore: 'none' });
+  }
+  let validation = null;
+  try {
+    validation = await createMainAccountClient().validateSession(persisted.token);
+  } catch (e) {
+    validation = null;
+  }
+  if (!validation || validation.ok !== true) {
+    const code = validation && validation.error ? validation.error.code : 'session-restore-failed';
+    // 鉴权类失败（会话不存在/过期/禁用/未验证/未知档位）清除本地会话；
+    // 纯网络类失败保持已保存会话以便网络恢复后重试，但本次启动仍 fail-closed 拒绝进入。
+    const networkOnly = new Set(['network-error', 'network-timeout', 'server-unavailable', 'endpoint-invalid', 'account-unavailable', 'bad-response']);
+    if (networkOnly.has(code)) {
+      accountSessionToken = '';
+      accountSessionState.status = 'anonymous';
+      accountSessionState.account = null;
+      accountSessionState.membership = null;
+      accountSessionState.lastError = code;
+    } else {
+      resetAccountSession(code);
+    }
+    return sanitizedAccountStatus({ restore: 'failed' });
+  }
+  applyAuthenticatedSession(persisted.token, { accountId: validation.accountId, email: validation.email });
+  accountSessionState.membership = await fetchAuthoritativeMembership(persisted.token);
+  broadcastAccountChanged('session-restored');
+  return sanitizedAccountStatus({ restore: 'ok' });
+}
+
+function accountGatePageUrl() { return `http://127.0.0.1:${PORT}/account.html`; }
+
+// 未登录时 mainFrame 一律强制回到账号页（退出确认弹窗除外，保证仍能退出应用）。
+function accountGateAllowedPage(page) {
+  return page === 'account.html' || page === 'confirm-close.html';
+}
+
+function unifiedRequestGate(details, callback) {
+  if (AGENT_ACCEPTANCE_MODE && !isAgentAcceptanceLoopbackUrl(details.url)) {
+    callback({ cancel: true });
+    return;
+  }
+  if (details.resourceType === 'mainFrame' && accountSessionState.status !== 'authenticated') {
+    try {
+      const parsed = new URL(details.url);
+      if (parsed.origin === `http://127.0.0.1:${PORT}` && !accountGateAllowedPage(parsed.pathname.replace(/^\/+/, ''))) {
+        callback({ redirectURL: accountGatePageUrl() });
+        return;
+      }
+    } catch (e) { /* 非法 URL 交给默认行为 */ }
+  }
+  callback({});
+}
+
+function accountUntrustedFailure() {
+  return { ok: false, error: { code: 'untrusted-renderer', retryable: false } };
+}
+
+function accountInvalidRequestFailure() {
+  return { ok: false, error: { code: 'invalid-request', retryable: false } };
+}
+
+async function handleAccountBootstrap(event) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  if (accountSessionState.status === 'authenticated') return sanitizedAccountStatus();
+  if (!accountBootstrapPromise) {
+    accountBootstrapPromise = bootstrapAccountSession();
+    accountBootstrapPromise.catch(() => {}).finally(() => { accountBootstrapPromise = null; });
+  }
+  return accountBootstrapPromise;
+}
+
+async function handleAccountRegister(event, payload) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return accountInvalidRequestFailure();
+  let result = null;
+  try {
+    result = await createMainAccountClient().register({ email: payload.email, password: payload.password });
+  } catch (e) { result = null; }
+  if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
+  return { ok: true, accountId: result.accountId, email: result.email };
+}
+
+async function handleAccountResend(event, payload) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return accountInvalidRequestFailure();
+  let result = null;
+  try {
+    result = await createMainAccountClient().resend({ email: payload.email });
+  } catch (e) { result = null; }
+  if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
+  return { ok: true, accountId: result.accountId, email: result.email };
+}
+
+async function handleAccountVerify(event, payload) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return accountInvalidRequestFailure();
+  let result = null;
+  try {
+    result = await createMainAccountClient().verify({ token: payload.token });
+  } catch (e) { result = null; }
+  if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
+  return { ok: true, accountId: result.accountId, email: result.email };
+}
+
+async function handleAccountForgotPassword(event, payload) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  const email = String(payload && payload.email || '').trim().toLowerCase();
+  if (!email) return accountInvalidRequestFailure();
+  let result = null;
+  try {
+    result = await createMainAccountClient().forgotPassword({ email });
+  } catch (e) { result = null; }
+  if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
+  return { ok: true, accountId: result.accountId, email: result.email };
+}
+
+async function handleAccountResetPassword(event, payload) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return accountInvalidRequestFailure();
+  const email = String(payload.email || '').trim().toLowerCase();
+  const token = String(payload.token || '');
+  const password = String(payload.password || '');
+  if (!email || !token || !password) return accountInvalidRequestFailure();
+  let result = null;
+  try {
+    result = await createMainAccountClient().resetPassword({ email, token, password });
+  } catch (e) { result = null; }
+  if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
+  return { ok: true, accountId: result.accountId, email: result.email };
+}
+
+async function handleAccountLogin(event, payload) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return accountInvalidRequestFailure();
+  let result = null;
+  try {
+    result = await createMainAccountClient().login({ email: payload.email, password: payload.password });
+  } catch (e) { result = null; }
+  if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
+  const email = String(payload.email || '').trim().toLowerCase();
+  applyAuthenticatedSession(result.sessionToken, { accountId: result.accountId, email });
+  accountSessionState.membership = await fetchAuthoritativeMembership(result.sessionToken);
+  broadcastAccountChanged('login');
+  return sanitizedAccountStatus({ login: true, ok: true });
+}
+
+function withAccountBoundedWait(promise, timeoutMs, code) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => {
+        const err = new Error(code);
+        err.code = code;
+        reject(err);
+      }, timeoutMs);
+      if (timer && typeof timer.unref === 'function') timer.unref();
+    }),
+  ]);
+}
+
+async function revokeAccountSession(token) {
+  if (!token) return { ok: false, error: { code: 'no-session', retryable: false } };
+  try {
+    const result = await withAccountBoundedWait(createMainAccountClient().revoke(token), ACCOUNT_REVOKE_TIMEOUT_MS, 'revoke-timeout');
+    if (!result || result.ok !== true) {
+      return { ok: false, error: (result && result.error) || { code: 'revoke-failed', retryable: true } };
+    }
+    return { ok: true, revoked: result.revoked === true };
+  } catch (e) {
+    const code = e && e.code === 'revoke-timeout' ? 'revoke-timeout' : 'revoke-failed';
+    return { ok: false, error: { code, retryable: code === 'revoke-timeout' } };
+  }
+}
+
+async function navigateToAccountGateBounded() {
+  if (!mainWindow || mainWindow.isDestroyed()) return { ok: false, error: { code: 'navigation-failed', retryable: false } };
+  try {
+    await withAccountBoundedWait(mainWindow.loadURL(accountGatePageUrl()), ACCOUNT_NAV_TIMEOUT_MS, 'navigation-timeout');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: { code: e && e.code === 'navigation-timeout' ? 'navigation-timeout' : 'navigation-failed', retryable: true } };
+  }
+}
+
+async function handleAccountLogout(event) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  const token = accountSessionToken;
+  // 1) fail-closed 先清本地：内存 token + 加密会话文件立即失效，绝不因远端状态悬挂。
+  resetAccountSession('logged-out');
+  broadcastAccountChanged('logout');
+  // 2) 有界等待撤销服务端会话；失败/超时不吞掉，随返回值上报。
+  const revoke = await revokeAccountSession(token);
+  // 3) 可靠导航到 account.html；导航失败也要回报，不在 renderer 悬挂。
+  const navigation = await navigateToAccountGateBounded();
+  // 记录最近一次登出结果（revoke/navigation 均不泄漏 token），供 status 观测，便于测试断言不被吞掉。
+  accountLastLogout = Object.freeze({ revoke, navigation, at: new Date().toISOString() });
+  return { ok: true, localCleared: true, revoke, navigation };
+}
+
+function handleAccountStatus(event) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  return sanitizedAccountStatus();
+}
+
+async function handleAccountRefreshMembership(event) {
+  if (!isTrustedRendererEvent(event)) return accountUntrustedFailure();
+  if (accountSessionState.status !== 'authenticated' || !accountSessionToken) {
+    return { ok: false, error: { code: 'no-session', retryable: false } };
+  }
+  accountSessionState.membership = await fetchAuthoritativeMembership(accountSessionToken);
+  broadcastAccountChanged('membership-refreshed');
+  const projection = accountSessionState.membership;
+  if (!projection || projection.status !== 'ok') {
+    return { ok: false, error: { code: projection ? projection.errorCode : 'membership-unavailable', retryable: true }, membership: projection };
+  }
+  return { ok: true, membership: projection };
+}
+
 app.setName('XinJing'); // 用户数据目录固定为 .../XinJing/，稳定存放试用与激活信息
+
+// ---- XJ463 首启健康探针消费端（P1-2）：仅当更新健康适配器以 XJ463_HEALTH_PROBE=1
+// 启动本进程时进入探针分支；正常启动永不进入探针，探针也永不进入正常应用流程。
+// 探针使用临时 userData（--user-data-dir，位于系统临时目录）、合成数据、默认拒网，
+// 全链通过后原子写出完整 health marker 并以退出码 0 结束（见 app/update/health-probe/）。
+if (process.env.XJ463_HEALTH_PROBE === '1') {
+  require('./app/update/health-probe/probe-main').runHealthProbe();
+  return;
+}
+
+const AGENT_ACCEPTANCE_MODE = process.env.XJ_AGENT_ACCEPTANCE === '1';
+const AGENT_ACCEPTANCE_CLOSE_DIALOG = AGENT_ACCEPTANCE_MODE && process.env.XJ_AGENT_ACCEPTANCE_CLOSE_DIALOG === '1';
+
+function resolveAgentAcceptanceUserData() {
+  const requested = String(process.env.XJ_AGENT_ACCEPTANCE_USER_DATA || '').trim();
+  if (!requested || !path.isAbsolute(requested)) {
+    throw new Error('XJ_AGENT_ACCEPTANCE_USER_DATA must be an absolute temporary directory');
+  }
+  let tempRoot;
+  let resolved;
+  try {
+    // Windows may supply TEMP as an 8.3 path while Node resolves os.tmpdir()
+    // to its long form. Canonicalize both sides before enforcing containment.
+    tempRoot = fs.realpathSync.native(path.resolve(os.tmpdir()));
+    resolved = fs.realpathSync.native(path.resolve(requested));
+  } catch (e) {
+    throw new Error('XJ_AGENT_ACCEPTANCE_USER_DATA must be an existing temporary directory');
+  }
+  if (resolved === tempRoot || !resolved.startsWith(tempRoot + path.sep)) {
+    throw new Error('XJ_AGENT_ACCEPTANCE_USER_DATA must stay inside the system temporary directory');
+  }
+  return resolved;
+}
+const AGENT_ACCEPTANCE_USER_DATA = AGENT_ACCEPTANCE_MODE ? resolveAgentAcceptanceUserData() : null;
+
+function allowAgentAcceptanceWindowExit() {
+  if (AGENT_ACCEPTANCE_MODE) {
+    allowAppQuit('agent-acceptance-window-close');
+    return;
+  }
+}
 
 // ---- 显式固定 userData 路径（防御性）----
 // 早期 1.0 构建未调用 app.setName，userData 会落到 package.json 的 name（小写 xinjing），
 // 与当前 .../XinJing（大写）是两个不同目录 → 旧 exe 读到空目录 = “历史记录丢失 + 像回到了 1.0”。
 // 这里用字面量强制锁定同一目录，杜绝因 setName/name 差异导致的数据“消失”。
-const CANON_USER_DATA = path.join(app.getPath('appData'), 'XinJing');
+const CANON_USER_DATA = AGENT_ACCEPTANCE_MODE ? AGENT_ACCEPTANCE_USER_DATA : path.join(app.getPath('appData'), 'XinJing');
 try {
   fs.mkdirSync(CANON_USER_DATA, { recursive: true });
   app.setPath('userData', CANON_USER_DATA);
@@ -111,7 +1149,7 @@ function migrateLegacyUserData() {
     }
   } catch (e) { console.error('[userData] migrate failed:', (e && e.message) || e); }
 }
-migrateLegacyUserData();
+if (!AGENT_ACCEPTANCE_MODE) migrateLegacyUserData();
 
 // ---- 空库异常检测：本机曾有使用记录但标准目录 IndexedDB 为空且无旧目录可迁移 ----
 // 判定为真实数据丢失，写标记供启动时告警（指向文档/心镜备份 恢复）。
@@ -131,7 +1169,7 @@ function checkDataAnomaly() {
     }
   } catch (e) { /* ignore */ }
 }
-checkDataAnomaly();
+if (!AGENT_ACCEPTANCE_MODE) checkDataAnomaly();
 
 // ---- IndexedDB 端口碎片自愈合并（核心修复）----
 // 根因：前端经本地 http 服务加载，浏览器 IndexedDB/localStorage 按 origin(含端口) 隔离。
@@ -148,8 +1186,8 @@ const BUILD_DIR = path.join(__dirname, 'build');
 let APP_DIR_REAL = APP_DIR;
 try { APP_DIR_REAL = fs.realpathSync(APP_DIR); } catch (e) { APP_DIR_REAL = APP_DIR; }
 
-// ---- 单实例锁：避免开多个心镜窗口 ----
-if (!app.requestSingleInstanceLock()) {
+// ---- 单实例锁：避免开多个心镜窗口；隔离验收使用独立临时 userData，必须允许并行实例 ----
+if (!AGENT_ACCEPTANCE_MODE && !app.requestSingleInstanceLock()) {
   app.quit();
   return;
 }
@@ -161,6 +1199,11 @@ let legacyMigrateServers = [];
 let PORT = 0;
 let activationWindow = null;
 let closeConfirmWin = null;
+let applicationMenu = null;
+let windowMenuItem = null;
+const windowMenuBound = new WeakSet();
+let windowMenuListenersInstalled = false;
+let piProductionRuntime = null;
 let licenseState = null; // {mode, identity, daysLeft, activated, trialDays, version}
 let lastQuitBackupAt = 0;
 
@@ -174,16 +1217,33 @@ function allowAppQuit(reason) {
 }
 
 function backupBeforeQuit() {
+  if (AGENT_ACCEPTANCE_MODE) return true;
+  const options = arguments[0] || {};
+  const forceSnapshot = !!(options && options.forceSnapshot);
+  // app.quit() emits before-quit again after prepareAppQuit has already
+  // completed. Do not create a second timestamped snapshot during that
+  // re-entrant event; the first verified package is the authoritative one.
+  if (app.isQuiting) return true;
   const now = Date.now();
   // Multiple Electron/updater quit events can arrive in one shutdown sequence.
-  if (now - lastQuitBackupAt < 10000) return;
+  // A forced "保存并退出" must still create a fresh snapshot even when a
+  // background/update backup ran moments earlier.
+  if (!forceSnapshot && now - lastQuitBackupAt < 10000) return true;
+  const targets = exportBackup({ forceSnapshot });
+  if (!Array.isArray(targets) || targets.length === 0) return false;
   lastQuitBackupAt = now;
-  exportBackup();
+  return true;
 }
 
 function prepareAppQuit(reason) {
-  backupBeforeQuit();
+  if (!backupBeforeQuit({ forceSnapshot: reason === 'confirm-quit' })) {
+    try {
+      dialog.showErrorBox('退出前备份失败', '未能创建新的数据备份，心镜将保持打开。请检查“文档\\心镜备份”是否可写后重试。');
+    } catch (_) {}
+    return false;
+  }
   allowAppQuit(reason);
+  return true;
 }
 
 // ---- 授权与试用状态 ----
@@ -203,8 +1263,182 @@ const BACKUP_IGNORED_TOP_LEVEL = new Set([
   'Code Cache',
   'GPUCache',
   'DawnCache',
-  'Shared Dictionary'
+  'DawnGraphiteCache',
+  'DawnWebGPUCache',
+  'old_DawnGraphiteCache_000',
+  'old_DawnWebGPUCache_000',
+  'old_GPUCache_000',
+  'Shared Dictionary',
+  'Network',
+  'Session Storage',
+  'SharedStorage',
+  'WebStorage',
+  'blob_storage',
+  'DIPS',
+  'DevToolsActivePort',
+  'lockfile',
+  // 更新完整性目录由它自己的加密快照/回滚链管理；其中的暂存安装包和
+  // 正在使用的回滚文件不是用户业务数据，退出时也可能被更新器锁定。
+  'update-integrity',
+  'backup-key.json',
+  'backup-config.json',
+  'backup-meta.json',
+  'backup-restore-safety.xjbackup'
 ]);
+
+// Chromium/更新器在运行期间会创建这些锁与单例文件。它们既不是业务数据，
+// 也无法在 Windows 上稳定读取；把它们打进退出快照会让一次正常退出变成
+// XJ_BACKUP_SOURCE_READ_FAILED。只在已知运行时目录内按文件名过滤，其他业务
+// 文件（即使恰好叫 LOCK）仍保持 fail-closed。
+const BACKUP_IGNORED_ENTRY_NAMES = new Set([
+  'LOCK',
+  'SingletonLock',
+  'SingletonCookie',
+  'SingletonSocket',
+]);
+const BACKUP_RUNTIME_LOCK_ROOTS = new Set([
+  'IndexedDB',
+  'Local Storage',
+  'Session Storage',
+  'Network',
+  'Service Worker',
+  'Storage',
+]);
+
+function isIgnoredBackupPath(relative, entryName) {
+  const parts = String(relative || '').split(path.sep).filter(Boolean);
+  if (!parts.length || BACKUP_IGNORED_TOP_LEVEL.has(parts[0])) return true;
+  const name = String(entryName || '');
+  if (!BACKUP_IGNORED_ENTRY_NAMES.has(name)) return false;
+  // Chromium's singleton markers are always runtime bookkeeping, even when
+  // they sit directly under userData. A generic LOCK is ignored only inside
+  // the known LevelDB/runtime roots so a legitimate business file named LOCK
+  // is never silently removed from the snapshot.
+  if (name !== 'LOCK') return true;
+  return BACKUP_RUNTIME_LOCK_ROOTS.has(parts[0]);
+}
+
+const BACKUP_DATA_KEY_FILE = 'backup-key.json';
+const BACKUP_SAFETY_FILE = 'backup-restore-safety.xjbackup';
+const BACKUP_LATEST_FILE = '最新.xjbackup';
+const BACKUP_ERROR_CODES = new Set([
+  'XJ_BACKUP_SENDER_DENIED',
+  'XJ_BACKUP_PACKAGE_INVALID',
+  'XJ_BACKUP_PACKAGE_UNSUPPORTED',
+  'XJ_BACKUP_CIPHER_UNSUPPORTED',
+  'XJ_BACKUP_KDF_UNSUPPORTED',
+  'XJ_BACKUP_KDF_FAILED',
+  'XJ_BACKUP_AUTH_FAILED',
+  'XJ_BACKUP_PAYLOAD_HASH_MISMATCH',
+  'XJ_BACKUP_PAYLOAD_INVALID',
+  'XJ_BACKUP_PAYLOAD_TOO_LARGE',
+  'XJ_BACKUP_PASSPHRASE_TOO_SHORT',
+  'XJ_BACKUP_CRYPTO_UNAVAILABLE',
+  'XJ_BACKUP_KEY_INVALID',
+  'XJ_BACKUP_SAFETY_WRITE_FAILED',
+  'XJ_BACKUP_WRITE_FAILED',
+  'XJ_BACKUP_SOURCE_READ_FAILED',
+  'XJ_BACKUP_READBACK_FAILED',
+  'XJ_BACKUP_LOCATION_UNAVAILABLE',
+]);
+
+function safeBackupErrorCode(error, fallback) {
+  const code = error && typeof error.code === 'string' ? error.code : '';
+  return BACKUP_ERROR_CODES.has(code) ? code : (fallback || 'XJ_BACKUP_PACKAGE_INVALID');
+}
+
+function atomicWriteUtf8(target, content) {
+  const temp = target + '.tmp-' + process.pid + '-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+  const previous = target + '.previous-' + process.pid + '-' + Date.now();
+  let movedPrevious = false;
+  try {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(temp, content, { encoding: 'utf8', mode: 0o600 });
+    // Windows FlushFileBuffers requires a writable handle; a read-only handle
+    // makes fsyncSync fail with EPERM and would reject every backup write.
+    const fd = fs.openSync(temp, 'r+');
+    try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    if (fs.existsSync(target)) {
+      fs.renameSync(target, previous);
+      movedPrevious = true;
+    }
+    fs.renameSync(temp, target);
+    if (movedPrevious) {
+      try { fs.unlinkSync(previous); } catch (_) {}
+    }
+  } catch (error) {
+    try { if (fs.existsSync(temp)) fs.unlinkSync(temp); } catch (_) {}
+    if (movedPrevious && !fs.existsSync(target)) {
+      try { fs.renameSync(previous, target); } catch (_) {}
+    }
+    throw error;
+  }
+}
+
+function loadOrCreateBackupDataKey() {
+  try {
+    const file = path.join(userDataDir(), BACKUP_DATA_KEY_FILE);
+    if (fs.existsSync(file)) {
+      const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (record && record.version === 1 && typeof record.encryptedKey === 'string' && record.encryptedKey.startsWith('xj-enc:')) {
+        const decoded = Buffer.from(decryptSecret(record.encryptedKey) || '', 'base64');
+        if (decoded.length === 32) return decoded;
+      }
+    }
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const key = crypto.randomBytes(32);
+    const encryptedKey = encryptSecret(key.toString('base64'));
+    if (!encryptedKey) { key.fill(0); return null; }
+    atomicWriteUtf8(file, JSON.stringify({ version: 1, encryptedKey }));
+    return key;
+  } catch (_) {
+    return null;
+  }
+}
+
+function collectUserDataSnapshot(src) {
+  const files = [];
+  function sourceReadError() {
+    const error = new Error('XJ_BACKUP_SOURCE_READ_FAILED');
+    error.code = 'XJ_BACKUP_SOURCE_READ_FAILED';
+    return error;
+  }
+  function walk(dir) {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+    catch (_) { throw sourceReadError(); }
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue;
+      const full = path.join(dir, entry.name);
+      const relative = path.relative(src, full);
+      if (!relative || isIgnoredBackupPath(relative, entry.name)) continue;
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile()) {
+        let bytes;
+        try { bytes = fs.readFileSync(full); } catch (_) { throw sourceReadError(); }
+        files.push({ path: relative.split(path.sep).join('/'), data: bytes.toString('base64') });
+      }
+    }
+  }
+  walk(src);
+  return files;
+}
+
+function buildDeviceBackupPayload(src) {
+  return JSON.stringify({
+    version: '1.0.0',
+    kind: 'user-data-snapshot',
+    createdAt: new Date().toISOString(),
+    files: collectUserDataSnapshot(src),
+  });
+}
+
+function readBackupPayloadHash(file) {
+  try {
+    return backupCrypto.getPackageMeta(fs.readFileSync(file, 'utf8')).payloadSha256 || '';
+  } catch (_) { return ''; }
+}
 
 // v3.8.2 智能增量备份参数
 const BACKUP_MAX_SNAPSHOTS = 7;                       // 历史快照最多保留份数（超出删最旧）
@@ -217,7 +1451,7 @@ function copyUserDataBackup(src, dest) {
     filter: (entry) => {
       const relative = path.relative(src, entry);
       if (!relative) return true;
-      return !BACKUP_IGNORED_TOP_LEVEL.has(relative.split(path.sep)[0]);
+      return !isIgnoredBackupPath(relative, path.basename(entry));
     }
   });
 }
@@ -242,7 +1476,7 @@ function backupFileQuickHash(p) {
 // 仅复制变化的文件、删除 src 已不存在的文件；未变化的文件直接跳过。
 // 返回 { changed, copied, removed }。磁盘占用恒定≈单份，杜绝整目录复制导致的数 GB 冗余。
 function syncBackupDir(src, dest) {
-  const ignored = (rel) => BACKUP_IGNORED_TOP_LEVEL.has(rel.split(path.sep)[0]);
+  const ignored = (rel) => isIgnoredBackupPath(rel, path.basename(rel));
   const srcFiles = new Map(); // rel -> full
   (function walk(d) {
     let entries;
@@ -306,92 +1540,169 @@ function syncBackupDir(src, dest) {
 // v3.8.2 智能增量备份：每位置维护固定「最新」目录（文件级差异复制，磁盘恒定≈单份），
 // 仅当数据确有变化且距上次快照≥1天时才复制一份带时间戳历史快照（最多保留 7 份），
 // 彻底消除「每次整目录复制导致数GB 相同内容冗余备份」。
-function exportBackup() {
+function exportBackup(options) {
+  let key = null;
   try {
-    const src = userDataDir();                       // AppData\Local\XinJing（含 IndexedDB/激活/日记）
+    const forceSnapshot = !!(options && options.forceSnapshot);
+    const src = userDataDir();
+    key = loadOrCreateBackupDataKey();
+    if (!key) {
+      console.error('[backup] XJ_BACKUP_KEY_UNAVAILABLE');
+      return null;
+    }
+    // 先完整扫描并序列化源目录；扫描失败时不碰任何目标位置，避免把旧备份删成半份。
+    const payload = buildDeviceBackupPayload(src);
+    const packageText = backupCrypto.encryptPayloadWithKey(payload, key, {
+      kind: 'user-data-snapshot',
+      payloadVersion: '1.0.0',
+    });
+    const payloadSha256 = backupCrypto.getPackageMeta(packageText).payloadSha256;
     const cfg = loadBackupConfig();
     const targets = [];
     const now = Date.now();
 
-    // 处理单个备份位置（默认位置 / 自定义多位置共用）
     function doLocation(rootDir) {
-      try {
-        fs.mkdirSync(rootDir, { recursive: true });
-        const latest = path.join(rootDir, BACKUP_LATEST_DIR);   // 固定增量目录
-        const res = syncBackupDir(src, latest);                 // 文件级差异同步（仅写变化）
-        targets.push(latest);
-
-        // 该位置备份元数据（上次快照时间等）
-        const metaPath = path.join(rootDir, '.xj-backup-meta.json');
-        let meta = {};
-        try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) || {}; } catch (e) {}
-
-        const due = !meta.lastSnapshot || (now - meta.lastSnapshot) >= BACKUP_SNAPSHOT_MIN_INTERVAL_MS;
-        if (res.changed && due) {
-          // 数据确有变化且距上次快照≥1天：复制「最新」整份为带时间戳历史快照
-          const ts = new Date().toISOString().replace(/[:.]/g, '-');
-          const snap = path.join(rootDir, 'XinJing-' + ts);
-          try {
-            copyUserDataBackup(latest, snap);
-            meta.lastSnapshot = now;
-            meta.lastSnapshotName = 'XinJing-' + ts;
-            meta.lastChange = now;
-            fs.writeFileSync(metaPath, JSON.stringify(meta));
-            targets.push(snap);
-          } catch (e) { console.error('[backup] 快照失败:', (e && e.message) || e); }
-        } else if (res.changed) {
-          // 有变化但未到快照间隔：仅记变更时间，不新增快照
-          meta.lastChange = now;
-          try { fs.writeFileSync(metaPath, JSON.stringify(meta)); } catch (e) {}
+      fs.mkdirSync(rootDir, { recursive: true });
+      const locationTargets = [];
+      const writeVerifiedPackage = (target) => {
+        atomicWriteUtf8(target, packageText);
+        if (readBackupPayloadHash(target) !== payloadSha256) {
+          const readback = new Error('XJ_BACKUP_READBACK_FAILED');
+          readback.code = 'XJ_BACKUP_READBACK_FAILED';
+          throw readback;
         }
-
-        // 清理超量历史快照（仅删 XinJing- 前缀，不动「最新」与元数据文件）
-        let snaps = [];
+        locationTargets.push(target);
+      };
+      const latest = path.join(rootDir, BACKUP_LATEST_FILE);
+      const previousHash = readBackupPayloadHash(latest);
+      const changed = previousHash !== payloadSha256;
+      if (changed || !fs.existsSync(latest)) {
         try {
-          snaps = fs.readdirSync(rootDir).filter((n) => /^XinJing-\d{4}-\d{2}-\d{2}T/.test(n)).sort();
-        } catch (e) {}
-        while (snaps.length > BACKUP_MAX_SNAPSHOTS) {
-          const old = snaps.shift();
-          try { fs.rmSync(path.join(rootDir, old), { recursive: true, force: true }); console.log('[backup] 清理过期快照', old); }
-          catch (e) {}
+          writeVerifiedPackage(latest);
+        } catch (latestError) {
+          // Windows may keep the old “最新” file open (antivirus, sync
+          // client, or an interrupted previous shutdown). A fresh immutable
+          // package is still a valid quit backup; do not discard it merely
+          // because the rolling pointer cannot be replaced right now.
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          const suffix = process.pid + '-' + crypto.randomBytes(3).toString('hex');
+          const fallback = path.join(rootDir, 'XinJing-' + ts + '-' + suffix + '.xjbackup');
+          try {
+            writeVerifiedPackage(fallback);
+          } catch (fallbackError) {
+            fallbackError.cause = latestError;
+            throw fallbackError;
+          }
         }
-      } catch (e) { console.error('[backup] 位置失败:', rootDir, (e && e.message) || e); }
+      } else {
+        // Existing bytes were parsed above and already match the current
+        // payload hash; retain the path as a valid target.
+        locationTargets.push(latest);
+      }
+
+      const metaPath = path.join(rootDir, '.xj-backup-meta.json');
+      let meta = {};
+      try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) || {}; } catch (_) {}
+      const due = !meta.lastSnapshot || (now - meta.lastSnapshot) >= BACKUP_SNAPSHOT_MIN_INTERVAL_MS;
+      if (forceSnapshot || (changed && due)) {
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        let snapshotName = 'XinJing-' + ts + '.xjbackup';
+        let snapshot = path.join(rootDir, snapshotName);
+        let snapshotWritten = false;
+        try {
+          writeVerifiedPackage(snapshot);
+          snapshotWritten = true;
+        } catch (snapshotError) {
+          // A timestamped snapshot can be held by an antivirus/sync process too.
+          // Keep the forced quit guarantee by trying a unique immutable name in
+          // the same authoritative directory before declaring the location bad.
+          snapshotName = 'XinJing-' + ts + '-' + process.pid + '-' + crypto.randomBytes(3).toString('hex') + '.xjbackup';
+          snapshot = path.join(rootDir, snapshotName);
+          try {
+            writeVerifiedPackage(snapshot);
+            snapshotWritten = true;
+          } catch (fallbackError) {
+            fallbackError.cause = snapshotError;
+            if (forceSnapshot) throw fallbackError;
+            // The rolling latest package has already been verified. Historical
+            // retention is best-effort during background/normal backups; defer
+            // it and retry on the next run instead of blocking a safe backup.
+            console.warn('[backup] historical snapshot deferred:', safeBackupErrorCode(fallbackError, 'XJ_BACKUP_WRITE_FAILED'));
+          }
+        }
+        if (snapshotWritten) {
+          meta.lastSnapshot = now;
+          meta.lastSnapshotName = snapshotName;
+        }
+      }
+      if (changed) meta.lastChange = now;
+      meta.lastPayloadSha256 = payloadSha256;
+      try {
+        atomicWriteUtf8(metaPath, JSON.stringify(meta));
+      } catch (metaError) {
+        // The encrypted package has already been atomically written and
+        // verified. Metadata is advisory bookkeeping; a transient metadata
+        // lock must not turn a valid user-data backup into a false failure.
+        console.warn('[backup] metadata write deferred:', safeBackupErrorCode(metaError, 'XJ_BACKUP_WRITE_FAILED'));
+      }
+
+      let snapshots = [];
+      try { snapshots = fs.readdirSync(rootDir).filter((name) => /^XinJing-\d{4}-\d{2}-\d{2}T.*\.xjbackup$/.test(name)).sort(); } catch (_) {}
+      while (snapshots.length > BACKUP_MAX_SNAPSHOTS) {
+        const old = snapshots.shift();
+        try { fs.unlinkSync(path.join(rootDir, old)); } catch (_) {}
+      }
+      // Record verified targets before returning from this location. This keeps
+      // a successful latest package visible to the caller even if a non-forced
+      // historical snapshot was deferred above.
+      targets.push(...locationTargets);
     }
 
-    // 1) 默认位置：文档\心镜备份（与安装目录隔离）
-    try { doLocation(path.join(app.getPath('documents'), '心镜备份')); }
-    catch (e) { console.error('[backup] 默认位置失败:', (e && e.message) || e); }
-
-    // 2) 自定义多位置（多份容灾）
-    (cfg.locations || []).forEach((loc) => {
-      try {
-        if (!loc || typeof loc !== 'string') return;
-        // M8 修复：导出前校验目标路径（存在且为目录），避免对失效/非法/已删除的路径静默 cpSync 失败
-        let st;
-        try { st = fs.statSync(loc); } catch (e) { console.warn('[backup] 跳过无效备份位置（不存在）:', loc); return; }
-        if (!st.isDirectory()) { console.warn('[backup] 跳过无效备份位置（非目录）:', loc); return; }
-        doLocation(loc);
-      } catch (e) { console.error('[backup] 自定义位置失败:', loc, (e && e.message) || e); }
-    });
-
-    console.log('[backup] synced ->', targets.join(' | '));
-
-    // 记录自动备份元数据（供设置页/排障读取；不依赖渲染进程）
+    // 默认位置是用户可见的权威备份位置。自定义位置只是额外容灾，
+    // 不能掩盖默认位置失败，否则退出提示会让用户误以为“文档\心镜备份”
+    // 已经安全写入。
+    let defaultLocationError = null;
+    let defaultLocationSucceeded = false;
     try {
-      fs.writeFileSync(path.join(src, 'backup-meta.json'), JSON.stringify({ lastAutoBackup: new Date().toISOString(), time: now }));
-    } catch (e) {}
+      doLocation(path.join(app.getPath('documents'), '心镜备份'));
+      defaultLocationSucceeded = true;
+    } catch (error) {
+      defaultLocationError = error;
+      console.warn('[backup] default location unavailable; configured locations remain diagnostic only');
+    }
+    (cfg.locations || []).forEach((loc) => {
+      if (!loc || typeof loc !== 'string') return;
+      let st;
+      try { st = fs.statSync(loc); } catch (_) { return; }
+      if (!st.isDirectory()) return;
+      try { doLocation(loc); } catch (_) { /* preserve other locations */ }
+    });
+    if (!defaultLocationSucceeded) {
+      const failure = defaultLocationError || new Error('XJ_BACKUP_LOCATION_UNAVAILABLE');
+      if (!failure.code) failure.code = 'XJ_BACKUP_LOCATION_UNAVAILABLE';
+      throw failure;
+    }
 
-    // 3) 邮件提醒（mailto 兜底；真正的 SMTP 自动发送需 nodemailer + 邮箱 SMTP 凭据，见说明）
+    try {
+      atomicWriteUtf8(path.join(src, 'backup-meta.json'), JSON.stringify({
+        lastAutoBackup: new Date().toISOString(),
+        time: now,
+        payloadSha256,
+      }));
+    } catch (_) {}
+
     if (cfg.emailEnabled && cfg.email) {
       try {
-        const body = encodeURIComponent('心镜数据已自动备份（增量）：\n' + targets.join('\n'));
+        const body = encodeURIComponent('心镜数据已自动备份（加密包）：\n' + targets.join('\n'));
         shell.openExternal('mailto:' + cfg.email + '?subject=' + encodeURIComponent('心镜自动备份通知') + '&body=' + body);
-      } catch (e) { console.error('[backup] 邮件提醒失败:', (e && e.message) || e); }
+      } catch (_) {}
     }
     return targets;
-  } catch (e) {
-    console.error('[backup] failed:', (e && e.message) || e);
+  } catch (error) {
+    console.error('[backup] ' + safeBackupErrorCode(error, 'XJ_BACKUP_WRITE_FAILED'));
     return null;
+  } finally {
+    if (key) key.fill(0);
   }
 }
 function readTrialFirstLaunch() {
@@ -436,6 +1747,7 @@ function writeInstallMarker(obj) {
 }
 // 计算真正的首次安装时间戳（跨重装稳定）：取「公共目录标记」与「userData 首次启动」的较早者，并回写标记。
 function resolveFirstInstall() {
+  if (AGENT_ACCEPTANCE_MODE) return ensureTrial();
   const mc = getMachineCode();
   const trialTs = ensureTrial(); // userData 内首次启动（卸载重装会重置）
   let firstInstall = trialTs;
@@ -447,20 +1759,392 @@ function resolveFirstInstall() {
   return firstInstall;
 }
 
-function readLicense() {
+function atomicWriteJson(target, value) {
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const tmp = target + '.tmp-' + process.pid + '-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+  let handle = null;
   try {
-    const j = JSON.parse(fs.readFileSync(path.join(userDataDir(), 'license.json'), 'utf8'));
-    if (j && j.identity && j.activatedAt) {
-      return {
-        identity: j.identity,
-        tier: j.tier,
-        machineCode: j.machineCode,
-        activatedAt: j.activatedAt,
-        expiresAt: (typeof j.expiresAt === 'number' ? j.expiresAt : 0),
-      };
+    handle = fs.openSync(tmp, 'wx', 0o600);
+    fs.writeFileSync(handle, JSON.stringify(value, null, 2), 'utf8');
+    fs.fsyncSync(handle);
+    fs.closeSync(handle);
+    handle = null;
+    fs.renameSync(tmp, target);
+  } catch (error) {
+    if (handle !== null) {
+      try { fs.closeSync(handle); } catch (ignore) {}
     }
-  } catch (e) { /* ignore */ }
-  return null;
+    try { fs.unlinkSync(tmp); } catch (ignore) {}
+    throw error;
+  }
+}
+
+function atomicWriteBytes(target, bytes) {
+  const value = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const tmp = target + '.tmp-' + process.pid + '-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+  let handle = null;
+  try {
+    handle = fs.openSync(tmp, 'wx', 0o600);
+    fs.writeFileSync(handle, value);
+    fs.fsyncSync(handle);
+    fs.closeSync(handle);
+    handle = null;
+    fs.renameSync(tmp, target);
+  } catch (error) {
+    if (handle !== null) { try { fs.closeSync(handle); } catch (ignore) {} }
+    try { fs.unlinkSync(tmp); } catch (ignore) {}
+    throw error;
+  }
+}
+
+function supervisionPackageDir() { return path.join(userDataDir(), 'supervision-packages'); }
+function supervisionPackageIndexPath() { return path.join(supervisionPackageDir(), 'index-v1.json'); }
+function supervisionPackageHighWaterPath() { return path.join(supervisionPackageDir(), 'high-water-v1.json'); }
+
+function readSupervisionJson(file, fallback) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (error) { return fallback; }
+}
+
+function readSupervisionPackageIndex() {
+  const value = readSupervisionJson(supervisionPackageIndexPath(), null);
+  if (!value) return { schemaVersion: 1, entries: {} };
+  if (value.schemaVersion !== 1 || !value.entries || typeof value.entries !== 'object' || Array.isArray(value.entries)) {
+    return { schemaVersion: 1, entries: {}, corrupt: true };
+  }
+  return value;
+}
+
+function readSupervisionHighWater() {
+  const value = readSupervisionJson(supervisionPackageHighWaterPath(), null);
+  if (!value || value.schemaVersion !== 1 || !value.grants || !value.packages) {
+    return supervisionPackageCore.createHighWaterState();
+  }
+  return value;
+}
+
+function supervisionPackageKey(packageId, packageVersion) {
+  if (!/^[A-Za-z0-9._-]{1,128}$/.test(String(packageId || '')) || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(String(packageVersion || ''))) return '';
+  return String(packageId) + '@' + String(packageVersion);
+}
+
+function supervisionPackageFileName(packageId, packageVersion) {
+  const key = supervisionPackageKey(packageId, packageVersion);
+  return key ? key.replace(/@/g, '--') + '.xjsup' : '';
+}
+
+function supervisionDeviceRawPublic(keyObject) {
+  const der = crypto.createPublicKey(keyObject).export({ format: 'der', type: 'spki' });
+  const prefix = Buffer.from('302a300506032b656e032100', 'hex');
+  if (!der.subarray(0, prefix.length).equals(prefix) || der.length !== prefix.length + 32) return null;
+  return Buffer.from(der.subarray(prefix.length));
+}
+
+function getSupervisionDeviceIdentity() {
+  if (supervisionDeviceIdentityCache) return supervisionDeviceIdentityCache;
+  const recordPath = path.join(userDataDir(), 'supervision-device-v1.json');
+  try {
+    const record = readSupervisionJson(recordPath, null);
+    if (record && record.schemaVersion === 1 && record.deviceKeyId && record.protectedKey && record.devicePublicKeyHash) {
+      const pem = decryptSecret(record.protectedKey);
+      if (!pem) return null;
+      const keyObject = crypto.createPrivateKey(pem);
+      const rawPublic = supervisionDeviceRawPublic(keyObject);
+      if (!rawPublic || supervisionPackageCore.hashBytesBase64url(rawPublic) !== record.devicePublicKeyHash) return null;
+      supervisionDeviceIdentityCache = Object.freeze({ deviceKeyId: record.deviceKeyId, devicePublicKeyHash: record.devicePublicKeyHash, keyObject });
+      return supervisionDeviceIdentityCache;
+    }
+  } catch (error) {
+    return null;
+  }
+  try {
+    if (!safeStorage.isEncryptionAvailable()) return null;
+    const pair = crypto.generateKeyPairSync('x25519');
+    const rawPublic = supervisionDeviceRawPublic(pair.privateKey);
+    if (!rawPublic) return null;
+    const protectedKey = encryptSecret(pair.privateKey.export({ format: 'pem', type: 'pkcs8' }));
+    if (!protectedKey) return null;
+    const record = {
+      schemaVersion: 1,
+      deviceKeyId: 'xjdev_' + crypto.randomBytes(12).toString('hex'),
+      devicePublicKeyHash: supervisionPackageCore.hashBytesBase64url(rawPublic),
+      publicKey: pair.publicKey.export({ format: 'der', type: 'spki' }).toString('base64'),
+      protectedKey,
+    };
+    atomicWriteJson(recordPath, record);
+    supervisionDeviceIdentityCache = Object.freeze({ deviceKeyId: record.deviceKeyId, devicePublicKeyHash: record.devicePublicKeyHash, keyObject: pair.privateKey });
+    return supervisionDeviceIdentityCache;
+  } catch (error) {
+    return null;
+  }
+}
+
+function readSupervisionRevocationEvidence(nowMs) {
+  const file = path.join(userDataDir(), 'supervision-package-revocations.json');
+  const raw = readSupervisionJson(file, null);
+  if (!raw) return { valid: false, cachedValid: false, lastVerifiedOnlineAtMs: 0 };
+  try {
+    const checked = supervisionPackageCore.verifyRevocationEvidence(raw, { nowMs });
+    if (checked.valid) return Object.assign(checked, { cachedValid: true, lastVerifiedOnlineAtMs: checked.lastVerifiedOnlineAtMs });
+    const issued = Date.parse(String(raw.issuedAt || ''));
+    return { valid: false, cachedValid: Number.isFinite(issued), lastVerifiedOnlineAtMs: Number.isFinite(issued) ? issued : 0, revocationEpoch: Number(raw.revocationEpoch || 0) };
+  } catch (error) {
+    return { valid: false, cachedValid: false, lastVerifiedOnlineAtMs: 0 };
+  }
+}
+
+function supervisionRuntimeContext() {
+  const state = licenseState || computeState();
+  const nowMs = Date.now();
+  const access = entitlements.access('custom-supervisors', state);
+  const entitlementAllowed = state.activated === true && state.expired !== true && state.tier === 'custom' && access.eligible === true;
+  const device = entitlementAllowed ? getSupervisionDeviceIdentity() : null;
+  const revocation = readSupervisionRevocationEvidence(nowMs);
+  return {
+    entitlementAllowed,
+    subjectIdHash: state.subjectId ? supervisionPackageCore.hashOpaque(state.subjectId) : '',
+    licenseIdHash: state.licenseId ? supervisionPackageCore.hashOpaque(state.licenseId) : '',
+    deviceKeyId: device ? device.deviceKeyId : '',
+    devicePublicKeyHash: device ? device.devicePublicKeyHash : '',
+    keyObject: device ? device.keyObject : null,
+    appVersion: app.getVersion(),
+    nowMs,
+    online: revocation.valid === true,
+    revocation,
+  };
+}
+
+function supervisionError(error) {
+  const code = error && error.code ? String(error.code) : 'runtime-failed';
+  const messages = {
+    'entitlement-denied': '需要旗舰版授权',
+    'author-key-unknown': '作者验证密钥不可用',
+    'signature-invalid': '技能包签名无效',
+    'subject-mismatch': '技能包未绑定当前账户',
+    'license-mismatch': '技能包未绑定当前授权',
+    'device-mismatch': '技能包未绑定当前设备',
+    'device-key-unavailable': '设备密钥暂不可用',
+    'grant-expired': '技能包已过期',
+    'package-revoked': '技能包已撤销',
+    'offline-grace-expired': '离线宽限已结束',
+    'revocation-unavailable': '在线撤销状态不可验证',
+    'clock-rollback': '检测到系统时间回拨',
+    'grant-sequence-rollback': '授权版本回退',
+    'package-version-rollback': '技能包版本回退',
+    'revocation-epoch-rollback': '撤销版本回退',
+  };
+  return { ok: false, errorCode: code, message: messages[code] || '技能包暂不可用' };
+}
+
+function supervisionDescriptorWithState(descriptor, status, reason) {
+  return Object.assign({}, descriptor || {}, { status: status || descriptor && descriptor.status || 'locked', reason: reason || '' });
+}
+
+function handleSupervisionInspect(event, payload) {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'untrusted-renderer', message: '请求来源不受信任' };
+  try {
+    const input = payload && payload.bytes;
+    const bytes = Buffer.from(input instanceof Uint8Array ? input : []);
+    if (!bytes.length || bytes.length > SUPERVISION_PACKAGE_MAX_BYTES) throw new Error('package-too-large');
+    const inspected = supervisionPackageCore.inspectPackage(bytes, { fileName: payload && payload.fileName });
+    const token = crypto.randomBytes(18).toString('base64url');
+    supervisionPackageInspections.set(String(event.sender.id) + ':' + token, {
+      hash: crypto.createHash('sha256').update(bytes).digest('hex'),
+      bytes,
+      fileName: String((payload && payload.fileName) || ''),
+      descriptor: inspected.descriptor,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+    });
+    return { ok: true, inspectionToken: token, descriptor: inspected.descriptor };
+  } catch (error) {
+    return supervisionError(error);
+  }
+}
+
+function handleSupervisionInstall(event, payload) {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'untrusted-renderer', message: '请求来源不受信任' };
+  try {
+    if (!payload || payload.confirmed !== true || typeof payload.inspectionToken !== 'string') throw new Error('confirmation-required');
+    const key = String(event.sender.id) + ':' + payload.inspectionToken;
+    const inspection = supervisionPackageInspections.get(key);
+    if (!inspection || inspection.expiresAt < Date.now()) throw new Error('inspection-expired');
+    const bytes = Buffer.from(payload.bytes instanceof Uint8Array ? payload.bytes : []);
+    const hash = crypto.createHash('sha256').update(bytes).digest('hex');
+    if (!bytes.length || hash !== inspection.hash) throw new Error('inspection-mismatch');
+    const context = supervisionRuntimeContext();
+    const opened = supervisionPackageCore.openPackage(bytes, context, { fileName: inspection.fileName });
+    const descriptor = opened.descriptor;
+    const fileName = supervisionPackageFileName(descriptor.packageId, descriptor.packageVersion);
+    const entryKey = supervisionPackageKey(descriptor.packageId, descriptor.packageVersion);
+    if (!fileName || !entryKey) throw new Error('package-id');
+    const index = readSupervisionPackageIndex();
+    const now = new Date().toISOString();
+    const record = {
+      schemaVersion: 1,
+      key: entryKey,
+      fileName,
+      descriptor,
+      installedAt: now,
+      lastUsedAt: '',
+      state: 'installed',
+    };
+    atomicWriteBytes(path.join(supervisionPackageDir(), fileName), bytes);
+    atomicWriteJson(supervisionPackageHighWaterPath(), supervisionPackageCore.advanceHighWater(readSupervisionHighWater(), opened.parsed.manifest, context.nowMs));
+    index.entries[entryKey] = record;
+    atomicWriteJson(supervisionPackageIndexPath(), { schemaVersion: 1, entries: index.entries });
+    supervisionPackageInspections.delete(key);
+    return { ok: true, descriptor: supervisionDescriptorWithState(descriptor, 'installed', '') };
+  } catch (error) {
+    return supervisionError(error);
+  }
+}
+
+function assessSupervisionPackageEntry(entry, context) {
+  try {
+    const bytes = fs.readFileSync(path.join(supervisionPackageDir(), entry.fileName));
+    const parsed = supervisionPackageCore.parseXjsup(bytes, { fileName: entry.fileName });
+    supervisionPackageCore.authorizePackage(parsed, context);
+    return { status: 'installed', reason: '' };
+  } catch (error) {
+    const result = supervisionError(error);
+    return { status: 'locked', reason: result.errorCode };
+  }
+}
+
+function handleSupervisionList(event) {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'untrusted-renderer', message: '请求来源不受信任' };
+  const index = readSupervisionPackageIndex();
+  const context = supervisionRuntimeContext();
+  return {
+    ok: true,
+    packages: Object.keys(index.entries).sort().map((key) => {
+      const entry = index.entries[key];
+      const state = assessSupervisionPackageEntry(entry, context);
+      return supervisionDescriptorWithState(entry.descriptor, state.status, state.reason);
+    }),
+  };
+}
+
+function handleSupervisionRuntimeDescriptor(event, payload) {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'untrusted-renderer', message: '请求来源不受信任' };
+  const key = supervisionPackageKey(payload && payload.packageId, payload && payload.packageVersion);
+  if (!key) return { ok: false, errorCode: 'package-id', message: '技能包标识无效' };
+  const entry = readSupervisionPackageIndex().entries[key];
+  if (!entry) return { ok: false, errorCode: 'package-not-installed', message: '技能包未安装' };
+  const context = supervisionRuntimeContext();
+  const state = assessSupervisionPackageEntry(entry, context);
+  return { ok: true, descriptor: supervisionDescriptorWithState(entry.descriptor, state.status, state.reason) };
+}
+
+function handleSupervisionRun(event, payload) {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'untrusted-renderer', message: '请求来源不受信任' };
+  try {
+    const key = supervisionPackageKey(payload && payload.packageId, payload && payload.packageVersion);
+    if (!key) throw new Error('package-id');
+    const index = readSupervisionPackageIndex();
+    const entry = index.entries[key];
+    if (!entry) throw new Error('package-not-installed');
+    const bytes = fs.readFileSync(path.join(supervisionPackageDir(), entry.fileName));
+    const context = supervisionRuntimeContext();
+    const opened = supervisionPackageCore.openPackage(bytes, context, { fileName: entry.fileName });
+    const now = new Date().toISOString();
+    entry.lastUsedAt = now;
+    atomicWriteJson(supervisionPackageHighWaterPath(), supervisionPackageCore.advanceHighWater(readSupervisionHighWater(), opened.parsed.manifest, context.nowMs));
+    atomicWriteJson(supervisionPackageIndexPath(), { schemaVersion: 1, entries: index.entries });
+    supervisionPackageRuntimeCache.set(key, { resources: opened.resources, expiresAt: Date.now() + 2 * 60 * 1000 });
+    const ref = {
+      packageId: opened.descriptor.packageId,
+      supervisorId: opened.descriptor.supervisorId,
+      packageVersion: opened.descriptor.packageVersion,
+      contentHash: opened.descriptor.contentHash,
+      authorKeyId: opened.descriptor.authorKeyId,
+      recipientGrantIdHash: opened.descriptor.bindingSummary,
+      grantSequence: opened.descriptor.grantSequence,
+      bindingAssurance: 'device-bound',
+      providerPolicyHash: supervisionPackageCore.hashBytesBase64url(supervisionPackageCore.canonicalBytes(opened.parsed.manifest.providerPolicy)),
+      actualProviderId: opened.parsed.manifest.providerPolicy.mode === 'local-only' ? 'local-only' : opened.parsed.manifest.providerPolicy.providerId,
+      status: 'authorized',
+    };
+    return { ok: true, runId: 'sup_run_' + crypto.randomBytes(12).toString('hex'), descriptor: opened.descriptor, supervisionSkillRef: ref };
+  } catch (error) {
+    return supervisionError(error);
+  }
+}
+
+function handleSupervisionRemove(event, payload) {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'untrusted-renderer', message: '请求来源不受信任' };
+  const key = supervisionPackageKey(payload && payload.packageId, payload && payload.packageVersion);
+  if (!key) return { ok: false, errorCode: 'package-id', message: '技能包标识无效' };
+  const index = readSupervisionPackageIndex();
+  const entry = index.entries[key];
+  if (!entry) return { ok: false, errorCode: 'package-not-installed', message: '技能包未安装' };
+  try { fs.unlinkSync(path.join(supervisionPackageDir(), entry.fileName)); } catch (error) { if (error.code !== 'ENOENT') return { ok: false, errorCode: 'remove-failed', message: '技能包移除失败' }; }
+  delete index.entries[key];
+  supervisionPackageRuntimeCache.delete(key);
+  atomicWriteJson(supervisionPackageIndexPath(), { schemaVersion: 1, entries: index.entries });
+  return { ok: true, packageId: payload.packageId, packageVersion: payload.packageVersion };
+}
+
+function licenseFilePath() { return path.join(userDataDir(), 'license.json'); }
+function revocationStatePath() { return path.join(userDataDir(), 'license-revocation-state.json'); }
+
+function readStoredLicense() {
+  try {
+    const record = JSON.parse(fs.readFileSync(licenseFilePath(), 'utf8'));
+    if (record && record.schemaVersion === 2 && record.claim && typeof record.claim === 'object') {
+      return { kind: 'v2', claim: record.claim, source: record.source === 'cloud' ? 'cloud' : 'offline' };
+    }
+    if (record && typeof record === 'object') return { kind: 'legacy' };
+  } catch (error) {
+    if (error && error.code !== 'ENOENT') return { kind: 'invalid' };
+  }
+  return { kind: 'none' };
+}
+
+function readMinimumRevocationVersion() {
+  try {
+    const state = JSON.parse(fs.readFileSync(revocationStatePath(), 'utf8'));
+    return Number.isInteger(state.minimumVersion) && state.minimumVersion > 0 ? state.minimumVersion : 0;
+  } catch (error) {
+    return 0;
+  }
+}
+
+function loadVerifiedRevocationList(now) {
+  let list;
+  try {
+    list = JSON.parse(fs.readFileSync(path.join(__dirname, 'license-revocations.json'), 'utf8'));
+  } catch (error) {
+    return { valid: false, errorCode: 'revocation-unavailable', minimumVersion: readMinimumRevocationVersion() };
+  }
+  const minimumVersion = readMinimumRevocationVersion();
+  const checked = license.verifyRevocationList(list, { now, minimumVersion });
+  if (!checked.valid) return Object.assign({ minimumVersion }, checked);
+  if (checked.listVersion > minimumVersion) {
+    try {
+      atomicWriteJson(revocationStatePath(), {
+        schemaVersion: 1,
+        minimumVersion: checked.listVersion,
+        updatedAt: new Date(now).toISOString(),
+      });
+    } catch (error) {
+      return { valid: false, errorCode: 'revocation-state-write', minimumVersion };
+    }
+  }
+  return Object.assign({ minimumVersion: checked.listVersion }, checked);
+}
+
+function verifyStoredLicense(machineCode, now, revocation) {
+  const stored = readStoredLicense();
+  if (stored.kind === 'legacy') return { valid: false, tier: 'free', migrationRequired: true, errorCode: 'legacy-record' };
+  if (stored.kind === 'invalid') return { valid: false, tier: 'free', migrationRequired: false, errorCode: 'stored-record-malformed' };
+  if (stored.kind !== 'v2') return { valid: false, tier: 'free', migrationRequired: false, errorCode: '' };
+  if (!revocation.valid) return { valid: false, tier: 'free', migrationRequired: false, errorCode: revocation.errorCode };
+  return license.verifyStoredRecord({ schemaVersion: 2, claim: stored.claim }, machineCode, {
+    now,
+    revocationList: revocation.list,
+    minimumRevocationVersion: revocation.minimumVersion,
+  });
 }
 
 // 毫秒时间戳 → YYYY-MM-DD（0 视为终身）
@@ -487,25 +2171,23 @@ function getMachineCode() {
   return code;
 }
 function computeState() {
-  const trial = license.trialStatus(ensureTrial(), Date.now());
-  const lic = readLicense();
-  const activatedRaw = !!(lic && lic.identity && lic.activatedAt);
-  // 过期：已激活但 expiresAt 非 0 且已超过 → 视为未激活（完整功能锁定，含 AI 助手）
-  const expired = !!(lic && lic.expiresAt && lic.expiresAt !== 0 && Date.now() > lic.expiresAt);
-  const activated = activatedRaw && !expired;
-  // 旧 license.json（升级前）无 tier 字段 → 视为完整版（祖父条款，权益等同 pro）
-  const tier = (lic && lic.tier) ? lic.tier : (activated ? 'full' : 'free');
-  // 试用期用户默认旗舰权限（custom），确保试用期间可体验全部功能
-  const effectiveTier = (!activated && trial.daysLeft > 0) ? 'custom' : tier;
+  const now = Date.now();
+  const trial = license.trialStatus(ensureTrial(), now);
+  const revocation = loadVerifiedRevocationList(now);
+  const verified = verifyStoredLicense(getMachineCode(), now, revocation);
+  const activated = verified.valid === true;
+  const expired = verified.errorCode === 'expired';
+  // Trial 不是产品档位：未激活用户始终保留 Free 产品权益，AI 体验由显式 allowlist 决定。
   // AI 免费试用窗口（安装后 30 天，跨重装稳定）
-  const aiTrial = license.aiTrialStatus(resolveFirstInstall(), Date.now());
+  const aiTrial = license.aiTrialStatus(resolveFirstInstall(), now);
   const aiTrialActive = !activated && aiTrial.active; // 已激活用户不再走试用口径
   // AI 解锁条件：已激活（未过期）或 处于 30 天免费试用窗口内。
   const aiUnlocked = activated || aiTrialActive;
   licenseState = {
     mode: license.overallMode(activated, trial),
-    identity: activated ? lic.identity : '',
-    tier: effectiveTier,
+    identity: activated ? verified.subjectId : '',
+    subjectId: activated ? verified.subjectId : '',
+    tier: activated ? verified.tier : 'free',
     aiUnlocked,
     aiTrialActive,
     aiTrialDaysLeft: aiTrial.daysLeft,
@@ -513,7 +2195,12 @@ function computeState() {
     daysLeft: trial.daysLeft,
     activated,
     expired,
-    expiresAt: (lic && lic.expiresAt) || 0,
+    expiresAt: activated || expired ? (verified.expiresAt || 0) : 0,
+    licenseId: activated ? verified.licenseId : '',
+    migrationRequired: verified.migrationRequired === true,
+    licenseErrorCode: verified.errorCode || '',
+    revocationValid: revocation.valid === true,
+    revocationVersion: revocation.valid ? revocation.listVersion : 0,
     trialDays: license.TRIAL_DAYS,
     version: app.getVersion()
   };
@@ -584,6 +2271,13 @@ function serveApp(req, res) {
 function startStaticServer() {
   return new Promise((resolve) => {
     server = http.createServer(serveApp);
+    // Acceptance must never attach to a user's already-running stable origin.
+    // Its userData is isolated, so an ephemeral loopback origin is both safe and
+    // necessary to prove that CDP serves the current workspace bytes.
+    if (AGENT_ACCEPTANCE_MODE) {
+      server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+      return;
+    }
     // 固定端口：IndexedDB/localStorage 按 origin(含端口) 隔离，端口一变=空库=历史"丢失"。
     // 优先固定 18765；若被占用则按确定性候选列表逐个尝试（避免随机端口造成 origin 漂移），
     // 仍全部失败才回退随机端口。无论最终绑定哪个端口，consolidateIndexedDB 都会把历史数据带过来。
@@ -611,6 +2305,25 @@ function startStaticServer() {
     };
     tryNext();
   });
+}
+
+function isAgentAcceptanceLoopbackUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.protocol === 'http:' && parsed.hostname === '127.0.0.1' && Number(parsed.port) === PORT;
+  } catch (e) {
+    return false;
+  }
+}
+
+function configureAgentAcceptanceSession() {
+  const acceptanceSession = require('electron').session.defaultSession;
+  acceptanceSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  if (typeof acceptanceSession.setPermissionCheckHandler === 'function') {
+    acceptanceSession.setPermissionCheckHandler(() => false);
+  }
+  // 默认拒网与未登录强制登录门禁统一在 whenReady 内注册（unifiedRequestGate）：
+  // Electron 的 onBeforeRequest 只允许一个监听器，拆开注册会互相覆盖。
 }
 
 // ---- 旧端口历史数据迁移：扫描 IndexedDB 目录下所有旧端口库，在其上临时起同源服务 ----
@@ -703,6 +2416,91 @@ function preConsolidateCurrentPortOrphan(port) {
   }
 }
 
+// ---- Window 菜单：最大化 / 还原 ----
+// 只允许真正聚焦的普通主窗口参与，避免把确认窗、激活工具窗或 modal
+// 子窗口误当作工作区最大化；没有合适窗口时菜单项保持禁用并 fail-closed。
+function getFocusedNormalWindow() {
+  let focusedWindow = null;
+  try { focusedWindow = BrowserWindow.getFocusedWindow(); } catch (_) { return null; }
+  if (!focusedWindow || (typeof focusedWindow.isDestroyed === 'function' && focusedWindow.isDestroyed())) return null;
+  if (focusedWindow === closeConfirmWin || focusedWindow === activationWindow) return null;
+  try {
+    if (typeof focusedWindow.isModal === 'function' && focusedWindow.isModal()) return null;
+    if (typeof focusedWindow.getParentWindow === 'function' && focusedWindow.getParentWindow()) return null;
+    if (typeof focusedWindow.isMinimized === 'function' && focusedWindow.isMinimized()) return null;
+  } catch (_) { return null; }
+  return focusedWindow;
+}
+
+function refreshWindowMenuItem() {
+  if (!windowMenuItem) return;
+  const focusedWindow = getFocusedNormalWindow();
+  windowMenuItem.enabled = !!focusedWindow;
+  windowMenuItem.label = focusedWindow && typeof focusedWindow.isMaximized === 'function' && focusedWindow.isMaximized()
+    ? '还原窗口'
+    : '最大化窗口';
+}
+
+function toggleFocusedNormalWindowMaximize() {
+  const focusedWindow = getFocusedNormalWindow();
+  if (!focusedWindow || typeof focusedWindow.isMaximized !== 'function') {
+    refreshWindowMenuItem();
+    return { ok: false, reason: 'no-focused-normal-window' };
+  }
+  const wasMaximized = focusedWindow.isMaximized();
+  if (wasMaximized) focusedWindow.restore();
+  else focusedWindow.maximize();
+  refreshWindowMenuItem();
+  return { ok: true, action: wasMaximized ? 'restore' : 'maximize' };
+}
+
+function trackWindowForApplicationMenu(windowRef) {
+  if (!windowRef || typeof windowRef.on !== 'function' || windowMenuBound.has(windowRef)) return;
+  windowMenuBound.add(windowRef);
+  for (const eventName of ['maximize', 'unmaximize', 'restore', 'minimize', 'closed']) {
+    windowRef.on(eventName, refreshWindowMenuItem);
+  }
+}
+
+function createApplicationMenu() {
+  const template = [];
+  if (process.platform === 'darwin') template.push({ role: 'appMenu' });
+  template.push(
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    {
+      label: 'Window',
+      submenu: [
+        {
+          id: 'xj-window-toggle-maximize',
+          label: '最大化窗口',
+          click: () => toggleFocusedNormalWindowMaximize()
+        },
+        { type: 'separator' },
+        { role: 'minimize', label: '最小化窗口' },
+        { role: 'close', label: '关闭窗口' }
+      ]
+    },
+    {
+      role: 'help',
+      submenu: [{ label: '检查更新', click: () => checkForUpdatesManual() }]
+    }
+  );
+  applicationMenu = Menu.buildFromTemplate(template);
+  windowMenuItem = applicationMenu && typeof applicationMenu.getMenuItemById === 'function'
+    ? applicationMenu.getMenuItemById('xj-window-toggle-maximize')
+    : null;
+  Menu.setApplicationMenu(applicationMenu);
+  if (!windowMenuListenersInstalled) {
+    app.on('browser-window-focus', refreshWindowMenuItem);
+    app.on('browser-window-blur', refreshWindowMenuItem);
+    windowMenuListenersInstalled = true;
+  }
+  refreshWindowMenuItem();
+  return applicationMenu;
+}
+
 // ---- 主窗口 ----
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -717,14 +2515,20 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false, // preload 需用 require('electron')，须关闭沙箱（默认即 false，显式兜底）
-      webSecurity: false, // 允许 AI 功能向外部 API 发请求（本地单用户工具，可接受）
+      sandbox: true,
+      webSecurity: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
+  trackWindowForApplicationMenu(mainWindow);
+  applyWindowSecurity(mainWindow);
 
-  // 咨询师每天先需要确认日程、待补记录与待收款；对话模式保留为工作台中的主动入口。
-  mainWindow.loadURL(`http://127.0.0.1:${PORT}/index.html`);
+  // 强制登录门禁：未登录一律停留账号页；已登录直达工作台首页。
+  if (accountSessionState.status === 'authenticated') {
+    mainWindow.loadURL(`http://127.0.0.1:${PORT}/index.html`);
+  } else {
+    mainWindow.loadURL(accountGatePageUrl());
+  }
 
   // 顶部窗口标题始终固定为「心镜 v1.0.X」，阻止各页面 document.title 覆盖
   mainWindow.on('page-title-updated', (e) => {
@@ -743,6 +2547,10 @@ function createWindow() {
   // 关闭 → 弹出美化版确认窗：后台常驻 or 完全退出
   // 顶部自定义 ✕ 与 Alt+F4 均等同「后台常驻」（拒绝退出）
   mainWindow.on('close', (e) => {
+    if (AGENT_ACCEPTANCE_MODE && !AGENT_ACCEPTANCE_CLOSE_DIALOG) {
+      allowAgentAcceptanceWindowExit();
+      return;
+    }
     if (app.isQuiting) return;            // 明确退出（托盘"退出"/确认选"完全退出"）不拦截
     e.preventDefault();
     if (closeConfirmWin) { try { closeConfirmWin.focus(); } catch (_) {} return; }
@@ -761,10 +2569,12 @@ function createWindow() {
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
+        webSecurity: true,
         preload: path.join(__dirname, 'confirm-close-preload.js')
       }
     });
+    applyWindowSecurity(closeConfirmWin);
     closeConfirmWin.webContents.on('preload-error', (ev, err) => {
       console.error('[preload-error] close-confirm:', (err && err.stack) || err);
     });
@@ -801,8 +2611,7 @@ function createTray() {
     {
       label: '退出',
       click: () => {
-        prepareAppQuit('tray-quit');
-        app.quit();
+        if (prepareAppQuit('tray-quit')) app.quit();
       }
     }
   ]);
@@ -826,163 +2635,79 @@ function enableAutoStart() {
   });
 }
 
-// ---- 自动更新（GitHub Releases 作为更新源）----
-function setupAutoUpdater() {
-  autoUpdater.autoDownload = false;        // 先询问，再下载
-  autoUpdater.autoInstallOnAppQuit = true; // 退出时若已下载则自动安装
-  // 关闭差分(增量)更新：NSIS 差分重组偶发写出损坏安装包，
-  // 表现为 "Failed to decompress files / Error opening ZIP file"。
-  // 本项目安装包仅约 73MB，整包下载换取更新可靠性，值得。
-  autoUpdater.disableDifferentialDownload = true;
+// ---- 更新完整性：typed feed + durable 快照 + 首启健康 + portable 回滚（v5.0 update-integrity）----
+// 由已验证候选 Task 463 生产集成（main-update-integration 协调流）替代旧 electron-updater 链路。
+// 融合说明：本文件其余部分（含用户/其他 agent 的 dirty 改动）原样保留，仅替换此更新区。
+const updateIntegration = require('./app/update/main-update-integration');
+const updateAdapters = require('./app/update/production-adapters');
+const updateEnvAdapter = require('./app/update/env-adapter');
 
-  // 更新源迁移到腾讯云 COS（国内节点，下载比 GitHub 快）：
-  // 用 generic provider 指向 COS 桶默认域名，latest.yml / latest-portable.yml / exe 平铺在桶根，
-  // 路径与 electron-updater 的请求模型完全匹配，自动更新改走国内链路
-  autoUpdater.setFeedURL({ provider: 'generic', url: 'https://xinjing-1439314927.cos.ap-guangzhou.myqcloud.com/' });
+function isPortableRuntime() {
+  return !!(process.env.PORTABLE_EXECUTABLE_FILE || /portable/i.test(path.basename(process.execPath)));
+}
 
-  // 版本类型判定（决定走哪个更新通道）：
-  //   安装版（NSIS）→ 不设 channel → 读 latest.yml（其中 path 指向 xinjing-setup-x.y.z.exe）
-  //   便携版（绿色单文件）→ channel='latest-portable' → 读 latest-portable.yml（path 指向 portable 包）
-  // 判定优先级：① electron 便携环境变量（最高权威）；② 可执行文件名含 "portable"
-  //              （electron-builder 默认命名 xinjing-portable-x.y.z.exe）。两者都不命中 → 视为安装版
-  //              → 严格走 setup 更新，绝不误拉便携包覆盖安装版用户。
-  const isPortable = !!(process.env.PORTABLE_EXECUTABLE_FILE ||
-    /portable/i.test(path.basename(process.execPath)));
-  if (isPortable) {
-    autoUpdater.channel = 'latest-portable'; // 读取 latest-portable.yml 而非 latest.yml
-    const fsMod = require('fs');
-    const osMod = require('os');
-    const { spawn } = require('child_process');
-    // 覆盖安装逻辑：下载完成后，退出前派生一个 detached 批处理，
-    // 等本进程退出（解锁 exe）后把新文件覆盖到运行中的 portable exe 路径，再重启
-    autoUpdater.doInstall = () => {
-      const helper = autoUpdater.downloadedUpdateHelper;
-      const newExe = helper && helper.file;
-      const curExe = process.env.PORTABLE_EXECUTABLE_FILE;
-      if (!newExe || !curExe) return false;
-      const oldExe = curExe + '.old';
-      const bat = path.join(osMod.tmpdir(), `xj-portable-update-${Date.now()}.bat`);
-      const BOM = '﻿'; // UTF-8 BOM，确保 cmd 正确解析中文路径
-      const lines = [
-        '@echo off',
-        'chcp 65001 >nul',
-        'setlocal',
-        ':wait',
-        `tasklist /fi "PID eq ${process.pid}" | find " ${process.pid} " >nul`,
-        'if %errorlevel%==0 (',
-        '  timeout /t 1 /nobreak >nul',
-        '  goto wait',
-        ')',
-        `if exist "${oldExe}" del /f /q "${oldExe}"`,
-        `move /y "${curExe}" "${oldExe}"`,
-        `copy /y "${newExe}" "${curExe}"`,
-        `start "" "${curExe}"`,
-        'endlocal',
-      ];
-      try {
-        fsMod.writeFileSync(bat, BOM + lines.join('\r\n') + '\r\n');
-        const child = spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true });
-        child.unref();
-        prepareAppQuit('portable-update-install');
-        app.quit();
-        return true;
-      } catch (e) {
-        console.error('[auto-updater] portable self-replace failed:', e && e.message);
-        return false;
-      }
-    };
-  }
-
-  autoUpdater.on('update-available', (info) => {
-    if (!mainWindow) return;
-    const notes = typeof info.releaseNotes === 'string'
-      ? info.releaseNotes
-      : (Array.isArray(info.releaseNotes) ? info.releaseNotes.map(n => n.note || '').join('\n') : '');
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: '发现新版本',
-      message: `心镜 XinJing 有新版本 v${info.version} 可用（当前 v${app.getVersion()}）。`,
-      detail: notes ? `更新内容：\n${notes}\n\n是否现在下载并更新？` : '是否现在下载并更新？',
-      buttons: ['立即更新', '稍后'],
-      cancelId: 1,
-      defaultId: 0
-    }).then(({ response }) => {
-      if (response === 0) autoUpdater.downloadUpdate();
-    });
+function updateIntegrationOptions() {
+  // REAL production adapters (Codex intake P0-3/P0-4 fix): no adapter may stay
+  // null. Electron APIs (net/dialog/ipcMain) are injected so the wiring is the
+  // same code path exercised in tests; acceptance mode forces default-deny
+  // network and never starts a real update.
+  // P1-1 fix: the durable adapters (xj:update:snapshot / xj:update:restore)
+  // require a controlled production env; buildAdapters fails closed when it is
+  // missing. env is userData-scoped via env-adapter (bounded, never shared dir).
+  const env = updateEnvAdapter.productionEnv(CANON_USER_DATA, null);
+  updateEnvAdapter.assertBounded(env);
+  const adapters = updateAdapters.buildProductionUpdateOptions({
+    net: electronNet,
+    dialog: dialog,
+    ipcMain: ipcMain,
+    getMainWindow: () => mainWindow || null,
+    appVersion: app.getVersion(),
+    denyNetwork: () => !!AGENT_ACCEPTANCE_MODE, // acceptance / probe: never hit the network
+    probeDir: __dirname,
+    electronExe: process.execPath,
+    currentExePath: process.execPath
   });
-
-  autoUpdater.on('update-not-available', () => {
-    if (_xjChecking && mainWindow) {
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: '检查更新',
-        message: '已是最新版本 v' + app.getVersion() + '。'
-      });
-    }
-  });
-
-  autoUpdater.on('update-downloaded', () => {
-    if (!mainWindow) return;
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: '更新就绪',
-      message: '新版本已下载完成，重启后生效。',
-      buttons: ['现在重启', '稍后重启'],
-      cancelId: 1,
-      defaultId: 0
-    }).then(({ response }) => {
-      if (response === 0) {
-        // electron-updater starts NSIS before it asks Electron to quit. Finish the
-        // synchronous data backup first so the installer does not mistake that
-        // work for an application that refuses to close.
-        backupBeforeQuit();
-        autoUpdater.quitAndInstall();
-      }
-    });
-  });
-
-  electronAutoUpdater.on('before-quit-for-update', () => {
-    prepareAppQuit('auto-update-install');
-  });
-
-  autoUpdater.on('error', (err) => {
-    console.error('[auto-updater] error:', err && err.message);
-  });
-
-  // 启动 3 秒后再检查，避免阻塞首屏
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(() => { /* 离线/无发布时忽略 */ });
-  }, 3000);
+  const opts = {
+    win: null,
+    ipcMain: ipcMain,
+    mainWindow: null,
+    appVersion: app.getVersion(),
+    isPortable: isPortableRuntime(),
+    channel: 'stable',
+    strategy: isPortableRuntime() ? 'portable' : 'installer',
+    userDataDir: CANON_USER_DATA,
+    previousInstallerPath: null,
+    backupCrypto: backupCrypto,
+    backupKey: (typeof loadOrCreateBackupDataKey === 'function' ? loadOrCreateBackupDataKey() : null),
+    agentAcceptanceMode: AGENT_ACCEPTANCE_MODE,
+    sourceManifestHash: null,
+    releaseId: null,
+    fs: fs,
+    lockHeld: () => false,
+    env: env,
+    transport: adapters.transport,
+    recoverUpdate: adapters.recoverUpdate,
+    confirmDecision: adapters.confirmDecision,
+    rendererIpc: adapters.rendererIpc,
+    rendererDurable: adapters.rendererDurable,
+    healthCheck: adapters.healthCheck,
+    portableRestart: adapters.portableRestart
+  };
+  return opts;
 }
 
 function checkForUpdatesManual() {
-  autoUpdater.checkForUpdates().catch(() => {
-    if (mainWindow) {
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: '检查更新',
-        message: '暂时无法连接更新服务器，请检查网络后重试。'
-      });
-    }
-  });
+  if (AGENT_ACCEPTANCE_MODE) return;
+  const opts = updateIntegrationOptions();
+  if (mainWindow) opts.mainWindow = mainWindow;
+  updateIntegration.checkForUpdatesManual(opts);
 }
 
-// 首页「检查更新」按钮经渲染进程桥接调用：有更新走现有下载弹窗，无更新给明确反馈，出错给网络提示
-let _xjChecking = false;
-function checkForUpdatesFromRenderer() {
-  if (_xjChecking) return;
-  if (!app.isPackaged || !autoUpdater || typeof autoUpdater.checkForUpdates !== 'function') {
-    if (mainWindow) dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '当前环境不支持自动更新（开发模式）。' });
-    return;
-  }
-  _xjChecking = true;
-  autoUpdater.checkForUpdates()
-    .catch(() => {
-      if (mainWindow) dialog.showMessageBox(mainWindow, { type: 'info', title: '检查更新', message: '暂时无法连接更新服务器，请检查网络后重试。' });
-    })
-    .finally(() => { _xjChecking = false; });
+function setupUpdateIntegration() {
+  const opts = updateIntegrationOptions();
+  if (mainWindow) opts.mainWindow = mainWindow;
+  return updateIntegration.setupUpdateIntegration(opts);
 }
-ipcMain.handle('xj:check-updates', () => { checkForUpdatesFromRenderer(); return true; });
 
 app.whenReady().then(async () => {
   if (!fs.existsSync(APP_DIR)) {
@@ -991,16 +2716,52 @@ app.whenReady().then(async () => {
     return;
   }
   try { computeState(); } catch (e) { console.error('[computeState] 启动计算授权状态失败，使用默认未激活态:', (e && e.message) || e); } // M1 修复：抛错不得阻断窗口创建
+  if (AGENT_ACCEPTANCE_MODE) configureAgentAcceptanceSession();
+  createApplicationMenu();
   PORT = await startStaticServer();
+  // 5.1.0 Pi production bridge：主进程唯一编排入口；Store 读写经 preload
+  // 结构化 transport 回到 renderer，未知账号/会员/发送方均 fail-closed。
+  try {
+    piProductionRuntime = createPiProductionRuntime({
+      ipcMain,
+      getMainWindow: () => mainWindow,
+      isTrustedRendererEvent,
+      userDataDir: userDataDir(),
+      serverMembershipProjection: () => {
+        const membership = accountSessionState.membership;
+        if (accountSessionState.status !== 'authenticated' || !membership || membership.status !== 'ok' || membership.serverAuthoritative !== true) return null;
+        return { tier: String(membership.tier || '') };
+      },
+      audit: (entry) => {
+        if (entry && entry.ok === false) console.warn('[pi] durable boundary rejected:', String(entry.code || 'unknown'));
+      },
+    });
+    if (!piProductionRuntime.replay || piProductionRuntime.replay.ok !== true) {
+      console.error('[pi] event replay blocked; bridge remains fail-closed');
+    }
+  } catch (e) {
+    piProductionRuntime = null;
+    console.error('[pi] production bridge initialization failed (fail-closed):', (e && e.message) || e);
+  }
+  // 统一请求门禁：验收模式默认拒网（仅放行回环静态源）+ 未登录强制停留账号页。
+  // onBeforeRequest 只能有一个监听器，故两种策略合并为 unifiedRequestGate。
+  try {
+    require('electron').session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://*/*', 'ws://*/*', 'wss://*/*'] }, unifiedRequestGate);
+  } catch (e) { console.error('[account-gate] webRequest 注册失败', (e && e.message) || e); }
+  // 启动即尝试会话恢复（有已保存会话时）；失败 fail-closed，窗口仍停留账号页。
+  // safeStorage DPAPI 后端在 ready 后存在短暂初始化竞态：先让出事件循环，再配合内部有界重试。
+  await new Promise((r) => setTimeout(r, 1200));
+  accountBootstrapPromise = bootstrapAccountSession();
+  accountBootstrapPromise.catch(() => {}).finally(() => { accountBootstrapPromise = null; });
   // 当前端口 orphan 预合并：渲染进程打开 IndexedDB 之前，先把「恰好是当前端口」的 .orphan 旧库还原，
   // 否则它因端口冲突无法经临时服务迁移而永久丢失（store.js migrateOldPorts 负责其余非当前端口）。
-  preConsolidateCurrentPortOrphan(PORT);
+  if (!AGENT_ACCEPTANCE_MODE) preConsolidateCurrentPortOrphan(PORT);
   // 历史端口数据迁移已改由渲染进程在窗口加载后执行（store.js migrateOldPorts）：
   // 主进程仅负责扫描旧端口并在其上临时起同源服务、通知渲染进程，迁移完成后再归档旧库。
   createWindow();
   // 旧端口历史数据迁移：窗口加载完成后，扫描旧端口并在其上临时起同源服务，
   // 由渲染进程用隐藏 iframe 在旧 origin 上下文读出数据、合并写入当前端口库（根治「换端口=历史丢失」）
-  if (mainWindow) {
+  if (!AGENT_ACCEPTANCE_MODE && mainWindow) {
     mainWindow.webContents.once('did-finish-load', async () => {
       // M2 修复：窗口加载完成即推送授权/试用状态，避免付费/试用用户短暂读到默认 aiUnlocked=false 而锁死 AI
       try { if (licenseState) mainWindow.webContents.send('xj:license-state', licenseState); } catch (e) {}
@@ -1011,12 +2772,14 @@ app.whenReady().then(async () => {
       } catch (e) { console.error('[migrate] 启动旧端口迁移服务失败（已跳过）', (e && e.message) || e); }
     });
   }
-  createTray();
-  enableAutoStart();
-  if (app.isPackaged) setupAutoUpdater(); // 仅在打包后启用自动更新（开发态跳过）
+  if (!AGENT_ACCEPTANCE_MODE) {
+    createTray();
+    enableAutoStart();
+  }
+  setupUpdateIntegration(); // 注册 typed 更新桥（acceptance 模式内部 fail-safe，真实更新被门拦下）
   // 数据异常告警：本机曾有使用记录但历史数据缺失（可能丢失或落错目录）
   const anomalyFlag = path.join(CANON_USER_DATA, 'data-anomaly.json');
-  if (app.isPackaged && fs.existsSync(anomalyFlag)) {
+  if (!AGENT_ACCEPTANCE_MODE && app.isPackaged && fs.existsSync(anomalyFlag)) {
     try {
       dialog.showMessageBox({
         type: 'warning',
@@ -1046,10 +2809,12 @@ function openActivationWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false,
+      sandbox: true,
+      webSecurity: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
+  applyWindowSecurity(activationWindow);
   activationWindow.loadURL(`http://127.0.0.1:${PORT}/activation.html`);
   activationWindow.webContents.on('preload-error', (ev, err) => {
     console.error('[preload-error] activation window:', (err && err.stack) || err);
@@ -1057,18 +2822,108 @@ function openActivationWindow() {
   activationWindow.on('closed', () => { activationWindow = null; });
 }
 
-// ---- API 密钥加解密 IPC（H1 修复）----
-ipcMain.handle('xj:encryptSecret', (e, plain) => encryptSecret(plain));
-ipcMain.handle('xj:decryptSecret', (e, stored) => decryptSecret(stored));
+// ---- API 密钥写入与受控 AI 网络 IPC ----
+ipcMain.handle('xj:encryptSecret', (event, plain) => {
+  if (!isTrustedRendererEvent(event) || typeof plain !== 'string' || plain.length > 16384) return '';
+  return encryptSecret(plain);
+});
+ipcMain.handle('xj:backup:encrypt', async (event, input) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'XJ_BACKUP_SENDER_DENIED' };
+  if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.payload !== 'string' || typeof input.passphrase !== 'string') {
+    return { ok: false, errorCode: 'XJ_BACKUP_PACKAGE_INVALID' };
+  }
+  try {
+    const packageText = await backupCrypto.encryptPayload(input.payload, input.passphrase, { kind: 'user-export', payloadVersion: '2.0.0' });
+    return { ok: true, package: packageText };
+  } catch (error) {
+    return { ok: false, errorCode: safeBackupErrorCode(error) };
+  }
+});
+ipcMain.handle('xj:backup:decrypt', async (event, input) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'XJ_BACKUP_SENDER_DENIED' };
+  if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.packageText !== 'string' || typeof input.passphrase !== 'string') {
+    return { ok: false, errorCode: 'XJ_BACKUP_PACKAGE_INVALID' };
+  }
+  try {
+    const payload = await backupCrypto.decryptPayload(input.packageText, input.passphrase);
+    return { ok: true, payload };
+  } catch (error) {
+    return { ok: false, errorCode: safeBackupErrorCode(error) };
+  }
+});
+ipcMain.handle('xj:backup:writeSafetySnapshot', async (event, input) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'XJ_BACKUP_SENDER_DENIED' };
+  if (!input || typeof input !== 'object' || Array.isArray(input) || typeof input.payload !== 'string' || typeof input.passphrase !== 'string') {
+    return { ok: false, errorCode: 'XJ_BACKUP_PACKAGE_INVALID' };
+  }
+  try {
+    const packageText = await backupCrypto.encryptPayload(input.payload, input.passphrase, { kind: 'user-export', payloadVersion: '2.0.0' });
+    atomicWriteUtf8(path.join(userDataDir(), BACKUP_SAFETY_FILE), packageText);
+    return { ok: true };
+  } catch (error) {
+    const code = safeBackupErrorCode(error, 'XJ_BACKUP_SAFETY_WRITE_FAILED');
+    return { ok: false, errorCode: code === 'XJ_BACKUP_PACKAGE_INVALID' ? 'XJ_BACKUP_SAFETY_WRITE_FAILED' : code };
+  }
+});
+[
+  ['xj:commercial:getSnapshot', 'getSnapshot'],
+  ['xj:commercial:evaluateAccess', 'evaluateAccess'],
+  ['xj:commercial:applySubscriptionEvent', 'applySubscriptionEvent'],
+  ['xj:commercial:applyOrderEvent', 'applyOrderEvent'],
+  ['xj:commercial:applyDeviceEvent', 'applyDeviceEvent'],
+  ['xj:commercial:applyQuotaOperation', 'applyQuotaOperation'],
+  ['xj:commercial:getAuditPage', 'getAuditPage'],
+  ['xj:commercial:getServerModelCatalog', 'getServerModelCatalog'],
+  ['xj:commercial:getModelPriceCatalog', 'getModelPriceCatalog'],
+  ['xj:commercial:getAccountBalance', 'getAccountBalance'],
+  ['xj:commercial:quoteRequestCharge', 'quoteRequestCharge'],
+  ['xj:commercial:reserveRequestCharge', 'reserveRequestCharge'],
+  ['xj:commercial:settleRequestCharge', 'settleRequestCharge'],
+  ['xj:commercial:releaseRequestCharge', 'releaseRequestCharge'],
+  ['xj:commercial:markRequestUnknown', 'markRequestUnknown'],
+  ['xj:commercial:reconcileRequestCharge', 'reconcileRequestCharge'],
+  ].forEach(([channel, method]) => {
+   ipcMain.handle(channel, (event, payload) => handleCommercialChannel(method, event, payload));
+ });
+// Recipient-grant renderer boundary is intentionally read-only. Issuance, lifecycle,
+// quota, entitlement and decryption authority remain inside the main process.
+registerRecipientGrantIpc(ipcMain);
+ipcMain.handle('xj:aiRequest', handleAiRequest);
+ipcMain.on('xj:aiCancel', (event, requestId) => {
+  if (!isTrustedRendererEvent(event)) return;
+  const active = activeAiRequests.get(String(requestId || ''));
+  if (active && active.senderId === event.sender.id) active.controller.abort();
+});
 
 // ---- 授权相关 IPC ----
 ipcMain.handle('xj:getState', () => licenseState || computeState());
 ipcMain.handle('xj:getVersion', () => app.getVersion());
+
+// ---- v5.0.2 桌面账号：注册/验证/登录/会话恢复/登出/会员投影（渲染进程永不见 session token）----
+ipcMain.handle('xj:account:bootstrap', handleAccountBootstrap);
+ipcMain.handle('xj:account:register', handleAccountRegister);
+ipcMain.handle('xj:account:resend', handleAccountResend);
+ipcMain.handle('xj:account:verify', handleAccountVerify);
+ipcMain.handle('xj:account:forgotPassword', handleAccountForgotPassword);
+ipcMain.handle('xj:account:resetPassword', handleAccountResetPassword);
+ipcMain.handle('xj:account:login', handleAccountLogin);
+ipcMain.handle('xj:account:logout', handleAccountLogout);
+ipcMain.handle('xj:account:status', handleAccountStatus);
+ipcMain.handle('xj:account:refreshMembership', handleAccountRefreshMembership);
+// 受控督导技能包 IPC：所有字节、授权、解密和原始密文路径都停留在主进程边界内。
+ipcMain.handle('xj:supervisionSkill:inspectPackage', handleSupervisionInspect);
+ipcMain.handle('xj:supervisionSkill:installPackage', handleSupervisionInstall);
+ipcMain.handle('xj:supervisionSkill:listInstalled', handleSupervisionList);
+ipcMain.handle('xj:supervisionSkill:getRuntimeDescriptor', handleSupervisionRuntimeDescriptor);
+ipcMain.handle('xj:supervisionSkill:run', handleSupervisionRun);
+ipcMain.handle('xj:supervisionSkill:removePackage', handleSupervisionRemove);
 // 保存备份配置（多位置 + 邮箱），供 exportBackup 在退出/常驻时读取
 ipcMain.handle('xj:saveBackupConfig', (e, cfg) => {
+  if (!isTrustedRendererEvent(e)) return { ok: false, errorCode: 'XJ_BACKUP_SENDER_DENIED' };
   try {
     // H4 修复：过滤 cfg 中的危险路径，仅允许合法目录名
-    const safe = Object.assign({}, cfg || {});
+    if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) return { ok: false, errorCode: 'XJ_BACKUP_PACKAGE_INVALID' };
+    const safe = Object.assign({}, cfg);
     if (Array.isArray(safe.locations)) {
       safe.locations = safe.locations.filter(function (loc) {
         if (!loc || typeof loc !== 'string') return false;
@@ -1080,10 +2935,10 @@ ipcMain.handle('xj:saveBackupConfig', (e, cfg) => {
         return true;
       });
     }
-    if (safe.email && typeof safe.email !== 'string') delete safe.email;
+    if (safe.email !== undefined && typeof safe.email !== 'string') delete safe.email;
     fs.writeFileSync(path.join(userDataDir(), 'backup-config.json'), JSON.stringify(safe));
-    return true;
-  } catch (err) { console.error('[backup-config] save failed', err.message); return false; }
+    return { ok: true };
+  } catch (_) { return { ok: false, errorCode: 'XJ_BACKUP_WRITE_FAILED' }; }
 });
 // 选择备份文件夹（自定义多位置容灾）
 ipcMain.handle('xj:selectBackupFolder', async () => {
@@ -1692,15 +3547,22 @@ ipcMain.on('xj:openActivation', () => openActivationWindow());
 
 // 关闭确认窗的抉择：cancel=取消退出(主窗口保持打开) / stay=后台常驻 / quit=完全退出
 ipcMain.on('xj:closeDecision', (ev, action) => {
-  if (closeConfirmWin) { try { closeConfirmWin.close(); } catch (_) {} closeConfirmWin = null; }
+  if (!isTrustedRendererEvent(ev) || !['cancel', 'stay', 'quit'].includes(action)) return;
+  if (AGENT_ACCEPTANCE_MODE) {
+    allowAppQuit('agent-acceptance-close-decision');
+    if (closeConfirmWin) { try { closeConfirmWin.close(); } catch (_) {} closeConfirmWin = null; }
+    if (mainWindow) mainWindow.close();
+    return;
+  }
   if (action === 'cancel') {
     // 取消退出：仅关闭确认窗，主窗口保持原样打开，不隐藏、不退
+    if (closeConfirmWin) { try { closeConfirmWin.close(); } catch (_) {} closeConfirmWin = null; }
     return;
   }
   if (action === 'quit') {
-    prepareAppQuit('confirm-quit');
-    app.quit();
+    if (prepareAppQuit('confirm-quit')) app.quit();
   } else {
+    if (closeConfirmWin) { try { closeConfirmWin.close(); } catch (_) {} closeConfirmWin = null; }
     exportBackup();   // 后台常驻前导出一份数据备份（落盘到文档/心镜备份 + 自定义位置）
     if (mainWindow) mainWindow.hide();   // 后台常驻
   }
@@ -1725,91 +3587,97 @@ ipcMain.handle('xj:saveFileAs', async (ev, opts) => {
 
 // 渲染进程完成旧端口数据迁移后回传：关闭临时迁移服务 + 归档旧端口库（防重复迁移）
 ipcMain.on('xj:migrate-done', (ev, ports) => {
+  if (AGENT_ACCEPTANCE_MODE) return;
   for (const s of legacyMigrateServers) { try { s.close(); } catch (err) { /* ignore */ } }
   legacyMigrateServers = [];
   if (Array.isArray(ports)) archiveLegacyPorts(ports);
 });
 
-ipcMain.handle('xj:getMachineCode', () => getMachineCode());
+ipcMain.handle('xj:getMachineCode', (event) => isTrustedRendererEvent(event) ? getMachineCode() : '');
 
-ipcMain.handle('xj:activate', (e, code) => {
-  const mc = getMachineCode();
-  const v = license.verifyKey(code, mc);
-  if (!v.valid || !v.identity) {
-    // 区分「机器码不匹配」与「码无效」：前者是同一张码被拿到别的机器激活
-    if (v.machineCode && v.machineCode !== mc) {
-      return { ok: false, error: '激活码与本机机器码不匹配：该码已绑定到另一台设备。请向开发者索取绑定本机机器码的激活码。' };
-    }
-    return { ok: false, error: '激活码无效，请核对后重试。' };
+function activationError(result) {
+  if (result.migrationRequired) {
+    return { ok: false, migrationRequired: true, errorCode: result.errorCode, error: '旧版激活码需要人工迁移。你的本地资料不会被删除，请联系支持换取新版授权。' };
   }
-  if (v.expired) {
-    return { ok: false, error: '该激活码已过期（有效期至 ' + fmtDate(v.expiresAt) + '），请向开发者索取续费激活码。' };
+  const messages = {
+    'machine-mismatch': '激活码已绑定到另一台设备。请提供本机机器码并申请新的绑定授权。',
+    expired: '该授权已于 ' + fmtDate(result.expiresAt) + ' 到期，请续费后重新激活。',
+    revoked: '该授权已被撤销，请联系支持核对授权状态。',
+    'unknown-key': '授权签发密钥无法识别，请更新心镜或联系支持。',
+    'not-yet-valid': '授权尚未生效，请检查系统时间后重试。',
+  };
+  if (String(result.errorCode || '').startsWith('revocation-')) {
+    return { ok: false, errorCode: result.errorCode, error: '授权撤销信息不可验证。为保护授权安全，当前不能激活，请更新心镜或联系支持。' };
   }
-  // 激活时叠加剩余的 30 天免费时间：非终身码才有意义（终身码本就无限）。
-  // 例：码有效期 1 年，用户在还剩 20 天免费期时激活 → 实际有效期 = 码有效期 + 20 天。
-  let finalExpires = v.expiresAt || 0;
-  let bonusDays = 0;
-  if (finalExpires !== 0) {
-    const aiTrial = license.aiTrialStatus(resolveFirstInstall(), Date.now());
-    bonusDays = aiTrial.daysLeft || 0;
-    if (bonusDays > 0) finalExpires = finalExpires + bonusDays * 86400000;
-  }
+  return { ok: false, errorCode: result.errorCode || 'invalid-license', error: messages[result.errorCode] || '激活码无效，请核对完整内容后重试。' };
+}
+
+function broadcastLicenseState() {
+  // 授权变化后不复用旧的解密描述；下一次运行必须重新经过三重门禁。
+  supervisionPackageRuntimeCache.clear();
   try {
-    fs.writeFileSync(
-      path.join(userDataDir(), 'license.json'),
-      JSON.stringify({ identity: v.identity, tier: v.tier, machineCode: mc, activatedAt: Date.now(), expiresAt: finalExpires, codeExpiresAt: v.expiresAt || 0, bonusDays }, null, 2)
-    );
-  } catch (err) {
-    return { ok: false, error: '保存激活信息失败：' + err.message };
+    BrowserWindow.getAllWindows().forEach((window) => {
+      try { if (window && window.webContents) window.webContents.send('xj:license-state', licenseState); } catch (error) {}
+    });
+  } catch (error) { /* ignore */ }
+}
+
+function activateSignedClaim(input, source) {
+  const now = Date.now();
+  const revocation = loadVerifiedRevocationList(now);
+  if (!revocation.valid) return activationError({ errorCode: revocation.errorCode });
+  const verified = license.verifyKey(input, getMachineCode(), {
+    now,
+    revocationList: revocation.list,
+    minimumRevocationVersion: revocation.minimumVersion,
+  });
+  if (!verified.valid) return activationError(verified);
+  try {
+    atomicWriteJson(licenseFilePath(), {
+      schemaVersion: 2,
+      claim: verified.claim,
+      source: source === 'cloud' ? 'cloud' : 'offline',
+      activatedAt: new Date(now).toISOString(),
+    });
+  } catch (error) {
+    return { ok: false, errorCode: 'license-save-failed', error: '保存激活信息失败：' + error.message };
   }
   computeState();
-  // 实时把最新授权状态广播给所有打开的渲染窗口，使其立即解除 AI 锁定（无需依赖整页 reload）
-  try {
-    BrowserWindow.getAllWindows().forEach((w) => {
-      try { if (w && w.webContents) w.webContents.send('xj:license-state', licenseState); } catch (e) {}
-    });
-  } catch (e) { /* ignore */ }
-  return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, expired: false };
+  broadcastLicenseState();
+  return {
+    ok: true,
+    subjectId: verified.subjectId,
+    identity: verified.subjectId,
+    tier: verified.tier,
+    licenseId: verified.licenseId,
+    expiresAt: verified.expiresAt,
+    source: source === 'cloud' ? 'cloud' : 'offline',
+  };
+}
+
+ipcMain.handle('xj:activate', (event, code) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'sender-denied', error: '激活请求来源未通过安全校验。' };
+  if (typeof code !== 'string' || code.length > 16384) return { ok: false, errorCode: 'malformed', error: '激活码格式或长度不正确。' };
+  return activateSignedClaim(code, 'offline');
 });
 
-// 云激活（与本地激活并行的第二条通道；本地激活 xj:activate 完全不动）。
-// 客户端收到云激活码后 POST 到云端 Cloudflare Worker（SECRET 只在云端），云端用同一 SECRET 验签后返回
-// {ok, identity, tier, expiresAt}。客户端写同一份 license.json（加 source:'cloud' 标记来源）+ 复用 computeState + 广播。
-// 实际的 Worker 部署见 cloud-verify.js 顶 CLOUD_VERIFY_HOST（env 可配）。
-ipcMain.handle('xj:cloud-activate', async (e, code) => {
-  const mc = getMachineCode();
-  let v;
+// 云端只返回待验签的 v2 claim/code；客户端仍执行与离线激活完全相同的本地验签与持久化。
+ipcMain.handle('xj:cloud-activate', async (event, code) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, errorCode: 'sender-denied', error: '激活请求来源未通过安全校验。' };
+  if (AGENT_ACCEPTANCE_MODE) return { ok: false, error: 'Agent acceptance mode does not permit cloud activation.' };
+  if (typeof code !== 'string' || code.length > 16384) return { ok: false, errorCode: 'malformed', error: '激活码格式或长度不正确。' };
+  let response;
   try {
-    v = await require('./cloud-verify').verifyCloud(code, mc);
-  } catch (err) {
-    return { ok: false, error: '云激活失败：' + (err && err.message ? err.message : '未知错误') };
+    response = await require('./cloud-verify').verifyCloud(code, getMachineCode());
+  } catch (error) {
+    return { ok: false, error: '云激活失败：' + (error && error.message ? error.message : '未知错误') };
   }
-  if (!v.ok || !v.identity) return { ok: false, error: v.error || '云端校验未通过' };
-  let finalExpires = v.expiresAt || 0;
-  let bonusDays = 0;
-  if (finalExpires !== 0) {
-    const aiTrial = license.aiTrialStatus(resolveFirstInstall(), Date.now());
-    bonusDays = aiTrial.daysLeft || 0;
-    if (bonusDays > 0) finalExpires = finalExpires + bonusDays * 86400000;
-  }
-  try {
-    fs.writeFileSync(
-      path.join(userDataDir(), 'license.json'),
-      JSON.stringify({ identity: v.identity, tier: v.tier, machineCode: mc, activatedAt: Date.now(), expiresAt: finalExpires, codeExpiresAt: v.expiresAt || 0, bonusDays, source: 'cloud' }, null, 2)
-    );
-  } catch (err) {
-    return { ok: false, error: '保存激活信息失败：' + err.message };
-  }
-  computeState();
-  try {
-    BrowserWindow.getAllWindows().forEach((w) => {
-      try { if (w && w.webContents) w.webContents.send('xj:license-state', licenseState); } catch (e2) {}
-    });
-  } catch (e2) { /* ignore */ }
-  return { ok: true, identity: v.identity, tier: v.tier, expiresAt: finalExpires, bonusDays, source: 'cloud' };
+  if (!response.ok || !response.signedClaim) return { ok: false, error: response.error || '云端未返回可验证的授权声明。' };
+  return activateSignedClaim(response.signedClaim, 'cloud');
 });
 
 ipcMain.handle('xj:openExternal', async (e, url) => {
+  if (AGENT_ACCEPTANCE_MODE) return false;
   try {
     const parsed = new URL(String(url || ''));
     if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) return false;
@@ -1820,7 +3688,8 @@ ipcMain.handle('xj:openExternal', async (e, url) => {
   }
 });
 
-ipcMain.on('xj:activationDone', () => {
+ipcMain.on('xj:activationDone', (event) => {
+  if (!isTrustedRendererEvent(event)) return;
   if (activationWindow) {
     try { activationWindow.close(); } catch (e) { /* ignore */ }
     activationWindow = null;
@@ -1838,11 +3707,25 @@ app.on('second-instance', () => {
 });
 
 app.on('window-all-closed', () => {
+  if (AGENT_ACCEPTANCE_MODE) app.quit();
   // Windows 下保持运行（托盘常驻），不退出
 });
 
-app.on('before-quit', () => {
-  prepareAppQuit(app.quitReason || 'before-quit');
+app.on('before-quit', (event) => {
+  if (!prepareAppQuit(app.quitReason || 'before-quit')) {
+    // Direct app.quit(), OS shutdown and updater quit must share the same
+    // backup gate as the confirmation dialog. Keep the app alive so the user
+    // can fix the location and retry instead of losing the latest changes.
+    event.preventDefault();
+    return;
+  }
+  if (piProductionRuntime) {
+    try { piProductionRuntime.stop(); } catch (_) {}
+    piProductionRuntime = null;
+  }
+  supervisionPackageRuntimeCache.clear();
+  supervisionPackageInspections.clear();
+  supervisionDeviceIdentityCache = null;
   if (server) {
     try { server.close(); } catch (e) { /* ignore */ }
   }

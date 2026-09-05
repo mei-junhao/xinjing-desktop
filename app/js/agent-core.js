@@ -247,6 +247,18 @@
       role: 'system',
       content: '你已通过工具取得真实业务数据。优先基于已有数据直接用自然语言回答用户（可引用具体姓名与数字）；除非确实需要另一项不同的数据，否则不要再调用工具，尤其不得重复调用已查过的同一工具。'
     };
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.registerPrompt) {
+      PromptGovernance.registerPrompt({
+        id: 'agent-core.answer-nudge.system',
+        version: '4.4.0',
+        task: 'assistant-tool-answer',
+        model: 'chat-completions-compatible',
+        author: 'XinJing product team',
+        source: 'app/js/agent-core.js',
+        changeLog: ['4.4.0: registered the post-tool answer nudge system template.'],
+        content: ANSWER_NUDGE.content,
+      });
+    }
     let resultSeen = false;
     let prevSingleKey = null;
     let repeatCount = 0;
@@ -336,8 +348,8 @@
           messages.push(toolError(tc, '参数校验失败：' + err));
           continue;
         }
-        // 写工具：走确认 UX
-        if (tool.kind === 'write') {
+        // 默认拒绝：仅已登记的 read 工具可跳过确认，其他种类均须用户确认。
+        if (tool.kind !== 'read') {
           if (typeof onConfirm !== 'function') {
             messages.push(toolError(tc, '写工具未配置确认回调'));
             continue;
@@ -394,7 +406,27 @@
   }
 
   // ---------- 构建系统提示 ----------
+  function registerSystemPromptTemplate() {
+    if (typeof PromptGovernance === 'undefined' || !PromptGovernance.registerPrompt) return;
+    PromptGovernance.registerPrompt({
+      id: 'agent-core.system',
+      version: '4.4.0',
+      task: 'assistant-routing-and-tools',
+      model: 'chat-completions-compatible',
+      author: 'XinJing product team',
+      source: 'app/js/agent-core.js',
+      changeLog: ['4.4.0: registered the assistant system template; dynamic client and user-library context are excluded from the manifest hash.'],
+      content: [
+        'You are the XinJing lightweight work assistant.',
+        'Use only registered tools and never invent data.',
+        'Write-like tools require confirmation and clinical tasks route to their dedicated workspace.',
+        'Dynamic client and user-library context is not part of the versioned template hash.',
+      ].join('\n'),
+    });
+  }
+
   function buildSystemPrompt() {
+    registerSystemPromptTemplate();
     let tools = '';
     try { tools = getTools(); } catch (e) { /* 未注入时降级 */ }
     let toolList = '';
@@ -424,7 +456,7 @@
       '你是心镜 XinJing 的轻量工作助手。你可以可靠完成：统计与业务数据查询、简单记账、月结、白名单内的来访者信息修改、资料检索和 API 接口配置。',
       '规则：',
       '1. 你只能调用提供的工具，不要凭空编造数据。',
-      '2. 写操作（记账/月结/改信息）执行前会向用户确认，你只需发起 tool_call，不要在回复里假装已执行。',
+      '2. 所有非查询工具（包括记账、改信息、配置 API 和会话操作）执行前都会向用户确认；你只需发起 tool_call，不要在回复里假装已执行。',
       '3. 如果用户请求含多条记录，用 records 数组一次性提交，不要分多次调用。',
       '4. 查不到来访者时先问用户是否新建，不要自行假设。',
       '5. 金额日期等字段严格按 schema 填，不要省略 required 字段。',
@@ -442,7 +474,7 @@
         try {
           if (typeof AI !== 'undefined' && AI.getTier) {
             return AI.getTier() === 'builtin'
-              ? '\n\n[档位] 你运行在免费试用档（经官方韩国代理，每机器码 ¥5 / 30 天额度）。额度内使用高性能模型 DeepSeek-V4-Flash，可完成记账 / 月结 / 查统计 / 改来访者信息 / 配 API 等任务；额度用尽或过期会自动降级到内置基础模型（Qwen3.5-4B，低性能，仅普通任务）。若用户需要持续高性能或更长额度，引导其购买会员或增量包恢复使用。用户接入自己的高性能模型 key 后，理解与表达质量会提升，但可执行操作仍以已提供工具为准。注意：若用户接入的模型不支持 function-calling（如 o1/o2/o3/o4 或 reasoning 模型），Agent 会主动提示其换用支持的模型，而非静默失效。'
+              ? '\n\n[档位] 你运行在免费试用档，默认使用 DeepSeek-V4-Pro 主力模型，可完成记账 / 月结 / 查统计 / 改来访者信息 / 配 API 等任务；仅当主力供应商失败时由服务器尝试 Qwen3.5-4B 免费兜底。Qwen 兜底为低性能模型，仅用于普通任务。若主力线路要求账号会话，请引导用户重新登录后重试；不得把 Qwen 兜底当作默认主力。用户接入自己的高性能模型 key 后，理解与表达质量会提升，但可执行操作仍以已提供工具为准。注意：若用户接入的模型不支持 function-calling（如 o1/o2/o3/o4 或 reasoning 模型），Agent 会主动提示其换用支持的模型，而非静默失效。'
               : '\n\n[档位] 你已接入用户的高性能模型，可获得更好的理解与表达质量；可执行操作的边界不变，复杂工作仍进入专业页面。';
           }
         } catch (e) { /* ignore */ }

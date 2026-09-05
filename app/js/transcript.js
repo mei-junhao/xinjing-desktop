@@ -8,6 +8,7 @@
   var errorCount = 0;
   var fixedCount = 0;
   var materialId = '';
+  var MAX_TRANSCRIPT_FILE_BYTES = 2 * 1024 * 1024;
 
   function loadMaterialWorkspace() {
     try {
@@ -110,16 +111,22 @@
     if (currentSessionId) App.showToast('已选择会谈', 'success');
   };
 
-  // 一键上传文件（txt / md / docx）→ 解析后填入输入框
+  // 一键上传或拖放文件（txt / md / docx）→ 解析后填入输入框
   window.triggerTranscriptFile = function () {
     var el = document.getElementById('tp-file');
     if (el) el.click();
   };
 
-  window.onTranscriptFile = function (event) {
-    var file = event.target && event.target.files && event.target.files[0];
-    if (event.target) event.target.value = ''; // 允许重复选同一文件
+  function isSupportedTranscriptFile(file) {
+    var name = String(file && file.name || '');
+    var ext = name.split('.').pop().toLowerCase();
+    return ['txt', 'md', 'markdown', 'docx'].indexOf(ext) >= 0;
+  }
+
+  function importTranscriptFile(file) {
     if (!file) return;
+    if (!isSupportedTranscriptFile(file)) { App.showToast('仅支持 TXT、Markdown 或 DOCX 文件', 'warning'); return; }
+    if (Number(file.size || 0) > MAX_TRANSCRIPT_FILE_BYTES) { App.showToast('逐字稿文件不能超过 2 MB', 'warning'); return; }
     var name = file.name || '';
     var ext = name.split('.').pop().toLowerCase();
     if (ext === 'docx') {
@@ -138,12 +145,60 @@
       r2.onerror = function () { App.showToast('文件读取失败', 'error'); };
       r2.readAsText(file, 'utf-8');
     }
+  }
+
+  window.onTranscriptFile = function (event) {
+    var file = event.target && event.target.files && event.target.files[0];
+    if (event.target) event.target.value = ''; // 允许重复选同一文件
+    importTranscriptFile(file);
   };
+
+  function bindTranscriptDropTarget() {
+    var page = document.querySelector('.tp-page');
+    var dropZone = document.getElementById('tp-drop-zone');
+    if (!page || !dropZone) return;
+    function hasFiles(event) {
+      return !!(event.dataTransfer && Array.prototype.indexOf.call(event.dataTransfer.types || [], 'Files') >= 0);
+    }
+    page.addEventListener('dragover', function (event) {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      page.classList.add('is-file-dragging');
+    });
+    page.addEventListener('dragleave', function (event) {
+      if (!hasFiles(event)) return;
+      if (!page.contains(event.relatedTarget)) page.classList.remove('is-file-dragging');
+    });
+    page.addEventListener('drop', function (event) {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      page.classList.remove('is-file-dragging');
+      var files = event.dataTransfer.files;
+      if (!files || files.length !== 1) { App.showToast('请一次拖入一个逐字稿文件', 'warning'); return; }
+      importTranscriptFile(files[0]);
+    });
+    document.addEventListener('dragover', function (event) {
+      if (hasFiles(event)) event.preventDefault();
+    });
+    document.addEventListener('drop', function (event) {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      if (!page.contains(event.target)) page.classList.remove('is-file-dragging');
+    });
+    dropZone.addEventListener('click', window.triggerTranscriptFile);
+    dropZone.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); window.triggerTranscriptFile(); }
+    });
+  }
+
+  bindTranscriptDropTarget();
 
   function fillTranscriptText(text) {
     var ta = document.getElementById('tp-input');
     if (!ta) return;
-    ta.value = text;
+    var importedText = String(text || '');
+    if (!importedText.trim()) { App.showToast('文件没有可导入的逐字稿内容，已保留当前草稿', 'warning'); return; }
+    ta.value = importedText;
     ta.focus();
     App.showToast('已导入文本，点击「导入」开始整理', 'success');
   }
@@ -336,7 +391,7 @@
     document.getElementById('stat-fixed').textContent = fixedCount;
   }
 
-  window.saveTranscript = function () {
+  window.saveTranscript = async function () {
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     if (!lines.length) { App.showToast('无内容可保存', 'warning'); return; }
     var text = lines.map(function (l) { return (l.speaker ? l.speaker + ': ' : '') + l.text; }).join('\n');
@@ -345,7 +400,11 @@
       App.showToast('请先选择属于当前来访者的会谈', 'warning');
       return;
     }
-    Store.updateSessionFull(Object.assign({}, session, { transcript: text }));
+    var saved = await Store.updateSessionFull(Object.assign({}, session, { transcript: text }));
+    if (!saved || !saved.ok) {
+      App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error');
+      return;
+    }
     if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { transcript: 'completed' }, artifacts: { transcriptSessionId: session.id } });
     var client = Store.getClient(currentClientId);
     App.showToast('已保存：' + (client ? client.name : '来访者') + ' · 第' + (session.sessionNumber || '?') + '节 · ' + (session.date || '未设置日期'), 'success');

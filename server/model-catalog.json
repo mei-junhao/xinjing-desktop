@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "contractId": "contract-v502-account-model-catalog-provider-routing-v1",
+  "catalogRevision": "cat-502-032-g37",
+  "generatedAt": "2026-08-23T10:27:47.000Z",
+  "effectiveAt": "2026-08-22T00:00:00.000Z",
+  "officialPriceCurrency": "USD",
+  "settlementCurrency": "CNY",
+  "fxRateUsdToCny": 7,
+  "fxRatePinnedAt": "2026-08-22",
+  "fxRatePolicy": "user-adjudicated-20260822-closeout;fixed-pinned;integer-settlement;round-up-never-undercharge;change-requires-new-catalogRevision",
+  "billingUnit": "per-1M-tokens",
+  "models": [
+    {
+      "modelId": "deepseek-v4-flash",
+      "displayName": "DeepSeek V4 Flash",
+      "provider": "tokenrhythm",
+      "upstreamModel": "deepseek-v4-flash-0731",
+      "aliases": [
+        "deepseek-v4-flash"
+      ],
+      "inputPrice": 0.44,
+      "outputPrice": 1.32,
+      "inputPriceMicroUsd": 440000,
+      "outputPriceMicroUsd": 1320000,
+      "cacheHitInputPrice": 0.014,
+      "cacheHitInputPriceMicroUsd": 14000,
+      "currency": "USD",
+      "billingUnit": "per-1M-tokens",
+      "pricingBasis": "peak-miss",
+      "pricingPolicy": "peak-only-always;cache-hit-split-only-when-usage-reports-prompt_cache_hit_tokens;no-cache-info-billed-as-miss;off-peak-never-applied",
+      "catalogRevision": "cat-502-032-g37",
+      "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
+      "sourceContentHash": "sha256:c6db3039404a4d108cf3c4e9b6c1891e4f446a6e8e8a3cfdf3c1eff739e194e6",
+      "sourceFetchedAt": "2026-08-22T03:20:00.000Z",
+      "effectiveAt": "2026-08-16T16:00:00.000Z",
+      "active": true,
+      "capabilities": {
+        "chat": true,
+        "streaming": true,
+        "tools": true,
+        "contextTokens": 1000000
+      },
+      "fallback": {
+        "provider": "siliconflow",
+        "upstreamModel": "Qwen/Qwen3.5-4B",
+        "pricing": "free-zero-charge",
+        "keepsAccountSession": true,
+        "neverRoutesTo": [
+          "skyapi",
+          "opencode",
+          "deepseek-official"
+        ]
+      }
+    },
+    {
+      "modelId": "deepseek-v4-pro",
+      "displayName": "DeepSeek V4 Pro",
+      "provider": "tokenrhythm",
+      "upstreamModel": "deepseek-v4-pro-0813",
+      "aliases": [
+        "deepseek-v4-pro",
+        "deepseek-ai/deepseek-v4-pro"
+      ],
+      "inputPrice": 1.32,
+      "outputPrice": 3.96,
+      "inputPriceMicroUsd": 1320000,
+      "outputPriceMicroUsd": 3960000,
+      "cacheHitInputPrice": 0.044,
+      "cacheHitInputPriceMicroUsd": 44000,
+      "currency": "USD",
+      "billingUnit": "per-1M-tokens",
+      "pricingBasis": "peak-miss",
+      "pricingPolicy": "peak-only-always;cache-hit-split-only-when-usage-reports-prompt_cache_hit_tokens;no-cache-info-billed-as-miss;off-peak-never-applied",
+      "catalogRevision": "cat-502-032-g37",
+      "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
+      "sourceContentHash": "sha256:c6db3039404a4d108cf3c4e9b6c1891e4f446a6e8e8a3cfdf3c1eff739e194e6",
+      "sourceFetchedAt": "2026-08-22T03:20:00.000Z",
+      "effectiveAt": "2026-08-16T16:00:00.000Z",
+      "active": true,
+      "capabilities": {
+        "chat": true,
+        "streaming": true,
+        "tools": true,
+        "contextTokens": 1000000
+      },
+      "fallback": {
+        "provider": "siliconflow",
+        "upstreamModel": "Qwen/Qwen3.5-4B",
+        "pricing": "free-zero-charge",
+        "keepsAccountSession": true,
+        "neverRoutesTo": [
+          "skyapi",
+          "opencode",
+          "deepseek-official"
+        ]
+      }
+    },
+    {
+      "modelId": "gpt-5.6",
+      "displayName": "GPT Terra",
+      "provider": "skyapi",
+      "upstreamModel": "gpt-5.6-terra",
+      "aliases": [
+        "gpt-5.6",
+        "gpt-5.6-terra",
+        "gpt-terra",
+        "gpt-5.6-luna",
+        "gpt-5.5"
+      ],
+      "aliasPolicy": "compat-input-only;gpt-5.6-luna-and-gpt-5.5-resolve-to-terra;display-name-never-luna",
+      "inputPrice": 2.5,
+      "outputPrice": 15,
+      "inputPriceMicroUsd": 2500000,
+      "outputPriceMicroUsd": 15000000,
+      "cachedInputPrice": 0.2,
+      "cachedInputPriceMicroUsd": 200000,
+      "longContextInputPrice": 4,
+      "longContextOutputPrice": 18,
+      "longContextInputPriceMicroUsd": 4000000,
+      "longContextOutputPriceMicroUsd": 18000000,
+      "longContextThresholdPromptTokens": 200000,
+      "longContextThresholdNote": "official page does not publish the boundary in fetched content; 200000 assumed (industry standard for 1M-context OpenAI models) — flagged for Codex review",
+      "currency": "USD",
+      "billingUnit": "per-1M-tokens",
+      "pricingBasis": "user-adjudicated-short-context-premium",
+      "pricingPolicy": "short-context-default;long-context-rates-apply-to-whole-request-when-prompt_tokens-exceeds-threshold;cached-split-only-when-usage-reports-cached_tokens;never-luna-never-subscription-allocated",
+      "catalogRevision": "cat-502-032-g37",
+      "sourceUrl": "https://developers.openai.com/api/docs/pricing",
+      "sourceContentHash": "sha256:04e85409cb439a3a668f427e4edeb4db93e9235a6d16ec0e1531c5cc6585fd24",
+      "sourceContentHashNote": "markdown excerpt via web reader at fetch time; raw HTML returns 403 — excerpt file pinned in task evidence",
+      "sourceFetchedAt": "2026-08-22T03:30:00.000Z",
+      "effectiveAt": "2026-08-22T00:00:00.000Z",
+      "effectiveAtNote": "official page publishes no explicit effective date; pinned to fetch date",
+      "priceDiscrepancyNote": "user ruling 2026-08-22 sets Terra standard short-context price at $2.50/$15.00; long-context remains $4.00/$18.00 from the captured official excerpt; catalog revision r2 binds the ruling and fx=7.00",
+      "active": true,
+      "capabilities": {
+        "chat": true,
+        "streaming": true,
+        "tools": true,
+        "contextTokens": 1000000
+      },
+      "fallback": {
+        "provider": "siliconflow",
+        "upstreamModel": "Qwen/Qwen3.5-4B",
+        "pricing": "free-zero-charge",
+        "keepsAccountSession": true,
+        "neverRoutesTo": [
+          "tokenrhythm",
+          "opencode",
+          "openai-direct"
+        ]
+      },
+      "adjudicationNote": "2026-08-22 用户收尾裁决：短上下文 $2.5/$15（高于官方 $2/$12 的裁定上浮价）；官方快照保留于 sourceUrl/sourceContentHash 供核验；cached $0.20 与长上下文 $4/$18 维持官方价"
+    },
+    {
+      "modelId": "Qwen/Qwen3.5-4B",
+      "displayName": "Qwen/Qwen3.5-4B（免费兜底）",
+      "provider": "siliconflow",
+      "upstreamModel": "Qwen/Qwen3.5-4B",
+      "aliases": [
+        "Qwen/Qwen3.5-4B"
+      ],
+      "inputPrice": 0,
+      "outputPrice": 0,
+      "inputPriceMicroUsd": 0,
+      "outputPriceMicroUsd": 0,
+      "currency": "USD",
+      "billingUnit": "per-1M-tokens",
+      "pricingBasis": "free-fallback-zero-cost",
+      "pricingPolicy": "genuine-free-tier;zero-charge-no-debit;not-an-unknown-price-placeholder",
+      "catalogRevision": "cat-502-032-g37",
+      "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
+      "sourceContentHash": "sha256:c86eee3912e022adbbfeb89d72075356dbc78885eec98b8e20f3ec25c89703ff",
+      "sourceContentHashNote": "free-tier adjudication source is the accepted task card XJ-5.0.2-...-031 (hash = card SHA-256); sourceUrl field kept as required non-empty official-domain placeholder pointing at the catalog contract family",
+      "sourceFetchedAt": "2026-08-22T03:14:00.000Z",
+      "effectiveAt": "2026-08-22T00:00:00.000Z",
+      "active": true,
+      "capabilities": {
+        "chat": true,
+        "streaming": true,
+        "tools": false,
+        "contextTokens": 131072
+      },
+      "fallback": null
+    },
+    {
+      "modelId": "gemini-3.7-flash",
+      "displayName": "Gemini 3.7 Flash",
+      "provider": "skyapi",
+      "upstreamModel": "gemini-3.7-flash",
+      "aliases": [
+        "gemini-3.7-flash"
+      ],
+      "aliasPolicy": "compat-input-only;gemini-3.7-flash",
+      "inputPrice": 1.0,
+      "outputPrice": 4.0,
+      "inputPriceMicroUsd": 1000000,
+      "outputPriceMicroUsd": 4000000,
+      "cachedInputPrice": 0.1,
+      "cachedInputPriceMicroUsd": 100000,
+      "longContextInputPrice": 1.0,
+      "longContextOutputPrice": 4.0,
+      "longContextInputPriceMicroUsd": 1000000,
+      "longContextOutputPriceMicroUsd": 4000000,
+      "longContextThresholdPromptTokens": 200000,
+      "longContextThresholdNote": "official page does not publish the boundary in fetched content; 200000 assumed (industry standard for 1M-context OpenAI models) — flagged for Codex review",
+      "currency": "USD",
+      "billingUnit": "per-1M-tokens",
+      "pricingBasis": "peak-miss",
+      "pricingPolicy": "peak-only-always;no-cache-info-billed-as-miss",
+      "catalogRevision": "cat-502-032-g37",
+      "sourceUrl": "https://skyapi2026.com/",
+      "sourceContentHash": "sha256:edc886d689403c0670f8487c39205072820ef3f3adbed77886a8305c3714bb04",
+      "sourceContentHashNote": "skyapi2026.com catalog snapshot 2026-08-23",
+      "sourceFetchedAt": "2026-08-23T10:27:47.000Z",
+      "effectiveAt": "2026-08-23T00:00:00.000Z",
+      "effectiveAtNote": "user switch gemini to skyapi2026 gemini-3.7-flash",
+      "priceDiscrepancyNote": "skyapi relay pricing; user-adjudicated 2026-08-23",
+      "active": true,
+      "capabilities": {
+        "chat": true,
+        "streaming": true,
+        "tools": true,
+        "contextTokens": 1000000
+      },
+      "fallback": {
+        "provider": "siliconflow",
+        "upstreamModel": "Qwen/Qwen3.5-4B",
+        "pricing": "free-zero-charge",
+        "keepsAccountSession": true,
+        "neverRoutesTo": [
+          "tokenrhythm",
+          "opencode",
+          "openai-direct"
+        ]
+      },
+      "adjudicationNote": "user-switch-20260823;gemini-3.7-flash"
+    }
+  ]
+}

@@ -6,8 +6,14 @@
   <title>大师对话</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/masters-clinical.css">
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
+  <style>
+  /* 理论角色边界：大师发言标记为理论视角，避免角色化语言冒充临床事实 */
+  .theory-scope-note{margin-top:8px;padding-top:6px;border-top:1px dashed var(--border);font:11px var(--sans);color:var(--ink-3);line-height:1.5}
+  </style>
 </head>
-<body>
+<body data-xj-pattern="conversation">
   <div class="layout masters-clinical-page">
     <div id="sidebar-mount"></div>
     <main class="main">
@@ -23,7 +29,9 @@
         <div class="masters-top-actions">
           <span class="local-state"><i data-lucide="shield-check"></i>本机保存</span>
           <button class="masters-text-btn" id="btn-new" type="button" onclick="newConversation()"><i data-lucide="square-pen"></i>新对话</button>
+          <button class="masters-text-btn" id="btn-import-history" type="button" onclick="triggerHistoryImport()"><i data-lucide="file-up"></i>导入历史</button>
           <button class="masters-icon-btn danger" id="btn-del" type="button" onclick="deleteCurrent()" title="删除当前对话" aria-label="删除当前对话"><i data-lucide="trash-2"></i></button>
+          <input id="masters-history-file" type="file" accept=".txt,.md,.markdown,.docx" style="display:none" onchange="onHistoryImport(event)">
         </div>
       </header>
 
@@ -45,7 +53,8 @@
       </section>
 
       <div class="masters-workspace">
-        <aside class="masters-source-panel">
+        <aside class="masters-source-panel" id="master-source-panel">
+  <button class="masters-collapse-btn" id="masters-collapse-left" type="button" aria-controls="master-source-panel" aria-expanded="true" aria-label="折叠大师视角栏" title="折叠大师视角栏"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
           <div class="source-head">
             <div>
               <span class="masters-eyebrow">讨论对象</span>
@@ -96,7 +105,8 @@
           </div>
         </section>
 
-        <aside class="masters-inspector-panel">
+        <aside class="masters-inspector-panel" id="master-inspector-panel">
+  <button class="masters-collapse-btn" id="masters-collapse-right" type="button" aria-controls="master-inspector-panel" aria-expanded="true" aria-label="折叠摘要历史栏" title="折叠摘要历史栏"><i data-lucide="chevron-right" aria-hidden="true"></i></button>
           <div class="inspector-tabs" role="tablist" aria-label="对话侧栏">
             <button class="active" type="button" role="tab" aria-selected="true" data-inspector-tab="summary">摘要</button>
             <button type="button" role="tab" aria-selected="false" data-inspector-tab="history">历史</button>
@@ -127,10 +137,11 @@
     </div>
   </div>
 
-  <script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+  <script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/prompt-governance.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
   <script src="js/prompts.builtin.js"></script>
   <script src="js/masters-data.js"></script>
   <script src="js/knowledge.builtins.js"></script>
+  <script src="vendor/mammoth.browser.min.js"></script>
   <script src="js/masters-core.js"></script>
   <script src="js/masters.js"></script>
 </body>

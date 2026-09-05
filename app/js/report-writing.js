@@ -6,6 +6,22 @@
   var tplSections = null; // 模板解析出的模块（null=用默认6段）
   var currentStep = 0;
   var stepData = {}; // {0: "text", 1: "text", ...}
+  var activeAiRequest = null;
+
+  // 报告页状态条由 report-writing.html 提供；页面脚本未加载时保持无副作用。
+  function notifyReportAiState(state, description) {
+    if (typeof window.reportAiSetState === 'function') window.reportAiSetState(state, description);
+  }
+
+  // 供页面上的“取消生成”按钮调用；中止真实请求并让晚到结果失效。
+  window.abortReportAi = function () {
+    var request = activeAiRequest;
+    if (!request) return false;
+    request.cancelled = true;
+    if (request.controller && typeof request.controller.abort === 'function') request.controller.abort();
+    activeAiRequest = null;
+    return true;
+  };
 
   function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
   function showMaterialSource(material) {
@@ -110,11 +126,12 @@
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); event.target.value = ''; return; }
     App.showToast('正在读取逐字稿…', 'info');
     var reader = new FileReader();
-    var onText = function (text) {
-      var r = Store.createSession({
+    var onText = async function (text) {
+      var r = await Store.createSessionDurable({
         clientId: currentClientId, date: App.todayStr(), durationMinutes: 0, type: 'individual',
         recordKind: 'clinical', billing: null, transcript: text, hasTranscript: true, notes: '',
       });
+      if (!r || !r.ok) { App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
       App.showToast('逐字稿已存入数据库，可在「基于节次」中勾选引用', 'success');
       renderSessMenu();
     };
@@ -187,15 +204,32 @@
     var secs = getSections();
     if (currentStep < secs.length - 1) { goToStep(currentStep + 1); }
     else {
-      var html = '<div style="text-align:center;padding:10px 0;line-height:2">' +
-        '<div style="font-size:36px;margin-bottom:10px">✅</div>' +
-        '<div style="font-size:15px;font-weight:600;margin-bottom:6px">报告已完成</div>' +
-        '<div style="font-size:12px;color:var(--ink-3);margin-bottom:16px">你可以保存为 Word 文档，也可以带着报告去 AI 督导深化分析</div>' +
-        '<div style="display:flex;gap:10px;justify-content:center">' +
-        '<button onclick="onSaveReport();App.closeDialog()" style="border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:10px 20px;cursor:pointer;font:13px var(--sans)">💾 保存 Word</button>' +
-        '<button onclick="onStartSupervision()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font:600 13px var(--sans)">🧠 开始 AI 督导</button>' +
-        '</div></div>';
-      App.confirmDialog(html, function () {});
+      // confirmDialog 以 textContent 渲染消息；这里使用纯文本，再把两个真实动作
+      // 作为 footer 控件插入，避免把 HTML 源码展示给用户或调用不存在的 closeDialog。
+      var overlay = App.confirmDialog('报告已完成。你可以保存为 Word 文档，或带着报告去 AI 督导深化分析。', function () {
+        window.onSaveReport();
+        return true;
+      });
+      if (!overlay) return;
+      var footer = overlay.querySelector('.modal-footer');
+      var saveButton = overlay.querySelector('#confirm-ok');
+      if (footer) footer.querySelectorAll('[data-report-supervision]').forEach(function (button) { button.remove(); });
+      if (saveButton) {
+        saveButton.textContent = '保存 Word';
+        saveButton.setAttribute('aria-label', '保存 Word 文档');
+      }
+      if (footer && !footer.querySelector('[data-report-supervision]')) {
+        var supervisionButton = document.createElement('button');
+        supervisionButton.type = 'button';
+        supervisionButton.className = 'btn btn-primary';
+        supervisionButton.setAttribute('data-report-supervision', 'true');
+        supervisionButton.textContent = '开始 AI 督导';
+        supervisionButton.addEventListener('click', function () {
+          if (typeof App.closeModalElement === 'function') App.closeModalElement(overlay);
+          window.onStartSupervision();
+        });
+        footer.insertBefore(supervisionButton, saveButton || null);
+      }
     }
   };
 
@@ -215,28 +249,42 @@
     var sessionIds = Array.prototype.map.call(checked, function (c) { return c.value; });
     var sys = '你是案例报告撰写助手。请依据所提供的逐字稿真实文字撰写报告模块"' + sec.title + '"。要求：①分析必须结合逐字稿中的真实表述，所有内容须有逐字稿依据；②逐字稿中未出现的内容不要凭空撰写；③本界面仅做基于事实的整理，不涉及理论知识阐释。用中文、客观、具体地回应。';
     var context = ClinicalContext.build('report-ai-fill', { clientId: currentClientId, materialId: materialId }, { system: sys, selectedSessionIds: sessionIds, inputText: '', instruction: '请填写模块“' + sec.title + '”的内容。' });
-    if (!context.ok) { if (ta) ta.value = ''; App.showToast('当前上下文无效，请重新确认来访者和会谈', 'warning'); return; }
+    if (!context.ok) { if (ta) ta.value = ''; notifyReportAiState('idle', '当前上下文无效，请先选择来访者并勾选可引用的会谈。'); App.showToast('当前上下文无效，请重新确认来访者和会谈', 'warning'); return; }
     if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.rpt-top') || document.body, context);
-    if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { if (ta) ta.value = ''; App.showToast('已取消 AI 填写', 'info'); return; }
+    if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { if (ta) ta.value = ''; notifyReportAiState('cancelled', '已取消本次生成：未确认的草稿不会写入报告。'); App.showToast('已取消 AI 填写', 'info'); return; }
     var run = ClinicalContext.createActionRun(context);
-    if (!run) { if (ta) ta.value = ''; App.showToast('无法确认材料归属，已取消生成', 'warning'); return; }
+    if (!run) { if (ta) ta.value = ''; notifyReportAiState('error', '无法确认材料归属，请重新选择来访者和会谈后重试。'); App.showToast('无法确认材料归属，已取消生成', 'warning'); return; }
     if (typeof AI !== 'undefined' && AI.send) {
+      var controller = typeof AbortController === 'function' ? new AbortController() : null;
+      var request = { controller: controller, run: run, cancelled: false };
+      activeAiRequest = request;
       AI.send(context.messages, function (res) {
+        if (activeAiRequest !== request || request.cancelled || (res && (res.interrupted || res.code === 'ABORT_ERR'))) {
+        if (activeAiRequest === request) activeAiRequest = null;
+          if (request.cancelled || (res && (res.interrupted || res.code === 'ABORT_ERR'))) {
+            ClinicalContext.failActionRun(run.id, '已取消生成', 'cancelled');
+            if (ta) ta.value = '';
+            notifyReportAiState('cancelled', '已取消本次生成：未确认的草稿不会写入报告。');
+          }
+          return;
+        }
         var currentSessionIds = Array.prototype.map.call(document.querySelectorAll('#sessions-list .sess-cb:checked'), function (checkbox) { return checkbox.value; });
-        if (!ClinicalContext.isSnapshotCurrent(context.snapshot, '', { clientId: currentClientId, materialId: materialId, selectedSessionIds: currentSessionIds })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); if (ta) ta.value = ''; App.showToast('上下文已变更，旧建议未采用', 'warning'); return; }
+        if (!ClinicalContext.isSnapshotCurrent(context.snapshot, '', { clientId: currentClientId, materialId: materialId, selectedSessionIds: currentSessionIds })) { activeAiRequest = null; ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); if (ta) ta.value = ''; notifyReportAiState('error', '上下文已变更，旧建议未采用；请重新选择材料后重试。'); App.showToast('上下文已变更，旧建议未采用', 'warning'); return; }
+        activeAiRequest = null;
         if (ta) ta.value = '';
         if (res && res.content) {
           var sug = document.getElementById('ai-suggest');
           var sugContent = document.getElementById('ai-suggest-content');
           if (sug && sugContent) { sugContent.textContent = res.content; sug.classList.add('show'); }
+          notifyReportAiState(res.content.trim().length < 12 ? 'partial' : 'draft', res.content.trim().length < 12 ? 'AI 仅返回部分内容，请人工补充后保存。' : '草稿已生成，需人工确认后采用。');
           ClinicalContext.completeActionRun(run.id, { kind: 'report-suggestion', ref: materialId || currentClientId || '' });
         } else {
-          ClinicalContext.failActionRun(run.id, (res && res.error) || '生成失败'); App.showToast('生成失败，请重试', 'error');
+          ClinicalContext.failActionRun(run.id, (res && res.error) || '生成失败'); notifyReportAiState('error', '生成失败，请检查配置或网络后重试；未确认内容不会写入报告。'); App.showToast('生成失败，请重试', 'error');
         }
-      });
+      }, controller ? { signal: controller.signal } : undefined);
     } else {
       if (ta) ta.value = '';
-      ClinicalContext.failActionRun(run.id, 'AI 模块未就绪'); App.showToast('AI 模块未就绪', 'error');
+      ClinicalContext.failActionRun(run.id, 'AI 模块未就绪'); notifyReportAiState('error', 'AI 模块未就绪，请检查配置后重试；未确认内容不会写入报告。'); App.showToast('AI 模块未就绪', 'error');
     }
   };
 

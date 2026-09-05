@@ -5,6 +5,71 @@
   var records = [];
   var currentRecordId = null;
   var materialId = '';
+  var uploadJob = { file: null, reader: null, token: 0, state: 'idle' };
+
+  function uploadStateUi(state, label, percent) {
+    uploadJob.state = state;
+    var box = document.getElementById('rs-upload-state');
+    var cancel = document.getElementById('rs-upload-cancel');
+    var retry = document.getElementById('rs-upload-retry');
+    var input = document.getElementById('rs-transcript-file');
+    if (!box) return;
+    box.dataset.state = state;
+    box.setAttribute('aria-busy', state === 'uploading' ? 'true' : 'false');
+    var text = box.querySelector('.rs-upload-label'); if (text) text.textContent = label || '未选择材料';
+    var pct = Math.max(0, Math.min(100, Number(percent) || 0));
+    var bar = box.querySelector('.rs-upload-progress span'); if (bar) bar.style.width = pct + '%';
+    var p = box.querySelector('.rs-upload-percent'); if (p) p.textContent = pct + '%';
+    if (cancel) cancel.hidden = state !== 'uploading';
+    if (retry) retry.hidden = state !== 'failure';
+    if (input) input.disabled = state === 'uploading';
+  }
+
+  function readFileWithProgress(file, token, asArrayBuffer) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      uploadJob.reader = reader;
+      reader.onprogress = function (event) {
+        if (token !== uploadJob.token || !event.lengthComputable) return;
+        uploadStateUi('uploading', '正在读取 ' + file.name, Math.round(event.loaded / event.total * 80));
+      };
+      reader.onload = function (event) { if (token === uploadJob.token) resolve(event.target.result); };
+      reader.onerror = function () { reject(new Error('文件读取失败')); };
+      reader.onabort = function () { var error = new Error('已取消上传'); error.code = 'ABORTED'; reject(error); };
+      if (asArrayBuffer) reader.readAsArrayBuffer(file); else reader.readAsText(file, 'UTF-8');
+    });
+  }
+
+  async function processTranscriptUpload(file) {
+    uploadJob.file = file;
+    var token = ++uploadJob.token;
+    uploadStateUi('uploading', '正在读取 ' + file.name, 0);
+    try {
+      var value;
+      if (/\.docx$/i.test(file.name)) {
+        if (typeof mammoth === 'undefined' || typeof mammoth.extractRawText !== 'function') throw new Error('DOCX 解析库未加载');
+        var arrayBuffer = await readFileWithProgress(file, token, true);
+        if (token !== uploadJob.token) return;
+        uploadStateUi('uploading', '正在解析 ' + file.name, 88);
+        var result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+        value = result && result.value;
+      } else {
+        value = await readFileWithProgress(file, token, false);
+      }
+      if (token !== uploadJob.token) return;
+      if (!String(value || '').trim()) throw new Error('文件内容为空');
+      document.getElementById('rs-transcript-text').value = String(value);
+      uploadStateUi('success', '材料已读取，可继续保存或分析', 100);
+      App.showToast('已加载文件', 'success');
+    } catch (error) {
+      if (token !== uploadJob.token) return;
+      if (error && error.code === 'ABORTED') { uploadStateUi('cancel', '已取消上传，可重新选择材料', 0); return; }
+      uploadStateUi('failure', '读取失败：' + (error && error.message ? error.message : '未知错误') + '，可重试', 0);
+      App.showToast('材料读取失败：' + (error && error.message ? error.message : '请重试'), 'error');
+    } finally {
+      if (token === uploadJob.token) uploadJob.reader = null;
+    }
+  }
 
   function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
   function showMaterialSource(material) {
@@ -97,7 +162,7 @@
     });
   };
 
-  window.saveRecord = function () {
+  window.saveRecord = async function () {
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     var data = {
       clientId: currentClientId,
@@ -110,11 +175,14 @@
       type: 'individual',
     };
     if (currentRecordId) {
-      Store.updateSupervision(currentRecordId, data);
+      var updated = await Store.updateSupervisionDurable(currentRecordId, data);
+      if (!updated || !updated.ok) { App.showToast('记录更新失败：草稿已保留，请恢复存储后重试', 'error'); return; }
       if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { realSupervision: 'completed' }, artifacts: { realSupervisionId: currentRecordId } });
       App.showToast('记录已更新', 'success');
     } else {
-      var created = Store.createSupervision(data);
+      var createdResult = await Store.createSupervisionDurable(data);
+      if (!createdResult || !createdResult.ok) { App.showToast('记录保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
+      var created = createdResult.value;
       if (created && materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { realSupervision: 'completed' }, artifacts: { realSupervisionId: created.id } });
       App.showToast('记录已保存', 'success');
       if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '保存了真人督导记录', relatedClientId: currentClientId });
@@ -123,21 +191,23 @@
     loadClientRecords();
   };
 
-  window.saveTranscriptOnly = function () {
+  window.saveTranscriptOnly = async function () {
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     var text = document.getElementById('rs-transcript-text').value.trim();
     if (!text) { App.showToast('请先粘贴逐字稿', 'warning'); return; }
     if (currentRecordId) {
-      Store.updateSupervision(currentRecordId, { transcript: text });
+      var updated = await Store.updateSupervisionDurable(currentRecordId, { transcript: text });
+      if (!updated || !updated.ok) { App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
     } else {
-      var r = Store.createSupervision({
+      var createResult = await Store.createSupervisionDurable({
         clientId: currentClientId,
         supervisorName: '真人督导',
         date: App.todayStr(),
         transcript: text,
         type: 'individual',
       });
-      if (r) currentRecordId = r.id;
+      if (!createResult || !createResult.ok) { App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
+      currentRecordId = createResult.value.id;
     }
     loadRecords();
     loadClientRecords();
@@ -146,29 +216,37 @@
   };
 
   window.uploadTranscriptFile = function (e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function (ev) {
-      document.getElementById('rs-transcript-text').value = ev.target.result;
-      App.showToast('已加载文件', 'success');
-    };
-    if (file.name.endsWith('.docx')) {
-      // 需要 mammoth 库
-      if (typeof mammoth !== 'undefined') {
-        reader.readAsArrayBuffer(file);
-        reader.onload = function (ev) {
-          mammoth.extractRawText({ arrayBuffer: ev.target.result }).then(function (result) {
-            document.getElementById('rs-transcript-text').value = result.value;
-          });
-        };
-      } else {
-        App.showToast('docx 解析库未加载，请手动粘贴', 'warning');
-      }
-    } else {
-      reader.readAsText(file, 'UTF-8');
-    }
+    var file = e && e.target && e.target.files ? e.target.files[0] : null;
+    if (!file) { uploadStateUi('idle', '未选择材料', 0); return; }
+    processTranscriptUpload(file);
   };
+
+  function bindUploadControls() {
+    var cancel = document.getElementById('rs-upload-cancel');
+    var retry = document.getElementById('rs-upload-retry');
+    if (cancel && !cancel.dataset.bound) {
+      cancel.dataset.bound = '1';
+      cancel.addEventListener('click', function () {
+        if (uploadJob.reader && uploadJob.state === 'uploading') uploadJob.reader.abort();
+        uploadJob.token += 1;
+        uploadStateUi('cancel', '已取消上传，可重新选择材料', 0);
+      });
+    }
+    if (retry && !retry.dataset.bound) {
+      retry.dataset.bound = '1';
+      retry.addEventListener('click', function () { if (uploadJob.file) processTranscriptUpload(uploadJob.file); });
+    }
+    uploadStateUi('idle', '未选择材料', 0);
+  }
+
+  function bindMembershipEntry() {
+    var link = document.getElementById('rs-ai-link');
+    if (!link || link.dataset.bound) return;
+    link.dataset.bound = '1';
+    link.addEventListener('click', function (event) {
+      if (typeof App.openMembershipGate === 'function' && !App.openMembershipGate('ai-analyze')) event.preventDefault();
+    });
+  }
 
   window.aiAnalyzeTranscript = function () {
     if (!App.featureGate('ai-analyze')) { App.showToast('AI 分析需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
@@ -208,15 +286,16 @@
     });
   };
 
-  window.saveReport = function () {
+  window.saveReport = async function () {
     if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
     var title = document.getElementById('rs-report-title').value.trim() || '案例报告';
     var body = document.getElementById('rs-report-body').value.trim();
     if (!body) { App.showToast('请先填写报告内容', 'warning'); return; }
     if (currentRecordId) {
-      Store.updateSupervision(currentRecordId, { reportTitle: title, conclusion: body });
+      var updated = await Store.updateSupervisionDurable(currentRecordId, { reportTitle: title, conclusion: body });
+      if (!updated || !updated.ok) { App.showToast('报告保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
     } else {
-      var r = Store.createSupervision({
+      var createResult = await Store.createSupervisionDurable({
         clientId: currentClientId,
         supervisorName: '真人督导',
         date: App.todayStr(),
@@ -224,7 +303,8 @@
         conclusion: body,
         type: 'individual',
       });
-      if (r) currentRecordId = r.id;
+      if (!createResult || !createResult.ok) { App.showToast('报告保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
+      currentRecordId = createResult.value.id;
     }
     loadRecords();
     loadClientRecords();
@@ -240,7 +320,11 @@
   };
 
   window.switchRSTab = function (tab) {
-    document.querySelectorAll('.rr-tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === tab); });
+    document.querySelectorAll('.rr-tab').forEach(function (t) {
+      var active = t.dataset.tab === tab;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
     document.getElementById('rs-record-tab').style.display = tab === 'record' ? '' : 'none';
     document.getElementById('rs-transcript-tab').style.display = tab === 'transcript' ? '' : 'none';
     document.getElementById('rs-report-tab').style.display = tab === 'report' ? '' : 'none';
@@ -250,6 +334,8 @@
   fillClientSelect();
   function initRS() {
     fillClientSelect();
+    bindUploadControls();
+    bindMembershipEntry();
     loadRecords();
     var params = new URLSearchParams(location.search);
     var cid = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());

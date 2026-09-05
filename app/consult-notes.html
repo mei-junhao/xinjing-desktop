@@ -9,17 +9,32 @@
 .ntop{display:flex;align-items:center;gap:12px;padding:12px 24px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0}
 .ntop .back{color:var(--ink-2);font-size:13px;cursor:pointer;border:none;background:none;padding:6px 10px;border-radius:6px;font-family:var(--sans);display:flex;align-items:center;gap:4px}
 .ntop .back:hover{color:var(--accent);background:var(--accent-soft)}
-.ntop h2{font-family:var(--serif);font-size:18px;margin:0}.ntop .spacer{flex:1}
+.ntop h2{font-family:var(--sans);font-size:18px;margin:0}.ntop .spacer{flex:1}
 .ntop select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:13px var(--sans);background:var(--paper,#fff)}
 .prompt-strip{display:flex;gap:8px;padding:10px 24px;background:var(--bg-sunken,#EDF0F7);border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
-.prompt-strip .chip{border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--ink-2);background:var(--paper,#fff);font-family:var(--sans);transition:.15s}
+.prompt-strip .chip{border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--ink-2);background:var(--paper,#fff);font-family:var(--sans);transition:.15s}
 .prompt-strip .chip:hover{border-color:var(--accent);color:var(--accent)}
 .prompt-strip .chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .record-workflow{display:flex;align-items:center;gap:8px;padding:10px 24px;background:var(--paper,#fff);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-3)}
 .record-workflow button{border:1px solid var(--border);border-radius:7px;padding:5px 10px;background:var(--paper,#fff);font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
 .record-workflow button.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}.record-workflow .workflow-note{margin-left:auto}
+.session-template-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 24px;background:var(--bg-sunken,#EDF0F7);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2)}
+.session-template-bar[hidden]{display:none}.session-template-field{display:flex;align-items:center;gap:8px;min-width:0}.session-template-field label{font-weight:600;color:var(--ink)}
+.session-template-field select,.session-template-custom input{border:1px solid var(--border);border-radius:7px;padding:6px 9px;min-height:32px;max-width:100%;font:12px var(--sans);color:var(--ink);background:var(--paper,#fff)}
+.session-template-field select:focus,.session-template-custom input:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-soft)}
+.session-template-status{color:var(--ink-3);line-height:1.5;overflow-wrap:anywhere}.session-template-status.locked{color:var(--warning,#9b7430)}.session-template-status.error{color:var(--danger,#a33)}
+.session-template-custom{display:flex;align-items:center;gap:7px;min-width:0}.session-template-custom[hidden]{display:none}.session-template-custom label{font-weight:600;color:var(--ink);white-space:nowrap}
+.session-template-plans{border:0;background:transparent;color:var(--accent);font:600 12px var(--sans);cursor:pointer;padding:4px 0}.session-template-plans:hover{text-decoration:underline}
+.clinical-task-context{margin:0 0 18px;padding:0 0 14px;border-bottom:1px solid var(--border);font-family:var(--sans)}
+.clinical-task-context[hidden]{display:none}.clinical-task-head{display:flex;align-items:baseline;gap:10px;margin-bottom:9px;flex-wrap:wrap}
+.clinical-task-head h3{margin:0;font-size:14px;color:var(--ink);font-family:var(--sans)}.clinical-task-summary{font-size:12px;color:var(--ink-3)}
+.clinical-task-list{display:grid;gap:7px}.clinical-task-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center;padding:9px 0;border-top:1px solid color-mix(in srgb,var(--border) 72%,transparent)}
+.clinical-task-item:first-child{border-top:0}.clinical-task-title{font-size:14px;line-height:1.5;color:var(--ink);overflow-wrap:anywhere}.clinical-task-meta{font-size:12px;line-height:1.5;color:var(--ink-3);overflow-wrap:anywhere}
+.clinical-task-state{font-size:12px;color:var(--ink-2);white-space:nowrap}.clinical-task-state::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--accent);vertical-align:1px}
+.clinical-task-state.draft::before{background:var(--warning,#9b7430)}.clinical-task-empty,.clinical-task-error{padding:9px 0;font-size:12px;line-height:1.6;color:var(--ink-3)}.clinical-task-error{color:var(--danger,#a33)}
+@media(max-width:1100px){.clinical-task-item{grid-template-columns:minmax(0,1fr)}.clinical-task-state{white-space:normal}}
 .left.quick-mode #pane-apa .field:nth-of-type(3),.left.quick-mode #pane-apa .field:nth-of-type(4){display:none}
-.note-complete{display:none;align-items:center;gap:10px;padding:12px 14px;margin-top:14px;border:1px solid var(--success,#4f8a65);border-radius:9px;background:var(--success-soft,#eef8f1);font-size:12px;color:var(--ink-2);flex-wrap:wrap}.note-complete.show{display:flex}.note-complete strong{color:var(--ink)}.note-complete .sp{flex:1}.note-complete button{border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--paper,#fff);font:12px var(--sans);cursor:pointer}.note-complete button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.note-complete{display:none;align-items:center;gap:10px;padding:12px 14px;margin-top:14px;border:1px solid var(--success,#4f8a65);border-radius:9px;background:var(--success-soft,#eef8f1);font-size:12px;color:var(--ink-2);flex-wrap:wrap}.note-complete.show{display:flex}.note-complete strong{color:var(--ink)}.note-complete .sp{flex:1}.note-complete button{border:1px solid var(--border);border-radius:7px;padding:5px 9px;background:var(--paper,#fff);font:12px var(--sans);cursor:pointer}.note-complete button.primary{background:var(--cta-bg,var(--accent));border-color:var(--cta-bg,var(--accent));color:#fff}
 .split{display:flex;flex:1;min-height:0}
 .left{flex:1;overflow-y:auto;padding:24px;min-width:0}
 .left .guide{font-size:12px;color:var(--ink-3);margin-bottom:14px;line-height:1.6;padding:10px 14px;background:var(--bg-sunken);border-radius:var(--r-sm,10px);border-left:3px solid var(--accent)}
@@ -29,24 +44,40 @@
 .left .field textarea:focus{border-color:var(--accent)}
 .left .field textarea.tall{min-height:140px}
 .right{width:360px;flex-shrink:0;background:var(--paper-2,#fff);border-left:1px solid var(--border);display:flex;flex-direction:column}
-.rdock-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;color:var(--accent)}
+.rdock-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--sans);font-size:14px;font-weight:600;color:var(--accent)}
 .rdock-chat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
 .rmsg{font-size:13px;line-height:1.7;padding:10px 14px;border-radius:12px;max-width:88%;font-family:var(--sans)}
 .rmsg.ai{background:var(--accent-soft);align-self:flex-start;border-bottom-left-radius:4px}
 .rmsg.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
 .rdock-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border)}
 .rdock-input input{flex:1;border:1px solid var(--border);border-radius:9px;padding:9px 12px;font:13px var(--sans);outline:none;background:var(--bg)}
-.rdock-input button{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 16px;font:600 13px var(--sans);cursor:pointer}
-.btn-primary{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 24px;font:600 14px var(--sans);cursor:pointer}
-.btn-primary:hover{background:var(--a-hover,#777FBC)}
+.rdock-input button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:9px;padding:9px 16px;font:600 13px var(--sans);cursor:pointer}
+.btn-primary{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:9px;padding:10px 24px;font:600 14px var(--sans);cursor:pointer}
+.btn-primary:hover{background:var(--cta-bg-hover,var(--accent-hover))}
 .foot-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .foot-actions button{border:1px solid var(--border);background:var(--paper,#fff);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;color:var(--ink-2);font-family:var(--sans)}
 .ntop #btn-upload-transcript{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:6px 12px;font:12px var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:4px}
-.ntop .lock-mini{font-size:9px;background:var(--accent);color:#fff;border-radius:4px;padding:1px 4px;line-height:1.4}
+/* P0#3: removed member badge pseudo-class from upload button */
 .ntop #btn-export{border:1px solid var(--border);background:var(--paper,#fff);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
+
+.notes-save-status{display:none;align-items:center;gap:10px;padding:12px 14px;margin-top:12px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--ink-2);flex-wrap:wrap}
+.notes-save-status.busy{display:flex;border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.notes-save-status.ok{display:flex;border-color:var(--success,#4f8a65);background:var(--success-soft,#eef8f1)}
+.notes-save-status.error{display:flex;border-color:var(--danger,#a33);background:rgba(217,140,140,.12);color:var(--danger)}
+.notes-save-status button{border:1px solid currentColor;background:transparent;border-radius:6px;padding:4px 10px;font:12px var(--sans);cursor:pointer;color:inherit}
+.notes-save-status .sp{flex:1}
+.note-summary{display:none;margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--paper-2,var(--paper,#fff));color:var(--ink-2);font:13px/1.65 var(--sans)}
+.note-summary.show{display:block}
+.note-summary-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.note-summary-head strong{color:var(--ink);font-size:14px}
+.note-summary-status{color:var(--success,#4f8a65);font-size:12px}
+.note-summary-text{white-space:pre-wrap;overflow-wrap:anywhere}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="form-workspace">
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="notes-page">
 <div class="ntop">
@@ -59,12 +90,17 @@
     <div id="client-dropdown" style="position:absolute;top:100%;left:0;right:0;margin-top:4px;border:1px solid var(--border);border-radius:8px;background:var(--paper-2,#fff);box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:100;display:none;max-height:200px;overflow-y:auto"></div>
   </div>
   <select id="sel-session" onchange="onSessionChange()" style="display:none"><option value="">选择来访者会话…</option></select>
-  <button id="btn-upload-transcript" onclick="document.getElementById('transcript-file').click()" style="display:none"><i data-lucide="upload"></i>上传逐字稿 <span class="lock-mini">会员</span></button>
+  <button id="btn-upload-transcript" type="button" onclick="document.getElementById('transcript-file').click()" style="display:none"><i data-lucide="upload"></i>上传逐字稿</button>
   <input type="file" id="transcript-file" accept=".txt,.md,.doc,.docx" style="display:none" onchange="onTranscriptUpload(event)">
   <button id="btn-export" onclick="exportNotes()" style="display:none"><i data-lucide="download"></i>导出</button>
 </div>
 <div class="record-workflow" id="record-workflow">
   <span>记录方式</span><button type="button" data-workflow="quick" class="active">快速记录</button><button type="button" data-workflow="structured">结构化记录</button><span class="workflow-note" id="record-context">选择来访者后开始记录</span>
+</div>
+<div class="session-template-bar" id="session-template-bar" hidden aria-live="polite">
+  <div class="session-template-field"><label for="session-template-select">会谈模板</label><select id="session-template-select" aria-label="会谈模板"></select></div>
+  <div class="session-template-custom" id="session-template-custom" hidden><label for="session-custom-template-id">定制标识</label><input id="session-custom-template-id" maxlength="128" pattern="[A-Za-z0-9._:-]{1,128}" placeholder="可选" aria-label="定制模板标识"></div>
+  <span class="session-template-status" id="session-template-status" role="status"></span><button class="session-template-plans" id="session-template-plans" type="button" hidden>查看方案</button>
 </div>
 <div class="prompt-strip">
   <span class="chip active" data-mode="apa">APA 引导</span>
@@ -75,6 +111,10 @@
 </div>
 <div class="split">
   <div class="left quick-mode" id="left-pane">
+    <section class="clinical-task-context" id="clinical-task-context" aria-labelledby="clinical-task-title" aria-live="polite" hidden>
+      <div class="clinical-task-head"><h3 id="clinical-task-title">跨会谈任务</h3><span class="clinical-task-summary" id="clinical-task-summary"></span></div>
+      <div class="clinical-task-list" id="clinical-task-list"></div>
+    </section>
     <!-- APA 模式 -->
     <div id="pane-apa">
     <div class="guide"><b>APA 结构化提示</b> &#8212; 以下 5 个维度帮助快速梳理本次咨询。右侧小镜可逐条展开。</div>
@@ -105,14 +145,20 @@
     <div class="field"><textarea id="f-free" style="min-height:340px" placeholder="自由书写本次咨询的任何想法、观察、反思…"></textarea></div>
     </div>
     <div class="foot-actions">
-      <button onclick="saveNotes()"><i data-lucide="save"></i>保存记录</button>
-      <button onclick="aiFillPage()"><i data-lucide="sparkles"></i>AI 填写</button>
-      <button class="btn-primary" style="margin-left:auto" onclick="finishAndGoReport()">完成并撰写报告 <i data-lucide="arrow-right"></i></button>
+      <button id="btn-save-record" class="btn-primary" onclick="saveNotes()"><i data-lucide="save"></i>保存记录</button>
+      <button type="button" id="btn-ai-fill" onclick="aiFillPage()"><i data-lucide="sparkles"></i>AI 填写 <span id="ai-fill-lock"></span></button>
+      <button type="button" id="btn-desensitize" onclick="openDesensitize()" style="border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 14px;font:600 12px var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:4px"><i data-lucide="shield-check"></i>生成脱敏文档</button>
+      <button style="margin-left:auto" onclick="finishAndGoReport()">完成并撰写报告 <i data-lucide="arrow-right"></i></button>
     </div>
+    <div class="notes-save-status" id="notes-save-status" aria-live="polite" role="status"></div>
     <div class="note-complete" id="note-complete" aria-live="polite">
       <strong id="note-complete-text"></strong><span class="sp"></span>
       <button onclick="scheduleNextSession()">安排下次</button><button onclick="openCurrentBilling()">补充账务</button><button onclick="generateNoteSummary()">生成摘要</button><button class="primary" onclick="openCurrentSupervision()">进入督导</button>
     </div>
+    <section class="note-summary" id="note-summary" aria-labelledby="note-summary-title" aria-live="polite" hidden>
+      <div class="note-summary-head"><strong id="note-summary-title">会谈摘要</strong><span class="note-summary-status">已保存到本次会谈</span></div>
+      <div class="note-summary-text" id="note-summary-text"></div>
+    </section>
   </div>
   <div class="right">
     <div class="rdock-head"><i data-lucide="message-square-text"></i>小镜</div>
@@ -124,6 +170,39 @@
 </div>
 </div>
 </main></div>
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/consult-notes.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-task-view-model.js"></script><script src="js/session-template-view-model.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/consult-notes.js"></script>
+<script>
+(function () {
+  'use strict';
+  if (typeof window.saveNotes !== 'function') return;
+  var original = window.saveNotes;
+  var statusBox = document.getElementById('notes-save-status');
+  window.saveNotes = function (silent) {
+    var result = original.apply(this, arguments);
+    if (silent) return result;
+    if (statusBox) {
+      statusBox.className = 'notes-save-status busy';
+      statusBox.textContent = '正在保存记录…';
+    }
+    if (result && typeof result.then === 'function') {
+      result.then(function (ok) {
+        if (!statusBox) return;
+        if (ok) {
+          statusBox.className = 'notes-save-status ok';
+          statusBox.innerHTML = '记录已保存。';
+        } else {
+          statusBox.className = 'notes-save-status error';
+          statusBox.innerHTML = '保存未完成：你的输入已保留（具体原因见提示）。<span class="sp"></span><button type="button" onclick="window.saveNotes()">重试保存</button>';
+        }
+      }).catch(function (e) {
+        if (!statusBox) return;
+        statusBox.className = 'notes-save-status error';
+        statusBox.innerHTML = '保存失败：' + (e && e.message ? e.message : String(e)) + '。输入已保留。<span class="sp"></span><button type="button" onclick="window.saveNotes()">重试保存</button>';
+      });
+    }
+    return result;
+  };
+})();
+</script>
 </body>
 </html>

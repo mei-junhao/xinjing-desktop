@@ -1,10 +1,13 @@
 {
   "name": "xinjing",
-  "version": "4.2.4",
+  "version": "5.1.9",
   "description": "心镜 XinJing — 心理咨询本地管理工作台（桌面版）",
   "author": "Mei",
   "main": "main.js",
   "private": true,
+  "scripts": {
+    "dist": "electron-builder"
+  },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
     "@capacitor/cli": "^8.4.2",
@@ -12,6 +15,7 @@
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/network": "^8.0.1",
     "@capacitor/preferences": "^8.0.1",
+    "better-auth": "1.7.1",
     "electron-updater": "^6.3.9",
     "lucide": "^1.24.0",
     "mammoth": "^1.12.0"

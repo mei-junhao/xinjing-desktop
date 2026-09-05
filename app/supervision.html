@@ -8,14 +8,14 @@
 .sup-page{position:relative;display:flex;flex-direction:column;height:calc(100vh - var(--xj-top-offset,0px));overflow:hidden}
 .sup-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .sup-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
-.sup-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.sup-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .sup-top .sp{flex:1}
 .sup-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper,#fff)}
 /* 三栏布局 */
 .sup-body{flex:1;display:grid;grid-template-columns:280px 1fr 360px;min-height:0;overflow:hidden}
 /* 左栏：来访者历史 */
 .col-left{background:var(--paper-2,#fff);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.col-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.col-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--sans);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
 .col-left .lh-list{flex:1;overflow-y:auto;padding:8px}
 .col-left .lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;line-height:1.5;margin-bottom:4px;transition:all .15s}
 .col-left .lh-item:hover{background:var(--bg)}
@@ -37,7 +37,7 @@
 /* 分析卡片 */
 .analysis-block{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:18px}
 .analysis-block .ab-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.analysis-block .ab-head .ab-title{font-family:var(--serif);font-size:15px;font-weight:600}
+.analysis-block .ab-head .ab-title{font-family:var(--sans);font-size:15px;font-weight:600}
 .analysis-block .ab-head .ab-badge{font-size:10px;color:var(--accent);margin-left:auto;background:var(--accent-soft);padding:2px 8px;border-radius:999px}
 .analysis-block .ab-body{font-size:13px;line-height:1.8;color:var(--ink)}
 .analysis-block .ab-quote{padding:8px 12px;margin:8px 0;background:var(--bg);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:12px;color:var(--ink-2);font-style:italic}
@@ -46,14 +46,14 @@
 .analysis-block .ab-empty .big{font-size:36px;display:block;margin-bottom:8px}
 /* 快捷按钮 */
 .quick-strip{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;padding:0 0 8px}
-.quick-strip button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:999px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);transition:all .2s}
+.quick-strip button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:6px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);transition:border-color .16s,color .16s}
 .quick-strip button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-.quick-strip button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.quick-strip button.primary:hover{opacity:.9}
+.quick-strip button.primary{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}
+.quick-strip button.primary:hover{opacity:.9;background:var(--cta-bg-hover,var(--accent-hover));color:#fff;border-color:var(--cta-bg-hover,var(--accent-hover))}
 /* 右栏：AI 对话 */
 .col-right{background:var(--paper-2,#fff);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .col-right .cr-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0}
-.col-right .cr-head .cr-name{font-family:var(--serif);font-size:14px;font-weight:600}
+.col-right .cr-head .cr-name{font-family:var(--sans);font-size:14px;font-weight:600}
 .col-right .cr-head .cr-sp{flex:1}
 .col-right .cr-head button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
 .col-right .cr-chat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
@@ -61,19 +61,26 @@
 .col-right .cr-chat .msg.ai{background:var(--accent-soft);padding:12px 14px;border-radius:12px 12px 12px 4px;align-self:flex-start}
 .col-right .cr-chat .msg.me{background:var(--accent);color:#fff;padding:12px 14px;border-radius:12px 12px 4px 12px;align-self:flex-end;max-width:85%}
 .col-right .cr-chat .msg .src{font-size:10px;color:var(--ink-3);margin-bottom:4px;font-weight:600}
+.sup-error-card{border:1px solid var(--danger,#b54747)!important;background:color-mix(in srgb,var(--danger,#b54747) 7%,var(--paper-2,#fff))!important}
+.sup-error-detail{line-height:1.6;overflow-wrap:anywhere}
+.sup-error-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.sup-error-actions button{min-height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2,#fff);color:var(--ink-2);font:12px var(--sans);cursor:pointer}
+.sup-error-actions button.primary{border-color:var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}
+.sup-error-actions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .col-right .cr-input{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}
 .col-right .cr-input input{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font:13px var(--sans);outline:none;background:var(--bg)}
 .col-right .cr-input input:focus{border-color:var(--accent)}
-.col-right .cr-input button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;font:600 13px var(--sans);cursor:pointer}
-/* 会员锁 */
-.member-lock{position:relative}
-.member-lock::after{content:"🔒";position:absolute;top:-4px;right:-4px;font-size:12px;background:var(--paper-2,#fff);border-radius:50%;padding:1px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.col-right .cr-input button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;padding:10px 16px;font:600 13px var(--sans);cursor:pointer}
+/* P0 REPAIR 02: emoji 伪元素已移除，会员锁由 tokens.css 统一管理 */
 /* 导出按钮等 */
 .m-tools{display:flex;gap:6px;margin-top:8px;flex-shrink:0}
 .m-tools button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
 .m-tools button:hover{border-color:var(--accent);color:var(--accent)}
 /* 材料区 */
-.material-input{width:100%;min-height:120px;border:1px solid var(--border);border-radius:10px;padding:12px;font:13px/1.7 var(--sans);resize:vertical;outline:none;background:var(--bg)}
+.mat-panel{max-height:156px;overflow:hidden;transition:max-height .2s ease}
+.mat-panel.open{max-height:min(60vh,520px)}
+.material-input{width:100%;height:120px;min-height:120px;border:1px solid var(--border);border-radius:10px;padding:12px;font:13px/1.7 var(--sans);resize:vertical;outline:none;background:var(--bg)}
+.mat-panel.open .material-input{height:360px;max-height:min(55vh,480px)}
 .material-input:focus{border-color:var(--accent)}
 .supervisor-strip{display:flex;align-items:center;gap:10px;min-width:280px}
 .supervisor-current{display:flex;align-items:center;gap:9px;min-width:0}.supervisor-current-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-weight:750}.supervisor-current-copy{display:grid;min-width:0}.supervisor-current-copy span{font-size:10px;color:var(--ink-3)}.supervisor-current-copy strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -81,18 +88,28 @@
 .supervisor-picker{position:absolute;z-index:30;top:62px;left:16px;right:16px;max-height:min(520px,calc(100vh - 86px));overflow:auto;padding:16px;border:1px solid var(--border);border-radius:8px;background:var(--paper-2);box-shadow:var(--xj-shadow);color:var(--ink)}.supervisor-picker[hidden]{display:none!important}
 .supervisor-picker-head{display:flex;align-items:start;gap:12px;margin-bottom:14px}.supervisor-picker-head h3{font:680 16px var(--sans);margin:0}.supervisor-picker-head p{font-size:12px;color:var(--ink-2);margin:3px 0 0}.supervisor-picker-head .sp{flex:1}.supervisor-picker-close{width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:var(--ink-2);cursor:pointer}
 .supervisor-picker-label{display:flex;align-items:center;gap:6px;margin:12px 0 7px;color:var(--ink-3);font-size:11px;font-weight:650}.supervisor-option-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.supervisor-option{position:relative;display:grid;grid-template-columns:32px minmax(0,1fr) 18px;align-items:center;gap:9px;min-height:60px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--paper-2);color:var(--ink);text-align:left;cursor:pointer}.supervisor-option:hover{border-color:var(--accent);background:var(--accent-soft)}.supervisor-option.selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.supervisor-option-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:6px;background:var(--bg-sunken);color:var(--accent);font-size:12px;font-weight:750}.supervisor-option strong{display:block;font-size:12px}.supervisor-option small{display:block;margin-top:2px;color:var(--ink-3);font-size:10px;line-height:1.45}.supervisor-option-check{display:none;width:16px;height:16px;color:var(--accent)}.supervisor-option.selected .supervisor-option-check{display:block}.supervisor-option.special{background:var(--accent-soft)}.supervisor-option.custom{grid-template-columns:32px minmax(0,1fr) auto}.supervisor-flagship{font-size:10px;color:#8b651e;font-weight:700;white-space:nowrap}
+.sup-package-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0}.sup-package-copy{min-width:0}.sup-package-copy strong{display:flex;align-items:center;gap:7px;font-size:12px}.sup-package-copy p{margin:3px 0 0;color:var(--ink-3);font-size:11px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sup-package-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.sup-package-actions button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2);color:var(--ink-2);font:12px var(--sans);cursor:pointer}.sup-package-actions button:hover{border-color:var(--accent);color:var(--accent)}.sup-package-actions button.primary{border-color:var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}.sup-package-actions button:disabled{cursor:not-allowed;opacity:.6}.sup-package-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-2)}.sup-package-status[data-state="available"],.sup-package-status[data-state="installed"]{color:var(--success)}.sup-package-status[data-state="locked"]{color:var(--warning)}
 .sup-orient-native{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media(max-width:1280px){.sup-body{grid-template-columns:220px minmax(0,1fr) 300px}.supervisor-option-grid{grid-template-columns:1fr}.sup-top{padding-inline:14px}}
+
+.sup-draft-note{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--bg-sunken);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-wrap:wrap;flex-shrink:0}
+.sup-draft-note i{width:15px;height:15px;color:var(--accent)}
+.sup-draft-note .sp{flex:1}
+.sup-draft-badge{font-size:10px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600;white-space:nowrap}
+.sup-chat-draft-note{padding:6px 12px;font-size:11px;color:var(--ink-3);border-top:1px solid var(--border);background:var(--bg-sunken)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="conversation">
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="sup-page">
 <div class="sup-top">
   <button class="back" onclick="location.href='index.html'"><i data-lucide="chevron-left"></i>返回工作台</button>
   <h2>AI 督导</h2><span id="member-badge-slot"></span><button class="supervisor-open" id="sup-unlock-button" type="button" onclick="App.openPlans()"><i data-lucide="unlock-keyhole"></i>解锁会员</button><span class="sp"></span><a href="supervision-mindmap.html" class="xj-premium-btn"><i data-lucide="git-fork"></i>思维导图</a>
   <span class="sp"></span>
-  <select id="sup-client" onchange="onClientChange()"><option value="">选择来访者…</option></select>
+  <select id="sup-client" onchange="onClientChange()" aria-label="可选：关联来访者"><option value="">不绑定来访者（独立督导）</option></select><span id="sup-context-state" class="badge">独立督导</span>
   <div class="supervisor-strip">
     <div class="supervisor-current"><span class="supervisor-current-mark" id="supervisor-current-mark">仓</span><span class="supervisor-current-copy"><span>当前督导师</span><strong id="supervisor-current-name">仓颉版温尼科特督导师</strong></span></div>
     <select id="sup-orient" class="sup-orient-native" aria-label="当前督导师"></select>
@@ -113,12 +130,34 @@
   <button class="supervisor-option custom" id="custom-supervisor-option" type="button"><span class="supervisor-option-mark">定</span><span><strong>新建定制督导师</strong><small>联系开发者定制理论框架、表达方式和材料边界。</small></span><span class="supervisor-flagship">旗舰 · 联系定制</span></button>
 </section>
 
+<section class="sup-package-strip" aria-label="受控督导技能包">
+  <div class="sup-package-copy">
+    <strong><i data-lucide="shield-check"></i>受控督导技能包 <span class="badge">旗舰</span><span class="sup-package-status" id="sup-package-status" data-state="locked">未安装</span></strong>
+    <p id="sup-package-detail">仅接受作者签发的加密 .xjsup 文件；检查、授权和解密均在本机主进程完成。</p>
+  </div>
+  <div class="sup-package-actions">
+    <input id="sup-package-file" type="file" accept=".xjsup" hidden>
+    <button id="sup-package-import" type="button"><i data-lucide="file-key-2"></i>检查专属包</button>
+    <button id="sup-package-install" type="button" disabled><i data-lucide="download"></i>确认安装</button>
+    <button id="sup-package-run" type="button" class="primary" disabled><i data-lucide="play"></i>运行已安装包</button>
+    <button id="sup-package-remove" type="button" disabled><i data-lucide="archive-x"></i>移除</button>
+  </div>
+</section>
+
+
+<div class="sup-draft-note" id="sup-draft-note" role="note">
+  <i data-lucide="shield-check"></i>
+  <span><b>分区</b>：案例材料 · 督导对话 · 工具确认</span>
+  <span class="sp"></span>
+  <span>AI 输出始终为草稿，仅在点击「保存」后写入督导记录。</span>
+</div>
+
 <div class="sup-body">
   <!-- 左栏：来访者会话历史 -->
   <div class="col-left">
     <div class="lh-head"><i data-lucide="history"></i>会话历史</div>
     <div class="lh-list" id="session-history">
-      <div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">请先选择来访者</div>
+      <div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">未绑定来访者。可直接输入或上传材料开始独立督导。</div>
     </div>
   </div>
 
@@ -133,7 +172,7 @@
       <div class="analysis-block">
         <div class="ab-head"><span class="ab-title"><i data-lucide="scan-search"></i>整体印象</span><span class="ab-badge">AI 分析</span></div>
         <div class="ab-body" id="impression-body">
-          <div class="ab-empty"><span class="big"><i data-lucide="brain-circuit"></i></span>选择来访者后，生成整体印象开始督导</div>
+          <div class="ab-empty"><span class="big"><i data-lucide="brain-circuit"></i></span>输入或上传材料后，生成整体印象开始督导</div>
         </div>
         <div class="quick-strip">
           <button class="primary" onclick="generateImpression()"><i data-lucide="sparkles"></i>生成整体印象</button>
@@ -152,13 +191,31 @@
       <div class="analysis-block" id="material-block" style="display:none">
         <div class="ab-head"><span class="ab-title"><i data-lucide="clipboard-pen-line"></i>临床材料</span></div>
         <div class="ab-body">
-          <textarea class="material-input" id="sup-material" placeholder="粘贴逐字稿或书写案例材料……"></textarea>
+          <div id="mat-panel" class="mat-panel">
+            <textarea class="material-input" id="sup-material" placeholder="粘贴逐字稿或书写案例材料……"></textarea>
+          </div>
           <div class="m-tools">
             <button onclick="loadTranscript()"><i data-lucide="audio-lines"></i>载入逐字稿</button>
-            <button onclick="document.getElementById('sup-report-file').click()"><i data-lucide="upload"></i>上传报告</button>
+            <button id="sup-report-upload-trigger" type="button" aria-controls="sup-report-file" aria-describedby="sup-upload-status-detail" onclick="document.getElementById('sup-report-file').click()"><i data-lucide="upload"></i>上传报告</button>
             <button onclick="document.getElementById('sup-material').value=''">清空</button>
-            <button onclick="document.getElementById('mat-panel').classList.toggle('open')">展开材料</button>
-            <input type="file" id="sup-report-file" accept=".doc,.docx,.html,.htm,.txt,.md" style="display:none" onchange="onReportFileUpload(event)">
+            <button id="sup-material-toggle" type="button" aria-controls="mat-panel" aria-expanded="false" onclick="toggleMaterialPanel()">展开材料</button>
+            <input type="file" id="sup-report-file" accept=".doc,.docx,.html,.htm,.txt,.md" aria-label="选择案例报告文件" style="display:none" onchange="onReportFileUpload(event)">
+          </div>
+          <div class="sup-upload-status-wrap" id="sup-upload-status-wrap" aria-live="polite" aria-atomic="true">
+            <div class="sup-upload-status" id="sup-upload-status" data-upload-state="idle" role="group" aria-labelledby="sup-upload-status-label">
+              <div class="sup-upload-status-head">
+                <strong id="sup-upload-status-label">等待上传</strong>
+                <span id="sup-upload-status-file">未选择文件</span>
+              </div>
+              <div class="sup-upload-progress-wrap" id="sup-upload-progress-wrap" hidden>
+                <div class="sup-upload-progress" id="sup-upload-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="报告读取进度"><span id="sup-upload-progress-bar"></span></div>
+              </div>
+              <p class="sup-upload-status-detail" id="sup-upload-status-detail">可选择 .txt 或 .docx 报告；读取结果只会写入临床材料草稿。</p>
+              <div class="sup-upload-actions" id="sup-upload-actions">
+                <button id="sup-upload-retry" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="retryReportFileUpload()">重试</button>
+                <button id="sup-upload-cancel" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="cancelReportFileUpload()">取消读取</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -169,26 +226,29 @@
   <div class="col-right">
     <div class="cr-head">
       <span class="cr-name"><i data-lucide="message-square-text"></i>小镜督导对话</span>
+      <span class="sup-draft-badge" id="sup-draft-badge">AI 草稿 · 未保存</span>
       <span class="cr-sp"></span>
       <button onclick="exportSup()">导出</button>
       <button onclick="saveSup()">保存</button>
     </div>
     <div class="cr-chat" id="sup-chat">
-      <div class="msg ai"><div class="src">小镜</div>选择来访者后，点击"生成整体印象"开始。之后可以自由对话深入督导。</div>
+      <div class="msg ai"><div class="src">小镜</div>可先选择来访者，也可直接输入材料开始独立督导。之后可以自由对话深入督导。</div>
     </div>
     <div class="cr-input">
       <input id="sup-input" placeholder="向小镜提问…" onkeydown="if(event.key==='Enter')sendSupMsg()">
       <button onclick="sendSupMsg()">发送</button>
     </div>
+    <div class="sup-chat-draft-note">AI 回复为草稿，需点击「保存」才会写入督导记录。</div>
   </div>
 </div>
 </div>
 </main></div>
 
-<script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/prompt-governance.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script src="js/prompts.builtin.js"></script>
 <script src="js/supervisors.js"></script>
 <script src="js/supervision-core.js"></script>
+<script src="js/supervision-package.js"></script>
 <script src="js/supervision.js"></script>
 <script src="vendor/mammoth.browser.min.js"></script>
 

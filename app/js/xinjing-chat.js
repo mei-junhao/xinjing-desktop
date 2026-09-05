@@ -30,6 +30,13 @@ const XinJingChat = (() => {
   var MEM_MAX = 30;
 
   var lastWriteAction = null;
+  var undoPending = false;
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('xj:model-selection-changed', function () {
+      try { refreshTierUI(); } catch (_) {}
+    });
+  }
 
   var XIAOJING_IDENTITY = '你是心镜（XinJing）的助手「小镜」，身份设定：\n' +
     '- 你是心理咨询师的专业助理，不是AI督导，也不是大师。\n' +
@@ -87,6 +94,8 @@ const XinJingChat = (() => {
   }
 
   // ---------- 本地快速查询 ----------
+  // Z6（XJ519-Z6）：本地检索只响应「明确的统计/数据问句」。
+  // 材料复述、临床提问即使包含「来访者」等词也必须交给所选模型，禁止宽关键词劫持。
   function queryLocal(text) {
     var q = text.toLowerCase();
     var clients, sessions;
@@ -97,7 +106,10 @@ const XinJingChat = (() => {
     } catch (e) { return null; }
     var results = [];
 
-    if (q.indexOf('欠费') >= 0 || q.indexOf('没付') >= 0 || q.indexOf('未收') >= 0) {
+    var LOCAL_NOTE = '\n（本地检索 · 未调用模型）';
+
+    if ((q.indexOf('欠费') >= 0 || q.indexOf('未付') >= 0 || q.indexOf('未收') >= 0)
+        && /(谁|哪些|名单|明细|统计|汇总|多少)/.test(q)) {
       clients.forEach(function (c) {
         var ss = Store.getSessionsByClient(c.id);
         var unpaid = ss.filter(function (s) { return s.billing && s.billing.fee > 0 && !s.billing.paid; });
@@ -106,16 +118,18 @@ const XinJingChat = (() => {
           results.push(c.name + '：' + unpaid.length + '节未付，共' + money(total));
         }
       });
-      if (results.length) return { content: '📊 欠费明细：\n' + results.join('\n') };
-      return { content: '✅ 目前没有来访者有欠费。' };
+      if (results.length) return { content: '📊 欠费明细：\n' + results.join('\n') + LOCAL_NOTE };
+      return { content: '✅ 目前没有来访者有欠费。' + LOCAL_NOTE };
     }
 
-    if (q.indexOf('来访者') >= 0 || q.indexOf('客户') >= 0 || q.indexOf('人数') >= 0) {
+    // 来访者/客户统计：计数词必须与「来访者/客户/个案」紧邻，材料复述不再命中
+    if (/(来访者|客户|个案)(?:有)?(?:的)?(人数|多少|数量)|(多少|数量)(?:位|名|个)?(?:来访者|客户|个案)|来访者人数|客户人数/.test(q)) {
       var active = clients.filter(function (c) { return c.status !== 'ended'; });
-      return { content: '👥 共有 ' + clients.length + ' 位来访者（活跃 ' + active.length + ' 位）。' };
+      return { content: '👥 共有 ' + clients.length + ' 位来访者（活跃 ' + active.length + ' 位）。' + LOCAL_NOTE };
     }
 
-    if ((q.indexOf('收入') >= 0 || q.indexOf('本月') >= 0) && q.indexOf('收') >= 0) {
+    // 月度收入：月份词紧邻「收入」，或「收入+多少/情况/汇总」；临床叙述不命中
+    if (/(?:本月|这个月|当月|上月)的?收入/.test(q) || /收入(?:情况|汇总|统计|是多少|多少)/.test(q)) {
       var todayStr = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
       var ym = todayStr.slice(0, 7);
       var total = 0, paid = 0;
@@ -125,16 +139,16 @@ const XinJingChat = (() => {
           if (s.billing.paid) paid += s.billing.fee;
         }
       });
-      return { content: '💰 本月收入：' + money(total) + '（已收 ' + money(paid) + '，待收 ' + money(total - paid) + '）' };
+      return { content: '💰 本月收入：' + money(total) + '（已收 ' + money(paid) + '，待收 ' + money(total - paid) + '）' + LOCAL_NOTE };
     }
 
-    if (q.indexOf('今天') >= 0 || q.indexOf('今日') >= 0) {
+    if (/(今天|今日)/.test(q) && /(几节|几场|多少|有什么|安排|日程)/.test(q)) {
       var today = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
       var todayS = sessions.filter(function (s) { return s.date === today; });
       return { content: '📅 今天有 ' + todayS.length + ' 节咨询。' + (todayS.length ? todayS.map(function (s) {
         var c = Store.getClient(s.clientId);
         return '  · ' + (c ? c.name : '?') + ' 第' + (s.sessionNumber || '?') + '节' + (s.billing && s.billing.fee ? ' ¥' + s.billing.fee : '');
-      }).join('\n') : '') };
+      }).join('\n') : '') + LOCAL_NOTE };
     }
 
     return null;
@@ -195,7 +209,10 @@ const XinJingChat = (() => {
     if (tier === 'user') {
       banner.textContent = '已接入高性能模型 · 操作边界不变';
     } else {
-      banner.innerHTML = '🌱 免费试用 · <span class="xj3-quota-name">v4-flash</span>（额度用尽降级基础模型）' +
+      var selectedModel = 'deepseek-v4-pro';
+      try { if (typeof AI !== 'undefined' && AI.getTrialModel) selectedModel = AI.getTrialModel(); } catch (e) {}
+      var selectedLabel = selectedModel === 'gpt-5.6' ? 'GPT Terra（主力模型）' : (selectedModel === 'deepseek-v4-flash' ? 'DeepSeek V4 Flash（主力模型）' : 'DeepSeek V4 Pro（主力模型）');
+      banner.innerHTML = '🌱 免费试用 · <span class="xj3-quota-name">' + selectedLabel + '</span>' +
         '<span class="xj3-quota-pct"></span>';
     }
     updateQuotaBadge();
@@ -211,7 +228,11 @@ const XinJingChat = (() => {
     if (tier === 'user') return;
     var q = (typeof AI !== 'undefined' && AI.getQuota) ? AI.getQuota() : null;
     if (pctEl) pctEl.textContent = (q && q.percent != null) ? ('剩余 ' + q.percent + '%') : '';
-    if (qEl) qEl.textContent = (q && q.tier === 'basic') ? '基础模型（已降级）' : 'v4-flash';
+    if (qEl) {
+      var selectedModel = 'deepseek-v4-pro';
+      try { if (typeof AI !== 'undefined' && AI.getTrialModel) selectedModel = AI.getTrialModel(); } catch (e) {}
+      qEl.textContent = selectedModel === 'gpt-5.6' ? 'GPT Terra（主力模型）' : (selectedModel === 'deepseek-v4-flash' ? 'DeepSeek V4 Flash（主力模型）' : 'DeepSeek V4 Pro（主力模型）');
+    }
   }
 
   // ---------- UI 构建 ----------
@@ -247,13 +268,16 @@ const XinJingChat = (() => {
   function injectStyles() {
     var style = document.createElement('style');
     style.textContent = '' +
-      '.xj-panel-v3{position:fixed;top:0;right:0;width:0;height:100vh;z-index:9999;pointer-events:none}' +
+      // The fixed drawer is nested in this shell; a zero-width containing block
+      // places it outside the viewport in Electron. Keep the shell inert while
+      // giving fixed descendants the full viewport containing block.
+      '.xj-panel-v3{position:fixed;top:0;right:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none}' +
       '.xj3-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;' +
         'background:rgba(0,0,0,.35);opacity:0;pointer-events:none;' +
         'will-change:opacity;transition:opacity .3s cubic-bezier(.4,0,.2,1)}' +
       '.xj-panel-v3.open .xj3-overlay{opacity:1;pointer-events:auto}' +
       '.xj3-fab{position:fixed;right:20px;bottom:24px;width:52px;height:52px;border-radius:50%;border:none;' +
-        'background:var(--accent);color:#fff;font-size:20px;font-weight:700;font-family:var(--serif);' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font-size:20px;font-weight:700;font-family:var(--serif);' +
         'cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.15);pointer-events:auto;' +
         'will-change:transform,opacity;transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .2s ease;' +
         'display:flex;align-items:center;justify-content:center}' +
@@ -298,7 +322,7 @@ const XinJingChat = (() => {
       '.xj3-lock-banner{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;margin-bottom:8px}' +
       '.xj3-lock-inner{font-size:12px;color:var(--ink-2)}' +
       '.xj3-activate-btn{margin-top:8px;padding:6px 14px;border:1px solid var(--accent);border-radius:8px;' +
-        'background:var(--accent);color:#fff;font:500 12px var(--sans);cursor:pointer}' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font:500 12px var(--sans);cursor:pointer}' +
       '.xj3-hint-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:2px}' +
       '.xj3-hint-card .h-title{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}' +
       '.xj3-hint-card ul{margin:0;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.9}' +
@@ -313,7 +337,7 @@ const XinJingChat = (() => {
       '.xj3-input-row input{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 12px;' +
         'font:13px var(--sans);outline:none;background:var(--bg);transition:border-color .15s ease}' +
       '.xj3-input-row input:focus{border-color:var(--accent)}' +
-      '.xj3-input-row button{background:var(--accent);color:#fff;border:none;border-radius:10px;' +
+      '.xj3-input-row button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;' +
         'padding:0 16px;font:600 13px var(--sans);cursor:pointer;transition:opacity .15s ease}' +
       '.xj3-input-row button:hover{opacity:.9}' +
       '.xj3-input-row button:active{opacity:.8}' +
@@ -327,7 +351,7 @@ const XinJingChat = (() => {
       '.xj3-confirm-preview{font-size:12px;color:var(--ink);margin-bottom:10px;line-height:1.6}' +
       '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
       '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
-      '.xj3-confirm-actions .xj3-ok{background:var(--accent);color:#fff;border-color:var(--accent)}' +
+      '.xj3-confirm-actions .xj3-ok{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}' +
       '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
         'padding:10px 12px;margin:2px 0;align-self:stretch}' +
       '.xj3-followup-head{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px}' +
@@ -339,7 +363,7 @@ const XinJingChat = (() => {
       '.xj3-nav-head{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px}' +
       '.xj3-nav-reason{font-size:11px;color:var(--ink-3);margin-bottom:8px}' +
       '.xj3-nav-go{padding:6px 14px;border-radius:8px;border:1px solid var(--accent);' +
-        'background:var(--accent);color:#fff;font:500 12px var(--sans);cursor:pointer}' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font:500 12px var(--sans);cursor:pointer}' +
       '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}';
     document.head.appendChild(style);
   }
@@ -362,7 +386,7 @@ const XinJingChat = (() => {
       '.xj3-confirm-preview{font-size:12px;color:var(--ink);margin-bottom:10px;line-height:1.6}' +
       '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
       '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
-      '.xj3-confirm-actions .xj3-ok{background:var(--accent);color:#fff;border-color:var(--accent)}' +
+      '.xj3-confirm-actions .xj3-ok{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}' +
       '.xj3-progress{font-size:11px;color:var(--ink-3);padding:4px 8px;align-self:flex-start}' +
       '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
         'padding:10px 12px;margin:2px 0;align-self:stretch}' +
@@ -375,7 +399,7 @@ const XinJingChat = (() => {
       '.xj3-nav-head{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px}' +
       '.xj3-nav-reason{font-size:11px;color:var(--ink-3);margin-bottom:8px}' +
       '.xj3-nav-go{padding:6px 14px;border-radius:8px;border:1px solid var(--accent);' +
-        'background:var(--accent);color:#fff;font:500 12px var(--sans);cursor:pointer}' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font:500 12px var(--sans);cursor:pointer}' +
       '.xj3-lock-banner{background:linear-gradient(135deg,#fff5f0,#fff);border:1px solid #ffb38a;' +
         'border-radius:10px;padding:12px;margin:4px 0;align-self:stretch}' +
       '.xj3-lock-title{font-size:12px;font-weight:600;color:#c44a00;margin-bottom:6px}' +
@@ -397,10 +421,10 @@ const XinJingChat = (() => {
       undo.title = '撤销最近一次写入';
       undo.disabled = !lastWriteAction;
       head.appendChild(undo);
-      undo.addEventListener('click', function () {
-        undoLastWrite();
-        if (lastWriteAction) undo.disabled = false;
-        else undo.disabled = true;
+      undo.addEventListener('click', async function () {
+        undo.disabled = true;
+        await undoLastWrite();
+        undo.disabled = !lastWriteAction;
       });
     }
     // 2) 事件代理：followup / confirm / nav
@@ -430,6 +454,22 @@ const XinJingChat = (() => {
         if (href) location.href = href;
       }
     });
+  }
+
+  function bindCloseControls() {
+    if (!panelEl || panelEl.dataset.xjCloseBound === '1') return;
+    panelEl.dataset.xjCloseBound = '1';
+    // 捕获阶段兜底，覆盖旧面板、SVG 图标命中和其他脚本的冒泡监听。
+    panelEl.addEventListener('click', function (event) {
+      var closeButton = panelEl.querySelector('#xj3-close');
+      var overlay = panelEl.querySelector('#xj3-overlay');
+      var hitClose = !!(closeButton && (event.target === closeButton || closeButton.contains(event.target)));
+      var hitOverlay = !!(overlay && event.target === overlay);
+      if (!hitClose && !hitOverlay) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }, true);
   }
 
   function build() {
@@ -462,6 +502,7 @@ const XinJingChat = (() => {
       rebind(inputOld, '#xj3-input');
 
       panelEl = existing;
+      bindCloseControls();
       bodyEl = panelEl.querySelector('#xj3-body');
       inputEl = panelEl.querySelector('#xj3-input');
       hintDotEl = panelEl.querySelector('#xj3-fab-dot');
@@ -469,9 +510,9 @@ const XinJingChat = (() => {
         var fab = panelEl.querySelector('#xj3-fab');
         if (fab) fab.addEventListener('click', toggle);
         var closeBtn = panelEl.querySelector('#xj3-close');
-        if (closeBtn) closeBtn.addEventListener('click', toggle);
+        if (closeBtn) closeBtn.addEventListener('click', close);
         var ov = panelEl.querySelector('#xj3-overlay');
-        if (ov) ov.addEventListener('click', toggle);
+        if (ov) ov.addEventListener('click', close);
         if (inputEl) inputEl.addEventListener('keydown', function (e) {
           if (e.key === 'Enter') send();
         });
@@ -504,14 +545,15 @@ const XinJingChat = (() => {
     panelEl.innerHTML = buildPanelHtml();
     document.body.appendChild(panelEl);
     panelEl = document.getElementById('xj-panel-v3');
+    bindCloseControls();
 
     bodyEl = panelEl.querySelector('#xj3-body');
     inputEl = panelEl.querySelector('#xj3-input');
     hintDotEl = panelEl.querySelector('#xj3-fab-dot');
 
     panelEl.querySelector('#xj3-fab').addEventListener('click', toggle);
-    panelEl.querySelector('#xj3-close').addEventListener('click', toggle);
-    panelEl.querySelector('#xj3-overlay').addEventListener('click', toggle);
+    panelEl.querySelector('#xj3-close').addEventListener('click', close);
+    panelEl.querySelector('#xj3-overlay').addEventListener('click', close);
     panelEl.querySelector('.xj3-undo').addEventListener('click', undoLastWrite);
     inputEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') send();
@@ -613,6 +655,10 @@ const XinJingChat = (() => {
   }
 
   // ---------- 消息渲染 ----------
+  // Z10（XJ519-Z10）：历史遗留数据里的「模型调用失败：模型调用失败：…」双前缀，渲染层统一去重
+  function dedupeErrorPrefix(text) {
+    return String(text || '').replace(/(?:模型调用失败\s*[:：]\s*){2,}/g, '模型调用失败：');
+  }
   function appendUserMsg(text) {
     appendUserMsgRaw(text);
     messages.push({ role: 'user', content: text });
@@ -635,7 +681,7 @@ const XinJingChat = (() => {
     if (!bodyEl) return null;
     var div = document.createElement('div');
     div.className = 'xj3-msg ai' + (isTyping ? ' typing' : '');
-    div.innerHTML = esc(text || '').replace(/\n/g, '<br>');
+    div.innerHTML = esc(dedupeErrorPrefix(text || '')).replace(/\n/g, '<br>');
     bodyEl.appendChild(div);
     bodyEl.scrollTop = bodyEl.scrollHeight;
     return div;
@@ -644,7 +690,7 @@ const XinJingChat = (() => {
   function updateAiMsg(div, text) {
     if (!div) return;
     div.classList.remove('typing');
-    div.innerHTML = esc(text).replace(/\n/g, '<br>');
+    div.innerHTML = esc(dedupeErrorPrefix(text)).replace(/\n/g, '<br>');
     if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight;
   }
 
@@ -669,6 +715,18 @@ const XinJingChat = (() => {
 
   // ---------- System Prompt ----------
   function buildSystemPrompt() {
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.registerPrompt) {
+      PromptGovernance.registerPrompt({
+        id: 'xiaojing.chat.system',
+        version: '4.4.0',
+        task: 'assistant-navigation',
+        model: 'chat-completions-compatible',
+        author: 'XinJing product team',
+        source: 'app/js/xinjing-chat.js',
+        changeLog: ['4.4.0: registered Xiaojing chat identity; live dashboard values remain outside the manifest hash.'],
+        content: XIAOJING_IDENTITY,
+      });
+    }
     var preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
     var ctx = '';
     try {
@@ -816,21 +874,24 @@ const XinJingChat = (() => {
     lastWriteAction = { toolName: toolName, args: args, result: result, ts: Date.now() };
   }
 
-  function undoLastWrite() {
+  async function undoLastWrite() {
+    if (undoPending) return;
     if (!lastWriteAction) {
       toast('没有可撤销的操作', 'info');
       return;
     }
     var w = lastWriteAction;
     if ((w.toolName === 'billing.add_record' || w.toolName === 'billing_add_record') && w.result && w.result.sessionIds) {
+      undoPending = true;
       try {
-        w.result.sessionIds.forEach(function (sid) {
-          if (typeof Store !== 'undefined' && Store.deleteSession) Store.deleteSession(sid);
-        });
+        var result = await Store.deleteSessionsDurable(w.result.sessionIds);
+        if (!result || !result.ok) throw new Error((result && result.error && result.error.message) || 'data was not persisted');
         toast('已撤销 ' + w.result.sessionIds.length + ' 条记账记录', 'success');
         lastWriteAction = null;
       } catch (e) {
         toast('撤销失败：' + (e.message || ''), 'error');
+      } finally {
+        undoPending = false;
       }
     } else {
       toast('该操作不支持撤销', 'info');
@@ -840,13 +901,19 @@ const XinJingChat = (() => {
   // ---------- 发送 ----------
   async function send() {
     if (busy) return;
+    // Z5（XJ519-Z5）：面板 DOM 可能被外部重建，失联引用会导致消息写进游离节点后静默丢失；
+    // 发送前校验引用仍挂在文档上，失联则重置并让 build() 重新接管。
+    if (panelEl && typeof document !== 'undefined' && !document.contains(panelEl)) {
+      panelEl = null; bodyEl = null; inputEl = null; hintDotEl = null;
+    }
+    build();
+    refreshLock();
     if (!inputEl) return;
     var text = (inputEl.value || '').trim();
     if (!text) return;
-    inputEl.value = '';
-    build();
-    refreshLock();
+    // Z5：先持久化（messages.push + DOM 挂载）再清空输入——首条发送必须可见，后续失败不再静默丢消息。
     appendUserMsg(text);
+    inputEl.value = '';
 
     var local = queryLocal(text);
     if (local) {
@@ -906,7 +973,9 @@ const XinJingChat = (() => {
             renderFollowupCard(evt.items);
           }
         });
-        if (result.error) {
+        if (result.error && String(result.error).indexOf('account-session-required') >= 0) {
+          showAccountSessionRecovery(typingDiv, text);
+        } else if (result.error) {
           updateAiMsg(typingDiv, '⚠ ' + result.error);
         } else if (result.reply) {
           // AgentCore.runRound 已把模型消息写入 messages（同一数组引用），此处仅渲染，不再 push。
@@ -924,7 +993,9 @@ const XinJingChat = (() => {
         if (typeof AI !== 'undefined' && AI.send) {
           var sys = buildSystemPrompt();
           AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
-            if (res && res.error) {
+            if (res && res.error && String(res.error).indexOf('account-session-required') >= 0) {
+              showAccountSessionRecovery(typingDiv, text);
+            } else if (res && res.error) {
               updateAiMsg(typingDiv, '出错：' + res.error);
             } else {
               var content = (res && res.content) || '（未获得回复）';
@@ -1009,7 +1080,8 @@ const XinJingChat = (() => {
   // ---------- 开关 ----------
   function toggle() {
     build();
-    isOpen = !isOpen;
+    // 面板可能由旧版脚本或路由恢复提前打开；以内存状态为准会把“收起”再次变成打开。
+    isOpen = !panelEl.classList.contains('open');
     if (isOpen) {
       panelEl.classList.add('open');
       var f = panelEl.querySelector('#xj3-fab');
@@ -1025,7 +1097,7 @@ const XinJingChat = (() => {
 
   function open() {
     build();
-    if (!isOpen) {
+    if (!panelEl.classList.contains('open')) {
       isOpen = true;
       panelEl.classList.add('open');
       var f = panelEl.querySelector('#xj3-fab');
@@ -1036,11 +1108,16 @@ const XinJingChat = (() => {
   }
 
   function close() {
-    if (isOpen && panelEl) {
+    if (panelEl && panelEl.classList.contains('open')) {
       isOpen = false;
       panelEl.classList.remove('open');
       var f = panelEl.querySelector('#xj3-fab');
       if (f) f.classList.add('docked');
+      var returnTarget = document.activeElement;
+      var fab = panelEl.querySelector('#xj3-fab');
+      if (returnTarget && panelEl.contains(returnTarget) && fab && typeof fab.focus === 'function') {
+        try { fab.focus({ preventScroll: true }); } catch (e) { fab.focus(); }
+      }
     }
   }
 
@@ -1151,3 +1228,50 @@ const XinJingChat = (() => {
 
   return api;
 })();
+
+// 511-004: GPT-5.6 account-session-required 单一去重恢复卡（保留草稿；显式动作，无自动降级）
+  function showAccountSessionRecovery(typingDiv, draftText) {
+    if (document.querySelector('.xj-recovery-card')) { return; } // 去重：每请求一张
+    var wrap = typingDiv && typingDiv.parentNode ? typingDiv.parentNode : document.body;
+    var card = document.createElement('div');
+    card.className = 'xj-recovery-card';
+    card.setAttribute('role', 'alert');
+    card.style.cssText = 'border:1px solid #c9a227;background:rgba(201,162,39,.08);border-radius:10px;padding:12px 14px;margin:8px 0;';
+    card.innerHTML = '<strong>需要登录账号会话（account-session-required）</strong>' +
+      '<p style="margin:6px 0;color:var(--text-muted,#999);font-size:12px">草稿已保留。请选择以下安全操作：</p>' +
+      '<button type="button" data-xj-act="retry" style="margin-right:6px;padding:6px 12px;border-radius:8px;cursor:pointer;background:var(--accent,#4a6cf7);color:#fff;border:0">重试</button>' +
+      '<button type="button" data-xj-act="relogin" style="margin-right:6px;padding:6px 12px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid var(--border,#444);color:var(--text,#eee)">登录 / 配置会话</button>' +
+      '<button type="button" data-xj-act="switch-qwen" style="padding:6px 12px;border-radius:8px;cursor:pointer;background:transparent;border:1px dashed var(--border,#444);color:var(--text,#eee)">改用无会话基础模型（需显式确认）</button>';
+    card.dataset.draft = String(draftText || '');
+    wrap.appendChild(card);
+    card.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('[data-xj-act]') : null;
+      if (!btn) return;
+      if (btn.disabled) return; // 511-010: duplicate guard —— disabled 期间二次触发 no-op
+      var act = btn.getAttribute('data-xj-act');
+      if (act === 'retry') { var draft = card.dataset.draft || '';  btn.disabled = true; btn.textContent = '发送中…'; if (window.XinJingChat && window.XinJingChat.quickQuery) { window.XinJingChat.quickQuery(draft); } else if (window.__xjRetryDraft) { window.__xjRetryDraft(draft); } } // 511-008: 真实 window.XinJingChat.quickQuery，发送中不删卡
+      else if (act === 'relogin') { card.remove(); if (window.App && App.openSettings) App.openSettings('account'); }
+      else if (act === 'switch-qwen') {
+        if (window.confirm('确认切换到无会话基础模型？该模型不要求账号会话。')) {
+          if (window.__xjSwitchBasic) window.__xjSwitchBasic(card, btn);
+        }
+      }
+    });
+    return card;
+  }
+  window.showAccountSessionRecovery = showAccountSessionRecovery;
+  window.__xjRetryDraft = function (draft) { if (typeof quickQuery === 'function' && draft) { quickQuery(draft); } else if (draft) { var ta = document.querySelector('textarea, [contenteditable=true]'); if (ta) ta.value = draft; } }; // 511-007: retry 走真实 quickQuery 发送（非仅写 textarea）
+  window.__xjSwitchBasic = function (card, btn) { if (typeof Store === 'undefined' || !Store.saveSettingsDurable) { showInlineRecoveryError(card, '无法访问本地存储，请重试'); return; } btn.disabled = true; btn.textContent = '切换中…'; Store.saveSettingsDurable({ apiConfig: {} }).then(function (res) { if (res && res.ok === true) { if (card && card.parentNode) card.parentNode.removeChild(card); App.showToast && App.showToast('已切换到无会话基础模型', 'success'); } else { showInlineRecoveryError(card, '切换失败：未收到 durable 确认，请重试'); if (btn) { btn.disabled = false; btn.textContent = '改用无会话基础模型（需显式确认）'; } } }).catch(function (e) { showInlineRecoveryError(card, '切换失败：' + (e && e.message || e)); if (btn) { btn.disabled = false; btn.textContent = '改用无会话基础模型（需显式确认）'; } }); }; // 511-008: pending/{ok:false}/throw 保留卡可重试；仅 {ok:true} 移除；禁不存在的外部切换调用
+
+function showInlineRecoveryError(card, msg) {
+  if (!card) return;
+  var old = card.querySelector('.xj-recovery-err');
+  if (old) old.remove();
+  var err = document.createElement('div');
+  err.className = 'xj-recovery-err';
+  err.setAttribute('role', 'alert');
+  err.style.cssText = 'margin-top:8px;color:#d64545;font-size:12px;';
+  err.textContent = msg;
+  card.appendChild(err);
+}
+window.showInlineRecoveryError = showInlineRecoveryError;

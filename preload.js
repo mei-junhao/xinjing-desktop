@@ -12,31 +12,179 @@
 'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');
+// Electron sandboxed preload 不能加载项目相对模块；这里保留与
+// pi-bridge-preload-v1.js 相同的白名单形状，避免为接线而关闭 sandbox。
+const PI_PRELOAD_METHODS = Object.freeze([
+  'startTask', 'contextCheck', 'plan', 'runToolStep', 'commitStep',
+  'resolveApproval', 'pause', 'resume', 'cancel', 'diagnose', 'timeoutScan',
+]);
+const PI_PRELOAD_CHANNEL = 'xj-pi-v1:invoke';
+const PI_CLINICAL_METHODS = Object.freeze([
+  'begin', 'draftAppend', 'commitRecord', 'approve', 'reject', 'commitDurable',
+  'verify', 'pause', 'resume', 'cancel', 'status',
+]);
+const PI_CLINICAL_CHANNEL = 'xj-pi-clinical-v1:invoke';
+function createSandboxPiApi() {
+  const api = { __xjPiBridgeVersion: 1 };
+  PI_PRELOAD_METHODS.forEach((method) => {
+    api[method] = (...args) => ipcRenderer.invoke(PI_PRELOAD_CHANNEL, { method, args });
+  });
+  const clinical = {};
+  PI_CLINICAL_METHODS.forEach((method) => {
+    clinical[method] = (...args) => ipcRenderer.invoke(PI_CLINICAL_CHANNEL, { method, args });
+  });
+  api.clinical = Object.freeze(clinical);
+  return Object.freeze(api);
+}
 
-// 构建期注入的真实版本（version.generated.js，由 scripts/codegen-version.js 生成并打进 exe）。
-// 设置页「关于」版本号优先读此值，与安装包强制绑定，根治「装新包后版本号不更新」的脆弱链路。
-let BUILD_VERSION = '0.0.0';
-try { BUILD_VERSION = require('./version.generated.js').VERSION || BUILD_VERSION; } catch (e) { /* dev 期无该文件则回退 0.0.0 */ }
+const piApi = createSandboxPiApi();
+const piRendererTransport = Object.freeze({
+  onRequest: (cb) => {
+    if (typeof cb !== 'function') return null;
+    const handler = (_event, request) => {
+      if (!request || typeof request !== 'object') return;
+      const requestId = String(request.requestId || '');
+      const kind = String(request.kind || '');
+      if (!/^pi_req_[A-Za-z0-9_-]{8,96}$/.test(requestId) || !/^[a-z-]{3,40}$/.test(kind)) return;
+      try { cb({ requestId, kind, payload: request.payload }); } catch (_) {}
+    };
+    ipcRenderer.on('xj:pi:renderer-request', handler);
+    return () => ipcRenderer.removeListener('xj:pi:renderer-request', handler);
+  },
+  reply: (requestId, response) => {
+    const id = String(requestId || '');
+    if (!/^pi_req_[A-Za-z0-9_-]{8,96}$/.test(id)) return false;
+    if (!response || typeof response !== 'object' || Array.isArray(response)) return false;
+    ipcRenderer.send('xj:pi:renderer-reply', { requestId: id, response });
+    return true;
+  },
+  publishState: (state) => {
+    if (!state || typeof state !== 'object' || Array.isArray(state)) return false;
+    ipcRenderer.send('xj:pi:publish-state', state);
+    return true;
+  },
+});
 
 // 桥接 API 用闭包常量保存：preload 内部只通过 api.* 调用，
 // 渲染页通过 contextBridge 暴露的 window.__XJ_API__ 访问。
 const api = {
   openActivation: () => ipcRenderer.send('xj:openActivation'),
   getState: () => ipcRenderer.invoke('xj:getState'),
-  getVersion: () => BUILD_VERSION,
+  getVersion: () => ipcRenderer.invoke('xj:getVersion'),
+  supervisionSkill: Object.freeze({
+    inspectPackage: (bytes, fileName) => ipcRenderer.invoke('xj:supervisionSkill:inspectPackage', { bytes, fileName }),
+    installPackage: (bytes, inspectionToken, confirmed) => ipcRenderer.invoke('xj:supervisionSkill:installPackage', { bytes, inspectionToken, confirmed: confirmed === true }),
+    listInstalled: () => ipcRenderer.invoke('xj:supervisionSkill:listInstalled'),
+    getRuntimeDescriptor: (packageId, packageVersion) => ipcRenderer.invoke('xj:supervisionSkill:getRuntimeDescriptor', { packageId, packageVersion }),
+    run: (packageId, packageVersion) => ipcRenderer.invoke('xj:supervisionSkill:run', { packageId, packageVersion }),
+    removePackage: (packageId, packageVersion) => ipcRenderer.invoke('xj:supervisionSkill:removePackage', { packageId, packageVersion }),
+  }),
+  recipientGrant: Object.freeze({
+    getProjection: (grantId) => ipcRenderer.invoke('xj:recipientGrant:getProjection', { grantId }),
+    getAuditPage: (cursor, limit) => ipcRenderer.invoke('xj:recipientGrant:getAuditPage', { cursor, limit }),
+  }),
   activate: (code) => ipcRenderer.invoke('xj:activate', code),
   cloudActivate: (code) => ipcRenderer.invoke('xj:cloud-activate', code),
   getMachineCode: () => ipcRenderer.invoke('xj:getMachineCode'),
   done: () => ipcRenderer.send('xj:activationDone'),
   saveBackupConfig: (cfg) => ipcRenderer.invoke('xj:saveBackupConfig', cfg),
   selectBackupFolder: () => ipcRenderer.invoke('xj:selectBackupFolder'),
+  encryptBackup: (payload, passphrase) => ipcRenderer.invoke('xj:backup:encrypt', { payload, passphrase }),
+  decryptBackup: (packageText, passphrase) => ipcRenderer.invoke('xj:backup:decrypt', { packageText, passphrase }),
+  writeBackupSafetySnapshot: (payload, passphrase) => ipcRenderer.invoke('xj:backup:writeSafetySnapshot', { payload, passphrase }),
+  commercial: Object.freeze({
+    getSnapshot: (input) => ipcRenderer.invoke('xj:commercial:getSnapshot', input || {}),
+    evaluateAccess: (input) => ipcRenderer.invoke('xj:commercial:evaluateAccess', input || {}),
+    applySubscriptionEvent: (input) => ipcRenderer.invoke('xj:commercial:applySubscriptionEvent', input || {}),
+    applyOrderEvent: (input) => ipcRenderer.invoke('xj:commercial:applyOrderEvent', input || {}),
+    applyDeviceEvent: (input) => ipcRenderer.invoke('xj:commercial:applyDeviceEvent', input || {}),
+    applyQuotaOperation: (input) => ipcRenderer.invoke('xj:commercial:applyQuotaOperation', input || {}),
+    getAuditPage: (input) => ipcRenderer.invoke('xj:commercial:getAuditPage', input || {}),
+    getServerModelCatalog: (input) => ipcRenderer.invoke('xj:commercial:getServerModelCatalog', input || {}),
+    getModelPriceCatalog: (input) => ipcRenderer.invoke('xj:commercial:getModelPriceCatalog', input || {}),
+    getAccountBalance: (input) => ipcRenderer.invoke('xj:commercial:getAccountBalance', input || {}),
+    quoteRequestCharge: (input) => ipcRenderer.invoke('xj:commercial:quoteRequestCharge', input || {}),
+    reserveRequestCharge: (input) => ipcRenderer.invoke('xj:commercial:reserveRequestCharge', input || {}),
+    settleRequestCharge: (input) => ipcRenderer.invoke('xj:commercial:settleRequestCharge', input || {}),
+    releaseRequestCharge: (input) => ipcRenderer.invoke('xj:commercial:releaseRequestCharge', input || {}),
+    markRequestUnknown: (input) => ipcRenderer.invoke('xj:commercial:markRequestUnknown', input || {}),
+    reconcileRequestCharge: (input) => ipcRenderer.invoke('xj:commercial:reconcileRequestCharge', input || {}),
+  }),
+  update: Object.freeze((() => {
+    // v5.0 update-integrity typed bridge（Task 463 候选适配 contextBridge 版本）
+    const VALID_STATES = new Set(['checking', 'available', 'awaiting-confirmation', 'downloading', 'verified', 'restarting', 'health-check', 'committed', 'failed', 'rollback-pending', 'rolling-back', 'rolled-back']);
+    const statusListeners = [];
+    function sanitizeStatus(data) {
+      if (!data || typeof data !== 'object' || data.ok !== true) return null;
+      if (!VALID_STATES.has(data.state)) return null;
+      return {
+        state: data.state,
+        committed: data.committed === true || data.state === 'committed',
+        version: typeof data.version === 'string' ? data.version.slice(0, 32) : null,
+        channel: typeof data.channel === 'string' ? data.channel : null,
+        strategy: typeof data.strategy === 'string' ? data.strategy : null,
+        progress: Number.isFinite(data.progress) ? Math.max(0, Math.min(100, data.progress)) : null,
+        errorCode: typeof data.errorCode === 'string' ? data.errorCode.slice(0, 80) : null,
+        operationId: typeof data.operationId === 'string' ? data.operationId.slice(0, 80) : null
+      };
+    }
+    ipcRenderer.on('xj:update:status', (event, data) => {
+      const status = sanitizeStatus(data);
+      if (!status) return;
+      statusListeners.slice().forEach((cb) => { try { cb(status); } catch (_) {} });
+    });
+    return {
+      check: (channel, strategy) => ipcRenderer.invoke('xj:update:check', { channel, strategy }),
+      confirm: (operationId, decision) => ipcRenderer.invoke('xj:update:confirm', { operationId, decision }),
+      snapshot: (operationId) => ipcRenderer.invoke('xj:update:snapshot', { operationId }),
+      restore: (operationId) => ipcRenderer.invoke('xj:update:restore', { operationId }),
+      subscribe: () => ipcRenderer.invoke('xj:update:subscribe', {}),
+      onStatus: (cb) => {
+        if (typeof cb !== 'function') return null;
+        statusListeners.push(cb);
+        return () => { const i = statusListeners.indexOf(cb); if (i >= 0) statusListeners.splice(i, 1); };
+      },
+      durableReady: () => true,
+      // P0-4 fix: controlled durable snapshot/restore bridge. The page NEVER sees
+      // the raw ipcRenderer; only the two allowlisted request/reply channels are
+      // reachable, and only the renderer-owned Store.exportAll/importAll are touched.
+      durable: (() => {
+        const ALLOWED_REQUEST = new Set(['xj:update:snapshot:request', 'xj:update:restore:request']);
+        const ALLOWED_REPLY = new Set(['xj:update:snapshot:reply', 'xj:update:restore:reply']);
+        return Object.freeze({
+          onRequest: (channel, cb) => {
+            if (!ALLOWED_REQUEST.has(channel) || typeof cb !== 'function') return null;
+            ipcRenderer.on(channel, (_event, request) => { try { cb(request); } catch (_) {} });
+            return channel;
+          },
+          sendReply: (channel, payload) => {
+            if (!ALLOWED_REPLY.has(channel)) return false;
+            ipcRenderer.send(channel, payload);
+            return true;
+          }
+        });
+      })()
+    };
+  })()),
   onLicenseState: (cb) => { if (typeof cb === 'function') stateListeners.push(cb); },
   onLegacyPorts: (cb) => { if (typeof cb === 'function') legacyPortsListeners.push(cb); },
   notifyMigrateDone: (ports) => ipcRenderer.send('xj:migrate-done', ports),
   checkForUpdates: () => ipcRenderer.invoke('xj:check-updates'),
   encryptSecret: (plain) => ipcRenderer.invoke('xj:encryptSecret', plain),
-  decryptSecret: (stored) => ipcRenderer.invoke('xj:decryptSecret', stored),
-  appProxyKey: () => { try { return require('./secret.generated').APP_PROXY_KEY || ''; } catch (e) { return ''; } },
+  aiRequest: (payload) => ipcRenderer.invoke('xj:aiRequest', payload),
+  cancelAiRequest: (requestId) => ipcRenderer.send('xj:aiCancel', requestId),
+  onAiChunk: (cb) => {
+    if (typeof cb !== 'function') return null;
+    const handler = (_event, data) => {
+      if (!data || typeof data !== 'object') return;
+      const requestId = String(data.requestId || '');
+      const chunk = typeof data.chunk === 'string' ? data.chunk : '';
+      if (!/^[A-Za-z0-9_-]{12,80}$/.test(requestId) || !chunk) return;
+      try { cb({ requestId, chunk }); } catch (e) {}
+    };
+    ipcRenderer.on('xj:ai-chunk', handler);
+    return () => ipcRenderer.removeListener('xj:ai-chunk', handler);
+  },
   selectUserDocFolder: () => ipcRenderer.invoke('xj:selectUserDocFolder'),
   getUserDocFolder: () => ipcRenderer.invoke('xj:getUserDocFolder'),
   readUserDocs: (opts) => ipcRenderer.invoke('xj:readUserDocs', opts),
@@ -59,6 +207,31 @@ const api = {
   saveFileAs: (opts) => ipcRenderer.invoke('xj:saveFileAs', opts),
   selectClinicalMaterialFile: () => ipcRenderer.invoke('xj:selectClinicalMaterialFile'),
   parseClinicalMaterialFile: (selectionId) => ipcRenderer.invoke('xj:parseClinicalMaterialFile', selectionId),
+  // v5.0.2 桌面账号桥：渲染进程只见 sanitized 状态（authenticated/account/会员投影/错误码）；
+  // session token 只存在于主进程与加密落盘，永不经桥暴露；验证码 token 仅在 verify 时由用户输入传入。
+  account: Object.freeze({
+    bootstrap: () => ipcRenderer.invoke('xj:account:bootstrap'),
+    register: (email, password) => ipcRenderer.invoke('xj:account:register', { email, password }),
+    resend: (email) => ipcRenderer.invoke('xj:account:resend', { email }),
+    verify: (token) => ipcRenderer.invoke('xj:account:verify', { token }),
+    forgotPassword: (email) => ipcRenderer.invoke('xj:account:forgotPassword', { email }),
+    resetPassword: (payload) => ipcRenderer.invoke('xj:account:resetPassword', payload),
+    login: (email, password) => ipcRenderer.invoke('xj:account:login', { email, password }),
+    logout: () => ipcRenderer.invoke('xj:account:logout'),
+    status: () => ipcRenderer.invoke('xj:account:status'),
+    refreshMembership: () => ipcRenderer.invoke('xj:account:refreshMembership'),
+    onChanged: (cb) => {
+      if (typeof cb !== 'function') return null;
+      const handler = (_event, data) => {
+        if (!data || typeof data !== 'object') return;
+        try { cb(data); } catch (e) { /* 页面回调异常不影响桥 */ }
+      };
+      ipcRenderer.on('xj:account:changed', handler);
+      return () => ipcRenderer.removeListener('xj:account:changed', handler);
+    },
+  }),
+  // 5.1.0 Pi 生产 transport：只暴露结构化请求/回执，不暴露 ipcRenderer。
+  piTransport: piRendererTransport,
 };
 // 主进程 xj:license-state 广播的订阅者（preload 内部 + 渲染页经 onLicenseState 注册）
 const stateListeners = [];
@@ -80,6 +253,13 @@ try {
   console.error('[XJ] exposeInMainWorld __XJ_API__ FAILED:', (e && e.message) || e);
 }
 
+try {
+  contextBridge.exposeInMainWorld('__PI__', piApi);
+  console.log('[XJ] bridge __PI__ exposed');
+} catch (e) {
+  console.error('[XJ] exposeInMainWorld __PI__ FAILED:', (e && e.message) || e);
+}
+
 const stateRef = { mode: null, daysLeft: null, identity: null, tier: null, aiUnlocked: false, aiTrialActive: false, aiTrialDaysLeft: 0, aiTrialDays: 60, expired: false, expiresAt: 0 };
 try {
   contextBridge.exposeInMainWorld('__XJ__', stateRef);
@@ -90,9 +270,9 @@ try {
 (function () {
   const isActivationPage = location.pathname.includes('activation.html');
   if (isActivationPage) return; // 激活页自行管理 UI
+  const isAccountGatePage = location.pathname.includes('account.html');
+  if (isAccountGatePage) return; // 账号页（强制登录门禁）自行管理 UI，不注入横幅/脚本
 
-  // 受限模式导出/打印锁的句柄，便于激活为完整模式后撤销
-  let lockClickHandler = null, origPrint = null;
 
   window.addEventListener('DOMContentLoaded', async () => {
     let state = {};
@@ -106,9 +286,6 @@ try {
 
     injectStyles();
     injectBanner(state);
-    if (state.mode === 'limited') {
-      lockExportPrint();
-    }
   });
 
   // 独立的监听器：注入 Agent 浮窗资源（所有模式，已激活用户也能用）
@@ -162,28 +339,28 @@ try {
     const supLock = document.getElementById('supervisor-lock-note');
     if (supLock) supLock.classList.toggle('hidden', unlocked);
   }
-  function removeEl(id) { const el = document.getElementById(id); if (el && el.parentNode) el.parentNode.removeChild(el); }
+  function removeEl(id) {
+    const el = document.getElementById(id);
+    if (el && el.__xjResizeObserver) el.__xjResizeObserver.disconnect();
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
   function clearInjected() {
     ['xj-banner', 'xj-watermark', 'xj-notice', 'xj-lic-panel', 'xj-style'].forEach(removeEl);
+    document.body.style.paddingTop = '';
+    document.documentElement.style.removeProperty('--xj-top-offset');
   }
-  function removeLockIfFull() {
-    if (lockClickHandler) { document.removeEventListener('click', lockClickHandler, true); lockClickHandler = null; }
-    if (origPrint) { window.print = origPrint; origPrint = null; }
-  }
-  // 依据新状态重建限制 UI：完整模式→全部移除并撤销导出/打印锁；否则按模式重新注入
+  // 依据新状态重建限制 UI。导出和基础打印由各页面明确的 feature 命令决定，preload 不做文字猜测拦截。
   function refreshInjectedUI(state) {
     if (!state || typeof state !== 'object') return;
     clearInjected();
-    removeLockIfFull();
     if (state.mode === 'full') return;
     injectStyles();
     injectBanner(state);
-    if (state.mode === 'limited') lockExportPrint();
   }
 
   function injectStyles() {
     const css = `
-    #xj-banner{position:fixed;top:0;left:0;right:0;z-index:2147483646;
+    #xj-banner{position:sticky;top:0;z-index:2147483646;
       display:flex;align-items:center;gap:12px;padding:10px 16px;
       font:600 13px/1.4 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
       color:#fff;background:linear-gradient(90deg,#9c5a3c,#b06a47);
@@ -228,46 +405,9 @@ try {
     btn.textContent = '激活';
     btn.onclick = () => api.openActivation(); // 用闭包变量，规避 window 引用差异
     bar.appendChild(btn);
-    document.body.appendChild(bar);
-    // 给内容留顶边距，避免被横幅遮挡
-    document.body.style.paddingTop = '42px';
-  }
-
-  function lockExportPrint() {
-    if (lockClickHandler) return; // 已加锁，避免重复绑定
-    // P1 修复：只检查可点击元素（button/a/input/[role=button]）自身的 textContent，
-    // 不检查容器元素的 textContent（会包含所有后代按钮文本，导致误判）。
-    // 原因：账单页 #cpanel-invoice 渲染后含"导出 Word 账单"按钮，main.main 的 textContent
-    // 随之包含"导出"字样，导致免费版用户点击顶栏"记一笔"按钮时被误拦截（事件路径经过 main.main）。
-    const isBlocked = (el) => {
-      if (!el) return false;
-      const tag = el.tagName ? el.tagName.toLowerCase() : '';
-      const isClickable = tag === 'button' || tag === 'a' || tag === 'input' ||
-                          el.getAttribute && el.getAttribute('role') === 'button';
-      // 容器元素只检查 title/aria-label（元素自身属性），不检查 textContent（会聚合后代文本）
-      const textPart = isClickable ? (el.textContent || '') : '';
-      const titleAttr = (el.getAttribute && el.getAttribute('title')) || '';
-      const ariaAttr = (el.getAttribute && el.getAttribute('aria-label')) || '';
-      const t = textPart + ' ' + titleAttr + ' ' + ariaAttr;
-      return /导出|打印|export|print/i.test(t);
-    };
-    lockClickHandler = (e) => {
-      let el = e.target;
-      while (el && el !== document.body) {
-        if (isBlocked(el)) {
-          e.preventDefault();
-          e.stopPropagation();
-          alert('免费版不含无水印导出与打印，请升级会员后使用。');
-          return;
-        }
-        el = el.parentElement;
-      }
-    };
-    document.addEventListener('click', lockClickHandler, true);
-    origPrint = window.print;
-    window.print = function () {
-      alert('免费版不含无水印打印，请升级会员后使用。');
-    };
+    // Keep this global status visible without taking it out of document flow.
+    // A sticky first child cannot cover the sidebar or the current page header.
+    document.body.insertBefore(bar, document.body.firstChild);
   }
 
   // 设置页：注入授权状态面板（试用 / 受限均显示，完整模式不显示）

@@ -9,24 +9,20 @@
 <style>
 .xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
 .xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
-.xj-premium-btn{position:relative}
-.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
-.xj-locked-area{position:relative}
-.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
-.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+ /* P0 REPAIR 02: emoji 伪元素已移除，由 tokens.css + xj-ui-system.css 统一管理 */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
-.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--accent-soft);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
 .preview-bar .sp{flex:1}
 .rs-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .rs-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
-.rs-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.rs-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .rs-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
 .rs-top .sp{flex:1}
 .rs-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
 .rs-body{flex:1;display:grid;grid-template-columns:280px 1fr 340px;min-height:0;overflow:hidden}
 .rs-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.rs-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.rs-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--sans);flex-shrink:0;display:flex;align-items:center;gap:6px}
 .rs-left .lh-list{flex:1;overflow-y:auto;padding:8px}
 .rs-left .lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font:12.5px/1.5 var(--sans);margin-bottom:4px;transition:all .15s}
 .rs-left .lh-item:hover{background:var(--hover-tint)}
@@ -36,7 +32,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .rs-left .lh-item .s-preview{font:11px var(--sans);color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rs-mid{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
 .rs-mid .m-head{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--paper-2);flex-shrink:0;display:flex;align-items:center;gap:8px}
-.rs-mid .m-head .title{font:600 14px var(--serif)}
+.rs-mid .m-head .title{font:600 14px var(--sans);display:inline-flex;align-items:center;gap:6px}
 .rs-mid .m-head .badge{font:10px var(--sans);padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
 .rs-mid .m-head .sp{flex:1}
 .qa-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
@@ -53,10 +49,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .qa-pair .qa-source .src-label{font-weight:600;color:var(--purple);margin-right:4px}
 .qa-pair .qa-tags{display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px}
 .qa-pair .qa-tags .tag{font:10px var(--sans);padding:2px 7px;border-radius:4px;background:var(--bg-sunken);color:var(--ink-3)}
-.qa-pair .qa-tags .tag.knowledge{background:rgba(139,147,199,.12);color:var(--accent)}
+.qa-pair .qa-tags .tag.knowledge{background:var(--accent-soft);color:var(--accent)}
 .qa-pair .qa-tags .tag.technique{background:rgba(111,174,143,.12);color:var(--green)}
 .rs-right{background:var(--paper-2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.rs-right .rr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.rs-right .rr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--sans);flex-shrink:0;display:flex;align-items:center;gap:6px}
 .rs-right .rr-body{flex:1;overflow-y:auto;padding:16px}
 .insight-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
 .insight-card .i-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
@@ -66,32 +62,55 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .insight-card .i-list li{font:12px/1.7 var(--sans);color:var(--ink-2);padding:4px 0;border-bottom:1px dashed var(--border)}
 .insight-card .i-list li:last-child{border:none}
 .rs-right .rr-action{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
-.rs-right .rr-action button{width:100%;border:none;background:var(--accent);color:#fff;border-radius:8px;padding:10px;font:13px var(--sans);cursor:pointer;margin-bottom:8px}
+.rs-right .rr-action button{width:100%;border:none;background:var(--cta-bg,var(--accent));color:#fff;border-radius:8px;padding:10px;font:13px var(--sans);cursor:pointer;margin-bottom:8px}
 .rs-right .rr-action button:disabled{opacity:.5;cursor:not-allowed}
 .rs-right .rr-action button.ghost{background:var(--paper-2);border:1px solid var(--border);color:var(--ink-2)}
+
+.rsai-source{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--bg-sunken);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-wrap:wrap;flex-shrink:0}
+.rsai-source .sp{flex:1}
+.rsai-source-status{border:1px solid var(--border);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;color:var(--ink-2)}
+.rsai-source-status[data-state="verified"]{color:var(--success,#2f7a59);border-color:var(--success,#2f7a59)}
+.rsai-source-status[data-state="expired"]{color:var(--warning,#a86a16);border-color:var(--warning,#a86a16)}
+.rsai-source-status[data-state="blocked"]{color:var(--danger,#a33);border-color:var(--danger,#a33)}
+.rsai-source button{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:6px;padding:5px 12px;font:12px var(--sans);cursor:pointer}
+.rsai-source button:disabled{opacity:.5;cursor:not-allowed}
+.rsai-context-host{background:var(--bg-sunken);}
+.rsai-context-host:empty{display:none}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="browser-list">
 
 <div class="preview-bar" id="preview-bar" style="display:none">
-  <span>🔒</span>
+  <i data-lucide="lock-keyhole" aria-hidden="true"></i>
   <span>会员预览模式 · 这是 <span class="xj-tier-badge pro">会员</span> <b>真人督导 AI 分析</b> 会员增值功能，升级 <span id="pv-badge" class="xj-tier-badge pro" style="display:inline">会员</span> 后启用问答分析+知识来源追溯</span>
   <span class="sp"></span>
-  <span style="font:11px var(--sans);color:var(--ink-3)">基础版 → <a href="real-supervision.html" style="color:var(--accent)">返回</a></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">基础版 <i data-lucide="arrow-right" aria-hidden="true"></i> <a href="real-supervision.html" style="color:var(--accent)">返回</a></span>
 </div>
 
 <div class="rs-top">
-  <button class="back" onclick="location.href='real-supervision.html'">← 返回基础版</button>
+  <button class="back" onclick="location.href='real-supervision.html'"><i data-lucide="arrow-left" aria-hidden="true"></i>返回基础版</button>
   <h2>真人督导 AI 分析 <span class="sub">· 会员版E · 问题↔回答↔知识来源</span></h2>
   <span class="sp"></span>
   <select id="sel-client" onchange="loadRecords()"><option value="">选择来访者…</option></select>
   <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span>
 </div>
 
+
+<div class="rsai-source" id="rsai-source" aria-live="polite">
+  <span class="rsai-source-status" id="rsai-source-status" data-state="idle">未选择</span>
+  <span class="rsai-source-text" id="rsai-source-text">选择左侧督导记录后，请确认来源再进行分析。</span>
+  <span class="sp"></span>
+  <button type="button" id="btn-confirm-analyze" onclick="confirmAnalyze()" disabled>确认来源并分析</button>
+</div>
+<div id="rsai-context-host" class="rsai-context-host" aria-live="polite"></div>
+
 <div class="rs-body">
 
   <div class="rs-left">
-    <div class="lh-head">📋 督导记录</div>
+    <div class="lh-head"><i data-lucide="clipboard-list"></i>督导记录</div>
     <div class="lh-list" id="history-list">
       <div style="font:12px var(--sans);color:var(--ink-3);text-align:center;padding:24px">选择来访者后加载</div>
     </div>
@@ -99,10 +118,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 
   <div class="rs-mid">
     <div class="m-head">
-      <span class="title">🔍 问答 AI 分析流</span>
+      <span class="title"><i data-lucide="search"></i>问答 AI 分析流</span>
       <span class="badge" id="qa-count">0 组</span>
       <span class="sp"></span>
-      <button id="btn-reanalyze" class="xj-premium-btn" style="border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled onclick="analyzeCurrent()">重新分析</button>
+      <button id="btn-reanalyze" class="xj-premium-btn" style="border:1px solid var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff;border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled onclick="analyzeCurrent()">重新分析</button>
     </div>
     <div class="qa-list" id="qa-body">
       <div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px">选择左侧督导记录<br>AI 将分析问答流并追溯知识来源</div>
@@ -110,34 +129,44 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
   </div>
 
   <div class="rs-right">
-    <div class="rr-head">🤖 AI 结构化分析</div>
+    <div class="rr-head"><i data-lucide="sparkles"></i>AI 结构化分析</div>
     <div class="rr-body" id="insight-body">
       <div class="xj-locked-area" id="insight-locked" style="min-height:300px">
-        <div class="xj-lock-overlay">🔒 AI 深度分析</div>
-        <div class="insight-card"><div class="i-head"><span class="i-icon">🎯</span><span class="i-title">核心议题</span></div><ul class="i-list"><li>等待分析…</li></ul></div>
-        <div class="insight-card"><div class="i-head"><span class="i-icon">🛠</span><span class="i-title">督导技术</span></div><ul class="i-list"><li>等待分析…</li></ul></div>
-        <div class="insight-card"><div class="i-head"><span class="i-icon">📚</span><span class="i-title">理论锚点</span></div><ul class="i-list"><li>等待分析…</li></ul></div>
+        <div class="xj-lock-overlay"><i data-lucide="lock-keyhole"></i>AI 深度分析</div>
+        <div class="insight-card"><div class="i-head"><span class="i-icon"><i data-lucide="target"></i></span><span class="i-title">核心议题</span></div><ul class="i-list"><li>等待分析…</li></ul></div>
+        <div class="insight-card"><div class="i-head"><span class="i-icon"><i data-lucide="wrench"></i></span><span class="i-title">督导技术</span></div><ul class="i-list"><li>等待分析…</li></ul></div>
+        <div class="insight-card"><div class="i-head"><span class="i-icon"><i data-lucide="library-big"></i></span><span class="i-title">理论锚点</span></div><ul class="i-list"><li>等待分析…</li></ul></div>
       </div>
     </div>
     <div class="rr-action">
-      <button id="btn-reanalyze2" class="xj-premium-btn" disabled onclick="analyzeCurrent()">🔄 重新分析</button>
-      <button class="ghost" id="btn-export" disabled onclick="exportReport()">📋 导出分析报告</button>
+      <button id="btn-reanalyze2" class="xj-premium-btn" disabled onclick="analyzeCurrent()"><i data-lucide="refresh-cw"></i>重新分析</button>
+      <button class="ghost" id="btn-export" disabled onclick="exportReport()"><i data-lucide="clipboard-list"></i>导出分析报告</button>
     </div>
   </div>
 
 </div>
 
-<script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script>
 App.initPage({ title: '真人督导 · AI分析', onReady: function () {
   'use strict';
   var isMember = typeof App !== 'undefined' && App.featureGate && App.featureGate('real-sup-ai');
   var previewBar = document.getElementById('preview-bar');
+  var analysisReady = false;
+  var lastContext = null;
+  var lastAnalysisRecordId = '';
+  var activeAnalysisRun = null;
+  var analysisEpoch = 0;
+  function setActionState() {
+    var canAnalyze = !!(isMember && activeRecordId && document.getElementById('btn-confirm-analyze') && !document.getElementById('btn-confirm-analyze').disabled);
+    var canReanalyze = !!(isMember && activeRecordId && analysisReady && lastAnalysisRecordId === activeRecordId);
+    ['btn-reanalyze', 'btn-reanalyze2'].forEach(function (id) { var button = document.getElementById(id); if (button) button.disabled = !canReanalyze; });
+    var exportButton = document.getElementById('btn-export'); if (exportButton) exportButton.disabled = !canReanalyze;
+    return canAnalyze;
+  }
   if (isMember) {
     previewBar.style.display = 'none';
     document.getElementById('tier-badge').style.display = 'inline-flex';
-    document.querySelectorAll('.xj-premium-btn').forEach(function (b) { b.disabled = false; });
-    document.getElementById('btn-export').disabled = false;
     var locked = document.getElementById('insight-locked');
     if (locked) { locked.classList.remove('xj-locked-area'); locked.querySelector('.xj-lock-overlay').style.display = 'none'; }
   } else {
@@ -147,6 +176,20 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
   // 来访者列表
   var sel = document.getElementById('sel-client');
   var activeRecordId = '';
+  function supervisionBelongsToClient(record, clientId) {
+    if (!record || !clientId) return false;
+    if (record.clientId) return String(record.clientId) === String(clientId);
+    var ids = Array.isArray(record.sessionIds) ? record.sessionIds.map(String).filter(Boolean) : [];
+    if (!ids.length && record.sessionId) ids = [String(record.sessionId)];
+    if (!ids.length) return false;
+    return ids.every(function (sessionId) {
+      var session = Store.getSession ? Store.getSession(sessionId) : null;
+      return !!session && String(session.clientId || '') === String(clientId);
+    });
+  }
+  function validSupervisionForClient(record, clientId) {
+    return !!(record && record.content && String(record.content).trim() && !record.quarantined && !record.expired && !record.sourceExpired && supervisionBelongsToClient(record, clientId));
+  }
   Store.getClients().forEach(function (c) {
     var opt = document.createElement('option');
     opt.value = c.id; opt.textContent = c.name;
@@ -157,13 +200,15 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
     var clientId = sel.value;
     var list = document.getElementById('history-list');
     if (!clientId) { list.innerHTML = '<div style="font:12px var(--sans);color:var(--ink-3);text-align:center;padding:24px">选择来访者</div>'; return; }
-    var records = Store.getSupervisionsByClient ? Store.getSupervisionsByClient(clientId) : [];
+    var records = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(clientId) : []).filter(function (record) {
+      return supervisionBelongsToClient(record, clientId);
+    });
     if (!records.length) {
       list.innerHTML = '<div style="font:12px var(--sans);color:var(--ink-3);text-align:center;padding:24px">暂无督导记录</div>';
       return;
     }
     list.innerHTML = records.map(function (r, i) {
-      return '<div class="lh-item' + (i === 0 ? ' active' : '') + '" onclick="selectRecord(\'' + r.id + '\')" data-id="' + r.id + '">' +
+      return '<div class="lh-item' + (i === 0 ? ' active' : '') + '" role="button" tabindex="0" aria-label="选择督导记录" onclick="selectRecord(\'' + App.escapeHtml(r.id).replace(/'/g, "\\'") + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectRecord(\'' + App.escapeHtml(r.id).replace(/'/g, "\\'") + '\')}" data-id="' + App.escapeHtml(r.id) + '">' +
         '<div class="s-name">' + App.escapeHtml(r.supervisorName || '督导') + '</div>' +
         '<div class="s-date">' + App.formatDate(r.date) + '</div>' +
         '<div class="s-preview">' + App.escapeHtml((r.content || '').slice(0, 60)) + '</div></div>';
@@ -171,55 +216,108 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
     if (records.length > 0) selectRecord(records[0].id);
   };
 
+  function renderRsaiSource(id) {
+    var record = Store.getSupervision ? Store.getSupervision(id) : null;
+    var clientSel = document.getElementById('sel-client');
+    var bar = document.getElementById('rsai-source');
+    var btn = document.getElementById('btn-confirm-analyze');
+    var clientId = clientSel ? clientSel.value : '';
+    if (bar) {
+      var st = document.getElementById('rsai-source-status');
+      var txt = document.getElementById('rsai-source-text');
+      if (!record) {
+        if (st) { st.textContent = '不可用'; st.setAttribute('data-state', 'blocked'); }
+        if (txt) txt.textContent = '督导记录不可用，已阻断分析。';
+      } else if (record.quarantined) {
+        if (st) { st.textContent = '已隔离'; st.setAttribute('data-state', 'blocked'); }
+        if (txt) txt.textContent = '来源已隔离，不能进入 AI 分析。';
+      } else if (record.expired || record.sourceExpired) {
+        if (st) { st.textContent = '已过期'; st.setAttribute('data-state', 'expired'); }
+        if (txt) txt.textContent = '来源已过期，请重新核验后再分析。';
+      } else if (!supervisionBelongsToClient(record, clientId)) {
+        if (st) { st.textContent = '跨个案'; st.setAttribute('data-state', 'blocked'); }
+        if (txt) txt.textContent = '记录缺少可验证的来访者/会谈归属，已阻断。';
+      } else {
+        if (st) { st.textContent = '已核对'; st.setAttribute('data-state', 'verified'); }
+        if (txt) txt.textContent = '记录来源已核对。AI 分析为草稿，不会覆盖你的真人督导记录。';
+      }
+    }
+    if (btn) btn.disabled = !(isMember && validSupervisionForClient(record, clientId));
+    setActionState();
+  }
+
   window.selectRecord = function (id) {
+    if (activeAnalysisRun) { ClinicalContext.failActionRun(activeAnalysisRun.id, '督导记录已切换', 'stale'); activeAnalysisRun = null; }
+    analysisEpoch += 1;
     activeRecordId = id;
+    analysisReady = false;
+    lastContext = null;
+    lastAnalysisRecordId = '';
     document.querySelectorAll('.lh-item').forEach(function (el) { el.classList.toggle('active', el.dataset.id === id); });
-    if (isMember) analyzeRecord(id);
+    document.getElementById('qa-body').innerHTML = '<div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px">已选择督导记录<br>请先确认来源，再开始 AI 分析。</div>';
+    document.getElementById('qa-count').textContent = '0 组';
+    document.getElementById('insight-body').innerHTML = '<div class="empty-state" style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px">等待本条记录的结构化分析。</div>';
+    var host = document.getElementById('rsai-context-host'); if (host) host.innerHTML = '';
+    renderRsaiSource(id);
+    setActionState();
   };
 
+  window.confirmAnalyze = function () { if (isMember && activeRecordId) analyzeRecord(activeRecordId); };
+
   function analyzeRecord(id) {
+    if (!isMember) { App.showToast('该功能需要会员权限', 'warning'); return; }
     var record = Store.getSupervision ? Store.getSupervision(id) : null;
-    if (!record) return;
+    var clientId = sel.value;
+    if (!validSupervisionForClient(record, clientId)) { App.showToast('当前督导记录来源不可用，已阻断分析', 'warning'); renderRsaiSource(id); return; }
+    var epoch = analysisEpoch;
     var qaBody = document.getElementById('qa-body');
+    analysisReady = false;
+    setActionState();
     qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--ink-3);text-align:center;padding:20px">AI 分析中…</div>';
     var content = record.content || '';
     var sys = '你是心理咨询督导分析专家。请分析以下督导记录中的问答，提取：1)咨询师提问 2)督导回答 3)知识来源/理论锚点 4)督导技术。输出 JSON：{"pairs":[{"question":"…","answer":"…","tags":["标签"],"knowledgeSource":"理论来源"},…],"insights":{"coreIssues":["议题"],"techniques":["技术"],"theories":["理论锚点"],"suggestions":["建议"]}}。只输出 JSON。';
-    var context = ClinicalContext.build('real-supervision-ai-record-analyze', { clientId: record.clientId || sel.value, supervisionId: record.id }, { system: sys, inputText: content, instruction: '分析当前督导记录' });
+    var context = ClinicalContext.build('real-supervision-ai-record-analyze', { clientId: clientId, supervisionId: record.id }, { system: sys, inputText: content, instruction: '分析当前督导记录' });
     if (!context.ok) { qaBody.textContent = '当前督导记录归属无效，请重新选择。'; return; }
-    if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.rsai-main') || document.querySelector('main') || document.body, context);
+    if (ClinicalContextView) ClinicalContextView.renderSummary(document.getElementById('rsai-context-host'), context);
     if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { qaBody.textContent = '已取消 AI 分析。'; return; }
     var run = ClinicalContext.createActionRun(context);
     if (!run) { qaBody.textContent = '无法确认督导记录归属，已取消分析。'; return; }
+    activeAnalysisRun = run;
+    lastContext = context;
     AI.send(context.messages, function (res) {
       var currentRecord = Store.getSupervision ? Store.getSupervision(id) : null;
-      if (activeRecordId !== id || !currentRecord || !ClinicalContext.isSnapshotCurrent(context.snapshot, currentRecord.content || '', { clientId: currentRecord.clientId || sel.value, supervisionId: id })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); qaBody.textContent = '上下文已变更，旧分析未采用。'; return; }
+      if (analysisEpoch !== epoch || activeRecordId !== id || !validSupervisionForClient(currentRecord, clientId) || !ClinicalContext.isSnapshotCurrent(context.snapshot, currentRecord.content || '', { clientId: clientId, supervisionId: id })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); if (activeAnalysisRun && activeAnalysisRun.id === run.id) activeAnalysisRun = null; qaBody.textContent = '上下文已变更，旧分析未采用。'; return; }
       if (res && res.content && !res.error) {
         try {
-          var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          var json = JSON.parse(String(res.content).replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
           var pairs = json.pairs || [];
           var insights = json.insights || {};
-          ClinicalContext.completeActionRun(run.id, { kind: 'supervision-record-analysis', ref: record.id });
+          ClinicalContext.completeActionRun(run.id, { kind: context.taskSpec.outputSchema.kind, citations: context.sources.map(function (source) { return { kind: source.kind, id: source.id, sourceContentHash: source.sourceContentHash }; }) });
           // 问答流
           var html = '';
           pairs.forEach(function (p) {
-            html += '<div class="qa-pair"><div class="qa-q"><div class="label">❓ 咨询师提问</div><div class="text">' + App.escapeHtml(p.question) + '</div></div>';
+            html += '<div class="qa-pair"><div class="qa-q"><div class="label"><i data-lucide="help-circle"></i> 咨询师提问</div><div class="text">' + App.escapeHtml(p.question) + '</div></div>';
             html += '<div class="qa-a"><div class="label">督导回答</div><div class="text">' + App.escapeHtml(p.answer) + '</div></div>';
             html += '<div class="qa-tags">' + (p.tags || []).map(function (t) { return '<span class="tag knowledge">' + App.escapeHtml(t) + '</span>'; }).join('') + '</div>';
-            html += '<div class="qa-source"><span class="src-label">📚 知识来源</span>' + App.escapeHtml(p.knowledgeSource || '') + '</div></div>';
+            html += '<div class="qa-source"><span class="src-label"><i data-lucide="library-big"></i> 知识来源</span>' + App.escapeHtml(p.knowledgeSource || '') + '</div></div>';
           });
-          qaBody.innerHTML = html;
+          qaBody.innerHTML = html || '<div class="empty-state">本条督导记录未提取出可展示的问答组。可以重新分析，或返回基础版补充记录。</div>';
           document.getElementById('qa-count').textContent = pairs.length + ' 组';
           // 结构化分析
           var ins = document.getElementById('insight-body');
-          ins.innerHTML = '<div class="insight-card"><div class="i-head"><span class="i-icon">🎯</span><span class="i-title">核心议题</span></div><ul class="i-list">' + (insights.coreIssues || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>' +
-            '<div class="insight-card"><div class="i-head"><span class="i-icon">🛠</span><span class="i-title">督导技术</span></div><ul class="i-list">' + (insights.techniques || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>' +
-            '<div class="insight-card"><div class="i-head"><span class="i-icon">📚</span><span class="i-title">理论锚点</span></div><ul class="i-list">' + (insights.theories || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>' +
-            '<div class="insight-card"><div class="i-head"><span class="i-icon">⚠</span><span class="i-title">督导建议</span></div><ul class="i-list">' + (insights.suggestions || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>';
+          ins.innerHTML = '<div class="insight-card"><div class="i-head"><span class="i-icon"><i data-lucide="target"></i></span><span class="i-title">核心议题</span></div><ul class="i-list">' + ((insights.coreIssues || []).length ? (insights.coreIssues || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') : '<li>未提取到明确议题。</li>') + '</ul></div>' +
+            '<div class="insight-card"><div class="i-head"><span class="i-icon"><i data-lucide="wrench"></i></span><span class="i-title">督导技术</span></div><ul class="i-list">' + (insights.techniques || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>' +
+            '<div class="insight-card"><div class="i-head"><span class="i-icon"><i data-lucide="library-big"></i></span><span class="i-title">理论锚点</span></div><ul class="i-list">' + (insights.theories || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>' +
+            '<div class="insight-card"><div class="i-head"><span class="i-icon"><i data-lucide="alert-triangle"></i></span><span class="i-title">督导建议</span></div><ul class="i-list">' + (insights.suggestions || []).map(function (s) { return '<li>' + App.escapeHtml(s) + '</li>'; }).join('') + '</ul></div>';
+          analysisReady = true;
+          lastAnalysisRecordId = id;
+          if (activeAnalysisRun && activeAnalysisRun.id === run.id) activeAnalysisRun = null;
+          setActionState();
         } catch (e) {
-          ClinicalContext.failActionRun(run.id, 'AI 返回格式异常'); qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 返回格式异常，请重试</div>';
+          ClinicalContext.failActionRun(run.id, 'AI 返回格式异常'); if (activeAnalysisRun && activeAnalysisRun.id === run.id) activeAnalysisRun = null; analysisReady = false; setActionState(); qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 返回格式异常，请重试</div>';
         }
       } else {
-        ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败'); qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 分析失败</div>';
+        ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败'); if (activeAnalysisRun && activeAnalysisRun.id === run.id) activeAnalysisRun = null; analysisReady = false; setActionState(); qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 分析失败，请检查网络或稍后重试。</div>';
       }
     });
   }
@@ -230,9 +328,14 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
   };
 
   window.exportReport = function () {
+    if (!isMember || !analysisReady || !lastContext || lastAnalysisRecordId !== activeRecordId) { App.showToast('请先完成一份有效的督导分析', 'warning'); return; }
+    var current = Store.getSupervision ? Store.getSupervision(activeRecordId) : null;
+    if (!validSupervisionForClient(current, sel.value) || !ClinicalContext.isSnapshotCurrent(lastContext.snapshot, current.content || '', { clientId: sel.value, supervisionId: activeRecordId })) { App.showToast('记录已变化或来源失效，请重新分析后再导出', 'warning'); return; }
     var text = document.getElementById('qa-body').innerText + '\n\n' + document.getElementById('insight-body').innerText;
+    if (!text.trim()) { App.showToast('没有可导出的分析内容', 'warning'); return; }
     App.exportWordDoc('督导分析报告_' + App.todayStr() + '.doc', '<pre>' + App.escapeHtml(text) + '</pre>');
   };
+  setActionState();
 }});
 </script>
 </body>

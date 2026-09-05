@@ -1,6 +1,6 @@
 'use strict';
 /**
- * 心镜 XinJing — 韩国代理服务端 (v1.8.0)
+ * 心镜 XinJing — 韩国代理服务端 (v1.8.1)
  *
  * 路由：
  *  - GET  /                      健康检查（含代理配置状态）
@@ -32,6 +32,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const QUOTA_FILE = path.join(DATA_DIR, 'quota.json');
 
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY || '';
+const DEEPSEEK_UPSTREAM_URL = process.env.DEEPSEEK_UPSTREAM_URL || 'https://api.deepseek.com/v1/chat/completions';
 const SILICONFLOW_KEY = process.env.SILICONFLOW_API_KEY || '';
 const SF_EMBEDDING_KEY = process.env.SF_EMBEDDING_KEY || SILICONFLOW_KEY;
 const SF_RERANK_KEY = process.env.SF_RERANK_KEY || SILICONFLOW_KEY;
@@ -40,6 +41,35 @@ const QUOTA_BUDGET = parseFloat(process.env.QUOTA_BUDGET_YUAN || '5');
 const RERANK_DAILY_LIMIT = parseInt(process.env.RERANK_DAILY_LIMIT || '200', 10);
 const QUOTA_WINDOW_DAYS = parseInt(process.env.QUOTA_WINDOW_DAYS || '30', 10);
 const QUOTA_WINDOW_MS = QUOTA_WINDOW_DAYS * 24 * 3600 * 1000;
+
+function parseUpstreamUrl(rawUrl) {
+  let parsed;
+  try { parsed = new URL(String(rawUrl || '')); } catch (e) {
+    throw new Error('DEEPSEEK_UPSTREAM_URL must be a valid URL');
+  }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) {
+    throw new Error('DEEPSEEK_UPSTREAM_URL must use HTTPS without URL credentials or fragments');
+  }
+  if (!parsed.hostname || !parsed.pathname || parsed.pathname === '/') {
+    throw new Error('DEEPSEEK_UPSTREAM_URL must include an upstream request path');
+  }
+  return {
+    hostname: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : 443,
+    path: parsed.pathname + parsed.search,
+  };
+}
+
+const DEEPSEEK_UPSTREAM = parseUpstreamUrl(DEEPSEEK_UPSTREAM_URL);
+
+// Preserve the Qwen thinking switch while rebuilding the upstream payload.
+// Only the supported boolean is forwarded across the proxy boundary.
+function copyChatTemplateKwargs(data, payload) {
+  const kwargs = data && data.chat_template_kwargs;
+  if (!kwargs || typeof kwargs !== 'object' || Array.isArray(kwargs)) return;
+  if (typeof kwargs.enable_thinking !== 'boolean') return;
+  payload.chat_template_kwargs = { enable_thinking: kwargs.enable_thinking };
+}
 
 // ---------- 配额存储（进程内缓存 + 同步落盘，单进程内读改写原子）----------
 let quotaStore = {};
@@ -109,7 +139,7 @@ function costYuan(usage) {
 // clientHeaders: 要回写在「客户端响应」上的头（如额度 X-Tier/X-Quota-*），
 // 注意不能放进上行请求头（否则被发给上游且客户端读不到）。
 function forward(opts) {
-  const { host, path: upPath, apiKey, payload, wantStream, res, onUsage, clientHeaders } = opts;
+  const { host, port, path: upPath, apiKey, payload, wantStream, res, onUsage, clientHeaders } = opts;
   const body = JSON.stringify(payload);
   const hdrs = {
     'Content-Type': 'application/json',
@@ -118,7 +148,7 @@ function forward(opts) {
     'Content-Length': Buffer.byteLength(body),
   };
   const up = https.request(
-    { hostname: host, path: upPath || '/v1/chat/completions', method: 'POST', headers: hdrs },
+    { hostname: host, port: port || 443, path: upPath || '/v1/chat/completions', method: 'POST', headers: hdrs },
     (upRes) => {
       if (upRes.statusCode !== 200) {
         let eb = '';
@@ -330,7 +360,7 @@ function handleTrial(req, res) {
     const q = quotaView(mc);
     let upstream, realModel, recordSpend;
     if (isPremium && q.tier === 'v4-flash') {
-      upstream = 'deepseek'; realModel = 'deepseek-v4-flash'; recordSpend = true;
+      upstream = 'deepseek'; realModel = 'deepseek-v4-flash-0731'; recordSpend = true;
     } else {
       // 超额 / 过期 / 非 premium 模型 → 降级到内置基础模型（不限量免费）
       upstream = 'siliconflow'; realModel = 'Qwen/Qwen3.5-4B'; recordSpend = false;
@@ -342,6 +372,7 @@ function handleTrial(req, res) {
       temperature: data.temperature != null ? data.temperature : 0.7,
       max_tokens: data.max_tokens || undefined,
     };
+    copyChatTemplateKwargs(data, payload);
     // 转发 function-calling 工具声明（Agent 工具调用依赖；上游模型不支持时由上游自行忽略/报错）
     if (Array.isArray(data.tools) && data.tools.length) {
       payload.tools = data.tools;
@@ -355,7 +386,7 @@ function handleTrial(req, res) {
       }
     };
     if (upstream === 'deepseek') {
-      forward({ host: 'api.deepseek.com', apiKey: DEEPSEEK_KEY, payload, wantStream, res, onUsage, clientHeaders: quotaHeaders(mc) });
+      forward({ host: DEEPSEEK_UPSTREAM.hostname, port: DEEPSEEK_UPSTREAM.port, path: DEEPSEEK_UPSTREAM.path, apiKey: DEEPSEEK_KEY, payload, wantStream, res, onUsage, clientHeaders: quotaHeaders(mc) });
     } else {
       forward({ host: 'api.siliconflow.cn', apiKey: SILICONFLOW_KEY, payload, wantStream, res, onUsage: null, clientHeaders: quotaHeaders(mc) });
     }
@@ -391,16 +422,19 @@ function handleLegacyPost(req, res) {
     let model = (data.model || '').trim();
     if (!model || model === 'proxy') model = 'deepseek-chat';
     const wantStream = !!data.stream;
-    const payload = JSON.stringify({
+    const payloadObj = {
       model,
       messages: data.messages,
       stream: wantStream,
       temperature: data.temperature != null ? data.temperature : 0.7,
       max_tokens: data.max_tokens || undefined,
-    });
+    };
+    copyChatTemplateKwargs(data, payloadObj);
+    const payload = JSON.stringify(payloadObj);
     const opt = {
-      hostname: 'api.deepseek.com',
-      path: '/v1/chat/completions',
+      hostname: DEEPSEEK_UPSTREAM.hostname,
+      port: DEEPSEEK_UPSTREAM.port,
+      path: DEEPSEEK_UPSTREAM.path,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -452,7 +486,7 @@ function router(req, res) {
   if (req.method === 'GET' && urlPath === '/quota') return handleQuota(req, res);
   if (req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ ok: true, deepseekConfigured: !!DEEPSEEK_KEY, proxyConfigured: !!APP_PROXY_KEY, quotaBudgetYuan: QUOTA_BUDGET, ragEmbeddings: !!SF_EMBEDDING_KEY, ragRerank: !!SF_RERANK_KEY }));
+    return res.end(JSON.stringify({ ok: true, deepseekConfigured: !!DEEPSEEK_KEY, deepseekUpstreamConfigured: !!DEEPSEEK_UPSTREAM, proxyConfigured: !!APP_PROXY_KEY, quotaBudgetYuan: QUOTA_BUDGET, ragEmbeddings: !!SF_EMBEDDING_KEY, ragRerank: !!SF_RERANK_KEY }));
   }
   if (req.method === 'POST' && urlPath === '/v1/chat/completions') return handleTrial(req, res);
   if (req.method === 'POST' && urlPath === '/v1/embeddings') return handleEmbeddings(req, res);
@@ -474,7 +508,7 @@ try {
 }
 if (httpsOpts) {
   https.createServer(httpsOpts, router).listen(PORT_HTTPS, '0.0.0.0', () =>
-    console.log('[xinjing-proxy] HTTPS on 0.0.0.0:' + PORT_HTTPS + ' (trial-proxy v1.7.0)')
+    console.log('[xinjing-proxy] HTTPS on 0.0.0.0:' + PORT_HTTPS + ' (trial-proxy v1.8.1)')
   );
 } else {
   console.error('未找到证书，无法监听 443。');

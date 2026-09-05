@@ -64,15 +64,7 @@
     const match = Store.getClients().find(function (c) { return c.name === clientName; });
     if (match) return { ok: true, clientId: match.id };
     // 多个同名（理论上 Store 用 id 唯一，name 可重）—— 取第一个
-    if (allowCreate) {
-      // 仅 billing.add_record 等确需「不存在即新建」的场景才自动创建
-      try {
-        const created = Store.createClient({ name: clientName });
-        return { ok: true, clientId: created.id, created: true };
-      } catch (e) {
-        return { ok: false, error: '来访者「' + clientName + '」不存在且新建失败：' + e.message };
-      }
-    }
+    if (allowCreate) return { ok: false, needsCreate: true, clientName: clientName };
     // 非创建场景：给出近似候选，避免拼写错误静默建幽灵客户
     const near = Store.getClients()
       .filter(function (c) { return c.name && c.name.indexOf(clientName) !== -1; })
@@ -270,8 +262,16 @@
       // 2. 解析 clientId（M2：超出新建上限后不再自动创建）
       var allowCreate = createdCount < 3;
       const resolved = resolveClientId(r.clientId, r.clientName, allowCreate);
-      if (!resolved.ok) { results.push({ skipped: true, reason: resolved.error }); continue; }
-      const clientId = resolved.clientId;
+      var clientId = resolved.clientId;
+      if (!resolved.ok && !resolved.needsCreate) { results.push({ skipped: true, reason: resolved.error }); continue; }
+      if (resolved.needsCreate) {
+        try {
+          const createdClient = await Store.createClientDurable({ name: resolved.clientName });
+          if (!createdClient || !createdClient.ok) { results.push({ skipped: true, reason: '来访者「' + resolved.clientName + '」新建失败' }); continue; }
+          clientId = createdClient.value.id;
+          createdCount++;
+        } catch (e) { results.push({ skipped: true, reason: '来访者「' + resolved.clientName + '」新建失败：' + e.message }); continue; }
+      }
       // 2. 写前查重：复用 [billing:KEY] tag 惯例，细化为 [billing:clientId:date:fee]
       //    现有 includes('[billing:') 子串匹配（billing-shell.html L437）仍命中新 tag
       const tag = '[billing:' + clientId + ':' + r.date + ':' + r.fee + ']';
@@ -280,7 +280,6 @@
       });
       if (existing) { results.push({ skipped: true, reason: '已存在相同记录', tag: tag }); continue; }
       // M2：跟踪新建客户数
-      if (resolved.created) createdCount++;
       // 3. 构造 session 对象并落库
       //    字段路径对齐真代码：billing-sync.js L57-58 + billing-shell.html L443
       //    session 顶层无 fee/paid/sessionCount/settleType；金额走 session.billing.fee，缴费走 session.billing.paid
@@ -294,8 +293,9 @@
         notes: (r.note ? r.note + '｜' : '') + '[来源：Agent 录入]｜' + tag
       };
       try {
-        const created = Store.createSession(session);
-        results.push({ ok: true, clientId: clientId, sessionId: created && created.id, date: r.date, fee: r.fee, paid: !!r.paid, tag: tag });
+        const created = await Store.createSessionDurable(session);
+        if (!created || !created.ok) { results.push({ skipped: true, reason: '落库失败：' + (created && created.error && created.error.message || '持久化失败'), tag: tag }); continue; }
+        results.push({ ok: true, clientId: clientId, sessionId: created.value && created.value.id, date: r.date, fee: r.fee, paid: !!r.paid, tag: tag });
       } catch (e) {
         results.push({ skipped: true, reason: '落库失败：' + e.message, tag: tag });
       }
@@ -361,7 +361,8 @@
         monthlyPayments: existingMonthlyPayments // 已就地修改 dup
       });
       try {
-        Store.updateClient(clientId, { billing: billingMerged });
+        const saved = await Store.updateClientDurable(clientId, { billing: billingMerged });
+        if (!saved || !saved.ok) return { ok: false, error: '月结追加落库失败：' + (saved && saved.error && saved.error.message || '持久化失败') };
         return sanitizeResult({ ok: true, data: { clientId: clientId, month: args.month, amount: dup.amount, previousAmount: existingAmount, appended: true, followups: computeFollowups(clientId) } });
       } catch (e) {
         return { ok: false, error: '月结追加落库失败：' + e.message };
@@ -371,7 +372,8 @@
       monthlyPayments: existingMonthlyPayments.concat([newMp])
     });
     try {
-      Store.updateClient(clientId, { billing: billing });
+      const saved = await Store.updateClientDurable(clientId, { billing: billing });
+      if (!saved || !saved.ok) return { ok: false, error: '月结落库失败：' + (saved && saved.error && saved.error.message || '持久化失败') };
       return sanitizeResult({ ok: true, data: { clientId: clientId, month: args.month, amount: args.amount, followups: computeFollowups(clientId) } });
     } catch (e) {
       return { ok: false, error: '月结落库失败：' + e.message };
@@ -584,7 +586,8 @@
     const updatedKeys = Object.keys(safePatch);
     if (!updatedKeys.length) return { ok: false, error: 'patch 无可识别字段（仅允许 name/phone/email/note/tags）' };
     try {
-      Store.updateClient(args.clientId, safePatch);
+      const saved = await Store.updateClientDurable(args.clientId, safePatch);
+      if (!saved || !saved.ok) return { ok: false, error: '更新失败：' + (saved && saved.error && saved.error.message || '持久化失败') };
       return sanitizeResult({ ok: true, data: { clientId: args.clientId, updated: updatedKeys } });
     } catch (e) {
       return { ok: false, error: '更新失败：' + e.message };
@@ -599,7 +602,7 @@
     'deepseek': {
       label: 'DeepSeek',
       baseUrl: 'https://api.deepseek.com/v1',
-      defaultModel: 'deepseek-v4-flash',
+      defaultModel: 'deepseek-v4-pro',
       models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
       hint: '国内性价比最高，深度思考能力出色（chat / reasoner 已弃用，请用 v4-flash / v4-pro）'
     },
@@ -715,15 +718,28 @@
     // H1 修复：apiKey 经 safeStorage 加密后再存入 IndexedDB（明文不落盘）
     async function encryptAndSave(cfg) {
       var toSave = Object.assign({}, cfg);
-      if (toSave.apiKey && typeof window !== 'undefined' && window.__XJ_API__ && window.__XJ_API__.encryptSecret) {
-        try { toSave.apiKey = await window.__XJ_API__.encryptSecret(toSave.apiKey); } catch (e) { /* 降级明文 */ }
+      if (toSave.apiKey && !String(toSave.apiKey).startsWith('xj-enc:')) {
+        if (typeof window === 'undefined' || !window.__XJ_API__ || typeof window.__XJ_API__.encryptSecret !== 'function') {
+          return { ok: false, error: { code: 'XJ_SECRET_ENCRYPTION_UNAVAILABLE' } };
+        }
+        try {
+          toSave.apiKey = await window.__XJ_API__.encryptSecret(String(toSave.apiKey));
+        } catch (e) {
+          return { ok: false, error: { code: 'XJ_SECRET_ENCRYPTION_FAILED' } };
+        }
+        if (typeof toSave.apiKey !== 'string' || !toSave.apiKey.startsWith('xj-enc:')) {
+          return { ok: false, error: { code: 'XJ_SECRET_ENCRYPTION_FAILED' } };
+        }
       }
-      Store.saveSettings({ apiConfig: toSave });
+      return await Store.saveSettingsDurable({ apiConfig: toSave });
     }
 
     // 多轮：密钥还没收齐 → 先存 partial，不测试
     if (!apiKey) {
-      encryptAndSave(merged);
+      var partialSave = await encryptAndSave(merged);
+      if (!partialSave || !partialSave.ok) {
+        return sanitizeResult({ ok: false, error: '配置保存失败，当前设置未改变，请恢复本地存储后重试' });
+      }
       return sanitizeResult({
         ok: true,
         data: {
@@ -735,7 +751,10 @@
     }
     // 端点或模型仍未定 → 提示，不测试
     if (!baseUrl || !model) {
-      encryptAndSave(merged);
+      var incompleteSave = await encryptAndSave(merged);
+      if (!incompleteSave || !incompleteSave.ok) {
+        return sanitizeResult({ ok: false, error: '配置保存失败，当前设置未改变，请恢复本地存储后重试' });
+      }
       return sanitizeResult({
         ok: false,
         error: '还需 baseUrl 与 model 才能测试连接（或给一个已知服务商名）'
@@ -745,11 +764,14 @@
     // 真实连接测试——档位判定的唯一事实来源
     var test = (typeof AI !== 'undefined' && AI.testConnection)
       ? await AI.testConnection({ baseUrl: baseUrl, apiKey: apiKey, model: model })
-      : { ok: true };
+      : { ok: false, error: 'AI connection test is unavailable' };
     var providerLabel = (provider && API_PROVIDERS[provider]) ? API_PROVIDERS[provider].label : '自定义';
     if (test.ok) {
       merged.verified = true;
-      await encryptAndSave(merged);
+      var verifiedSave = await encryptAndSave(merged);
+      if (!verifiedSave || !verifiedSave.ok) {
+        return sanitizeResult({ ok: false, error: '配置保存失败，当前设置未改变，请恢复本地存储后重试' });
+      }
       return sanitizeResult({
         ok: true,
         data: {
@@ -763,7 +785,10 @@
     } else {
       // 测试失败：保留输入供重试，但 verified=false → 档位回 builtin（自动降级）
       merged.verified = false;
-      await encryptAndSave(merged);
+      var failedTestSave = await encryptAndSave(merged);
+      if (!failedTestSave || !failedTestSave.ok) {
+        return sanitizeResult({ ok: false, error: '配置保存失败，当前设置未改变，请恢复本地存储后重试' });
+      }
       return sanitizeResult({
         ok: true,
         data: {
@@ -917,16 +942,17 @@
       var supervisorDisplayName = args.supervisorName === 'cangjie'
         ? '\u6e29\u5c3c\u79d1\u7279\u53d6\u5411\u7763\u5bfc\u5e08 \u00b7 \u4ed3\u988d\u7248'
         : '\u6e29\u5c3c\u79d1\u7279\u53d6\u5411\u7763\u5bfc\u5e08 \u00b7 \u5973\u5a23\u7248';
-      var sv = Store.saveAiSupervision({
+      var svResult = await Store.saveAiSupervisionDurable({
         supervisorName: supervisorDisplayName,
         clientId: clientId,
         sessionId: '',
         context: args.material,
         content: full
       });
-      if (!sv) {
+      if (!svResult || !svResult.ok || !svResult.value) {
         return { ok: false, error: '\u4fdd\u5b58\u5931\u8d25\uff08\u53ef\u80fd\u53d7\u9650\u6a21\u5f0f\u5df2\u8fbe\u7763\u5bfc\u8bb0\u5f55\u4e0a\u9650\uff09' };
       }
+      var sv = svResult.value;
       supervisionSessions.set(sv.id, chatMessages);
       return sanitizeResult({
         ok: true,
@@ -987,7 +1013,8 @@
           return (m.role === 'user' ? '\u54a8\u8be2\u5e08\uff1a' : '\u7763\u5bfc\u5e08\uff1a') + m.content;
         }).join('\n\n');
       try {
-        Store.updateSupervision(args.sessionId, { conclusion: fullUpdatedText, content: fullUpdatedText });
+        var saved = await Store.updateSupervisionDurable(args.sessionId, { conclusion: fullUpdatedText, content: fullUpdatedText });
+        if (!saved || !saved.ok) return { ok: false, error: '\u7763\u5bfc\u8ffd\u95ee\u7ed3\u679c\u4fdd\u5b58\u5931\u8d25' };
       } catch (e) {
         if (typeof console !== 'undefined' && console.warn) {
           console.warn('[Agent] supervision.ask \u9644\u52a0\u5b58\u50a8\u672a\u4fdd\u5b58:', e && e.message || e);
@@ -1034,7 +1061,7 @@
     }
     try {
       var mode = args.mode || '1v1';
-      var conv = MastersCore.openOrCreateConv(args.masterId, mode);
+      var conv = await MastersCore.openOrCreateConv(args.masterId, mode);
       if (!conv) return { ok: false, error: '\u5927\u5e08\u4f1a\u8bdd\u521b\u5efa\u5931\u8d25' };
       var firstReply = null;
       if (args.topic) {
@@ -1046,7 +1073,8 @@
         conv.messages.push({ role: 'assistant', content: res.content, masterKey: args.masterId });
         firstReply = res.content;
         MastersCore.maybeSummarize(conv);
-        Store.saveMasterConversation(conv);
+        var saved = await Store.saveMasterConversationDurable(conv);
+        if (!saved || !saved.ok) return { ok: false, error: '\u5927\u5e08\u5bf9\u8bdd\u4fdd\u5b58\u5931\u8d25' };
       }
       masterConvs.set(conv.id, conv);
       return sanitizeResult({
@@ -1100,7 +1128,8 @@
       conv.messages.push({ role: 'user', content: args.message });
       conv.messages.push({ role: 'assistant', content: res.content, masterKey: masterKey });
       MastersCore.maybeSummarize(conv);
-      Store.saveMasterConversation(conv);
+      var saved = await Store.saveMasterConversationDurable(conv);
+      if (!saved || !saved.ok) return { ok: false, error: '\u5927\u5e08\u6d88\u606f\u4fdd\u5b58\u5931\u8d25' };
       masterConvs.set(args.sessionId, conv);
       return sanitizeResult({ ok: true, data: { sessionId: args.sessionId, reply: res.content } });
     } catch (e) {

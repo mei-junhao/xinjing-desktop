@@ -20,6 +20,7 @@
   let messages = [];        // 对话历史（含 system）
   let busy = false;         // 防重入
   let lastWriteAction = null; // 撤销栈：最近一次写操作
+  let undoPending = false;
 
   var MEM_KEY = 'xj_agent_messages_v1';
   var MEM_MAX = 20; // 跨页记忆最多保留 20 条（不含 system）
@@ -60,7 +61,8 @@
   }
 
   // 撤销：执行撤销（目前支持 billing.add_record 撤销）
-  function undoLastWrite() {
+  async function undoLastWrite() {
+    if (undoPending) return;
     if (!lastWriteAction) {
       toast('没有可撤销的操作', 'info');
       return;
@@ -68,14 +70,16 @@
     var w = lastWriteAction;
     if (w.toolName === 'billing.add_record' && w.result && w.result.sessionIds) {
       // 撤销记账：删除刚创建的会话
+      undoPending = true;
       try {
-        w.result.sessionIds.forEach(function (sid) {
-          if (typeof Store !== 'undefined' && Store.deleteSession) Store.deleteSession(sid);
-        });
+        var result = await Store.deleteSessionsDurable(w.result.sessionIds);
+        if (!result || !result.ok) throw new Error((result && result.error && result.error.message) || 'data was not persisted');
         toast('已撤销 ' + w.result.sessionIds.length + ' 条记账记录', 'success');
         lastWriteAction = null;
       } catch (e) {
         toast('撤销失败：' + (e.message || ''), 'error');
+      } finally {
+        undoPending = false;
       }
     } else {
       toast('该操作不支持撤销', 'info');

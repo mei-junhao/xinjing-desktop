@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -14,7 +14,7 @@ body.kb-shell {
   --kb-accent:var(--xj-accent); --kb-accent-soft:var(--xj-accent-soft); --kb-accent-2:var(--xj-accent-hover);
   --kb-warm:var(--warning); --kb-warm-soft:var(--xj-surface-muted);
   --kb-border:var(--xj-border); --kb-border-2:var(--xj-border);
-  --kb-serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --kb-serif:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   --kb-sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
   --kb-mono:"SF Mono",Menlo,Consolas,monospace;
 }
@@ -25,17 +25,17 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
 
 /* ---- 自绘标题栏（含模式切换 + 操作）---- */
 .kb-head { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:18px 28px 14px; border-bottom:1px solid var(--kb-border); background:var(--kb-paper); flex:0 0 auto; }
-.kb-home { font:600 13px var(--kb-sans); color:var(--kb-ink-3); text-decoration:none; padding:6px 12px; border-radius:9px; transition:.15s; white-space:nowrap; }
+.kb-home { font:600 13px var(--kb-sans); color:var(--kb-ink-3); text-decoration:none; padding:6px 12px; border-radius:6px; transition:color .18s ease,background-color .18s ease; white-space:nowrap; }
 .kb-home:hover { background:var(--kb-accent-soft); color:var(--kb-accent); }
 .kb-htitle { font:700 19px var(--kb-serif); color:var(--kb-ink); white-space:nowrap; }
-.kb-modes { display:inline-flex; flex-wrap:wrap; gap:4px; background:var(--kb-bg); padding:4px; border-radius:12px; }
-.kb-mode { border:none; background:transparent; color:var(--kb-ink-2); font:600 12.5px var(--kb-sans); padding:7px 13px; border-radius:9px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:.15s; white-space:nowrap; }
+.kb-modes { display:inline-flex; flex-wrap:wrap; gap:4px; background:var(--kb-bg); padding:4px; border-radius:8px; }
+.kb-mode { border:none; background:transparent; color:var(--kb-ink-2); font:600 12.5px var(--kb-sans); padding:7px 13px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:color .18s ease,background-color .18s ease; white-space:nowrap; }
 .kb-mode:hover { color:var(--kb-accent); }
-.kb-mode.active { background:var(--kb-paper); color:var(--kb-accent); box-shadow:0 1px 4px rgba(47,143,131,.18); }
+.kb-mode.active { background:var(--kb-paper); color:var(--kb-accent); box-shadow:var(--shadow-sm, 0 1px 2px rgba(23,33,31,.08)); }
 .kb-mode .mi { width:15px; height:15px; flex-shrink:0; }
 .kb-head .spacer { flex:1; }
 .kb-folder { font:12px var(--kb-sans); color:var(--kb-ink-3); max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.kb-btn { border:1px solid var(--kb-border); background:var(--kb-paper); color:var(--kb-ink-2); border-radius:9px; padding:8px 14px; font:600 12.5px var(--kb-sans); cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:.15s; }
+.kb-btn { border:1px solid var(--kb-border); background:var(--kb-paper); color:var(--kb-ink-2); border-radius:6px; padding:8px 14px; font:600 12.5px var(--kb-sans); cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:color .18s ease,background-color .18s ease,border-color .18s ease; }
 .kb-btn:hover { border-color:var(--kb-accent); color:var(--kb-accent); }
 .kb-btn.primary { background:var(--kb-accent); color:#fff; border-color:var(--kb-accent); }
 .kb-btn.primary:hover { background:var(--kb-accent-2); color:#fff; }
@@ -47,8 +47,8 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
 .kb-spinner { width:26px; height:26px; border:3px solid var(--kb-border); border-top-color:var(--kb-accent); border-radius:50%; animation:kbspin .7s linear infinite; margin:0 auto 16px; }
 @keyframes kbspin { to { transform:rotate(360deg); } }
 .kb-view { flex:1 1 auto; min-height:0; overflow-y:auto; padding:24px 28px 40px; }
-.kb-warn { margin:12px 28px 0; padding:11px 16px; border-radius:12px; background:var(--kb-warm-soft); border:1px solid #F0C9A8; color:#9A5A2E; font:12.5px/1.6 var(--kb-sans); }
-.kb-warn b { color:#7A4420; }
+.kb-warn { margin:12px 28px 0; padding:11px 16px; border-radius:8px; background:var(--kb-warm-soft); border:1px solid color-mix(in srgb, var(--warning, #a86a16) 35%, var(--kb-border)); color:var(--warning, #a86a16); font:12.5px/1.6 var(--kb-sans); }
+.kb-warn b { color:var(--warning, #a86a16); }
 
 /* ============================================================
    视图：概览 / 瀑布画廊（入口4）
@@ -56,15 +56,15 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
 .kb-gallery-hero { background:var(--kb-paper-2); border:1px solid var(--kb-border); border-radius:8px; padding:26px 28px; margin-bottom:20px; }
 .kb-gallery-hero h1 { font:700 30px var(--kb-serif); color:var(--kb-ink); margin:0 0 8px; }
 .kb-gallery-hero .sub { font:13.5px var(--kb-sans); color:var(--kb-ink-3); margin-bottom:18px; }
-.kb-gallery-stat { display:inline-flex; align-items:baseline; gap:8px; background:var(--kb-paper); border:1px solid var(--kb-border); border-radius:14px; padding:12px 20px; margin-bottom:18px; }
+.kb-gallery-stat { display:inline-flex; align-items:baseline; gap:8px; background:var(--kb-paper); border:1px solid var(--kb-border); border-radius:8px; padding:12px 20px; margin-bottom:18px; }
 .kb-gallery-stat .n { font:800 26px var(--kb-serif); color:var(--kb-accent); line-height:1; }
 .kb-gallery-stat .l { font:13px var(--kb-sans); color:var(--kb-ink-2); }
 .kb-gsearch { display:flex; gap:10px; max-width:520px; }
-.kb-gsearch input { flex:1; border:1px solid var(--kb-border); border-radius:12px; padding:13px 16px; font:14px var(--kb-sans); outline:none; background:var(--kb-paper); }
+.kb-gsearch input { flex:1; border:1px solid var(--kb-border); border-radius:6px; padding:13px 16px; font:14px var(--kb-sans); outline:none; background:var(--kb-paper); }
 .kb-gsearch input:focus { border-color:var(--kb-accent); box-shadow:0 0 0 3px var(--kb-accent-soft); }
 .kb-masonry { columns:3 280px; column-gap:18px; }
-.kb-gcard { break-inside:avoid; background:var(--kb-paper); border:1px solid var(--kb-border); border-radius:16px; padding:18px; margin:0 0 18px; cursor:pointer; transition:.16s; display:block; overflow:hidden; }
-.kb-gcard:hover { border-color:var(--kb-accent); box-shadow:0 8px 26px rgba(47,143,131,.12); transform:translateY(-2px); }
+.kb-gcard { break-inside:avoid; background:var(--kb-paper); border:1px solid var(--kb-border); border-radius:8px; padding:18px; margin:0 0 18px; cursor:pointer; transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease; display:block; overflow:hidden; }
+.kb-gcard:hover { border-color:var(--kb-accent); box-shadow:var(--shadow-sm, 0 1px 2px rgba(23,33,31,.08)); }
 .kb-gcard .gtop { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
 .kb-gcard .gt { font:11px var(--kb-sans); color:var(--kb-accent); background:var(--kb-accent-soft); padding:3px 10px; border-radius:999px; }
 .kb-gcard .badge { margin-left:auto; font:11px var(--kb-sans); color:var(--kb-accent-2); display:inline-flex; align-items:center; gap:4px; }
@@ -78,15 +78,15 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
    视图 02 — 卡片（分类筛选 + 搜索 + 注入徽章）
    ============================================================ */
 .kb-filter { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
-.kb-chip { border:1px solid var(--kb-border); background:var(--kb-paper); color:var(--kb-ink-2); border-radius:999px; padding:6px 14px; font:12.5px var(--kb-sans); cursor:pointer; transition:.15s; }
+.kb-chip { border:1px solid var(--kb-border); background:var(--kb-paper); color:var(--kb-ink-2); border-radius:6px; padding:6px 14px; font:12.5px var(--kb-sans); cursor:pointer; transition:.15s; }
 .kb-chip:hover { border-color:var(--kb-accent); color:var(--kb-accent); }
 .kb-chip.active { background:var(--kb-accent); color:#fff; border-color:var(--kb-accent); }
 .kb-toolrow { display:flex; gap:12px; margin-bottom:20px; align-items:center; }
 .kb-toolrow input { flex:1; border:1px solid var(--kb-border); border-radius:11px; padding:11px 15px; font:13.5px var(--kb-sans); outline:none; background:var(--kb-paper); }
 .kb-toolrow input:focus { border-color:var(--kb-accent); }
 .kb-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:16px; }
-.kb-card { border:1px solid var(--kb-border); border-radius:16px; padding:18px; background:var(--kb-paper); cursor:pointer; transition:.16s; display:flex; flex-direction:column; min-height:155px; overflow:hidden; }
-.kb-card:hover { border-color:var(--kb-accent); box-shadow:0 8px 22px rgba(47,143,131,.1); transform:translateY(-2px); }
+.kb-card { border:1px solid var(--kb-border); border-radius:8px; padding:18px; background:var(--kb-paper); cursor:pointer; transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease; display:flex; flex-direction:column; min-height:155px; overflow:hidden; }
+.kb-card:hover { border-color:var(--kb-accent); box-shadow:var(--shadow-sm,0 1px 2px rgba(23,33,31,.08)); }
 .kb-card .cat { align-self:flex-start; font:11px var(--kb-sans); padding:3px 10px; border-radius:999px; margin-bottom:10px; }
 .kb-card .t { font:700 15px var(--kb-serif); color:var(--kb-ink); margin-bottom:8px; line-height:1.45; }
 .kb-card .s { font:12.5px/1.7 var(--kb-sans); color:var(--kb-ink-3); flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; word-break:break-word; overflow-wrap:anywhere; }
@@ -97,16 +97,16 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
 /* ============================================================
    视图 01 — 三栏（分类树 / 文件列表 / 阅读器 + 注入 badge）
    ============================================================ */
-.kb-3col { display:grid; grid-template-columns:190px 250px 1fr; gap:0; border:1px solid var(--kb-border); border-radius:16px; overflow:hidden; height:100%; min-height:420px; background:var(--kb-paper); }
+.kb-3col { display:grid; grid-template-columns:190px 250px 1fr; gap:0; border:1px solid var(--kb-border); border-radius:8px; overflow:hidden; height:100%; min-height:420px; background:var(--kb-paper); }
 .kb-3col .col { overflow-y:auto; padding:16px; }
 .kb-3col .c-tree { border-right:1px solid var(--kb-border); background:var(--kb-paper-2); }
 .kb-3col .c-list { border-right:1px solid var(--kb-border); }
-.kb-catnode { font:13px var(--kb-sans); color:var(--kb-ink-2); padding:8px 10px; border-radius:9px; cursor:pointer; display:flex; align-items:center; gap:8px; margin-bottom:4px; transition:.12s; }
+.kb-catnode { font:13px var(--kb-sans); color:var(--kb-ink-2); padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:8px; margin-bottom:4px; transition:color .18s ease,background-color .18s ease; }
 .kb-catnode:hover { background:var(--kb-accent-soft); }
 .kb-catnode.active { background:var(--kb-accent-soft); color:var(--kb-accent); font-weight:600; }
 .kb-catnode .cdot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
 .kb-catnode .cnt { margin-left:auto; font:11px var(--kb-sans); color:var(--kb-ink-3); }
-.kb-li { padding:11px 12px; border-radius:11px; cursor:pointer; margin-bottom:7px; border:1px solid transparent; transition:.12s; }
+.kb-li { padding:11px 12px; border-radius:6px; cursor:pointer; margin-bottom:7px; border:1px solid transparent; transition:color .18s ease,background-color .18s ease,border-color .18s ease; }
 .kb-li:hover { background:var(--kb-paper-2); }
 .kb-li.active { background:var(--kb-accent-soft); border-color:var(--kb-accent); }
 .kb-li .t { font:600 13.5px var(--kb-sans); color:var(--kb-ink); margin-bottom:4px; line-height:1.4; display:flex; align-items:center; gap:7px; }
@@ -188,7 +188,7 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
 .kb-search-hero .sbar input { flex:1; border:1px solid var(--kb-border); border-radius:12px; padding:14px 18px; font:15px var(--kb-sans); outline:none; background:var(--kb-paper); }
 .kb-search-hero .sbar input:focus { border-color:var(--kb-accent); box-shadow:0 0 0 3px var(--kb-accent-soft); }
 .kb-chips { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
-.kb-chips .c { font:12px var(--kb-sans); color:var(--kb-ink-3); background:var(--kb-paper); border:1px solid var(--kb-border); border-radius:999px; padding:5px 12px; cursor:pointer; transition:.12s; }
+.kb-chips .c { font:12px var(--kb-sans); color:var(--kb-ink-3); background:var(--kb-paper); border:1px solid var(--kb-border); border-radius:6px; padding:5px 12px; cursor:pointer; transition:.12s; }
 .kb-chips .c:hover { color:var(--kb-accent); border-color:var(--kb-accent); }
 .kb-search-stat { font:12.5px var(--kb-sans); color:var(--kb-ink-3); margin:6px 0 16px; }
 .kb-hit { padding:14px 16px; border:1px solid var(--kb-border); border-radius:12px; margin-bottom:10px; cursor:pointer; background:var(--kb-paper); transition:.12s; }
@@ -256,8 +256,10 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
 .kb-head,.kb-modes,.kb-mode,.kb-btn,.kb-gcard,.kb-card,.kb-chat-wrap,.kb-msg,.kb-chat .cbar input,.kb-chat .cbar button{border-radius:8px}
 .kb-head{padding:14px 18px}.kb-view{padding:20px 22px 32px}.kb-mode{min-height:34px;padding:6px 10px}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body class="kb-shell">
+<body class="kb-shell" data-xj-pattern="browser-list">
 <div class="layout">
   <div id="sidebar-mount"></div>
   <main class="main">
@@ -268,13 +270,13 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
           <div class="kb-htitle">我的资料库</div>
           <div class="kb-modes" id="kb-modes"></div>
           <span class="spacer"></span>
-          <span class="kb-policy" id="kb-policy">正在读取检索策略</span>
-          <span class="kb-policy" id="kb-index-status">等待扫描</span>
-          <span class="kb-folder" id="kb-folder"></span>
+          <span class="kb-policy" id="kb-policy" role="status" aria-live="polite">正在读取检索策略</span>
+          <span class="kb-policy" id="kb-index-status" role="status" aria-live="polite">等待扫描</span>
+          <span class="kb-folder" id="kb-folder" aria-label="资料文件夹路径"></span>
           <button class="kb-btn" id="kb-refresh" title="重新扫描资料文件夹">刷新</button>
           <button class="kb-btn primary" id="kb-pick">选择资料文件夹</button>
         </div>
-        <div class="kb-warn" id="kb-warn" style="display:none"></div>
+        <div class="kb-warn" id="kb-warn" role="status" aria-live="polite" style="display:none"></div>
         <div class="kb-state" id="kb-state"></div>
         <div class="kb-view" id="kb-view" style="display:none"></div>
       </div>
@@ -282,7 +284,7 @@ body.kb-shell .content { max-width:none; width:100%; flex:1; min-height:0; displ
   </main>
 </div>
 <div class="kb-progress" id="kb-progress" style="width:0;display:none"></div>
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script src="js/knowledge.js"></script>
 </body>
 </html>

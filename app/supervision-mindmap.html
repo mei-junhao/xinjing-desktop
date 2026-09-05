@@ -8,25 +8,22 @@
 <link rel="stylesheet" href="css/agent.css">
 <style>
 .xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
-.xj-tier-badge.custom{background:rgba(155,133,199,.12);color:#9B85C7;border:1px solid rgba(155,133,199,.25)}
-.xj-premium-btn{position:relative}
-.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
-.xj-locked-area{position:relative}
-.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
-.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+ /* P0 REPAIR 02: emoji 伪元素已移除，由 tokens.css + xj-ui-system.css 统一管理 */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
-.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,rgba(155,133,199,.12),rgba(139,147,199,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--accent-soft);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
 .preview-bar .sp{flex:1}
 .sup-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .sup-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
-.sup-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.sup-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .sup-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
 .sup-top .sp{flex:1}
 .sup-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.mindmap-context-host{background:var(--bg-sunken);}
+.mindmap-context-host:empty{display:none}
 .sup-body{flex:1;display:grid;grid-template-columns:280px 1fr 340px;min-height:0;overflow:hidden}
 .sup-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.sup-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.sup-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--sans);flex-shrink:0;display:flex;align-items:center;gap:6px}
 .sup-left .lh-list{flex:1;overflow-y:auto;padding:8px}
 .sup-left .lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font:12.5px/1.5 var(--sans);margin-bottom:4px;transition:all .15s}
 .sup-left .lh-item:hover{background:var(--hover-tint)}
@@ -35,48 +32,68 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 .sup-left .lh-item .s-date{font:11px var(--sans);color:var(--ink-3)}
 .sup-mid{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
 .sup-mid .m-head{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--paper-2);flex-shrink:0;display:flex;align-items:center;gap:8px}
-.sup-mid .m-head .title{font:600 14px var(--serif)}
+.sup-mid .m-head .title{font:600 14px var(--sans);display:inline-flex;align-items:center;gap:6px}
 .sup-mid .m-head .sp{flex:1}
 .mindmap-canvas{flex:1;overflow-y:auto;padding:20px;display:flex;align-items:center;justify-content:center}
 .mindmap-canvas svg{max-width:100%;height:auto}
 .sup-right{background:var(--paper-2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.sup-right .sr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.sup-right .sr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--sans);flex-shrink:0;display:flex;align-items:center;gap:6px}
 .sup-right .sr-body{flex:1;overflow-y:auto;padding:16px}
 .sr-stat{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
 .sr-stat span{font:11px var(--sans);color:var(--ink-3)}
-.sr-stat b{font:600 14px var(--serif);color:var(--ink)}
+.sr-stat b{font:600 14px var(--sans);color:var(--ink)}
 .sr-divider{height:1px;background:var(--border);margin:12px 0}
 .sr-node-info{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-card);padding:12px;margin-bottom:10px}
 .sr-node-info .ni-title{font:600 12px var(--sans);color:var(--accent);margin-bottom:4px}
 .sr-node-info .ni-desc{font:11px/1.5 var(--sans);color:var(--ink-2);margin-bottom:8px}
 .sup-right .sr-action{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
-.sup-right .sr-action button{width:100%;border:none;background:var(--accent);color:#fff;border-radius:8px;padding:10px;font:13px var(--sans);cursor:pointer;margin-bottom:8px}
+.sup-right .sr-action button{width:100%;border:none;background:var(--cta-bg,var(--accent));color:#fff;border-radius:8px;padding:10px;font:13px var(--sans);cursor:pointer;margin-bottom:8px}
 .sup-right .sr-action button:disabled{opacity:.5;cursor:not-allowed}
 .sup-right .sr-action button.ghost{background:var(--paper-2);border:1px solid var(--border);color:var(--ink-2)}
 .empty-state{font:13px var(--sans);color:var(--ink-3);text-align:center;padding:40px 20px}
+
+.mm-view-toggle{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.mm-view-toggle button{border:0;background:var(--paper-2);padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
+.mm-view-toggle button.active{background:var(--accent);color:#fff}
+.mm-view-toggle button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.mindmap-list{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:8px}
+.mindmap-list[hidden]{display:none}
+.mm-list-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--paper-2);font-size:13px;color:var(--ink);cursor:pointer}
+.mm-list-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mm-list-item .mm-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mm-list-item .mm-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.mm-list-item .mm-desc{font-size:11px;color:var(--ink-3)}
+.mm-list-item.mm-root{background:var(--accent-soft);border-color:var(--accent)}
+.mindmap-canvas svg g[tabindex]{cursor:pointer}
+.mindmap-canvas svg g[tabindex]:focus{outline:2px solid var(--accent);outline-offset:3px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="canvas">
 
 <div class="preview-bar" id="preview-bar" style="display:none">
-  <span>🔒</span>
+  <i data-lucide="lock-keyhole" aria-hidden="true"></i>
   <span>会员预览模式 · <b>AI 督导思维导图</b> 可将督导观点自动组织为可视化导图，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后使用</span>
   <span class="sp"></span>
-  <span style="font:11px var(--sans);color:var(--ink-3)">三栏研究台 → <a href="supervision.html" style="color:var(--accent)">返回</a></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">三栏研究台 <i data-lucide="arrow-right" aria-hidden="true"></i> <a href="supervision.html" style="color:var(--accent)">返回</a></span>
 </div>
 
 <div class="sup-top">
-  <button class="back" onclick="location.href='supervision.html'">← 返回三栏研究台</button>
+  <button class="back" onclick="location.href='supervision.html'"><i data-lucide="arrow-left" aria-hidden="true"></i>返回三栏研究台</button>
   <h2>AI 督导思维导图 <span class="sub">· 会员</span></h2>
   <span class="sp"></span>
   <select id="sel-client" onchange="loadHistory()"><option value="">选择来访者…</option></select>
   <span id="tier-badge" class="xj-tier-badge pro" style="display:none">会员</span>
 </div>
 
+<div id="mindmap-context-host" class="mindmap-context-host" aria-live="polite"></div>
+
 <div class="sup-body">
 
   <div class="sup-left">
-    <div class="lh-head">📋 督导历史</div>
+    <div class="lh-head"><i data-lucide="clipboard-list"></i>督导历史</div>
     <div class="lh-list" id="history-list">
       <div class="empty-state">选择来访者后加载</div>
     </div>
@@ -84,47 +101,64 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh
 
   <div class="sup-mid">
     <div class="m-head">
-      <span class="title">🗺 思维导图</span>
+      <span class="title"><i data-lucide="map"></i>思维导图</span>
       <span class="sp"></span>
-      <button id="btn-generate" class="xj-premium-btn" style="border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled onclick="generateMindmap()">生成导图</button>
+      <span class="mm-view-toggle" role="group" aria-label="视图切换">
+        <button type="button" id="btn-view-graph" class="active" onclick="setMindmapView('graph')" aria-pressed="true">图视图</button>
+        <button type="button" id="btn-view-list" onclick="setMindmapView('list')" aria-pressed="false">列表视图</button>
+      </span>
+      <button id="btn-generate" class="xj-premium-btn" style="border:1px solid var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff;border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled onclick="generateMindmap()">生成导图</button>
     </div>
     <div class="mindmap-canvas" id="canvas">
       <div class="empty-state">选择左侧督导记录<br>点击"生成导图"从 AI 督导内容<br>自动提取主题并可视化</div>
     </div>
+    <div class="mindmap-list" id="list-view" hidden></div>
   </div>
 
   <div class="sup-right">
-    <div class="sr-head">📊 导图面板</div>
+    <div class="sr-head"><i data-lucide="chart-no-axes-column-increasing"></i>导图面板</div>
     <div class="sr-body" id="panel-body">
       <div class="xj-locked-area" id="panel-locked" style="min-height:200px">
         <div class="xj-lock-overlay">会员功能 · 升级后查看节点详情</div>
         <div class="sr-stat"><span>导图层级</span><b>-</b></div>
         <div class="sr-stat"><span>节点总数</span><b>-</b></div>
         <div class="sr-divider"></div>
-        <div style="font:600 11px var(--sans);color:var(--ink-3);letter-spacing:.05em;margin-bottom:8px">🎯 选中节点</div>
+        <div style="font:600 11px var(--sans);color:var(--ink-3);letter-spacing:.05em;margin-bottom:8px"><i data-lucide="target" style="width:12px;height:12px"></i> 选中节点</div>
         <div class="sr-node-info"><div class="ni-title">等待选择…</div></div>
       </div>
     </div>
     <div class="sr-action">
-      <button id="btn-regen" class="xj-premium-btn" disabled onclick="generateMindmap()">🔄 重新生成导图</button>
-      <button id="btn-export" class="xj-premium-btn" disabled onclick="exportSvg()">📊 导出 SVG</button>
+      <button id="btn-regen" class="xj-premium-btn" disabled onclick="generateMindmap()"><i data-lucide="refresh-cw"></i>重新生成导图</button>
+      <button id="btn-export" class="xj-premium-btn" disabled onclick="exportSvg()"><i data-lucide="download"></i>导出 SVG</button>
       <button class="ghost" onclick="location.href='supervision.html'">返回方案 C 三栏</button>
     </div>
   </div>
 
 </div>
 
-<script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script>
 App.initPage({ title: '督导 · 思维导图', onReady: function () {
   'use strict';
   var isMember = typeof App !== 'undefined' && App.featureGate && App.featureGate('ai-mindmap');
   var previewBar = document.getElementById('preview-bar');
+  var activeRecordId = '';
+  var activeContext = null;
+  var generatedForRecordId = '';
+  var selectedNode = null;
+  var contextEpoch = 0;
+  function setPremiumState() {
+    var enabled = !!(isMember && activeRecordId);
+    ['btn-generate', 'btn-regen'].forEach(function (id) { var button = document.getElementById(id); if (button) button.disabled = !enabled; });
+    var exportButton = document.getElementById('btn-export'); if (exportButton) exportButton.disabled = !(isMember && generatedForRecordId === activeRecordId && !!document.querySelector('#canvas svg'));
+  }
+  function safeColor(value, fallback) {
+    var color = String(value || '').trim();
+    return /^#[0-9a-f]{3,8}$/i.test(color) ? color : (fallback || '#B5BDE0');
+  }
   if (isMember) {
     previewBar.style.display = 'none';
     document.getElementById('tier-badge').style.display = 'inline-flex';
-    document.querySelectorAll('.xj-premium-btn').forEach(function (b) { b.disabled = false; });
-    document.getElementById('btn-export').disabled = false;
     var locked = document.getElementById('panel-locked');
     if (locked) { locked.classList.remove('xj-locked-area'); locked.querySelector('.xj-lock-overlay').style.display = 'none'; }
   } else {
@@ -142,48 +176,99 @@ App.initPage({ title: '督导 · 思维导图', onReady: function () {
     var clientId = sel.value;
     var list = document.getElementById('history-list');
     if (!clientId) { list.innerHTML = '<div class="empty-state">选择来访者</div>'; return; }
-    var records = Store.getSupervisionsByClient ? Store.getSupervisionsByClient(clientId) : [];
+    var records = (Store.getSupervisionsByClient ? Store.getSupervisionsByClient(clientId) : []).filter(function (record) {
+      if (!record || !record.content || record.quarantined || record.expired || record.sourceExpired) return false;
+      if (record.clientId) return String(record.clientId) === String(clientId);
+      var ids = Array.isArray(record.sessionIds) ? record.sessionIds.map(String).filter(Boolean) : [];
+      if (!ids.length && record.sessionId) ids = [String(record.sessionId)];
+      return ids.length > 0 && ids.every(function (id) { var session = Store.getSession ? Store.getSession(id) : null; return !!session && String(session.clientId || '') === String(clientId); });
+    });
     if (!records.length) { list.innerHTML = '<div class="empty-state">暂无督导记录</div>'; return; }
     list.innerHTML = records.map(function (r, i) {
-      return '<div class="lh-item' + (i === 0 ? ' active' : '') + '" data-id="' + r.id + '" onclick="selectRecord(\'' + r.id + '\')">' +
+      return '<div class="lh-item' + (i === 0 ? ' active' : '') + '" role="button" tabindex="0" aria-label="选择督导记录" data-id="' + App.escapeHtml(r.id) + '" onclick="selectRecord(\'' + App.escapeHtml(r.id).replace(/'/g, "\\'") + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();selectRecord(\'' + App.escapeHtml(r.id).replace(/'/g, "\\'") + '\')}">' +
         '<div class="s-name">' + App.escapeHtml(r.supervisorName || '督导') + '</div>' +
         '<div class="s-date">' + App.formatDate(r.date) + '</div></div>';
     }).join('');
+    if (records.length) selectRecord(records[0].id);
   };
 
   window.selectRecord = function (id) {
+    contextEpoch += 1;
+    activeRecordId = id || '';
+    activeContext = null;
+    generatedForRecordId = '';
+    selectedNode = null;
+    window.__mindmapData = null;
     document.querySelectorAll('.lh-item').forEach(function (el) { el.classList.toggle('active', el.dataset.id === id); });
+    document.getElementById('canvas').innerHTML = '<div class="empty-state">已选择督导记录<br>请点击“生成导图”读取当前记录。</div>';
+    document.getElementById('list-view').innerHTML = '';
+    document.getElementById('panel-body').innerHTML = '<div class="empty-state">等待当前记录生成导图。</div>';
+    var host = document.getElementById('mindmap-context-host'); if (host) host.innerHTML = '';
+    setPremiumState();
   };
 
   window.generateMindmap = function () {
-    if (!isMember) return;
+    if (!isMember) { App.showToast('该功能需要会员权限', 'warning'); return; }
     var active = document.querySelector('.lh-item.active');
     if (!active || !active.dataset.id) { App.showToast('请先选择督导记录', 'warning'); return; }
     var record = Store.getSupervision ? Store.getSupervision(active.dataset.id) : null;
-    if (!record) return;
+    var clientId = sel.value;
+    var supervisionSessionIds = record && Array.isArray(record.sessionIds) ? record.sessionIds.map(String).filter(Boolean) : [];
+    if (record && !record.clientId && !supervisionSessionIds.length && record.sessionId) supervisionSessionIds = [String(record.sessionId)];
+    var supervisionBelongs = !!(record && ((record.clientId && String(record.clientId) === String(clientId)) || (!record.clientId && supervisionSessionIds.length && supervisionSessionIds.every(function (id) { var session = Store.getSession ? Store.getSession(id) : null; return !!session && String(session.clientId || '') === String(clientId); }))));
+    if (!record || !record.content || !record.content.trim() || record.quarantined || record.expired || record.sourceExpired || !supervisionBelongs) { App.showToast('当前督导记录为空或来源不可用，已阻断', 'warning'); return; }
+    var contextEpochForRun = ++contextEpoch;
+    var contextForRun = null;
+    activeRecordId = record.id;
+    activeContext = ClinicalContext.build('real-supervision-ai-record-analyze', { clientId: clientId, supervisionId: record.id }, { inputText: record.content || '', instruction: '仅根据当前督导记录生成可解释的主题树 JSON；输出是草稿，不写入正式记录。', system: '你是心理咨询督导分析专家。请分析当前督导记录，输出 JSON：{"root":"标题","children":[{"name":"分支名","color":"#hex","children":[{"name":"叶子名","desc":"描述"}]}]}。只输出 JSON。' });
+    contextForRun = activeContext;
+    if (!contextForRun.ok) { App.showToast('当前督导记录未通过来源校验：' + (contextForRun.reason || 'unknown'), 'warning'); return; }
+    if (ClinicalContextView && ClinicalContextView.renderSummary) ClinicalContextView.renderSummary(document.getElementById('mindmap-context-host'), contextForRun);
+    var run = ClinicalContext.createActionRun(contextForRun);
+    if (!run) { App.showToast('无法创建导图分析记录，已阻断', 'warning'); return; }
+    if (ClinicalContextView && ClinicalContextView.confirmSend && !ClinicalContextView.confirmSend(contextForRun)) { ClinicalContext.failActionRun(run.id, '用户取消发送', 'cancelled'); App.showToast('已取消发送当前督导记录', 'info'); return; }
     var content = record.content || '';
     var canvas = document.getElementById('canvas');
     canvas.innerHTML = '<div class="empty-state">AI 生成思维导图…</div>';
-    var sys = '你是心理咨询督导分析专家。请分析以下督导记录，提取主题树结构，输出 JSON：{"root":"标题","children":[{"name":"分支名","color":"#hex","children":[{"name":"叶子名","desc":"描述"}]}]}。颜色用 #8B93C7(根)、#B5BDE0(一级)、#ECEEF9(二级)、#6FAE8F(洞察)。只输出 JSON。';
-    AI.send([{ role: 'system', content: sys }, { role: 'user', content: content }], function (res) {
+    var lvGen = document.getElementById('list-view'); if (lvGen) lvGen.innerHTML = '<div class="empty-state">AI 生成思维导图…</div>';
+    AI.send(contextForRun.messages, function (res) {
+      var current = Store.getSupervision ? Store.getSupervision(record.id) : null;
+      if (contextEpochForRun !== contextEpoch || !current || !ClinicalContext.isSnapshotCurrent(contextForRun.snapshot, current.content || '', { clientId: clientId, supervisionId: record.id })) { ClinicalContext.failActionRun(run.id, '督导记录已变化', 'stale'); canvas.innerHTML = '<div class="empty-state" style="color:var(--danger)">记录内容已变化，本次导图已作废，请重新生成。</div>'; return; }
       if (res && res.content && !res.error) {
         try {
           var json = JSON.parse(res.content.replace(/^```json\s*/i, '').replace(/```\s*$/i, ''));
+          if (!json || typeof json !== 'object' || Array.isArray(json) || typeof json.root !== 'string' || !Array.isArray(json.children)) throw new Error('invalid-mindmap-schema');
+          json.children = json.children.filter(function (child) { return child && typeof child.name === 'string'; }).map(function (child) {
+            return { name: child.name, color: safeColor(child.color, '#B5BDE0'), children: Array.isArray(child.children) ? child.children.filter(function (leaf) { return leaf && typeof leaf.name === 'string'; }).map(function (leaf) { return { name: leaf.name, desc: typeof leaf.desc === 'string' ? leaf.desc : '' }; }) : [] };
+          });
+          ClinicalContext.completeActionRun(run.id, { kind: contextForRun.taskSpec.outputSchema.kind, citations: contextForRun.sources.map(function (source) { return { kind: source.kind, id: source.id, sourceContentHash: source.sourceContentHash }; }) });
           renderMindmap(json);
+          generatedForRecordId = record.id;
+          setPremiumState();
         } catch (e) {
+          ClinicalContext.failActionRun(run.id, 'AI 返回格式异常');
           canvas.innerHTML = '<div class="empty-state" style="color:var(--danger)">AI 返回格式异常，请重试</div>';
+          var lvErr1 = document.getElementById('list-view'); if (lvErr1) lvErr1.innerHTML = '<div class="empty-state" style="color:var(--danger)">AI 返回格式异常，请重试</div>';
         }
       } else {
+        ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 生成失败');
         canvas.innerHTML = '<div class="empty-state" style="color:var(--danger)">AI 生成失败</div>';
+        var lvErr2 = document.getElementById('list-view'); if (lvErr2) lvErr2.innerHTML = '<div class="empty-state" style="color:var(--danger)">AI 生成失败</div>';
       }
     });
   };
 
   function renderMindmap(data) {
     var canvas = document.getElementById('canvas');
-    var root = data.root || 'AI 督导';
-    var children = data.children || [];
+    var root = (data && data.root) || 'AI 督导';
+    var children = (data && data.children) || [];
     var childCount = children.length;
+    window.__mindmapData = data || null;
+    if (childCount === 0) {
+      canvas.innerHTML = '<div class="empty-state" data-empty-canvas="true"><i data-lucide="scan-line" style="display:block;width:34px;height:34px;margin:0 auto 10px;color:var(--ink-3)"></i><strong>空白画布</strong><br>当前督导记录没有可可视化的主题节点。<br>可返回三栏研究台补充材料后重新生成。</div>';
+      if (typeof window.__renderListEmpty === 'function') window.__renderListEmpty();
+      return;
+    }
     var W = 900, H = 560;
     var cx = W / 2, cy = 50;
     var l1Y = 200, l2Y = 360, insY = 470;
@@ -201,40 +286,118 @@ App.initPage({ title: '督导 · 思维导图', onReady: function () {
       });
     });
     // 根节点
-    svg += '<g filter="url(#ns)"><rect x="' + (cx - 80) + '" y="' + (cy - 25) + '" width="160" height="50" rx="25" fill="url(#rg)"/>';
+    svg += '<g tabindex="0" role="treeitem" aria-label="根节点：' + App.escapeHtml(root) + '" data-node-name="' + App.escapeHtml(root) + '" data-node-desc="根节点" filter="url(#ns)"><rect x="' + (cx - 80) + '" y="' + (cy - 25) + '" width="160" height="50" rx="25" fill="url(#rg)"/>';
     svg += '<text x="' + cx + '" y="' + (cy + 2) + '" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" font-family="serif">' + App.escapeHtml(root) + '</text></g>';
     // 一级节点
     children.forEach(function (c, i) {
       var x = spacing * (i + 1);
-      var color = c.color || '#B5BDE0';
-      svg += '<g filter="url(#ns)"><rect x="' + (x - 70) + '" y="' + (l1Y - 20) + '" width="140" height="40" rx="20" fill="#fff" stroke="' + color + '" stroke-width="2"/>';
+      var color = safeColor(c.color, '#B5BDE0');
+      svg += '<g tabindex="0" role="treeitem" aria-label="分支：' + App.escapeHtml(c.name) + '" data-node-name="' + App.escapeHtml(c.name) + '" data-node-desc="分支节点" filter="url(#ns)"><rect x="' + (x - 70) + '" y="' + (l1Y - 20) + '" width="140" height="40" rx="20" fill="#fff" stroke="' + color + '" stroke-width="2"/>';
       svg += '<text x="' + x + '" y="' + (l1Y - 2) + '" text-anchor="middle" fill="' + color + '" font-size="13" font-weight="600">' + App.escapeHtml(c.name) + '</text></g>';
       // 二级节点
       var leaves = c.children || [];
       leaves.forEach(function (leaf, j) {
         var lx = x - (leaves.length - 1) * 70 + j * 140;
-        svg += '<g><rect x="' + (lx - 60) + '" y="' + (l2Y - 18) + '" width="120" height="36" rx="10" fill="#ECEEF9" stroke="#8B93C7" stroke-width="1"/>';
+        svg += '<g tabindex="0" role="treeitem" aria-label="节点：' + App.escapeHtml(leaf.name) + '" data-node-name="' + App.escapeHtml(leaf.name) + '" data-node-desc="' + App.escapeHtml(leaf.desc || '') + '"><rect x="' + (lx - 60) + '" y="' + (l2Y - 18) + '" width="120" height="36" rx="10" fill="#ECEEF9" stroke="#8B93C7" stroke-width="1"/>';
         svg += '<text x="' + lx + '" y="' + (l2Y - 1) + '" text-anchor="middle" fill="#2B3140" font-size="11">' + App.escapeHtml(leaf.name) + '</text></g>';
       });
     });
     // 洞察终端
-    svg += '<g><rect x="' + (cx - 90) + '" y="' + (insY - 25) + '" width="180" height="50" rx="12" fill="rgba(111,174,143,.15)" stroke="#6FAE8F" stroke-width="2"/>';
-    svg += '<text x="' + cx + '" y="' + (insY - 3) + '" text-anchor="middle" fill="#6FAE8F" font-size="13" font-weight="600">💡 督导洞察</text></g>';
+    svg += '<g tabindex="0" role="treeitem" aria-label="督导洞察" data-node-name="督导洞察" data-node-desc="导图洞察终端"><rect x="' + (cx - 90) + '" y="' + (insY - 25) + '" width="180" height="50" rx="12" fill="rgba(111,174,143,.15)" stroke="#6FAE8F" stroke-width="2"/>';
+    svg += '<text x="' + cx + '" y="' + (insY - 3) + '" text-anchor="middle" fill="#6FAE8F" font-size="13" font-weight="600">督导洞察</text></g>';
     svg += '</svg>';
     canvas.innerHTML = svg;
+    canvas.querySelectorAll('g[data-node-name]').forEach(function (node) { node.addEventListener('click', function () { selectNode(node); }); node.addEventListener('keydown', function (event) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(node); } }); });
     // 面板更新
     var panel = document.getElementById('panel-body');
     var totalNodes = 1 + childCount + children.reduce(function (s, c) { return s + (c.children ? c.children.length : 0); }, 0) + 1;
     panel.innerHTML = '<div class="sr-stat"><span>导图层级</span><b>3 级</b></div><div class="sr-stat"><span>节点总数</span><b>' + totalNodes + '</b></div><div class="sr-divider"></div><div class="sr-node-info"><div class="ni-title">' + App.escapeHtml(root) + ' · 根节点</div><div class="ni-desc">' + childCount + ' 个分支</div></div>';
+    if (typeof window.__renderMindmapList === 'function') window.__renderMindmapList(data);
   }
 
   window.exportSvg = function () {
+    if (!isMember || generatedForRecordId !== activeRecordId) { App.showToast('请先生成当前督导记录的导图', 'warning'); return; }
+    var current = Store.getSupervision ? Store.getSupervision(activeRecordId) : null;
+    if (!current || !activeContext || !activeContext.ok || !ClinicalContext.isSnapshotCurrent(activeContext.snapshot, current.content || '', { clientId: sel.value, supervisionId: activeRecordId })) { App.showToast('记录已变化或来源失效，请重新生成导图', 'warning'); return; }
     var svg = document.getElementById('canvas').querySelector('svg');
     if (!svg) { App.showToast('请先生成导图', 'warning'); return; }
     var data = new XMLSerializer().serializeToString(svg);
+    if (!data || data.indexOf('<svg') < 0 || data.length < 100) { App.showToast('导图为空，未导出', 'warning'); return; }
     App.downloadFile('督导思维导图_' + App.todayStr() + '.svg', data, 'image/svg+xml');
   };
+  function selectNode(node) {
+    if (!node) return;
+    selectedNode = { name: node.dataset.nodeName || '', desc: node.dataset.nodeDesc || '' };
+    document.querySelectorAll('#canvas g[data-node-name]').forEach(function (item) { item.setAttribute('aria-selected', item === node ? 'true' : 'false'); });
+    var panel = document.getElementById('panel-body');
+    panel.innerHTML = '<div class="sr-stat"><span>导图层级</span><b>3 级</b></div><div class="sr-stat"><span>节点总数</span><b>' + document.querySelectorAll('#canvas g[data-node-name]').length + '</b></div><div class="sr-divider"></div><div class="sr-node-info"><div class="ni-title">' + App.escapeHtml(selectedNode.name) + '</div><div class="ni-desc">' + App.escapeHtml(selectedNode.desc || '当前节点暂无补充说明。') + '</div></div>';
+  }
+  setPremiumState();
 }});
+</script>
+<script>
+(function () {
+  'use strict';
+  function setView(view) {
+    var canvas = document.getElementById('canvas');
+    var list = document.getElementById('list-view');
+    var bg = document.getElementById('btn-view-graph');
+    var bl = document.getElementById('btn-view-list');
+    if (canvas) canvas.style.display = view === 'graph' ? '' : 'none';
+    if (list) list.hidden = view !== 'list';
+    if (bg) { bg.classList.toggle('active', view === 'graph'); bg.setAttribute('aria-pressed', view === 'graph' ? 'true' : 'false'); }
+    if (bl) { bl.classList.toggle('active', view === 'list'); bl.setAttribute('aria-pressed', view === 'list' ? 'true' : 'false'); }
+  }
+  window.setMindmapView = setView;
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+  function safeColor(value, fallback) {
+    var color = String(value || '').trim();
+    return /^#[0-9a-f]{3,8}$/i.test(color) ? color : (fallback || '#B5BDE0');
+  }
+  window.__renderListEmpty = function () {
+    var list = document.getElementById('list-view');
+    if (list) list.innerHTML = '<div class="empty-state">空白画布：没有可显示的节点。</div>';
+  };
+  window.__renderMindmapList = function (data) {
+    var list = document.getElementById('list-view');
+    if (!list) return;
+    var root = (data && data.root) || 'AI 督导';
+    var children = (data && data.children) || [];
+    var html = '<div class="mm-list-item mm-root" tabindex="0"><span class="mm-dot" style="background:var(--accent)"></span><span class="mm-name">' + esc(root) + '</span><span class="mm-desc">根节点</span></div>';
+    children.forEach(function (c) {
+      var name = c && c.name ? c.name : '未命名';
+      var color = c && c.color ? c.color : 'var(--accent)';
+      html += '<div class="mm-list-item" tabindex="0" role="treeitem" data-node-name="' + esc(name) + '" data-node-desc="分支节点"><span class="mm-dot" style="background:' + esc(safeColor(color, '#B5BDE0')) + '"></span><span class="mm-name">' + esc(name) + '</span><span class="mm-desc">分支</span></div>';
+      (c && c.children || []).forEach(function (leaf) {
+        var ln = leaf && leaf.name ? leaf.name : '未命名';
+        html += '<div class="mm-list-item" tabindex="0" role="treeitem" data-node-name="' + esc(ln) + '" data-node-desc="' + esc(leaf && leaf.desc ? leaf.desc : '') + '" style="padding-left:34px"><span class="mm-dot" style="background:var(--ink-3)"></span><span class="mm-name">' + esc(ln) + '</span><span class="mm-desc">' + (leaf && leaf.desc ? esc(leaf.desc) : '') + '</span></div>';
+      });
+    });
+    list.innerHTML = html;
+    list.querySelectorAll('[data-node-name]').forEach(function (node) {
+      node.addEventListener('click', function () {
+        var panel = document.getElementById('panel-body');
+        panel.innerHTML = '<div class="sr-node-info"><div class="ni-title">' + esc(node.dataset.nodeName) + '</div><div class="ni-desc">' + esc(node.dataset.nodeDesc || '当前节点暂无补充说明。') + '</div></div>';
+      });
+      node.addEventListener('keydown', function (event) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); node.click(); } });
+    });
+  };
+  var canvas = document.getElementById('canvas');
+  if (canvas) {
+    canvas.addEventListener('keydown', function (e) {
+      if (!/^Arrow/.test(e.key)) return;
+      var nodes = Array.prototype.slice.call(canvas.querySelectorAll('g[tabindex]'));
+      if (!nodes.length) return;
+      var idx = nodes.indexOf(document.activeElement);
+      if (idx < 0) { nodes[0].focus(); e.preventDefault(); return; }
+      var next = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = nodes[(idx + 1) % nodes.length];
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = nodes[(idx - 1 + nodes.length) % nodes.length];
+      if (next) { next.focus(); e.preventDefault(); }
+    });
+  }
+  setView('graph');
+})();
 </script>
 </body>
 </html>

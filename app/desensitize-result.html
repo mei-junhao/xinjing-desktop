@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脱敏结果 — 心镜 · 文档脱敏</title>
+    <!--
+      XJ-5.1.9-desensitize-work-style：结果页生产版。
+      视觉逐组件复刻 LegaleWork v0.3.26 desensitize_result.html（黑白编辑风，与皮肤体系正交）。
+      数据流：consult-notes「生成脱敏文档」→ sessionStorage['xj_desensitize_task'] → 本页
+      处理引擎：app/js/pii-sanitizer.js maskDocument（文档遮蔽模式，出站管线零改动）。
+      产物下载：渲染层 Blob 落盘（复用导出惯例），无新增主进程接口。
+    -->
+    <style>
+        :root {
+            --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", sans-serif;
+            --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", sans-serif;
+            --bg: #ffffff;
+            --bg-subtle: #f5f5f3;
+            --accent: #111111;
+            --accent-light: #f0f0ed;
+            --accent-hover: #333333;
+            --text-primary: #111111;
+            --text-secondary: #52525b;
+            --text-muted: #71717a;
+            --border: #d4d4d4;
+            --shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 14px 34px rgba(0, 0, 0, 0.1);
+            --red: #8d1f1f;    --red-bg: #f3e4df;
+            --orange: #a75b12; --orange-bg: #f6ead8;
+            --blue: #315f72;   --blue-bg: #e6eef1;
+            --green: #36673a;  --green-bg: #edf5ec;
+            --yellow: #8a5a13; --yellow-bg: #fbf2dc;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font-ui); background: #ffffff; color: var(--text-primary); min-height: 100vh; line-height: 1.65; font-size: 16px; -webkit-font-smoothing: antialiased; }
+        body.dark {
+            --bg: #18181a; --bg-subtle: #242426;
+            --accent: #e4e4e7; --accent-light: #2a2a2d; --accent-hover: #fafafa;
+            --text-primary: #e4e4e7; --text-secondary: #a1a1aa; --text-muted: #71717a;
+            --border: #3f3f46;
+            --shadow: 0 10px 26px rgba(0,0,0,0.4); --shadow-lg: 0 14px 34px rgba(0,0,0,0.5);
+            --red: #f87171;    --red-bg: #3d1a1a;
+            --orange: #fbbf24; --orange-bg: #3d2e0a;
+            --blue: #7dd3fc;   --blue-bg: #0a2e3d;
+            --green: #6ee7b7;  --green-bg: #0a3d2e;
+            --yellow: #fde68a; --yellow-bg: #3d2e0a;
+        }
+        body.dark, body.dark .page-wrap { background: #18181a; }
+        body.dark .sidebar { background: #1e1e20; }
+        body.dark .ov-card, body.dark .entity-chip, body.dark .table-wrap, body.dark .notice-block { background: var(--bg); }
+        body.dark .entity-chip strong { color: var(--text-primary); }
+        body.dark .entity-chip span { color: var(--text-secondary); }
+        body.dark table th { color: var(--text-muted); }
+        body.dark table td { color: var(--text-secondary); }
+        body.dark .side-nav-list a { color: var(--text-secondary); }
+        body.dark .side-nav-list a:hover { background: var(--accent-light); color: var(--text-primary); }
+        body.dark .dl-link { background: var(--bg); color: var(--text-secondary); border-color: var(--border); }
+        body.dark .dl-link:hover { color: var(--text-primary); border-color: var(--text-primary); }
+        body.dark .dl-link.primary { background: var(--accent); color: #18181a; border-color: var(--accent); }
+        body.dark .section-title { color: var(--text-primary); }
+        body.dark .eyebrow { color: var(--text-secondary); }
+        body.dark .supporting { color: var(--text-secondary); }
+        body.dark .section-meta { color: var(--text-muted); }
+        body.dark .notice-block { color: var(--text-secondary); }
+        body.dark .download-toast { color: #18181a; }
+
+        .sidebar {
+            position: fixed; left: 0; top: 0; bottom: 0; width: 264px; z-index: 51;
+            overflow: auto; padding: 6px 12px 8px; background: var(--bg);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+        }
+        .sidebar-main { flex: 1 1 auto; min-height: 0; }
+        .sidebar-logo-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 6px; }
+        .logo { font-family: var(--font-display); font-size: 22px; font-weight: 760; color: var(--text-primary); text-decoration: none; }
+        .logo small { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-left: 6px; }
+        .theme-toggle {
+            display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+            border: 1px solid var(--border); border-radius: 6px; background: transparent;
+            color: var(--text-muted); font-size: 14px; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+        }
+        .theme-toggle:hover { color: var(--text-primary); border-color: var(--text-primary); }
+        .theme-icon-dark { display: none; }
+        body.dark .theme-icon-light { display: none; }
+        body.dark .theme-icon-dark { display: inline; }
+        .side-nav-title { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 10px 10px 4px; }
+        .side-nav-list { list-style: none; }
+        .side-nav-list a { display: block; min-height: 30px; padding: 5px 10px; font-size: 15px; font-weight: 450; color: var(--text-secondary); text-decoration: none; border-radius: 8px; transition: all 0.2s; }
+        .side-nav-list a:hover { background: var(--accent-light); color: var(--text-primary); }
+        .side-nav-list a.active { background: #111; color: #fff; font-weight: 600; }
+        body.dark .side-nav-list a.active { background: #e4e4e7; color: #18181a; }
+        .side-downloads { margin: 8px 0 0; padding: 10px 10px 8px; border-top: 1px solid var(--border); }
+        .dl-head { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+        .dl-link {
+            display: flex; align-items: center; gap: 10px; padding: 7px 10px; margin-bottom: 4px;
+            font-size: 14px; color: var(--text-secondary); text-decoration: none;
+            border-radius: 8px; border: 1px solid var(--border); background: var(--bg); transition: all 0.2s; cursor: pointer;
+        }
+        .dl-link:hover { color: var(--text-primary); border-color: var(--text-primary); background: var(--bg-subtle); }
+        .dl-link.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .dl-link.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+        body.dark .dl-link.primary:hover { color: #18181a; }
+        .back-prev {
+            display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 10px;
+            border: 0; border-radius: 7px; background: #111; color: #fff; font: inherit;
+            font-size: 14px; font-weight: 600; cursor: pointer; margin: 8px 0 0; flex-shrink: 0; transition: all 0.15s;
+        }
+        .back-prev:hover { background: #333; }
+        body.dark .back-prev { background: #e4e4e7; color: #18181a; }
+        body.dark .back-prev:hover { background: #fafafa; }
+
+        .page-wrap { max-width: 1120px; margin: 0 auto 0 264px; padding: 36px 32px 80px; }
+        .content { min-width: 0; }
+        section { margin-bottom: 48px; }
+        .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .section-title { font-family: var(--font-display); font-size: 34px; line-height: 1.25; font-weight: 720; color: var(--text-primary); }
+        .section-meta { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+        .ov-card { background: var(--bg); border-radius: 8px; padding: 28px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .ov-card.hero { margin-bottom: 24px; }
+        .eyebrow { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; display: inline-flex; align-items: center; gap: 8px; }
+        .eyebrow::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent); border-radius: 1px; }
+        h1 { font-family: var(--font-display); font-size: 34px; line-height: 1.25; font-weight: 720; color: var(--text-primary); margin-bottom: 14px; }
+        .supporting { color: var(--text-secondary); font-size: 15px; line-height: 1.7; max-width: 720px; }
+        .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 24px; }
+        .ov-label { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 16px; display: inline-flex; align-items: center; gap: 8px; }
+        .ov-label::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent); border-radius: 1px; }
+        .metric { font-family: var(--font-display); font-size: 36px; font-weight: 720; line-height: 1; color: var(--text-primary); }
+        .metric-sub { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
+        .entity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+        .entity-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: var(--shadow); }
+        .entity-chip strong { font-family: var(--font-display); display: block; font-size: 28px; font-weight: 720; line-height: 1; margin-bottom: 6px; color: var(--text-primary); }
+        .entity-chip span { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .table-wrap { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow); overflow: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 640px; }
+        th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th { color: var(--text-muted); font-size: 12px; font-weight: 600; }
+        tbody tr:last-child td { border-bottom: none; }
+        .notice-block { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+        .notice-block + .notice-block { margin-top: 10px; }
+        .rb-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .rb-high { background: var(--red-bg); color: var(--red); }
+        .rb-medium { background: var(--orange-bg); color: var(--orange); }
+        .rb-low { background: var(--blue-bg); color: var(--blue); }
+        .rb-none { background: var(--green-bg); color: var(--green); }
+        .download-toast {
+            position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+            max-width: min(560px, calc(100vw - 32px)); padding: 12px 16px;
+            border: 1px solid var(--border); border-radius: 12px;
+            background: var(--text-primary); color: #fff; font-size: 13px;
+            box-shadow: var(--shadow-lg); z-index: 200; display: none;
+        }
+        body.dark .download-toast { color: #18181a; }
+        .download-toast.show { display: block; }
+
+        /* 三态页 */
+        .state-page { max-width: 480px; margin: 100px auto; padding: 48px 40px; text-align: center; background: var(--bg); border-radius: 24px; box-shadow: var(--shadow-lg); border: 1px solid var(--border); }
+        .state-icon { width: 64px; height: 64px; margin: 0 auto 24px; background: var(--bg); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: var(--shadow); }
+        .state-icon.err { background: var(--red-bg); color: var(--red); }
+        .state-title { font-family: var(--font-display); font-size: 28px; font-weight: 720; color: var(--text-primary); margin-bottom: 12px; }
+        .state-sub { font-size: 15px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 28px; }
+        .btn-retry { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font: 600 15px var(--font-ui); cursor: pointer; text-decoration: none; transition: all 0.2s; }
+        .btn-retry:hover { background: var(--accent-hover); }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .state-page, #app-completed { display: none; }
+        .state-page.on, #app-completed.on { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- 侧栏 -->
+<aside class="sidebar">
+    <div class="sidebar-main">
+        <div class="sidebar-logo-row">
+            <a href="javascript:void(0)" class="logo">心镜<small>文档脱敏</small></a>
+            <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换主题" onclick="document.body.classList.toggle('dark')">
+                <span class="theme-icon-light">☀</span>
+                <span class="theme-icon-dark">☾</span>
+            </button>
+        </div>
+        <p class="side-nav-title">导航</p>
+        <ul class="side-nav-list" id="side-nav">
+            <li><a href="#overview" class="active">概览</a></li>
+            <li><a href="#entity-types">命中类型</a></li>
+            <li><a href="#details">处理明细</a></li>
+            <li><a href="#warnings">注意事项</a></li>
+        </ul>
+        <div class="side-downloads">
+            <p class="dl-head">导出</p>
+            <a href="javascript:void(0)" class="dl-link primary" data-dl="masked">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                脱敏结果文件
+            </a>
+            <a href="javascript:void(0)" class="dl-link" data-dl="report-json">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                脱敏报告 JSON
+            </a>
+            <a href="javascript:void(0)" class="dl-link" data-dl="report-md">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                脱敏报告 Markdown
+            </a>
+            <a href="javascript:void(0)" class="dl-link" data-dl="retention">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                原文件留存说明
+            </a>
+        </div>
+    </div>
+    <button class="back-prev" type="button" onclick="location.href = document.referrer && document.referrer.indexOf('consult-notes') >= 0 ? 'consult-notes.html' : 'index.html'">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        返回工作台
+    </button>
+</aside>
+
+<!-- 处理中 -->
+<div class="state-page on" id="state-loading">
+    <div class="state-icon">
+        <svg class="animate-spin" width="28" height="28" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="var(--border)" stroke-width="3"></circle>
+            <path fill="var(--accent)" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+    <h2 class="state-title">脱敏处理中</h2>
+    <p class="state-sub" id="loading-msg">正在本地处理文档，数据不出本机…</p>
+</div>
+
+<!-- 失败 -->
+<div class="state-page" id="state-failed">
+    <div class="state-icon err">⚠️</div>
+    <h2 class="state-title">脱敏失败</h2>
+    <p class="state-sub" id="failed-msg">发生未知错误，请返回后重试。</p>
+    <button class="btn-retry" type="button" onclick="history.back()">返回重试</button>
+</div>
+
+<!-- 完成 -->
+<div id="app-completed">
+    <div class="page-wrap">
+        <div class="content">
+            <section id="overview">
+                <div class="ov-card hero">
+                    <p class="eyebrow">数据脱敏处理完成</p>
+                    <h1 id="doc-name">文档</h1>
+                    <p class="supporting">已按保留格式打码策略生成脱敏结果。自动识别可能存在漏检或误检，正式外发前建议抽样复核。</p>
+                </div>
+                <div class="overview-grid">
+                    <div class="ov-card">
+                        <p class="ov-label">命中总数</p>
+                        <p class="metric" id="metric-total">0</p>
+                        <p class="metric-sub">处敏感信息</p>
+                    </div>
+                    <div class="ov-card">
+                        <p class="ov-label">输入类型</p>
+                        <p class="metric" style="font-size:26px">Markdown</p>
+                        <p class="metric-sub" id="metric-source">咨询记录</p>
+                    </div>
+                    <div class="ov-card">
+                        <p class="ov-label">处理策略</p>
+                        <p class="metric" style="font-size:26px">格式打码</p>
+                        <p class="metric-sub">例如 138****5678</p>
+                    </div>
+                </div>
+            </section>
+            <section id="entity-types">
+                <div class="section-head"><h2 class="section-title">命中类型</h2></div>
+                <div class="entity-grid" id="entity-grid"></div>
+            </section>
+            <section id="details">
+                <div class="section-head"><h2 class="section-title">处理明细</h2><span class="section-meta">最多展示 500 条</span></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>类型</th><th>位置</th><th>替换为</th><th>预览</th><th>置信度</th></tr></thead>
+                        <tbody id="details-body"></tbody>
+                    </table>
+                </div>
+            </section>
+            <section id="warnings">
+                <div class="section-head"><h2 class="section-title">注意事项</h2></div>
+                <div id="warnings-box"></div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<div class="download-toast" id="toast">已开始下载</div>
+
+<script src="js/pii-sanitizer.js"></script>
+<script>
+(function () {
+    'use strict';
+    var TASK_KEY = 'xj_desensitize_task';
+    var RISK_CLASS = { PHONE: 'rb-high', ID_CARD: 'rb-high', PERSON_NAME: 'rb-high', BANK_CARD: 'rb-high', ADDRESS: 'rb-medium', ORG_NAME: 'rb-medium', EMAIL: 'rb-low', IP_ADDRESS: 'rb-low', URL: 'rb-low', ACCOUNT: 'rb-low', DATE: 'rb-medium' };
+    var TYPE_LABEL = { PHONE: '手机号', ID_CARD: '身份证号', PERSON_NAME: '人名', BANK_CARD: '银行卡', ADDRESS: '住址', ORG_NAME: '机构名', EMAIL: '邮箱', IP_ADDRESS: 'IP 地址', URL: '链接', ACCOUNT: '账号', DATE: '日期' };
+    var result = null;
+
+    function toast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function showState(id) {
+        ['state-loading', 'state-failed', 'app-completed'].forEach(function (x) {
+            document.getElementById(x).classList.toggle('on', x === id);
+        });
+    }
+
+    function reportMarkdown(report) {
+        var lines = ['# 脱敏报告 — ' + report.document_name, '',
+            '- 处理策略：' + report.strategy,
+            '- 命中总数：' + report.summary.total_findings, '', '## 命中类型', ''];
+        Object.keys(report.summary.entity_counts).forEach(function (k) {
+            lines.push('- ' + (TYPE_LABEL[k] || k) + '：' + report.summary.entity_counts[k] + ' 处');
+        });
+        lines.push('', '## 处理明细', '', '| 类型 | 位置 | 替换为 | 预览 | 置信度 |', '|---|---|---|---|---|');
+        report.findings.slice(0, 500).forEach(function (f) {
+            lines.push('| ' + (TYPE_LABEL[f.type] || f.type) + ' | ' + f.locator + ' | ' + f.replacement.replace(/\|/g, '\\|') + ' | ' + f.preview.replace(/\|/g, '\\|') + ' | ' + f.score + ' |');
+        });
+        if (report.warnings && report.warnings.length) {
+            lines.push('', '## 注意事项', '');
+            report.warnings.forEach(function (w) { lines.push('- ' + w); });
+        }
+        lines.push('', '> 本报告由心镜本地脱敏引擎生成；原文保留于本机，删除原文将使对照关系失效。');
+        return lines.join('\n');
+    }
+
+    function retentionNote(name) {
+        return ['原文件留存说明', '', '文档「' + name + '」的原始内容仍保留在心镜本机（咨询记录/逐字稿原稿）。',
+            '本次脱敏结果为外发副本；删除或修改本机原文不会影响已导出的脱敏文件。',
+            '如需彻底移除原始信息，请在心镜内删除对应咨询记录或逐字稿（该操作同时使主体代称与原文的对照关系失效）。'].join('\n');
+    }
+
+    function download(name, content, mime) {
+        var blob = new Blob([content], { type: (mime || 'text/plain') + ';charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        toast('已下载：' + name);
+    }
+
+    document.querySelectorAll('.dl-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (!result) { toast('尚无可导出的脱敏结果'); return; }
+            var kind = link.getAttribute('data-dl');
+            var stem = (result.report.document_name || '文档').replace(/\.[^.]+$/, '');
+            if (kind === 'masked') download(stem + '.脱敏.md', result.text, 'text/markdown');
+            else if (kind === 'report-json') download(stem + '.脱敏报告.json', JSON.stringify(result.report, null, 2), 'application/json');
+            else if (kind === 'report-md') download(stem + '.脱敏报告.md', reportMarkdown(result.report), 'text/markdown');
+            else if (kind === 'retention') download(stem + '.原文件留存说明.txt', retentionNote(result.report.document_name), 'text/plain');
+        });
+    });
+
+    document.querySelectorAll('#side-nav a').forEach(function (a) {
+        a.addEventListener('click', function () {
+            document.querySelectorAll('#side-nav a').forEach(function (x) { x.classList.remove('active'); });
+            a.classList.add('active');
+        });
+    });
+
+    function renderCompleted(r) {
+        result = r;
+        var report = r.report;
+        document.getElementById('doc-name').textContent = report.document_name;
+        document.getElementById('metric-total').textContent = String(report.summary.total_findings);
+        document.getElementById('metric-source').textContent = report.source_label || '咨询记录';
+        var grid = document.getElementById('entity-grid');
+        var keys = Object.keys(report.summary.entity_counts);
+        grid.innerHTML = keys.length
+            ? keys.map(function (k) {
+                return '<div class="entity-chip"><strong>' + esc(report.summary.entity_counts[k]) + '</strong><span>' + esc(TYPE_LABEL[k] || k) + '</span></div>';
+            }).join('')
+            : '<div class="notice-block" style="grid-column:1/-1;text-align:center;color:var(--text-muted)">未命中敏感信息，仍建议人工抽样复核。</div>';
+        var body = document.getElementById('details-body');
+        body.innerHTML = report.findings.slice(0, 500).map(function (f) {
+            var cls = RISK_CLASS[f.type] || 'rb-low';
+            return '<tr><td><span class="rb-badge ' + cls + '">' + esc(TYPE_LABEL[f.type] || f.type) + '</span></td>'
+                + '<td>' + esc(f.locator) + '</td><td>' + esc(f.replacement) + '</td><td>' + esc(f.preview) + '</td><td>' + esc(f.score) + '</td></tr>';
+        }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px">暂无命中明细</td></tr>';
+        var wbox = document.getElementById('warnings-box');
+        wbox.innerHTML = (report.warnings && report.warnings.length ? report.warnings : []).map(function (w) {
+            return '<div class="notice-block">' + esc(w) + '</div>';
+        }).join('') || '<div class="notice-block">无。</div>';
+        showState('app-completed');
+    }
+
+    function run() {
+        var task = null;
+        try { task = JSON.parse(sessionStorage.getItem(TASK_KEY) || 'null'); } catch (e) { task = null; }
+        if (!task || typeof task.text !== 'string' || !task.text.trim()) {
+            document.getElementById('failed-msg').textContent = '未收到待脱敏的文档内容。请从咨询记录页重新发起「生成脱敏文档」。';
+            showState('state-failed');
+            return;
+        }
+        // 让「处理中」状态先完成绘制，再执行本地计算（文档级同步处理，无网络动作）
+        setTimeout(function () {
+            try {
+                if (typeof window.XJPIISanitizer === 'undefined' || typeof window.XJPIISanitizer.maskDocument !== 'function') {
+                    throw new Error('本地脱敏引擎未就绪');
+                }
+                var r = window.XJPIISanitizer.maskDocument(task.text, { documentName: task.name || '未命名文档' });
+                if (!r || !r.ok) throw new Error((r && r.code) === 'XJ_MASK_EMPTY_INPUT' ? '文档内容为空' : '本地脱敏处理失败');
+                r.report.source_label = task.sourceLabel || '咨询记录';
+                renderCompleted(r);
+            } catch (e) {
+                document.getElementById('failed-msg').textContent = String(e.message || e);
+                showState('state-failed');
+            }
+        }, 500);
+    }
+
+    run();
+})();
+</script>
+</body>
+</html>

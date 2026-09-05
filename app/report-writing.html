@@ -8,11 +8,11 @@
 .rpt-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .rpt-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .rpt-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
-.rpt-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.rpt-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .rpt-top .sp{flex:1}
 .rpt-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper,#fff)}
 .rpt-top button{border:1px solid var(--border);background:var(--paper,#fff);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
-.rpt-top .btn-p{background:var(--accent);color:#fff;border:none}
+.rpt-top .btn-p{background:var(--cta-bg,var(--accent));color:#fff;border:none}
 /* 步骤导航 */
 .steps{display:flex;gap:0;padding:0 24px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
 .step{display:flex;align-items:center;gap:8px;padding:12px 18px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:.2s;min-width:fit-content;font-family:var(--sans)}
@@ -26,21 +26,21 @@
 /* 单步内容区 */
 .step-content{flex:1;overflow-y:auto;padding:32px 48px}
 .step-inner{max-width:760px;margin:0 auto}
-.step-title{font-family:var(--serif);font-size:22px;color:var(--ink);margin-bottom:6px}
+.step-title{font-family:var(--sans);font-size:22px;color:var(--ink);margin-bottom:6px}
 .step-desc{font-size:13px;color:var(--ink-3);margin-bottom:24px}
 .step-inner textarea{width:100%;min-height:280px;border:1px solid var(--border);border-radius:var(--r-card,14px);padding:18px 20px;font:15px/2 var(--sans);color:var(--ink);resize:vertical;outline:none;background:var(--paper,#fff);transition:.2s}
-.step-inner textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(139,147,199,.06)}
+.step-inner textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .ai-suggest{margin-top:14px;padding:14px 18px;background:var(--accent-soft);border-radius:var(--r-card,14px);font:14px/1.85 var(--sans);border-left:3px solid var(--accent);color:var(--ink-2);display:none}
 .ai-suggest.show{display:block}
 .ai-suggest .label{font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-.ai-suggest .accept{margin-top:8px;display:inline-block;padding:5px 16px;border-radius:7px;background:var(--accent);color:#fff;font-size:12px;cursor:pointer;border:none}
+.ai-suggest .accept{margin-top:8px;display:inline-block;padding:5px 16px;border-radius:7px;background:var(--cta-bg,var(--accent));color:#fff;font-size:12px;cursor:pointer;border:none}
 /* 底部导航 */
 .step-foot{display:flex;align-items:center;gap:12px;padding:14px 48px;border-top:1px solid var(--border);flex-shrink:0}
 .step-foot .sp{flex:1}
 .step-foot .info{font-size:12px;color:var(--ink-3)}
 .step-foot button{padding:10px 24px;border-radius:9px;font:600 14px var(--sans);cursor:pointer}
 .step-foot .prev{border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}
-.step-foot .next{background:var(--accent);color:#fff;border:none}
+.step-foot .next{background:var(--cta-bg,var(--accent));color:#fff;border:none}
 .step-foot .ai-btn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:9px}
 /* 基于节次：下拉菜单（默认收起，不占视觉空间） */
 .sess-dd{position:relative}
@@ -57,9 +57,25 @@
 .sess-item input{margin:0}
 .sess-item .tag{font-size:10px;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 5px;margin-left:auto}
 .sess-empty{padding:14px 8px;font-size:12px;color:var(--ink-3);text-align:center}
+
+.rpt-ai-state{display:flex;align-items:center;gap:10px;padding:9px 24px;background:var(--bg-sunken);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-wrap:wrap;flex-shrink:0}
+.rpt-ai-state .ras-title{font-weight:600;color:var(--accent);display:inline-flex;align-items:center;gap:5px}
+.rpt-ai-state .ras-chip{border:1px solid var(--border);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;color:var(--ink-2);background:var(--paper,#fff)}
+.rpt-ai-state .ras-desc{color:var(--ink-3);min-width:0}
+.rpt-ai-state .ras-legend{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.rpt-ai-state .ras-legend span{font-size:10px;color:var(--ink-3);border:1px solid var(--border);border-radius:999px;padding:1px 7px}
+.rpt-ai-state .ras-cancel{border:1px solid var(--border);background:var(--paper,#fff);border-radius:6px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
+.rpt-ai-state[data-state="running"] .ras-chip{color:var(--warning,#a86a16);border-color:var(--warning,#a86a16)}
+.rpt-ai-state[data-state="draft"] .ras-chip{color:var(--accent);border-color:var(--accent)}
+.rpt-ai-state[data-state="cancelled"] .ras-chip{color:var(--ink-2)}
+.rpt-ai-state[data-state="unknown"] .ras-chip,.rpt-ai-state[data-state="error"] .ras-chip{color:var(--danger,#a33);border-color:var(--danger,#a33)}
+.rpt-ai-state[data-state="partial"] .ras-chip{color:var(--warning,#a86a16);border-color:var(--warning,#a86a16)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="split-editor">
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="rpt-page">
 <div class="rpt-top">
@@ -87,6 +103,15 @@
 
 <div class="steps" id="steps-nav"></div>
 
+
+<div class="rpt-ai-state" id="rpt-ai-state" role="status" aria-live="polite" data-state="idle">
+  <span class="ras-title"><i data-lucide="sparkles"></i>AI 生成状态</span>
+  <span class="ras-chip" id="ras-chip">待生成</span>
+  <span class="ras-desc" id="ras-desc">生成、取消、部分内容与未知结果分开显示；AI 输出始终为草稿，需人工确认后写入。</span>
+  <button class="ras-cancel" id="btn-cancel-report-ai" type="button" onclick="cancelReportAi()">取消生成</button>
+  <span class="ras-legend" aria-hidden="true"><span>生成中</span><span>草稿</span><span>已取消</span><span>部分内容</span><span>未知结果</span></span>
+</div>
+
 <div class="step-content"><div class="step-inner" id="step-inner">
   <div class="step-title" id="step-title">选择来访者开始撰写</div>
   <div class="step-desc" id="step-desc">从上方下拉选择来访者，系统将自动载入其咨询历史。</div>
@@ -99,16 +124,69 @@
   <span class="sp"></span>
   <span class="info" id="step-info"></span>
   <div id="btn-report-actions" style="display:none;gap:12px">
-    <button class="next" id="btn-save-report" onclick="onSaveReport()">💾 保存 Word</button>
-    <button class="ai-btn" id="btn-start-sup" onclick="onStartSupervision()" style="background:var(--accent);color:#fff;border:none">🧠 开始 AI 督导</button>
+    <button class="next" id="btn-save-report" onclick="onSaveReport()"><i data-lucide="save"></i>保存 Word</button>
+    <button class="ai-btn" id="btn-start-sup" onclick="onStartSupervision()" style="background:var(--cta-bg,var(--accent));color:#fff;border:none"><i data-lucide="brain-circuit"></i>开始 AI 督导</button>
   </div>
   <button class="next" id="btn-next" onclick="nextStep()" style="display:none">下一步 →</button>
 </div>
 
 </div>
 </main></div>
-<script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script src="vendor/mammoth.browser.min.js"></script>
 <script src="js/report-writing.js"></script>
+<script>
+(function () {
+  'use strict';
+  if (typeof window.aiFillCurrent !== 'function') return;
+  var chip = document.getElementById('ras-chip');
+  var strip = document.getElementById('rpt-ai-state');
+  var desc = document.getElementById('ras-desc');
+  var labels = { idle:'待生成', running:'生成中', draft:'草稿（待确认）', cancelled:'已取消', partial:'部分内容', unknown:'未知结果', error:'生成失败' };
+  var unknownTimer = null;
+  function setState(s, d) {
+    if (strip) strip.setAttribute('data-state', s);
+    if (chip) chip.textContent = labels[s] || s;
+    if (d && desc) desc.textContent = d;
+    if (unknownTimer) { clearTimeout(unknownTimer); unknownTimer = null; }
+    if (s === 'running') {
+      unknownTimer = setTimeout(function () {
+        if (strip && strip.getAttribute('data-state') === 'running') setState('unknown', '未在预期时间内返回结果，可取消或重试；未确认内容不会写入报告。');
+      }, 60000);
+    }
+  }
+  // 业务脚本在真实回调分支中调用，确保失败、取消和晚到结果不会停留在旧状态。
+  window.reportAiSetState = setState;
+  window.reportAiDismissed = false;
+  var origAi = window.aiFillCurrent;
+  window.aiFillCurrent = function () {
+    if (typeof App !== 'undefined' && App.featureGate && !App.featureGate('ai-report')) return origAi.apply(this, arguments);
+    var cs = document.getElementById('rpt-client');
+    if (!cs || !cs.value) return origAi.apply(this, arguments);
+    window.reportAiDismissed = false;
+    setState('running', '正在生成草稿；完成前不会写入正式报告。');
+    return origAi.apply(this, arguments);
+  };
+  window.cancelReportAi = function () {
+    window.reportAiDismissed = true;
+    if (typeof window.abortReportAi === 'function') window.abortReportAi();
+    setState('cancelled', '已取消本次生成：未确认的草稿不会写入报告。');
+  };
+  function observeSuggestion() {
+    var content = document.getElementById('ai-suggest-content');
+    var suggest = document.getElementById('ai-suggest');
+    if (!content) return;
+    var mo = new MutationObserver(function () {
+      if (window.reportAiDismissed) return;
+      if (!strip || !['running', 'unknown'].includes(strip.getAttribute('data-state'))) return;
+      var t = (content.textContent || '').trim();
+      if (t) setState(t.length < 12 ? 'partial' : 'draft', t.length < 12 ? 'AI 仅返回部分内容，请人工补充后保存。' : '草稿已生成，需人工确认后采用。');
+    });
+    mo.observe(content, { childList:true, subtree:true, characterData:true });
+    if (suggest) mo.observe(suggest, { attributes:true, attributeFilter:['class'] });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observeSuggestion); else observeSuggestion();
+})();
+</script>
 </body>
 </html>

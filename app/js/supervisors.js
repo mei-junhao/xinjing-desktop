@@ -90,6 +90,45 @@ const Supervisors = (() => {
     BUILTINS[item.id] = Object.assign({}, meta, { prompt: item.isWinnicott ? (item.id === 'cangjie' ? CANGJIE_PROMPT : NVWA_PROMPT) : PERSPECTIVE_PROMPTS[item.methodKey] });
   });
 
+  function activeStyleConstraints() {
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.getWritingStyleBlock) {
+      return PromptGovernance.getWritingStyleBlock(STYLE_CONSTRAINTS);
+    }
+    return STYLE_CONSTRAINTS;
+  }
+
+  function registerBuiltinPromptDefinitions() {
+    if (typeof PromptGovernance === 'undefined' || !PromptGovernance.registerPrompt) return;
+    SUPERVISOR_REGISTRY.forEach(function (definition) {
+      const base = definition.isWinnicott
+        ? (definition.id === 'cangjie' ? CANGJIE_PROMPT : NVWA_PROMPT)
+        : PERSPECTIVE_PROMPTS[definition.methodKey];
+      if (!base) return;
+      PromptGovernance.registerPrompt({
+        id: 'supervision.system.' + definition.id,
+        version: '4.4.0',
+        task: 'ai-supervision',
+        model: 'chat-completions-compatible',
+        author: 'XinJing built-in supervisor library',
+        source: 'app/js/supervisors.js',
+        changeLog: ['4.4.0: registered the built-in supervisor template and separated optional presentation style.'],
+        content: base + '\n\n' + SUPERVISION_BOUNDARY,
+      });
+    });
+    if (STYLE_CONSTRAINTS) {
+      PromptGovernance.registerPrompt({
+        id: 'presentation.writing-style.zh-cn',
+        version: '4.4.0',
+        task: 'presentation-style',
+        model: 'all-supported-models',
+        author: 'XinJing product writing policy',
+        source: 'app/js/prompts.builtin.js',
+        changeLog: ['4.4.0: registered the optional writing-style layer separately from safety and source boundaries.'],
+        content: STYLE_CONSTRAINTS,
+      });
+    }
+  }
+
   function buildSystemPrompt(mode) {
     const definition = getDefinition(mode);
     if (!definition) {
@@ -101,7 +140,22 @@ const Supervisors = (() => {
       : PERSPECTIVE_PROMPTS[definition.methodKey];
     if (!base) return '';
     const ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
-    return base + '\n\n' + STYLE_CONSTRAINTS + '\n\n' + SUPERVISION_BOUNDARY
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.buildPrompt) {
+      return PromptGovernance.buildPrompt({
+        id: 'supervision.system.' + definition.id,
+        version: '4.4.0',
+        task: 'ai-supervision',
+        model: 'chat-completions-compatible',
+        author: 'XinJing built-in supervisor library',
+        source: 'app/js/supervisors.js',
+        changeLog: ['4.4.0: registered the built-in supervisor template and separated optional presentation style.'],
+        template: base + '\n\n' + SUPERVISION_BOUNDARY,
+        userContext: ud ? '[我的资料库]\n' + ud : '',
+        style: STYLE_CONSTRAINTS,
+      });
+    }
+    const style = activeStyleConstraints();
+    return base + (style ? '\n\n' + style : '') + '\n\n' + SUPERVISION_BOUNDARY
       + (ud ? '\n\n[我的资料库]\n' + ud : '');
   }
 
@@ -138,6 +192,8 @@ const Supervisors = (() => {
     if (typeof Store === 'undefined' || !Store.getSupervisorIdentity) return null;
     return Store.getSupervisorIdentity(id) || null;
   }
+
+  registerBuiltinPromptDefinitions();
 
   return {
     CANGJIE_PROMPT, NVWA_PROMPT, STYLE_CONSTRAINTS, WINNICOTT_PERSONA_GUARD,

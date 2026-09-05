@@ -9,18 +9,19 @@
 .tp-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .tp-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .tp-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
-.tp-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.tp-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .tp-top .sp{flex:1}
 .tp-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper,#fff)}
 .tp-body{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0;overflow:hidden}
 .tp-col{display:flex;flex-direction:column;overflow:hidden}
 .tp-col-left{border-right:1px solid var(--border)}
 .tp-col-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--paper-2,#fff)}
-.tp-col-head .tch{font-family:var(--serif);font-size:14px;font-weight:600}
+.tp-col-head .tch{font-family:var(--sans);font-size:14px;font-weight:600}
 .tp-col-head .tch-badge{font-size:10px;padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
 .tp-col-head .sp{flex:1}
 .tp-col-head .tch-btn{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
 .tp-col-body{flex:1;overflow-y:auto;padding:16px}
+.tp-drop-zone{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;margin-bottom:12px;padding:8px 12px;border:1px dashed var(--border);border-radius:6px;color:var(--ink-2);font-size:12px;cursor:pointer;transition:border-color .16s,background .16s}.tp-page.is-file-dragging .tp-drop-zone,.tp-drop-zone:focus{border-color:var(--accent);background:var(--accent-soft);outline:none}.tp-drop-zone i{width:16px;height:16px;color:var(--accent)}
 .tp-line{display:flex;gap:8px;padding:3px 0;font-size:13px;line-height:1.8;border-radius:4px;transition:background .15s;cursor:pointer}
 .tp-line:hover{background:var(--bg)}
 .tp-line .ln{color:var(--ink-3);font-size:11px;min-width:28px;text-align:right;font-family:var(--mono);padding-top:2px;user-select:none}
@@ -29,19 +30,22 @@
 .tp-line .text .err{background:rgba(217,140,140,.2);border-bottom:2px wavy var(--danger);padding:1px 0;cursor:pointer;border-radius:2px}
 .tp-line .text .err:hover{background:rgba(217,140,140,.35)}
 .tp-line .text .err.fixed{background:rgba(111,174,143,.2);border-bottom:2px solid var(--success);text-decoration:line-through 1px var(--ink-3)}
-.tp-line .text .err.fixed::after{content:" ✓";font-size:10px;color:var(--success)}
+.tp-line .text .err.fixed::after{content:" 已修";font-size:10px;color:var(--success)}
 .tp-line .action{opacity:0;transition:opacity .15s;display:flex;gap:3px}
 .tp-line:hover .action{opacity:1}
 .tp-line .action button{border:none;background:var(--bg);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;color:var(--ink-2);font-family:var(--sans)}
 .tp-line .action button:hover{background:var(--accent-soft);color:var(--accent)}
 .tp-stats{display:flex;gap:16px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--ink-3);background:var(--paper-2,#fff)}
-.tp-stats .stat b{font-family:var(--serif);color:var(--ink)}
+.tp-stats .stat b{font-family:var(--sans);color:var(--ink)}
+.tp-stat-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+.tp-stat-dot.warn{background:var(--warning,#a86a16)}
+.tp-stat-dot.ok{background:var(--success,#2f7a59)}
 .tp-stats .stat.err-count b{color:var(--danger)}
 .tp-stats .stat.fixed-count b{color:var(--success)}
 .input-bar{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;background:var(--paper-2,#fff)}
 .input-bar textarea{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font:13px/1.7 var(--sans);outline:none;resize:none;height:52px;background:var(--bg)}
 .input-bar textarea:focus{border-color:var(--accent)}
-.input-bar button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 20px;font:600 13px var(--sans);cursor:pointer;white-space:nowrap}
+.input-bar button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;padding:10px 20px;font:600 13px var(--sans);cursor:pointer;white-space:nowrap}
 .input-bar button:hover{opacity:.9}
 .mem-bar{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--ink-3);background:var(--bg-sunken);flex-wrap:wrap}
 .mem-bar .mem-tag{background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:999px;font-size:10px}
@@ -50,20 +54,43 @@
 /* 会员锁 */
 .member-lock{position:relative;display:inline-block}
 .member-lock .lock-badge{font-size:9px;color:var(--ink-3);background:var(--bg);padding:1px 6px;border-radius:999px;margin-left:4px}
+
+.tp-source-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--bg-sunken);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-wrap:wrap;flex-shrink:0}
+.tp-source-bar .sbs-title{font-weight:600;color:var(--accent);display:inline-flex;align-items:center;gap:5px}
+.tp-source-bar .sbs-chip{border:1px solid var(--border);border-radius:999px;padding:2px 8px;font-size:11px;background:var(--paper,#fff)}
+.tp-source-bar .sbs-status{border:1px solid var(--border);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;color:var(--ink-2)}
+.tp-source-bar .sbs-note{color:var(--ink-3);margin-left:auto}
+.tp-source-bar.state-verified .sbs-status{color:var(--success,#2f7a59);border-color:var(--success,#2f7a59)}
+.tp-source-bar.state-blocked .sbs-status{color:var(--danger,#a33);border-color:var(--danger,#a33)}
+.tp-source-bar.state-expired .sbs-status{color:var(--warning,#a86a16);border-color:var(--warning,#a86a16)}
+.tp-source-bar.state-blocked{background:rgba(217,140,140,.12)}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="split-editor">
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="tp-page">
 <div class="tp-top">
   <button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回</button>
-  <h2>逐字稿整理</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="transcript-guide.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> 对话引导 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
+  <h2>逐字稿整理</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="transcript-guide.html" id="tg-guide-link" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><i data-lucide="sparkles"></i>对话引导 <span id="tg-guide-lock"></span></a>
   <span class="sp"></span>
       <select id="tp-client" onchange="loadClient()"><option value="">选择来访者…</option></select>
       <select id="tp-session" onchange="loadSession()"><option value="">选择会谈…</option></select>
       <button class="tch-btn" onclick="triggerTranscriptFile()"><i data-lucide="upload"></i>上传文件</button>
   <button class="tch-btn" onclick="goToNotes()"><i data-lucide="notebook-pen"></i>去咨询记录</button>
   <input type="file" id="tp-file" accept=".txt,.md,.markdown,.docx" style="display:none" onchange="onTranscriptFile(event)">
+</div>
+
+
+<div class="tp-source-bar" id="tp-source-bar" aria-live="polite">
+  <span class="sbs-title"><i data-lucide="link"></i>来源</span>
+  <span class="sbs-chip" id="src-client">来访者：未选择</span>
+  <span class="sbs-chip" id="src-session">会谈：未选择</span>
+  <span class="sbs-chip" id="src-material">材料：未载入</span>
+  <span class="sbs-status" id="src-status" data-state="idle">待核对</span>
+  <span class="sbs-note" id="src-note">来源、原文、编辑稿三层分离；跨个案材料将阻断处理。</span>
 </div>
 
 <div class="tp-body">
@@ -76,8 +103,9 @@
       <button class="tch-btn" onclick="detectErrors()"><i data-lucide="scan-search"></i>检测错误</button>
     </div>
     <div class="tp-col-body" id="original-text">
+      <div class="tp-drop-zone" id="tp-drop-zone" role="button" tabindex="0" aria-label="拖入逐字稿文件，或按回车选择文件"><i data-lucide="file-up"></i><span>拖入逐字稿文件</span></div>
       <div style="padding:32px;text-align:center;color:var(--ink-3);font-size:13px;line-height:2">
-        <div style="font-size:36px;margin-bottom:12px">📝</div>
+        <i data-lucide="clipboard-pen-line" aria-hidden="true" style="display:inline-block;width:36px;height:36px;margin-bottom:12px;color:var(--accent);opacity:.55"></i><br>
         点击「上传文件」导入逐字稿<br>
         或选择来访者后载入已有记录
       </div>
@@ -94,15 +122,15 @@
     </div>
     <div class="tp-col-body" id="fixed-text">
       <div style="padding:32px;text-align:center;color:var(--ink-3);font-size:13px;line-height:2">
-        <div style="font-size:36px;margin-bottom:12px">✏️</div>
+        <i data-lucide="pen-line" aria-hidden="true" style="display:inline-block;width:36px;height:36px;margin-bottom:12px;color:var(--accent);opacity:.55"></i><br>
         左侧检测到错误后，此处会显示修正建议<br>
         点击错误标记可修改
       </div>
     </div>
     <div class="tp-stats" id="tp-stats">
       <span class="stat">总行数 <b id="stat-lines">0</b></span>
-      <span class="stat err-count">🟡 待修正 <b id="stat-errors">0</b></span>
-      <span class="stat fixed-count">✅ 已修正 <b id="stat-fixed">0</b></span>
+      <span class="stat err-count"><span class="tp-stat-dot warn" aria-hidden="true"></span>待修正 <b id="stat-errors">0</b></span>
+      <span class="stat fixed-count"><span class="tp-stat-dot ok" aria-hidden="true"></span>已修正 <b id="stat-fixed">0</b></span>
     </div>
   </div>
 </div>
@@ -112,7 +140,7 @@
   <button onclick="processInput()">导入</button>
 </div>
 <div class="mem-bar" id="mem-bar">
-  <span>🧠 记忆库</span>
+  <span><i data-lucide="brain-circuit"></i>记忆库</span>
   <span class="mem-tag" id="mem-count">0 条规则</span>
   <span class="sp"></span>
   <button class="mem-btn" onclick="showMemRules()">查看</button>
@@ -121,9 +149,50 @@
 </div>
 </main></div>
 
-<script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script src="vendor/mammoth.browser.min.js"></script>
 <script src="js/transcript.js"></script>
+<script>
+(function () {
+  'use strict';
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  var labels={idle:'待核对',verified:'已核验',blocked:'已阻断',expired:'已过期'};
+  function setState(state, note){
+    var el=document.getElementById('src-status');
+    var bar=document.getElementById('tp-source-bar');
+    var input=document.getElementById('tp-input');
+    if(el){el.textContent=labels[state]||state;el.setAttribute('data-state',state);}
+    if(bar) bar.className='tp-source-bar state-'+state;
+    if(note){var n=document.getElementById('src-note'); if(n) n.textContent=note;}
+    if(input){ if(state==='blocked'){input.dataset.srcBlocked='1'; input.disabled=true;} else {delete input.dataset.srcBlocked; input.disabled=false;} }
+  }
+  function clientName(id){ try{ if(typeof Store!=='undefined' && Store.getClient){ var c=Store.getClient(id); return c&&c.name?c.name:id; } }catch(e){} return id; }
+  function refreshSource(){
+    var cs=document.getElementById('tp-client'); var ss=document.getElementById('tp-session');
+    var clientId=cs?cs.value:''; var sessionId=ss?ss.value:'';
+    var c=document.getElementById('src-client'); var s=document.getElementById('src-session'); var m=document.getElementById('src-material');
+    if(c) c.textContent='来访者：'+(clientId?clientName(clientId):'未选择');
+    if(s) s.textContent='会谈：'+(sessionId||'未选择');
+    var params=new URLSearchParams(location.search);
+    var materialId=params.get('materialId');
+    if(materialId && typeof Store!=='undefined' && typeof Store.getMaterialWorkspace==='function'){
+      var mat=Store.getMaterialWorkspace(materialId);
+      if(!mat){ if(m) m.textContent='材料：不可用'; setState('blocked','材料不可用，已阻断编辑与 AI 处理。'); return; }
+      if(m) m.textContent='材料：'+esc(mat.title||materialId);
+      if(clientId && mat.clientId && mat.clientId!==clientId){ setState('blocked','跨个案材料已阻断：当前来访者与材料归属不一致。'); return; }
+      if(mat.parseStatus==='quarantined'){ setState('blocked','材料已隔离：不能进入编辑或 AI 上下文。'); return; }
+      if(mat.parseStatus==='expired'){ setState('expired','来源已过期：请重新核验后再处理。'); return; }
+      if(m) m.textContent='材料：'+esc(mat.title||materialId)+'（已核验）';
+      setState('verified','来源已核对，可继续整理。');
+      return;
+    }
+    if(m) m.textContent='材料：未载入';
+    setState(clientId?'verified':'idle', clientId?'来源已核对，可继续整理。':'来源、原文、编辑稿三层分离；跨个案材料将阻断处理。');
+  }
+  document.addEventListener('change',function(e){ if(e.target && (e.target.id==='tp-client'||e.target.id==='tp-session')) refreshSource(); });
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', refreshSource); else refreshSource();
+})();
+</script>
 
 <script>
 (function(){

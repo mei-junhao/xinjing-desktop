@@ -8,12 +8,12 @@
 .rs-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .rs-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 .rs-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
-.rs-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.rs-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .rs-top .sp{flex:1}
 .rs-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper,#fff)}
 .rs-body{flex:1;display:grid;grid-template-columns:280px 1fr;min-height:0;overflow:hidden}
 .rs-left{background:var(--paper-2,#fff);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.rs-left .rl-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.rs-left .rl-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--sans);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
 .rs-left .rl-list{flex:1;overflow-y:auto;padding:8px}
 .rs-left .rl-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;line-height:1.5;margin-bottom:4px;transition:all .15s}
 .rs-left .rl-item:hover{background:var(--bg)}
@@ -36,24 +36,47 @@
 .rs-form textarea{min-height:100px;resize:vertical;font-family:var(--sans);line-height:1.7}
 .rs-form .btn-row{display:flex;gap:8px}
 .rs-form .btn-row button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer;color:var(--ink-2)}
-.rs-form .btn-row button.pri{background:var(--accent);color:#fff;border:none}
+.rs-form .btn-row button.pri{background:var(--cta-bg,var(--accent));color:#fff;border:none}
 .rs-form .btn-row button:hover{opacity:.9}
 .rs-form .submit-row{display:flex;gap:10px;padding-top:8px}
 .rs-form .submit-row button{flex:1;padding:10px;border-radius:10px;font:600 14px var(--sans);cursor:pointer}
-.rs-form .submit-row .btn-save{background:var(--accent);color:#fff;border:none}
+.rs-form .submit-row .btn-save{background:var(--cta-bg,var(--accent));color:#fff;border:none}
 .rs-form .submit-row .btn-save.ai{background:var(--success);color:#fff;border:none}
 .rs-form .submit-row .btn-cancel{background:var(--paper-2,#fff);border:1px solid var(--border);color:var(--ink-2)}
 /* 会员锁 */
 .member-lock{position:relative;display:inline-block}
 .member-lock .lock-badge{font-size:9px;color:var(--ink-3);background:var(--bg);padding:1px 6px;border-radius:999px;margin-left:4px;vertical-align:middle}
+
+.rs-preflight{background:var(--paper-2,#fff);border-bottom:1px solid var(--border);padding:12px 16px;flex-shrink:0}
+.rs-preflight .pf-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink);margin-bottom:8px}
+.rs-preflight .pf-head i{width:14px;height:14px;color:var(--accent)}
+.rs-preflight .pf-list{display:grid;gap:6px}
+.rs-preflight .pf-item{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink-2)}
+.rs-preflight .pf-dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex-shrink:0}
+.rs-preflight .pf-item[data-state="ok"] .pf-dot{background:var(--success,#2f7a59)}
+.rs-preflight .pf-item[data-state="warn"] .pf-dot{background:var(--warning,#a86a16)}
+.rs-preflight .pf-item[data-state="blocked"] .pf-dot{background:var(--danger,#a33)}
+.rs-preflight .pf-label{min-width:64px;color:var(--ink-2)}
+.rs-preflight .pf-value{flex:1;min-width:0;overflow-wrap:anywhere}
+.rs-preflight .pf-item[data-state="blocked"] .pf-value{color:var(--danger)}
+.rs-preflight .pf-item[data-state="warn"] .pf-value{color:var(--warning)}
+.rs-preflight .pf-actions{display:flex;gap:8px;margin-top:10px}
+.rs-preflight .pf-actions button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:6px;padding:5px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
+.rs-preflight .pf-actions button:disabled{opacity:.5;cursor:not-allowed}
+.rs-upload-state{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg-sunken,#f7f8f7);font-size:11px;color:var(--ink-2);min-height:30px}
+.rs-upload-label{min-width:112px;overflow-wrap:anywhere}.rs-upload-percent{font-variant-numeric:tabular-nums;color:var(--ink-3);min-width:34px;text-align:right}.rs-upload-progress{height:6px;flex:1;min-width:80px;border-radius:4px;background:var(--hair);overflow:hidden}.rs-upload-progress span{display:block;height:100%;width:0;background:var(--accent);transition:width .16s ease}.rs-upload-state[data-state="success"]{border-color:var(--success,#2f7a59);color:var(--success,#2f7a59)}.rs-upload-state[data-state="failure"]{border-color:var(--danger,#a33);color:var(--danger,#a33)}.rs-upload-state[data-state="cancel"]{border-color:var(--warning,#a86a16);color:var(--warning,#a86a16)}.rs-upload-state[data-state="uploading"]{border-color:var(--accent)}.rs-upload-actions{display:flex;gap:8px;margin-top:6px}.rs-upload-actions button[hidden]{display:none}.rs-upload-actions .btn-cancel{flex:0 0 auto;padding:6px 10px;font-size:12px}
+@media (prefers-reduced-motion:reduce){.rs-upload-progress span{transition:none}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 </style>
+  <link rel="stylesheet" href="css/workbench.css">
+  <link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
+<body data-xj-pattern="form-workspace">
 <div class="layout"><div id="sidebar-mount"></div><main class="main">
 <div class="rs-page">
 <div class="rs-top">
   <button class="back" onclick="location.href='index.html'"><i data-lucide="arrow-left"></i>返回</button>
-  <h2>真人督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="real-supervision-ai.html" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><span style="font-size:13px">🤖</span> AI 分析 <span style="font-size:9px;opacity:.6">&#128274;</span></a>
+  <h2>真人督导</h2><span id="member-badge-slot"></span> <span class="sp"></span><a href="real-supervision-ai.html" id="rs-ai-link" data-feature="ai-analyze" style="margin-left:auto;border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px" class="xj-premium-btn"><i data-lucide="sparkles"></i>AI 分析 <span id="rs-ai-link-lock"></span></a>
   <span class="sp"></span>
   <select id="rs-client" onchange="loadClientRecords()"><option value="">选择来访者…</option></select>
   <button class="back" style="border:1px solid var(--border);padding:5px 12px;border-radius:8px" onclick="startNewRecord()"><i data-lucide="plus"></i>新记录</button>
@@ -70,10 +93,23 @@
 
   <!-- 右栏：编辑区 -->
   <div class="rs-right">
-    <div class="rr-tabs">
-      <div class="rr-tab active" data-tab="record" onclick="switchRSTab('record')"><i data-lucide="notebook-pen"></i>记录</div>
-      <div class="rr-tab" data-tab="transcript" onclick="switchRSTab('transcript')"><i data-lucide="file-text"></i>逐字稿</div>
-      <div class="rr-tab" data-tab="report" onclick="switchRSTab('report')"><i data-lucide="clipboard-list"></i>案例报告</div>
+
+    <div class="rs-preflight" id="rs-preflight" aria-live="polite">
+      <div class="pf-head"><i data-lucide="clipboard-check"></i>会前检查 · 材料校验 / 导出 / 来源状态</div>
+      <div class="pf-list">
+        <div class="pf-item" id="pf-material" data-state="idle"><span class="pf-dot"></span><span class="pf-label">材料校验</span><span class="pf-value">待检查</span></div>
+        <div class="pf-item" id="pf-export" data-state="idle"><span class="pf-dot"></span><span class="pf-label">导出准备</span><span class="pf-value">待检查</span></div>
+        <div class="pf-item" id="pf-sources" data-state="idle"><span class="pf-dot"></span><span class="pf-label">来源状态</span><span class="pf-value">无过期/隔离</span></div>
+      </div>
+      <div class="pf-actions">
+        <button type="button" onclick="runPreflight()">运行检查</button>
+        <button type="button" id="btn-export-report" onclick="exportPreflight()" disabled>导出案例报告</button>
+      </div>
+    </div>
+    <div class="rr-tabs" role="tablist" aria-label="真人督导工作区">
+      <div class="rr-tab active" role="tab" tabindex="0" aria-selected="true" data-tab="record" onclick="switchRSTab('record')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();switchRSTab(\'record\')}"><i data-lucide="notebook-pen"></i>记录</div>
+      <div class="rr-tab" role="tab" tabindex="0" aria-selected="false" data-tab="transcript" onclick="switchRSTab('transcript')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();switchRSTab(\'transcript\')}"><i data-lucide="file-text"></i>逐字稿</div>
+      <div class="rr-tab" role="tab" tabindex="0" aria-selected="false" data-tab="report" onclick="switchRSTab('report')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();switchRSTab(\'report\')}"><i data-lucide="clipboard-list"></i>案例报告</div>
     </div>
     <div class="rr-content" id="rs-content">
       <!-- 记录 Tab -->
@@ -87,22 +123,26 @@
         <div><label>技术建议</label><textarea id="rs-techniques" placeholder="督导师给出的具体技术建议……"></textarea></div>
         <div><label>反思与行动</label><textarea id="rs-reflection" placeholder="自己的反思、后续行动计划……"></textarea></div>
         <div class="submit-row">
-          <button class="btn-save" onclick="saveRecord()">💾 保存记录</button>
+          <button class="btn-save" onclick="saveRecord()"><i data-lucide="save"></i>保存记录</button>
           <button class="btn-cancel" onclick="clearForm()">清空</button>
         </div>
       </div>
       <!-- 逐字稿 Tab -->
       <div class="rs-form" id="rs-transcript-tab" style="display:none">
         <div><label>上传逐字稿文件</label>
-          <input type="file" accept=".txt,.doc,.docx" onchange="uploadTranscriptFile(event)">
-          <div style="font-size:11px;color:var(--ink-3);margin-top:4px">支持 .txt 和 .docx 格式</div>
+          <input id="rs-transcript-file" type="file" accept=".txt,.doc,.docx" onchange="uploadTranscriptFile(event)">
+          <div style="font-size:11px;color:var(--ink-3);margin-top:4px">支持 .txt 和 .docx 格式；文件只在本机解析，不会自动上传。</div>
+          <div class="rs-upload-state" id="rs-upload-state" data-state="idle" role="status" aria-live="polite" aria-busy="false">
+            <span class="rs-upload-label">未选择材料</span><span class="rs-upload-progress" aria-hidden="true"><span></span></span><span class="rs-upload-percent">0%</span>
+          </div>
+          <div class="rs-upload-actions"><button id="rs-upload-cancel" type="button" class="btn-cancel" hidden>取消上传</button><button id="rs-upload-retry" type="button" class="btn-cancel" hidden>重试</button></div>
         </div>
         <div><label>或手动粘贴</label>
           <textarea id="rs-transcript-text" placeholder="粘贴逐字稿内容……" style="min-height:200px"></textarea>
         </div>
         <div class="submit-row">
-          <button class="btn-save" onclick="saveTranscriptOnly()">💾 保存逐字稿</button>
-          <button class="btn-save ai" onclick="aiAnalyzeTranscript()">🤖 AI 分析 <span class="member-lock"><span class="lock-badge">会员</span></span></button>
+          <button class="btn-save" onclick="saveTranscriptOnly()"><i data-lucide="save"></i>保存逐字稿</button>
+          <button class="btn-save ai" type="button" onclick="aiAnalyzeTranscript()"><i data-lucide="sparkles"></i>AI 分析 <span class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>会员</span></button>
         </div>
       </div>
       <!-- 案例报告 Tab -->
@@ -112,8 +152,8 @@
           <textarea id="rs-report-body" style="min-height:300px" placeholder="在此撰写案例报告……支持 Markdown 格式"></textarea>
         </div>
         <div class="submit-row">
-          <button class="btn-save" onclick="saveReport()">💾 保存报告</button>
-          <button class="btn-cancel" onclick="exportReport()">📤 导出</button>
+          <button class="btn-save" onclick="saveReport()"><i data-lucide="save"></i>保存报告</button>
+          <button class="btn-cancel" onclick="exportReport()"><i data-lucide="arrow-up-from-line"></i>导出</button>
         </div>
       </div>
     </div>
@@ -122,8 +162,49 @@
 </div>
 </main></div>
 
-<script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script src="js/real-supervision.js"></script>
+<script>
+(function () {
+  'use strict';
+  function setItem(id, state, value) {
+    var el = document.getElementById(id);
+    if (el) { el.setAttribute('data-state', state); var v = el.querySelector('.pf-value'); if (v) v.textContent = value; }
+  }
+  window.runPreflight = function () {
+    var params = new URLSearchParams(location.search);
+    var materialId = params.get('materialId');
+    var clientSel = document.getElementById('rs-client');
+    var clientId = clientSel ? clientSel.value : '';
+    var reportBody = document.getElementById('rs-report-body');
+    if (materialId && typeof Store !== 'undefined' && typeof Store.getMaterialWorkspace === 'function') {
+      var mat = Store.getMaterialWorkspace(materialId);
+      if (!mat) { setItem('pf-material', 'blocked', '材料不可用，已阻断'); }
+      else if (mat.quarantined || mat.parseStatus === 'failed') { setItem('pf-material', 'blocked', '材料已隔离/解析失败'); }
+      else if (mat.expired) { setItem('pf-material', 'warn', '来源已过期'); }
+      else if (clientId && mat.clientId && mat.clientId !== clientId) { setItem('pf-material', 'blocked', '跨个案材料，已阻断'); }
+      else { setItem('pf-material', 'ok', mat.parseStatus === 'ready' ? '已通过校验' : '正在解析/待校验'); }
+    } else {
+      setItem('pf-material', 'warn', '未关联材料，按手工记录继续');
+    }
+    var ready = reportBody && reportBody.value.trim().length > 0;
+    setItem('pf-export', ready ? 'ok' : 'idle', ready ? '案例报告已填写，可导出' : '请先填写案例报告');
+    var btn = document.getElementById('btn-export-report'); if (btn) btn.disabled = !ready;
+    var blocked = 0;
+    try {
+      if (typeof Store !== 'undefined' && typeof Store.getMaterialWorkspaces === 'function') {
+        Store.getMaterialWorkspaces().forEach(function (m) { if (m.quarantined || m.parseStatus === 'failed' || m.expired) blocked++; });
+      }
+    } catch (e) {}
+    setItem('pf-sources', blocked > 0 ? 'warn' : 'ok', blocked > 0 ? ('发现 ' + blocked + ' 项过期/隔离来源') : '无过期/隔离来源');
+  };
+  window.exportPreflight = function () {
+    if (typeof window.exportReport === 'function') { window.exportReport(); }
+    else if (typeof App !== 'undefined' && App.showToast) { App.showToast('无内容可导出', 'warning'); }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', runPreflight); else runPreflight();
+})();
+</script>
 
 <script>
 (function(){

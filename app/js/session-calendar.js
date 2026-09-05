@@ -185,7 +185,7 @@
     else if (state.view === 'week') {
       var ws = weekStart(state.cursor);
       var we = addDays(ws, 6);
-      el.textContent = ws.getMonth() + 1 + '.' + ws.getDate() + ' - ' + we.getMonth() + 1 + '.' + we.getDate();
+      el.textContent = (ws.getMonth() + 1) + '.' + ws.getDate() + ' - ' + (we.getMonth() + 1) + '.' + we.getDate(); // 511-001#1: 显式括号防运算符优先级（M.D - M.D）
     } else el.textContent = state.cursor.getFullYear() + '年' + (state.cursor.getMonth() + 1) + '月' + state.cursor.getDate() + '日';
   }
   function updateViewSwitch() {
@@ -275,10 +275,11 @@
         c.sessions.forEach(function (s) {
           if (shown >= 3) return;
           var col = colorFor(s);
+          var statusText = typeOf(s) === 'crisis' ? ('危机 · ' + STATUS_CFG[statusOf(s)].label) : STATUS_CFG[statusOf(s)].label;
           events += '<div class="day-event" style="background:' + col.bg + ';color:' + col.fg + '"' +
             (typeOf(s) === 'crisis' ? ';font-weight:700' : '') +
             ' onclick="event.stopPropagation();SessionCal.openDetail(\'' + esc(s.id) + '\')">' +
-            (s.startTime ? esc(s.startTime.slice(0, 5)) + ' ' : '') + esc(clientName(s.clientId)) + '</div>';
+            (s.startTime ? esc(s.startTime.slice(0, 5)) + ' ' : '') + esc(clientName(s.clientId)) + ' <span class="day-event-status">· ' + esc(statusText) + '</span></div>';
           shown++;
         });
         if (c.sessions.length > 3) events += '<div class="day-more">+' + (c.sessions.length - 3) + ' 更多</div>';
@@ -379,13 +380,13 @@
     render();
   }
   function prev() {
-    if (state.view === 'month') state.cursor.setMonth(state.cursor.getMonth() - 1);
+    if (state.view === 'month') state.cursor = addMonths(state.cursor, -1);
     else if (state.view === 'week') state.cursor = addDays(state.cursor, -7);
     else state.cursor = addDays(state.cursor, -1);
     render();
   }
   function next() {
-    if (state.view === 'month') state.cursor.setMonth(state.cursor.getMonth() + 1);
+    if (state.view === 'month') state.cursor = addMonths(state.cursor, 1);
     else if (state.view === 'week') state.cursor = addDays(state.cursor, 7);
     else state.cursor = addDays(state.cursor, 1);
     render();
@@ -415,7 +416,7 @@
     var overlay = document.createElement('div');
     overlay.className = 'sc-modal-overlay';
     overlay.innerHTML = '<div class="sc-modal" style="position:relative">' +
-      '<button class="sm-close" onclick="this.closest(\'.sc-modal-overlay\').remove()">×</button>' +
+      '<button class="sm-close sc-detail-close" type="button" aria-label="关闭会谈详情">×</button>' +
       '<h3>' + esc(clientName(s.clientId)) + ' · 第' + esc(s.sessionNumber || '?') + '节</h3>' +
       '<div class="sm-sub">' + esc(TYPE_CFG[tp].label) + '会谈' +
       '<span class="sm-badge" style="background:' + col.bg + ';color:' + col.fg + '">' + esc(STATUS_CFG[st].label) + '</span></div>' +
@@ -435,11 +436,23 @@
       '</div>' +
       '</div>';
     document.body.appendChild(overlay);
-    // 触发动画
-    requestAnimationFrame(function () { overlay.classList.add('show'); });
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) { overlay.classList.remove('show'); setTimeout(function () { overlay.remove(); }, 200); }
-    });
+    function closeDetail() {
+      if (typeof App !== 'undefined' && typeof App.closeModalElement === 'function') {
+        App.closeModalElement(overlay);
+      } else {
+        overlay.classList.remove('show');
+        overlay.remove();
+      }
+    }
+    var detailClose = overlay.querySelector('.sc-detail-close');
+    if (detailClose) detailClose.addEventListener('click', closeDetail);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeDetail(); });
+    if (typeof App !== 'undefined' && typeof App.openModalElement === 'function') {
+      App.openModalElement(overlay, { removeOnClose: true, initialFocus: '.sc-detail-close' });
+    } else {
+      overlay.classList.add('show');
+      if (detailClose) detailClose.focus();
+    }
   }
 
   // 跳转到 consult-notes 编辑（带参数预选）
@@ -453,13 +466,14 @@
   }
 
   // 设置状态
-  function setStatus(sessionId, newStatus) {
+  async function setStatus(sessionId, newStatus) {
     var s = Store.getSession(sessionId);
     if (!s) return;
-    s.status = newStatus;
-    if (newStatus === 'confirmed') s.isConfirmed = true;
-    if (newStatus === 'cancelled' || newStatus === 'no_show') s.isConfirmed = false;
-    Store.saveSession(s);
+    var next = Object.assign({}, s, { status: newStatus });
+    if (newStatus === 'confirmed') next.isConfirmed = true;
+    if (newStatus === 'cancelled' || newStatus === 'no_show') next.isConfirmed = false;
+    var saved = await Store.updateSessionFull(next);
+    if (!saved || !saved.ok) { toast('状态保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
     toast('已标记为「' + STATUS_CFG[newStatus].label + '」', 'success');
     // 关闭并重开详情
     var ov = document.querySelector('.sc-modal-overlay');
@@ -468,63 +482,101 @@
   }
 
   // 删除会话——重复系列提供三选项（本次 / 本次及之后 / 全部系列），单节直接删
-  function removeSession(sessionId) {
+  async function removeSession(sessionId) {
     var s = Store.getSession(sessionId);
     if (!s) return;
     var closeAndRender = function () {
       var ov = document.querySelector('.sc-modal-overlay');
-      if (ov) ov.remove();
+      if (ov) {
+        if (typeof App !== 'undefined' && typeof App.closeModalElement === 'function') App.closeModalElement(ov);
+        if (ov.isConnected) ov.remove();
+      }
       render();
+      // 详情中的删除按钮会随 overlay 一起移除，共享确认框无法恢复到已断开的节点；
+      // 将焦点落到稳定的日历内容容器，保证确认/取消后键盘路径仍有明确落点。
+      var calendarBody = document.getElementById('sc-body');
+      if (calendarBody && typeof calendarBody.focus === 'function') {
+        try { calendarBody.focus({ preventScroll: true }); } catch (e) { calendarBody.focus(); }
+      }
     };
+    async function deleteAndFinish(ids, successMessage) {
+      try {
+        var result = await Store.deleteSessionsDurable(ids);
+        if (!result || !result.ok) throw new Error((result && result.error && result.error.message) || 'data was not persisted');
+        toast(successMessage, 'success');
+        closeAndRender();
+        return true;
+      } catch (error) {
+        toast('删除失败：原有会谈未改变，请恢复存储后重试', 'error');
+        return false;
+      }
+    }
     // 非重复系列：单节删除
     if (!s.seriesId) {
-      if (!confirm('确认删除这节会话？此操作不可撤销。')) return;
-      Store.deleteSession(sessionId);
-      toast('已删除会话', 'success');
-      closeAndRender();
+      if (typeof App === 'undefined' || typeof App.confirmDialog !== 'function') {
+        toast('确认组件未就绪，未执行删除', 'error');
+        return;
+      }
+      var confirmOverlay = App.confirmDialog('确认删除这节会话？此操作不可撤销。', async function () {
+        return deleteAndFinish([sessionId], '已删除会话');
+      }, true);
+      // 详情弹窗是日历专属层（z-index:9999），共享确认框必须位于其上方才能接收 trusted click。
+      if (confirmOverlay && confirmOverlay.style) confirmOverlay.style.setProperty('z-index', '10050', 'important');
       return;
     }
     // 重复系列：弹出三选项
     var overlay = document.createElement('div');
     overlay.className = 'sc-modal-overlay';
     overlay.innerHTML = '<div class="sc-modal" style="position:relative;max-width:400px">' +
-      '<button class="sm-close" onclick="this.closest(\'.sc-modal-overlay\').remove()">×</button>' +
+      '<button class="sm-close" id="series-delete-close" type="button" aria-label="关闭删除范围选择">×</button>' +
       '<h3>删除重复预约</h3>' +
       '<div class="sm-sub">这是一个重复预约系列，请选择删除范围。</div>' +
       '<div class="sf-actions" style="flex-direction:column;gap:8px;margin-top:16px">' +
       '<button class="save" id="del-one" style="width:100%">仅删除本次</button>' +
       '<button class="save" id="del-after" style="width:100%">删除本次及之后</button>' +
       '<button class="danger" id="del-all" style="width:100%">删除全部系列</button>' +
-      '<button class="cancel" onclick="this.closest(\'.sc-modal-overlay\').remove()" style="width:100%">取消</button>' +
+      '<button class="cancel" id="series-delete-cancel" data-modal-cancel type="button" style="width:100%">取消</button>' +
       '</div></div>';
     document.body.appendChild(overlay);
-    requestAnimationFrame(function () { overlay.classList.add('show'); });
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+    function closeSeriesModal() {
+      if (typeof App !== 'undefined' && typeof App.closeModalElement === 'function') App.closeModalElement(overlay);
+      overlay.remove();
+    }
+    document.getElementById('series-delete-close').addEventListener('click', closeSeriesModal);
+    document.getElementById('series-delete-cancel').addEventListener('click', closeSeriesModal);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeSeriesModal(); });
+    if (typeof App !== 'undefined' && typeof App.openModalElement === 'function') {
+      App.openModalElement(overlay, { initialFocus: '#series-delete-cancel', removeOnClose: true });
+    } else {
+      overlay.classList.add('show');
+      document.getElementById('series-delete-cancel').focus();
+    }
 
     function seriesSessions() {
       return Store.getSessions().filter(function (x) { return x.seriesId === s.seriesId; });
     }
-    document.getElementById('del-one').addEventListener('click', function () {
-      Store.deleteSession(sessionId);
-      toast('已删除本次会话', 'success');
-      overlay.remove();
-      closeAndRender();
-    });
-    document.getElementById('del-after').addEventListener('click', function () {
-      var n = 0;
-      seriesSessions().forEach(function (x) {
-        if ((x.date || '') >= (s.date || '')) { Store.deleteSession(x.id); n++; }
+    function setDeleteButtonsBusy(busy) {
+      ['del-one', 'del-after', 'del-all'].forEach(function (id) {
+        var button = document.getElementById(id);
+        if (button) button.disabled = busy;
       });
-      toast('已删除本次及之后共 ' + n + ' 节', 'success');
-      overlay.remove();
-      closeAndRender();
+    }
+    document.getElementById('del-one').addEventListener('click', async function () {
+      setDeleteButtonsBusy(true);
+      var deleted = await deleteAndFinish([sessionId], '已删除本次会话');
+      if (deleted) closeSeriesModal(); else setDeleteButtonsBusy(false);
     });
-    document.getElementById('del-all').addEventListener('click', function () {
-      var n = 0;
-      seriesSessions().forEach(function (x) { Store.deleteSession(x.id); n++; });
-      toast('已删除整个系列共 ' + n + ' 节', 'success');
-      overlay.remove();
-      closeAndRender();
+    document.getElementById('del-after').addEventListener('click', async function () {
+      var ids = seriesSessions().filter(function (x) { return (x.date || '') >= (s.date || ''); }).map(function (x) { return x.id; });
+      setDeleteButtonsBusy(true);
+      var deleted = await deleteAndFinish(ids, '已删除本次及之后共 ' + ids.length + ' 节');
+      if (deleted) closeSeriesModal(); else setDeleteButtonsBusy(false);
+    });
+    document.getElementById('del-all').addEventListener('click', async function () {
+      var ids = seriesSessions().map(function (x) { return x.id; });
+      setDeleteButtonsBusy(true);
+      var deleted = await deleteAndFinish(ids, '已删除整个系列共 ' + ids.length + ' 节');
+      if (deleted) closeSeriesModal(); else setDeleteButtonsBusy(false);
     });
   }
 
@@ -628,7 +680,7 @@
     checkConflict();
 
     // 保存
-    document.getElementById('sf-save').addEventListener('click', function () {
+    document.getElementById('sf-save').addEventListener('click', async function () {
       var clientId = document.getElementById('sf-client').value;
       var dateVal = document.getElementById('sf-date').value;
       var startVal = document.getElementById('sf-start').value;
@@ -649,15 +701,13 @@
       var dur = eMin - sMin;
       if (editing) {
         // 编辑现有
-        editing.clientId = clientId;
-        editing.date = dateVal;
-        editing.startTime = startVal;
-        editing.endTime = endVal;
-        editing.durationMinutes = dur;
-        editing.type = typeVal;
-        editing.status = statusVal;
-        editing.isConfirmed = (statusVal === 'confirmed' || statusVal === 'completed');
-        Store.saveSession(editing);
+        var edited = Object.assign({}, editing, {
+          clientId: clientId, date: dateVal, startTime: startVal, endTime: endVal,
+          durationMinutes: dur, type: typeVal, status: statusVal,
+          isConfirmed: (statusVal === 'confirmed' || statusVal === 'completed'),
+        });
+        var saved = await Store.updateSessionFull(edited);
+        if (!saved || !saved.ok) { toast('保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
         toast('已保存修改', 'success');
       } else {
         // 新建（支持按周/双周/月重复）
@@ -682,7 +732,11 @@
             isConfirmed: (statusVal === 'confirmed' || statusVal === 'completed'),
           };
           if (seriesId) { payload.seriesId = seriesId; payload.recurrence = rule; }
-          Store.createSession(payload);
+          var createdResult = await Store.createSessionDurable(payload);
+          if (!createdResult || !createdResult.ok) {
+            toast('创建失败：已停止后续创建，未保存的会谈草稿可恢复', 'error');
+            return;
+          }
           created++;
         }
         if (count > 1) {
@@ -693,6 +747,85 @@
       }
       overlay.classList.remove('show');
       setTimeout(function () { overlay.remove(); render(); }, 200);
+    });
+  }
+
+  // ---------- 待办双视图（日历 + 待办抽屉，非颜色单一表达） ----------
+  function renderTodoPanel() {
+    var box = document.getElementById('sc-todo-body');
+    if (!box) return;
+    var items = [];
+    var clinicalTasks = (typeof Store !== 'undefined' && typeof Store.getClinicalTasks === 'function') ? Store.getClinicalTasks() : [];
+    clinicalTasks.filter(function (task) {
+      return task && (task.status === 'open' || task.status === 'ai-draft');
+    }).slice(0, 10).forEach(function (task) {
+      var client = Store.getClient(task.clientId);
+      var isAiDraft = task.status === 'ai-draft';
+      var sourceRefs = Array.isArray(task.sourceRefs) ? task.sourceRefs : [];
+      var meta = isAiDraft
+        ? 'AI 草稿 · 待人工确认 · 运行 ' + (task.actionRunId || '未知') + (sourceRefs.length ? ' · 来源 ' + sourceRefs.join('、') : '')
+        : (task.due ? ('截止 ' + task.due) : '跨会谈跟进');
+      items.push({
+        title: task.title || '未命名任务',
+        meta: (client ? client.name : '未知来访者') + ' · ' + meta,
+        tag: isAiDraft ? 'AI 草稿' : '待办',
+        tone: isAiDraft ? 'var(--accent)' : 'var(--green)',
+      });
+    });
+    var allSessions = (typeof Store !== 'undefined' && Store.getSessions) ? Store.getSessions() : [];
+    allSessions.filter(function (s) { return s.hasTranscript && !s.hasSoap && !s.hasDap; }).slice(0, 6).forEach(function (s) {
+      var c = Store.getClient(s.clientId);
+      items.push({ title: '整理逐字稿：' + (c ? c.name : '?') + ' 第' + (s.sessionNumber || '?') + '节', meta: (typeof App !== 'undefined' && App.formatDate) ? App.formatDate(s.date) : (s.date || ''), tag: '逐字稿', tone: 'var(--blue)' });
+    });
+    if (!items.length) {
+      box.innerHTML = '<div class="sc-todo-empty">暂无待办。日历内的状态会同时以文字和颜色标注。</div>';
+      return;
+    }
+    box.innerHTML = items.slice(0, 12).map(function (item) {
+      return '<div class="sc-todo-item"><span class="t-dot" style="background:' + item.tone + '"></span><div class="t-main"><div class="t-title">' + esc(item.title) + '<span class="t-tag" style="background:var(--bg-sunken);color:' + item.tone + '">' + esc(item.tag) + '</span></div><div class="t-meta">' + esc(item.meta) + '</div></div></div>';
+    }).join('');
+  }
+
+  function openTodoPanel(open) {
+    var panel = document.getElementById('sc-todo-panel');
+    var scrim = document.getElementById('sc-todo-scrim');
+    var toggle = document.getElementById('sc-todo-toggle');
+    if (!panel) return;
+    var wasOpen = panel.classList.contains('open');
+    var isOpen = open === undefined ? !panel.classList.contains('open') : !!open;
+    if (isOpen && !wasOpen) {
+      panel.__xjReturnFocus = document.activeElement && typeof document.activeElement.focus === 'function' ? document.activeElement : toggle;
+    }
+    panel.classList.toggle('open', isOpen);
+    panel.setAttribute('aria-hidden', String(!isOpen));
+    if (scrim) scrim.classList.toggle('show', isOpen);
+    if (toggle) toggle.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) {
+      renderTodoPanel();
+      var close = document.getElementById('sc-todo-close');
+      if (close && typeof close.focus === 'function') setTimeout(function () { close.focus(); }, 0);
+    } else if (wasOpen) {
+      var returnFocus = panel.__xjReturnFocus || toggle;
+      panel.__xjReturnFocus = null;
+      if (returnFocus && typeof returnFocus.focus === 'function') setTimeout(function () { returnFocus.focus(); }, 0);
+    }
+  }
+
+  function toggleTodoPanel() { openTodoPanel(); }
+
+  function bindTodoPanel() {
+    var toggle = document.getElementById('sc-todo-toggle');
+    var close = document.getElementById('sc-todo-close');
+    var scrim = document.getElementById('sc-todo-scrim');
+    if (toggle) toggle.addEventListener('click', function () { openTodoPanel(); });
+    if (close) close.addEventListener('click', function () { openTodoPanel(false); });
+    if (scrim) scrim.addEventListener('click', function () { openTodoPanel(false); });
+    document.addEventListener('keydown', function (e) {
+      var panel = document.getElementById('sc-todo-panel');
+      if (e.key === 'Escape' && panel && panel.classList.contains('open')) {
+        e.preventDefault();
+        openTodoPanel(false);
+      }
     });
   }
 
@@ -709,6 +842,8 @@
     jumpToEdit: jumpToEdit,
     setStatus: setStatus,
     removeSession: removeSession,
+    toggleTodo: toggleTodoPanel,
+    openTodoPanel: openTodoPanel,
   };
 
   // ---------- 启动 ----------
@@ -719,20 +854,13 @@
     window.todayMonth = function () { today(); };
     window.viewDay = function (dateStr) { onDayClick(dateStr); };
 
-    // 渲染侧边栏（本页未走 App.initPage，需手动渲染）
-    if (typeof App !== 'undefined' && App.renderSidebar) {
+    // P0#2 修复：session-calendar 不再手动 outerHTML 替换侧栏 + 重绑事件，改用 App.refreshSidebarChrome()
+    if (typeof App !== 'undefined' && typeof App.refreshSidebarChrome === 'function') {
+      App.refreshSidebarChrome();
+    } else if (typeof App !== 'undefined' && App.renderSidebar) {
       var sm = document.getElementById('sidebar-mount');
-      if (sm) {
-        sm.outerHTML = App.renderSidebar();
-        var st = document.getElementById('sidebar-toggle');
-        if (st) st.addEventListener('click', function () {
-          var sb = document.querySelector('.sidebar');
-          if (sb) {
-            sb.classList.toggle('collapsed');
-            try { localStorage.setItem('xj_sidebar_collapsed', sb.classList.contains('collapsed') ? '1' : '0'); } catch (e) {}
-          }
-        });
-      }
+      if (sm) sm.innerHTML = App.renderSidebar();
+      if (typeof App.bindSidebarControls === 'function') App.bindSidebarControls();
     }
     try {
       var params = new URLSearchParams(location.search);
@@ -740,11 +868,12 @@
       if (/^\d{4}-\d{2}-\d{2}$/.test(date || '')) state.cursor = new Date(date + 'T00:00:00');
       var requestedClientId = params.get('clientId');
       if (requestedClientId && Store.getClient(requestedClientId)) state.filterClientId = requestedClientId;
-      var shouldCreate = params.get('new') === '1';
+      var shouldCreate = params.get('new') === '1' || params.get('action') === 'new';
     } catch (e) {}
     render();
+    bindTodoPanel();
     try {
-      if (shouldCreate) setTimeout(function () { openNewSession(null, null); }, 0);
+      if (shouldCreate) setTimeout(function () { openNewSession(fmtDate(state.cursor), null); }, 0);
     } catch (e) {}
   }
 

@@ -35,6 +35,41 @@
   --r-card: 8px;
   --r-ctl: 6px;
   --r-btn: 6px;
+  /* v4.2.2-A shared semantic width budget tokens */
+  --xj-sidebar-expanded: 204px;
+  --xj-sidebar-narrow: 178px;
+  --xj-sidebar-collapsed: 68px;
+  /* v4.2.2-A minimum clinical text size */
+  --xj-font-min: 12px;
+  /* v4.2.2-A component semantic tokens */
+  --xj-header-h: 76px;
+  --xj-header-pad: 18px 28px 16px;
+  --xj-icon-btn-size: 36px;
+  --xj-segment-h: 30px;
+  --xj-chip-min-h: 24px;
+  --xj-drawer-w: 320px;
+  --xj-focus-ring: 2px solid var(--xj-focus);
+  --xj-focus-offset: 2px;
+}
+
+[data-skin="clinical"].dark {
+  color-scheme: dark;
+  --xj-canvas: #151c1a;
+  --xj-surface: #1d2724;
+  --xj-surface-muted: #222d29;
+  --xj-text: #e8efeb;
+  --xj-text-2: #b2c0ba;
+  --xj-text-3: #80908a;
+  --xj-border: #3c4d46;
+  --xj-accent: #50b5a5;
+  --xj-accent-hover: #78c7bb;
+  --xj-accent-soft: #203d38;
+  --xj-focus: #67c4b5;
+  --xj-shadow: 0 20px 52px rgba(0, 0, 0, .44);
+  /* v5.0.0 G9 方案 B：dark 主 CTA 独立表面色，与浅色 --accent 前景语义分离；
+     白字对比 12.20（浅色 --xj-accent 白字仅 2.47，见 XJ-5.0.0-g9-dark-cta-contrast-production-remediation-001） */
+  --cta-bg: #123c34;
+  --cta-bg-hover: #185045;
 }
 
 [data-skin="theatre"] {
@@ -72,7 +107,105 @@
   --accent-soft: var(--xj-accent-soft);
 }
 
-[data-skin="observatory"],
+[data-skin="theatre"].dark {
+  color-scheme: dark;
+  --xj-canvas: #1a1614;
+  --xj-surface: #241f1c;
+  --xj-surface-muted: #2e2723;
+  --xj-text: #f2ebe4;
+  --xj-text-2: #c3b4a7;
+  --xj-text-3: #9f8f82;
+  --xj-border: #4b3e36;
+  --xj-accent: #c96b78;
+  --xj-accent-hover: #df8793;
+  --xj-accent-soft: #3a2428;
+  --xj-focus: #d88290;
+  --xj-shadow: 0 18px 52px rgba(0, 0, 0, .4);
+  --sidebar: #201b19;
+  --shell: #201b19;
+  --success: #8fb896;
+  --warning: #d9b06b;
+  --danger: #e89090;
+  --paper: var(--xj-canvas);
+  --paper-2: var(--xj-surface);
+  --bg: var(--xj-canvas);
+  --bg-elevated: var(--xj-surface);
+  --bg-sunken: var(--xj-surface-muted);
+  --ink: var(--xj-text);
+  --ink-2: var(--xj-text-2);
+  --ink-3: var(--xj-text-3);
+  --text: var(--xj-text);
+  --text-secondary: var(--xj-text-2);
+  --text-muted: var(--xj-text-3);
+  --border: var(--xj-border);
+  --border-strong: #655247;
+  --hair: var(--xj-border);
+  --hair-strong: #655247;
+  --accent: var(--xj-accent);
+  --accent-hover: var(--xj-accent-hover);
+  --accent-soft: var(--xj-accent-soft);
+  --accent-line: #86505a;
+  --green: var(--success);
+  --orange: var(--warning);
+  --red: var(--danger);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow: 0 10px 28px rgba(0, 0, 0, .34);
+  --shadow-lg: var(--xj-shadow);
+  --hover-tint: rgba(201, 107, 120, .12);
+  --scrim: rgba(0, 0, 0, .62);
+  /* v5.0.0 G9 方案 B：dark 主 CTA 独立表面色；白字对比 12.15（浅色 --xj-accent 白字仅 3.58） */
+  --cta-bg: #5b2330;
+  --cta-bg-hover: #722e3c;
+}
+
+[data-skin="observatory"]:not(.dark) {
+  color-scheme: light;
+  --xj-canvas: #f1f5f7;
+  --xj-surface: #ffffff;
+  --xj-surface-muted: #e7eef1;
+  --xj-text: #0f1e22;
+  --xj-text-2: #4c6268;
+  --xj-text-3: #6d8187;
+  --xj-border: #c8d4d8;
+  --xj-accent: #1f6166;
+  --xj-accent-hover: #16504a;
+  --xj-accent-soft: #c5dfe2;
+  --xj-focus: #1f6166;
+  --xj-shadow: 0 16px 48px rgba(15, 43, 50, .16);
+  --sidebar: #e8eff2;
+  --shell: #e8eff2;
+  --success: #3f8557;
+  --warning: #9c6d22;
+  --danger: #b94f4f;
+  --paper: var(--xj-canvas);
+  --paper-2: var(--xj-surface);
+  --bg: var(--xj-canvas);
+  --bg-elevated: var(--xj-surface);
+  --bg-sunken: var(--xj-surface-muted);
+  --ink: var(--xj-text);
+  --ink-2: var(--xj-text-2);
+  --ink-3: var(--xj-text-3);
+  --text: var(--xj-text);
+  --text-secondary: var(--xj-text-2);
+  --text-muted: var(--xj-text-3);
+  --border: var(--xj-border);
+  --border-strong: #aebfc5;
+  --hair: var(--xj-border);
+  --hair-strong: #aebfc5;
+  --accent: var(--xj-accent);
+  --accent-hover: var(--xj-accent-hover);
+  --accent-soft: var(--xj-accent-soft);
+  --accent-line: #75b9be;
+  --green: var(--success);
+  --orange: var(--warning);
+  --red: var(--danger);
+  --shadow-sm: 0 1px 2px rgba(15, 43, 50, .06);
+  --shadow: 0 8px 24px rgba(15, 43, 50, .1);
+  --shadow-lg: var(--xj-shadow);
+  --hover-tint: rgba(42, 139, 147, .08);
+  --scrim: rgba(12, 34, 39, .45);
+}
+
 [data-skin="observatory"].dark {
   color-scheme: dark;
   --xj-canvas: #111719;
@@ -104,19 +237,35 @@
   --text-secondary: var(--xj-text-2);
   --text-muted: var(--xj-text-3);
   --border: var(--xj-border);
+  --border-strong: #4b5d62;
   --hair: var(--xj-border);
+  --hair-strong: #4b5d62;
   --accent: var(--xj-accent);
   --accent-hover: var(--xj-accent-hover);
   --accent-soft: var(--xj-accent-soft);
+  --accent-line: #467a80;
+  --green: var(--success);
+  --orange: var(--warning);
+  --red: var(--danger);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow: 0 10px 28px rgba(0, 0, 0, .34);
+  --shadow-lg: var(--xj-shadow);
+  --hover-tint: rgba(104, 186, 193, .12);
+  --scrim: rgba(0, 0, 0, .62);
+  /* v5.0.0 G9 方案 B：dark 主 CTA 独立表面色；白字对比 11.33（浅色 --xj-accent 白字仅 2.24） */
+  --cta-bg: #144047;
+  --cta-bg-hover: #1d5761;
 }
 
 html { background: var(--xj-canvas); }
 body {
   background: var(--xj-canvas);
   color: var(--xj-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
   font-size: 15px;
   letter-spacing: 0;
+  /* skin switch is a color change, not a layout tween */
+  transition: background-color var(--motion-skin, 180ms) ease, color var(--motion-skin, 180ms) ease;
 }
 
 button, input, select, textarea { font-family: inherit; letter-spacing: 0; }
@@ -148,7 +297,138 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   white-space: nowrap;
 }
 .xj-tier-badge.custom { color: #8b651e; background: #f6edcf; border-color: #dfc878; }
-[data-skin="observatory"] .xj-tier-badge.custom { color: #f1cf77; background: #3b3424; border-color: #6e5d31; }
+[data-skin="observatory"].dark .xj-tier-badge.custom { color: #f1cf77; background: #3b3424; border-color: #6e5d31; }
+
+/* ============================================================
+   [data-skin="aligned"] — 第 4 皮肤（XJ-5.1.9-ui-aligned-skin-stage1）
+   LegaleWork 设计语言对齐：Apple 系统蓝 #007aff/#0a84ff、近白画布、
+   原生 sans（决策 A1：标题衬线保留）、120/240ms 双档动效（决策 C1）。
+   仅令牌层叠加：三条旧皮肤（clinical/theatre/observatory）行为零改动。
+   ============================================================ */
+[data-skin="aligned"] {
+  --xj-canvas: #f8f9fa;
+  --xj-surface: #ffffff;
+  --xj-surface-muted: #f5f6f8;
+  --xj-text: #222222;
+  --xj-text-2: #5f6878;
+  --xj-text-3: #858585;
+  --xj-border: rgba(15, 23, 42, .12);
+  --xj-accent: #007aff;
+  --xj-accent-hover: #0068d8;
+  --xj-accent-soft: rgba(0, 122, 255, .12);
+  --xj-focus: rgba(0, 122, 255, .72);
+  --xj-shadow: 0 10px 28px rgba(15, 23, 42, .06);
+  --sidebar: #f7f8fa;
+  --success: #128a4a;
+  --warning: #b45309;
+  --danger: #c92a2a;
+  --paper: var(--xj-canvas);
+  --paper-2: var(--xj-surface);
+  --bg: var(--xj-canvas);
+  --bg-elevated: var(--xj-surface);
+  --bg-sunken: var(--xj-surface-muted);
+  --ink: var(--xj-text);
+  --ink-2: var(--xj-text-2);
+  --ink-3: var(--xj-text-3);
+  --text: var(--xj-text);
+  --text-secondary: var(--xj-text-2);
+  --text-muted: var(--xj-text-3);
+  --border: var(--xj-border);
+  --hair: var(--xj-border);
+  --hair-strong: rgba(15, 23, 42, .18);
+  --border-strong: rgba(15, 23, 42, .18);
+  --accent: var(--xj-accent);
+  --accent-hover: var(--xj-accent-hover);
+  --accent-soft: var(--xj-accent-soft);
+  --accent-line: rgba(0, 122, 255, .35);
+  --accent-2: #0a84ff;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, .05);
+  --shadow: 0 10px 28px rgba(15, 23, 42, .06);
+  --shadow-lg: 0 16px 42px rgba(15, 23, 42, .10);
+  --hover-tint: rgba(15, 23, 42, .04);
+  --scrim: rgba(15, 23, 42, .4);
+  /* 决策 A1：标题衬线保留；正文/控件 sans 换平台原生栈 */
+  --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+  /* 决策 C1：LW 动效档位（皮肤作用域限定，覆盖 tokens.css :root 默认） */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.22, 1.42, 0.36, 1);
+  --motion-hover: 120ms;
+  --motion-skin: 120ms;
+  --motion-toast: 240ms;
+  --motion-panel: 240ms;
+  /* 深蓝 CTA：白字对比 5.5+（优于 clinical 亮色 2.47 的历史现状） */
+  --cta-bg: #0068d8;
+  --cta-bg-hover: #0057b8;
+}
+
+[data-skin="aligned"].dark {
+  color-scheme: dark;
+  --xj-canvas: #101010;
+  --xj-surface: #181818;
+  --xj-surface-muted: #141414;
+  --xj-text: #ffffff;
+  --xj-text-2: rgba(245, 245, 247, .67);
+  --xj-text-3: rgba(235, 235, 245, .36);
+  --xj-border: rgba(255, 255, 255, .1);
+  --xj-accent: #0a84ff;
+  --xj-accent-hover: #339cff;
+  --xj-accent-soft: rgba(10, 132, 255, .18);
+  --xj-focus: rgba(10, 132, 255, .82);
+  --xj-shadow: 0 16px 42px rgba(0, 0, 0, .2);
+  --sidebar: #141414;
+  --success: #40c977;
+  --warning: #fbbf24;
+  --danger: #fa423e;
+  --paper: var(--xj-canvas);
+  --paper-2: var(--xj-surface);
+  --bg: var(--xj-canvas);
+  --bg-elevated: var(--xj-surface);
+  --bg-sunken: var(--xj-surface-muted);
+  --ink: var(--xj-text);
+  --ink-2: var(--xj-text-2);
+  --ink-3: var(--xj-text-3);
+  --text: var(--xj-text);
+  --text-secondary: var(--xj-text-2);
+  --text-muted: var(--xj-text-3);
+  --border: var(--xj-border);
+  --hair: var(--xj-border);
+  --hair-strong: rgba(255, 255, 255, .16);
+  --border-strong: rgba(255, 255, 255, .16);
+  --accent: var(--xj-accent);
+  --accent-hover: var(--xj-accent-hover);
+  --accent-soft: var(--xj-accent-soft);
+  --accent-line: rgba(10, 132, 255, .4);
+  --accent-2: #339cff;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow: 0 16px 42px rgba(0, 0, 0, .2);
+  --shadow-lg: 0 20px 52px rgba(0, 0, 0, .32);
+  --hover-tint: rgba(255, 255, 255, .05);
+  --scrim: rgba(0, 0, 0, .5);
+  --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.22, 1.42, 0.36, 1);
+  --motion-hover: 120ms;
+  --motion-skin: 120ms;
+  --motion-toast: 240ms;
+  --motion-panel: 240ms;
+  /* 深蓝 CTA（暗）：白字对比 8.0+，对齐 clinical G9 暗色对比纪律 */
+  --cta-bg: #0a3d78;
+  --cta-bg-hover: #0d4a8f;
+}
+
+/* 决策 A1：aligned 下标题用衬线（皮肤作用域，特异性高于 663 行全局「标题恒 sans」规则） */
+[data-skin="aligned"] h1,
+[data-skin="aligned"] h2,
+[data-skin="aligned"] h3,
+[data-skin="aligned"] .xj-card h4,
+[data-skin="aligned"] .section-title {
+  font-family: var(--serif);
+  letter-spacing: 0.2px;
+}
 .xj-lock-badge svg, .xj-tier-badge svg { width: 14px; height: 14px; }
 
 .xj-plan-link {
@@ -187,9 +467,10 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .xj-skin-option.active { border-color: var(--xj-accent); box-shadow: 0 0 0 1px var(--xj-accent); }
 .xj-skin-option[data-locked] { cursor: pointer; }
 .xj-skin-swatch { width: 24px; height: 24px; border-radius: 5px; border: 1px solid rgba(0, 0, 0, .14); }
-.xj-skin-swatch.clinical { background: linear-gradient(135deg, #eef3f1 50%, #147d70 50%); }
-.xj-skin-swatch.theatre { background: linear-gradient(135deg, #eceae6 50%, #7a3945 50%); }
-.xj-skin-swatch.observatory { background: linear-gradient(135deg, #111719 50%, #68bac1 50%); }
+.xj-skin-swatch.clinical { background: #147d70; }
+.xj-skin-swatch.aligned { background: linear-gradient(135deg, #007aff, #0a84ff); }
+.xj-skin-swatch.theatre { background: #7a3945; }
+.xj-skin-swatch.observatory { background: #68bac1; }
 
 /* Legacy pages may still declare emoji locks; render them through the shared line icon language. */
 .xj-premium-btn::after,
@@ -210,12 +491,17 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .layout, .xj-auto-layout { width: 100%; min-width: 0; min-height: calc(100vh - var(--xj-top-offset, 0px)); }
 .xj-auto-layout { flex: 1 1 auto; }
 .xj-auto-main { min-height: calc(100vh - var(--xj-top-offset, 0px)); overflow: hidden; }
+#sidebar-mount { flex: 0 0 var(--xj-sidebar-expanded); width: var(--xj-sidebar-expanded); }
+#sidebar-mount:has(.sidebar.collapsed) { flex-basis: 68px; width: 68px; }
+/* Before app.js mounts the shared sidebar, reserve its footprint so the main
+   workspace does not jump horizontally after the first paint. */
+.layout > .main:first-child { margin-left: var(--xj-sidebar-expanded); }
 .sidebar {
-  width: 224px;
+  width: var(--xj-sidebar-expanded);
   height: calc(100vh - var(--xj-top-offset, 0px));
   padding: 20px 12px 14px;
   gap: 16px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--sidebar, var(--xj-surface));
   border-right-color: var(--xj-border);
   transition: width 200ms ease, padding 200ms ease;
@@ -223,10 +509,10 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .sidebar .brand { min-height: 44px; padding: 0 8px; }
 .sidebar .brand .mark { width: 36px; height: 36px; border-radius: 8px; }
 .sidebar .brand .name { font-family: inherit; font-size: 17px; font-weight: 680; }
-.sidebar .brand .en { letter-spacing: 0; font-size: 10px; }
+.sidebar .brand .en { letter-spacing: 0; font-size: var(--xj-font-min); }
 .sidebar-toggle {
   top: 24px;
-  right: -12px;
+  right: 8px;
   width: 24px;
   min-height: 24px;
   height: 24px;
@@ -236,7 +522,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 }
 .sidebar .nav { min-height: 0; flex: 1 1 auto; gap: 14px; overflow-y: auto; }
 .sidebar .nav-group { display: grid; gap: 3px; }
-.sidebar .nav-group-label { padding: 2px 10px 5px; color: var(--xj-text-3); font-size: 11px; font-weight: 650; }
+.sidebar .nav-group-label { padding: 2px 10px 5px; color: var(--xj-text-3); font-size: var(--xj-font-min); font-weight: 650; }
 .sidebar .nav-entry { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 6px; }
 .sidebar .nav-entry.active { background: var(--xj-accent-soft); }
 .sidebar .nav-item {
@@ -270,7 +556,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .sidebar .nav-unlock svg { width: 14px; height: 14px; }
 .sidebar .nav-footer { padding: 10px 6px 0; border-top: 1px solid var(--xj-border); }
 .sidebar .theme-toggle { min-height: 38px; border-radius: 6px; }
-.sidebar .nav-footer-text { margin-top: 8px; font-size: 10px; color: var(--xj-text-3); }
+.sidebar .nav-footer-text { margin-top: 8px; font-size: var(--xj-font-min); color: var(--xj-text-3); }
 .sidebar.collapsed { width: 68px; padding: 20px 8px 14px; }
 .sidebar.collapsed .nav-group-label { display: none; }
 .sidebar.collapsed .nav { gap: 8px; width: 100%; overflow: visible; }
@@ -281,17 +567,31 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .sidebar.collapsed .nav-unlock svg { width: 11px; height: 11px; }
 .sidebar.collapsed .brand { padding: 0; }
 
+/* Route changes are full navigations. Keep the first stable frame still: no
+   card entrance transforms that make the application appear to shrink or jump. */
+body:not([data-xj-entrance-motion]) .stat-card,
+body:not([data-xj-entrance-motion]) .list-card,
+body:not([data-xj-entrance-motion]) .client-card,
+body:not([data-xj-entrance-motion]) .section-title { animation: none; }
+
 @media (max-width: 1100px) {
   .sidebar { width: 204px; }
+  #sidebar-mount { width: 204px; flex-basis: 204px; }
+  .layout > .main:first-child { margin-left: 204px; }
   .sidebar.collapsed { width: 68px; }
 }
 
 @media (max-width: 1020px) {
-  .sidebar { width: 178px; padding-inline: 10px; }
+  .sidebar { width: 178px; }
+  #sidebar-mount { width: 178px; flex-basis: 178px; }
+  .layout > .main:first-child { margin-left: 178px; }
+  .sidebar { padding-inline: 10px; }
   .sidebar .brand .en { display: none; }
   .sidebar .nav-item { padding-inline: 7px; }
   .sidebar.collapsed { width: 68px; padding-inline: 8px; }
 }
+
+html.xj-quota-reserved body { padding-top: 24px; }
 
 @media (max-width: 1100px) {
   .main h1 { font-size: 22px; }
@@ -300,4 +600,385 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  button:active, .btn:active, .nav-item:active, .mod:active, .xj-icon-button:active { transform: none !important; }
 }
+
+/* ============================================================
+   v4.2.2-A 共享 UI 组件契约 — 语义令牌与组件状态
+   八个可复用组件：PageHeader, IconButton, SegmentedControl,
+   StatusChip, SourceRow, ContextDrawer, EmptyState, LoadingState
+   ============================================================ */
+
+/* --- PageHeader --- */
+.xj-page-header {
+  min-height: var(--xj-header-h);
+  padding: var(--xj-header-pad);
+  border-bottom: 1px solid var(--xj-border);
+  background: var(--xj-surface);
+}
+.xj-page-header h1 { font-size: 24px; line-height: 1.25; margin: 0; }
+.xj-page-header .xj-subtitle { margin-top: 2px; font-size: var(--xj-font-min); color: var(--xj-text-2); }
+.xj-page-header[data-state="error"] { border-bottom-color: var(--danger, #b54747); }
+
+/* --- IconButton --- */
+.xj-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: var(--xj-icon-btn-size);
+  min-height: var(--xj-icon-btn-size);
+  border: 1px solid var(--xj-border);
+  border-radius: var(--r-ctl);
+  background: var(--xj-surface);
+  color: var(--xj-text-2);
+  cursor: pointer;
+}
+.xj-icon-button:hover { background: var(--xj-surface-muted); color: var(--xj-text); }
+.xj-icon-button:disabled { opacity: .5; cursor: not-allowed; }
+.xj-icon-button:focus-visible { outline: var(--xj-focus-ring); outline-offset: var(--xj-focus-offset); }
+.xj-icon-button svg { width: 18px; height: 18px; }
+
+/* --- SegmentedControl --- */
+.xj-segmented {
+  display: inline-flex;
+  min-height: var(--xj-segment-h);
+  border-radius: var(--r-ctl);
+  background: var(--xj-surface-muted);
+  padding: 2px;
+  gap: 2px;
+}
+.xj-segmented button {
+  min-height: calc(var(--xj-segment-h) - 4px);
+  border: 0;
+  border-radius: calc(var(--r-ctl) - 2px);
+  background: transparent;
+  color: var(--xj-text-2);
+  font-size: var(--xj-font-min);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 12px;
+}
+.xj-segmented button[aria-selected="true"] {
+  background: var(--xj-surface);
+  color: var(--xj-accent);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.04));
+}
+.xj-segmented button:focus-visible { outline: var(--xj-focus-ring); outline-offset: var(--xj-focus-offset); }
+
+/* --- StatusChip --- */
+.xj-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: var(--xj-chip-min-h);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--xj-font-min);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.xj-status-chip[data-variant="default"] { background: var(--xj-surface-muted); color: var(--xj-text-2); }
+.xj-status-chip[data-variant="success"] { background: var(--accent-soft, var(--xj-accent-soft)); color: var(--accent, var(--xj-accent)); }
+.xj-status-chip[data-variant="warning"] { background: var(--orange-soft, #f8ecd8); color: var(--warning, #a86a16); }
+.xj-status-chip[data-variant="danger"] { background: var(--red-soft, #f7e4e4); color: var(--danger, #b54747); }
+
+/* --- SourceRow --- */
+.xj-source-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-ctl);
+  cursor: pointer;
+  font-size: var(--xj-font-min);
+}
+.xj-source-row:hover { background: var(--hover-tint, rgba(0,0,0,.04)); }
+.xj-source-row:focus-visible { outline: var(--xj-focus-ring); outline-offset: var(--xj-focus-offset); }
+.xj-source-row .xj-source-label { color: var(--xj-text-3); flex: 0 0 auto; }
+.xj-source-row .xj-source-value { color: var(--xj-text); overflow: hidden; text-overflow: ellipsis; }
+.xj-source-row[data-state="invalid"] .xj-source-value { color: var(--danger, #b54747); text-decoration: line-through; }
+
+/* --- ContextDrawer --- */
+.xj-context-drawer {
+  width: var(--xj-drawer-w);
+  background: var(--xj-surface-muted);
+  border-left: 1px solid var(--xj-border);
+  overflow-y: auto;
+}
+.xj-context-drawer[data-open="false"] { display: none; }
+.xj-context-drawer .xj-drawer-head {
+  min-height: 50px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--xj-border);
+  font-weight: 650;
+  font-size: 14px;
+}
+
+/* --- EmptyState --- */
+.xj-empty-state {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--xj-text-3);
+}
+.xj-empty-state .xj-empty-icon { width: 48px; height: 48px; opacity: .4; }
+.xj-empty-state .xj-empty-title { font-size: 16px; font-weight: 600; color: var(--xj-text-2); }
+.xj-empty-state .xj-empty-desc { font-size: var(--xj-font-min); max-width: 320px; }
+
+/* --- LoadingState --- */
+.xj-loading-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 36px 24px;
+  color: var(--xj-text-3);
+}
+.xj-loading-state .xj-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--xj-border);
+  border-top-color: var(--xj-accent);
+  border-radius: 50%;
+  animation: xj-spin 700ms linear infinite;
+}
+.xj-loading-state .xj-loading-text { font-size: var(--xj-font-min); }
+@keyframes xj-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .xj-loading-state .xj-spinner { animation: none; border-top-color: var(--xj-accent); }
+}
+
+/* --- Skeleton (pulse ONLY while a loading state is genuinely active) --- */
+.xj-skeleton {
+  display: block;
+  height: 10px;
+  border-radius: var(--r-ctl, 6px);
+  background: var(--xj-surface-muted, var(--bg-sunken));
+  /* static placeholder by default: no perpetual pulse on finished content */
+}
+.xj-skeleton + .xj-skeleton { margin-top: 8px; }
+.xj-skeleton.wide { width: 92%; }
+.xj-skeleton.short { width: 45%; }
+[data-state="loading"] .xj-skeleton,
+.is-loading .xj-skeleton,
+[aria-busy="true"] .xj-skeleton {
+  animation: xj-skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes xj-skeleton-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  [data-state="loading"] .xj-skeleton,
+  .is-loading .xj-skeleton,
+  [aria-busy="true"] .xj-skeleton { animation: none; }
+}
+
+/* --- 1024x700 width budget: no horizontal overflow --- */
+html, body { overflow-x: hidden; }
+@media (max-width: 1024px) { .xj-page-header { padding: 14px 18px 12px; } }
+
+/* --- KPI 数字 0 字形可读性：启用 slashed-zero 和 tabular-nums --- */
+/* 修复在某些字体（Segoe UI Variable）中数字 0 与字母 O 混淆的问题 */
+.card b, .stat-card .num, .kb-kpi b, .xj-kpi-value,
+.topbar .card b, #billing-stats b {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* ============================================================
+   v5.0.0 UI-language-migration-22routes closure block.
+   Clinical/Theatre/Observatory workbench language, applied last
+   on every route (this stylesheet is the final <link> in all 22
+   routes). Token-driven skins only: no duplicated pages.
+   ============================================================ */
+
+/* Compact control typography: headings never use serif on workbench pages. */
+h1, h2, h3, h4, h5, h6 { font-family: var(--sans); letter-spacing: 0; }
+
+/* Clinical light CTA surface (explicit, matching G9 dark-contrast discipline). */
+:root, [data-skin="clinical"]:not(.dark) {
+  --cta-bg: var(--xj-accent, #147d70);
+  --cta-bg-hover: var(--xj-accent-hover, #0f685d);
+}
+
+/* Long Chinese text must wrap inside its region, never force page width. */
+.main, .page, .center, .rail, .aidock, .editor-pane, .ed-body,
+.xj-page-main, .xj-context-drawer, .wb-main-body {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* 4.2-era decorative residue is not part of the workbench language. */
+body::before { display: none; }
+
+/* Controls keep focus visible in every skin. */
+[tabindex]:focus-visible, [contenteditable]:focus-visible {
+  outline: 2px solid var(--xj-focus, var(--accent));
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   v5.0.2 Golden foundation closure.
+   These last-mile rules remove the remaining 4.2 decorative residue while
+   preserving each page's real structure and handler-owned behavior.
+   ============================================================ */
+
+/* Golden surfaces are flat and quiet: no glass blur, decorative gradient, or
+   positional hover lift. Status chips may remain compactly rounded. */
+html[data-skin] body {
+  background-color: var(--xj-canvas) !important;
+  color: var(--xj-text) !important;
+}
+.xj-locked-area > .xj-lock-overlay,
+.xj-cmd-backdrop,
+.xj-agent-panel,
+.xj-agent-onboard,
+.modal-overlay {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.atlas-board {
+  background-image: none !important;
+  background-color: var(--paper-2, var(--xj-surface)) !important;
+}
+.atlas-node:hover,
+.kb-card:hover,
+.kb-gcard:hover {
+  transform: none !important;
+}
+
+/* Workbench card geometry: 8px surfaces, 6px controls, 4px status labels. */
+.chat-msg .bubble,
+.welcome-card,
+.chat-input,
+.chat-send,
+.dc-right .doc-card,
+.trajectory,
+.growth-state,
+.growth-source-row,
+.kb-gcard,
+.kb-card,
+.kb-3col,
+.kb-cardbox,
+.kb-kpi,
+.kb-graph,
+.kb-chat-wrap,
+.kb-hit,
+.kb-toolrow input,
+.kb-gsearch input,
+.kb-search-hero .sbar input,
+.xj-agent-panel,
+.xj-agent-msg,
+.xj-agent-confirm-card {
+  border-radius: 8px !important;
+}
+.chat-header .btn,
+.chat-send,
+.dc-top .back,
+.dc-top input[type="text"],
+.dc-top select,
+.growth-primary,
+.kb-btn,
+.kb-mode,
+.kb-home {
+  border-radius: 6px !important;
+}
+
+/* Motion contract: explicit paint-only properties instead of transition:all. */
+.chat-header .btn,
+.chat-input,
+.chat-send,
+.welcome-card,
+.dc-top .back,
+.dc-top input[type="text"],
+.dc-top select,
+.dc-right .doc-card,
+.atlas-node,
+.atlas-source,
+.atlas-primary,
+.kb-btn,
+.kb-mode,
+.kb-gcard,
+.kb-card,
+.growth-primary,
+.tl-card {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: var(--motion-hover, 180ms);
+  transition-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-header .btn,
+  .chat-input,
+  .chat-send,
+  .welcome-card,
+  .dc-top .back,
+  .dc-top input[type="text"],
+  .dc-top select,
+  .dc-right .doc-card,
+  .atlas-node,
+  .atlas-source,
+  .atlas-primary,
+  .kb-btn,
+  .kb-mode,
+  .kb-gcard,
+  .kb-card,
+  .growth-primary,
+  .tl-card {
+    transition: none !important;
+  }
+  .chat-msg.typing .typing-dots span,
+  .kb-spinner,
+  .xj-typing-dot {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   [data-skin="aligned"] 阶段 2+3（XJ-5.1.9-ui-aligned-skin-stage23）
+   组件精修 + 玻璃侧栏 + focus halo —— 全部限定 aligned 作用域，
+   旧皮肤零影响；仅视觉层，无结构/功能改动。
+   ============================================================ */
+
+/* 玻璃侧栏：半透明 + blur（材质层；布局/宽度不变） */
+[data-skin="aligned"] .sidebar {
+  background: rgba(244, 247, 251, .86);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+}
+[data-skin="aligned"].dark .sidebar {
+  background: rgba(23, 24, 28, .88);
+}
+
+/* 卡片圆角升档 14px（对照 LegaleWork 卡片 14-16） */
+[data-skin="aligned"] {
+  --r-card: 14px;
+  --radius: 14px;
+  --radius-lg: 16px;
+}
+
+/* chips 胶囊化（.chip 原 8px → 999px；.tag 已是胶囊） */
+[data-skin="aligned"] .chip { border-radius: 999px; }
+
+/* 次级 accent 按钮半透明填充（LW accent-button 语言；主 CTA 保持实色深蓝保证 .trail 白圈对比） */
+[data-skin="aligned"] .btn-ghost {
+  background: var(--xj-accent-soft);
+  color: var(--xj-accent-hover);
+  border-color: rgba(0, 122, 255, .22);
+}
+[data-skin="aligned"] .btn-ghost:hover {
+  background: var(--xj-accent-soft-hover, rgba(0, 122, 255, .17));
+  border-color: rgba(0, 122, 255, .3);
+}
+html.dark[data-skin="aligned"] .btn-ghost { color: #8bc7ff; border-color: rgba(10, 132, 255, .28); }
+
+/* focus halo：边框 outline 之外叠加 3px 半透明外环（LW focus 语言） */
+[data-skin="aligned"] :focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, .18);
+}
+html.dark[data-skin="aligned"] :focus-visible {
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, .22);
+}
+
+/* 辅助信息密度：11px 辅助层（对齐 LW 密集区） */
+[data-skin="aligned"] .guide,
+[data-skin="aligned"] .row .d,
+[data-skin="aligned"] .hint { font-size: 11px; line-height: 1.6; }

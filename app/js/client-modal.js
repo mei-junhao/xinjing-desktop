@@ -54,16 +54,36 @@ const ClientModal = (() => {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
+    // XJ519-Z11：「新建来访者」弹窗支持 Escape 关闭；取消按钮行为保持不变。
+    // 监听挂在 document 捕获阶段（焦点在弹窗外也能响应），关闭时统一清理并回落焦点。
+    var previouslyFocused = document.activeElement;
+    var overlayClosed = false;
+    function closeOverlay() {
+      if (overlayClosed) return;
+      overlayClosed = true;
+      document.removeEventListener('keydown', escapeListener, true);
+      overlay.remove();
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        try { previouslyFocused.focus({ preventScroll: true }); } catch (e) { previouslyFocused.focus(); }
+      }
+    }
+    function escapeListener(event) {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      closeOverlay();
+    }
+    document.addEventListener('keydown', escapeListener, true);
+
     // 默认首访日期为今天
     var today = new Date().toISOString().slice(0, 10);
     var fv = document.getElementById('cm-firstvisit');
     if (fv) fv.value = today;
 
     overlay.addEventListener('click', function (e) {
-      if (e.target === overlay || e.target.id === 'cm-cancel-x') { overlay.remove(); }
+      if (e.target === overlay || e.target.id === 'cm-cancel-x') { closeOverlay(); }
     });
-    document.getElementById('cm-cancel').addEventListener('click', function () { overlay.remove(); });
-    document.getElementById('cm-save').addEventListener('click', function () {
+    document.getElementById('cm-cancel').addEventListener('click', function () { closeOverlay(); });
+    document.getElementById('cm-save').addEventListener('click', async function () {
       var name = (document.getElementById('cm-name').value || '').trim();
       if (!name) { if (typeof App !== 'undefined' && App.showToast) App.showToast('请填写姓名', 'warning'); return; }
       var tagsRaw = (document.getElementById('cm-tags').value || '').trim();
@@ -81,9 +101,14 @@ const ClientModal = (() => {
         tags: tags,
         notes: (document.getElementById('cm-notes').value || '').trim(), // 修复：notes 复数
       };
-      var saved = null;
-      if (typeof Store !== 'undefined') saved = Store.createClient(client);
-      overlay.remove();
+      var result = null;
+      if (typeof Store !== 'undefined' && Store.createClientDurable) result = await Store.createClientDurable(client);
+      if (!result || !result.ok) {
+        if (typeof App !== 'undefined' && App.showToast) App.showToast('保存失败：来访者草稿已保留，请恢复存储后重试', 'error');
+        return;
+      }
+      var saved = result.value;
+      closeOverlay();
       if (typeof onSaved === 'function') onSaved(saved || client);
       if (typeof App !== 'undefined' && App.showToast) App.showToast('已新增来访者「' + name + '」', 'success');
       if (typeof Memory !== 'undefined' && Memory.record) Memory.record('client_created', { summary: '新建来访者「' + name + '」', relatedClientId: (saved || client).id });

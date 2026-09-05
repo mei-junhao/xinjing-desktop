@@ -14,10 +14,12 @@
   var roundKeys = [];
   var busy = false;
   var activeController = null;
+  var retryState = null;
   var convList = [];
   var includeUserDocs = true;
   var masterSearchQuery = '';
   var masterSchool = '';
+  var MAX_HISTORY_IMPORT_FILE_BYTES = 2 * 1024 * 1024;
   // 温度滑块：每位大师独立存储，圆桌模式无滑块
   var talkTemp = 60;
   var talkDetail = 50;
@@ -103,7 +105,9 @@
       if (window.IconSystem && IconSystem.render) IconSystem.render(box);
       return;
     }
-    var replies = currentConv.messages.filter(function (m) { return m.role === 'assistant' && m.content; }).slice(-3).reverse();
+    var replies = currentConv.messages.filter(function (m) {
+      return m.role === 'assistant' && m.content && m.status !== 'error' && m.status !== 'streaming';
+    }).slice(-3).reverse();
     box.innerHTML = replies.map(function (msg) {
       var m = msg.masterKey ? getMasterByKey(msg.masterKey) : null;
       return '<div class="viewpoint-item"><div class="viewpoint-avatar" style="background:' + accentOf(m || {}) + '">' + (m ? m.initial : '师') + '</div><div><strong>' + App.escapeHtml(m ? m.name : '大师') + '</strong><p>' + App.escapeHtml(String(msg.content).slice(0, 100)) + '</p></div></div>';
@@ -244,11 +248,93 @@
     return includeUserDocs;
   }
 
-  function setDocsSetting(enabled) {
+  async function saveConversationOrWarn(conv) {
+    var saved = await Store.saveMasterConversationDurable(conv);
+    if (!saved || !saved.ok) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('对话保存失败：草稿仍保留，请恢复存储后重试', 'error');
+      return false;
+    }
+    return true;
+  }
+
+  function readHistoryFile(file) {
+    return new Promise(function (resolve, reject) {
+      var name = String(file && file.name || '');
+      var extension = name.split('.').pop().toLowerCase();
+      if (['txt', 'md', 'markdown', 'docx'].indexOf(extension) < 0) {
+        reject(new Error('仅支持 TXT、Markdown 或 DOCX 文件'));
+        return;
+      }
+      if (Number(file && file.size || 0) > MAX_HISTORY_IMPORT_FILE_BYTES) {
+        reject(new Error('历史文件不能超过 2 MB'));
+        return;
+      }
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('文件读取失败')); };
+      if (extension === 'docx') {
+        if (typeof mammoth === 'undefined') { reject(new Error('DOCX 解析组件未就绪')); return; }
+        reader.onload = function (event) {
+          mammoth.extractRawText({ arrayBuffer: event.target.result }).then(function (result) {
+            resolve(result.value || '');
+          }).catch(function () { reject(new Error('DOCX 解析失败')); });
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+      reader.onload = function (event) { resolve(event.target.result || ''); };
+      reader.readAsText(file, 'utf-8');
+    });
+  }
+
+  window.triggerHistoryImport = function () {
+    if (!currentConv) { App.showToast('请先选择一位大师或圆桌，再导入历史对话', 'warning'); return; }
+    var input = $('masters-history-file');
+    if (input) input.click();
+  };
+
+  window.onHistoryImport = async function (event) {
+    var input = event && event.target;
+    var file = input && input.files && input.files[0];
+    if (input) input.value = '';
+    if (!file || !currentConv) return;
+    if (typeof MastersCore === 'undefined' || !MastersCore.parseImportedHistory) {
+      App.showToast('历史导入组件未就绪', 'error');
+      return;
+    }
+    try {
+      var text = await readHistoryFile(file);
+      var parsed = MastersCore.parseImportedHistory(text, currentConv.masterKeys && currentConv.masterKeys[0]);
+      if (!parsed.messages.length) { App.showToast('文件没有可导入的对话内容', 'warning'); return; }
+      var previousMessages = currentConv.messages.slice();
+      var previousContext = currentConv.importedContext || '';
+      var previousHistory = currentConv.importedHistory || null;
+      currentConv.messages = previousMessages.concat([{ role: 'sys', content: '已从「' + file.name + '」导入历史对话；内容只保存在本机，等待你主动继续提问。', ts: Date.now() }], parsed.messages);
+      currentConv.importedContext = parsed.importedContext;
+      currentConv.importedHistory = {
+        sourceName: file.name,
+        importedAt: nowISO(),
+        sourceChars: parsed.sourceChars,
+        messageCount: parsed.messages.length,
+        truncated: parsed.truncated,
+      };
+      if (!await saveConversationOrWarn(currentConv)) {
+        currentConv.messages = previousMessages;
+        currentConv.importedContext = previousContext;
+        currentConv.importedHistory = previousHistory;
+        return;
+      }
+      renderChat(); renderHistList(); updateContextPanels(); renderViewpoints();
+      App.showToast(parsed.truncated ? '历史已部分导入，内容已按安全上限截断' : '历史对话已导入，可继续向大师提问', 'success');
+    } catch (error) {
+      App.showToast((error && error.message) || '历史导入失败', 'error');
+    }
+  };
+
+  async function setDocsSetting(enabled) {
     includeUserDocs = enabled;
     if (currentConv) {
       currentConv.settings = Object.assign({}, currentConv.settings || {}, { includeUserDocs: enabled });
-      Store.saveMasterConversation(currentConv);
+      await saveConversationOrWarn(currentConv);
     }
     var button = $('btn-use-docs');
     if (button) {
@@ -269,13 +355,13 @@
     input.focus();
   }
 
-  function saveCurrentPoint() {
+  async function saveCurrentPoint() {
     if (!currentConv || !currentConv.messages.length) { App.showToast('开始对话后才能保存观点', 'warning'); return; }
     var message = currentConv.messages.slice().reverse().find(function (m) { return m.role === 'assistant' && m.content; });
     if (!message) { App.showToast('当前还没有可保存的大师观点', 'warning'); return; }
     currentConv.savedPoints = Array.isArray(currentConv.savedPoints) ? currentConv.savedPoints : [];
     currentConv.savedPoints.push({ id: genId(), masterKey: message.masterKey, content: message.content, createdAt: nowISO() });
-    Store.saveMasterConversation(currentConv);
+    if (!await saveConversationOrWarn(currentConv)) return;
     App.showToast('观点已保存到当前对话', 'success');
   }
 
@@ -346,14 +432,15 @@
   });
 
   // ---------- 大师点击 ----------
-  window.onMasterClick = function (key) {
+  window.onMasterClick = async function (key) {
     if (mode === '1v1') {
       loadTemp(key);
       var conv = convList.find(function (c) { return c.mode === '1v1' && c.masterKeys[0] === key; });
       if (!conv) {
         var m = getMasterByKey(key);
         conv = { id: genId(), mode: '1v1', masterKeys: [key], title: m ? m.name : key, messages: [], summary: '', createdAt: nowISO(), updatedAt: nowISO() };
-        Store.saveMasterConversation(conv); convList.unshift(conv);
+        if (!await saveConversationOrWarn(conv)) return;
+        convList.unshift(conv);
       }
       currentConv = conv;
     } else {
@@ -362,10 +449,11 @@
       var sameRound = currentConv && currentConv.mode === 'round' && !currentConv.messages.length;
       if (sameRound) {
         currentConv.masterKeys = roundKeys.slice();
-        Store.saveMasterConversation(currentConv);
+        if (!await saveConversationOrWarn(currentConv)) return;
       } else if (roundKeys.length >= 2) {
         currentConv = { id: genId(), mode: 'round', masterKeys: roundKeys.slice(), title: '圆桌研讨', messages: [], summary: '', createdAt: nowISO(), updatedAt: nowISO() };
-        Store.saveMasterConversation(currentConv); convList.unshift(currentConv);
+        if (!await saveConversationOrWarn(currentConv)) return;
+        convList.unshift(currentConv);
       } else {
         currentConv = null;
       }
@@ -384,6 +472,7 @@
   };
   function renderChat() {
     var titleEl = $('chat-title'), subEl = $('chat-sub'), body = $('chat-body');
+    if (body) body.classList.toggle('round-mode', !!(currentConv && currentConv.mode === 'round'));
     syncDocsButton();
     var input = $('msg-input'), sendBtn = $('send-btn'), btnNew = $('btn-new'), btnDel = $('btn-del'), composer = $('chat-composer');
     if (composer) composer.style.display = 'flex';
@@ -435,6 +524,17 @@
     if (window.IconSystem && IconSystem.render) IconSystem.render(body);
   }
 
+  function renderErrorCard(errText, errorCode) {
+    var accountSessionRequired = errorCode === 'account_session_required' || errorCode === 'XJ_AI_ACCOUNT_SESSION_REQUIRED';
+    var message = accountSessionRequired
+      ? '账号会话已失效或未登录，请重新登录后重试。草稿和本轮输入已保留。'
+      : (errText || '模型调用失败，请检查配置、网络或服务状态。');
+    var actionLabel = accountSessionRequired ? '登录 / 刷新会话' : '检查 AI 配置';
+    return '<div class="bubble"><div class="error-card" role="alert">'
+      + App.escapeHtml(message)
+      + '</div><div class="error-actions"><button class="retry-btn" type="button" data-masters-action="retry">重试</button>'
+      + '<button class="retry-btn secondary" type="button" data-masters-action="account">' + App.escapeHtml(actionLabel) + '</button></div></div>';
+  }
   function renderMsg(msg) {
     if (msg.role === 'sys') {
       return '<div class="msg" style="justify-content:center"><div class="bubble" style="background:transparent;border:1px dashed var(--border);color:var(--text-muted);font-size:12px;padding:6px 14px;border-radius:10px;max-width:88%">' + App.escapeHtml(msg.content) + '</div></div>';
@@ -442,12 +542,19 @@
     if (msg.role === 'user') {
       return '<div class="msg user"><div class="body"><div class="bubble">' + App.escapeHtml(msg.content) + '</div></div></div>';
     }
+    if (msg.status === 'error') {
+      var errorMaster = msg.masterKey ? getMasterByKey(msg.masterKey) : null;
+      var errorColor = errorMaster ? accentOf(errorMaster) : 'var(--accent)';
+      var errorInitial = errorMaster ? errorMaster.initial : '师';
+      var errorName = errorMaster ? errorMaster.name : (msg.masterKey || '大师');
+      return '<div class="msg ai"><div class="av" style="background:' + errorColor + '">' + errorInitial + '</div><div class="body"><div class="sender">' + App.escapeHtml(errorName) + '</div>' + renderErrorCard(msg.error || msg.content, msg.errorCode) + '</div></div>';
+    }
     var m = msg.masterKey ? getMasterByKey(msg.masterKey) : null;
     var name = m ? m.name : (msg.masterKey || '大师');
     var color = m ? accentOf(m) : 'var(--accent)';
     var initial = m ? m.initial : '师';
     var statusLabel = msg.status === 'interrupted' ? ' · 已中断' : '';
-    return '<div class="msg ai' + (msg.status === 'interrupted' ? ' interrupted' : '') + '"><div class="av" style="background:' + color + '">' + initial + '</div><div class="body"><div class="sender">' + name + statusLabel + '</div><div class="bubble">' + App.escapeHtml(msg.content) + '</div></div></div>';
+    return '<div class="msg ai' + (msg.status === 'interrupted' ? ' interrupted' : '') + '"><div class="av" style="background:' + color + '">' + initial + '</div><div class="body"><div class="sender">' + name + statusLabel + '</div><div class="bubble">' + App.escapeHtml(msg.content) + '<div class="theory-scope-note">理论视角 · 仅本次输入 · 非临床事实</div></div></div></div></div>';
   }
 
   // ---------- 快捷提问（空态点击） ----------
@@ -458,7 +565,7 @@
   };
 
   // ---------- 发送消息 ----------
-  window.sendMessage = function () {
+  window.sendMessage = async function () {
     if (busy) {
       if (activeController) activeController.abort();
       return;
@@ -482,19 +589,22 @@
       if (mode === '1v1') { App.showToast('请先选择一位大师', 'error'); return; }
       if (roundKeys.length < 2) { App.showToast('圆桌至少选择两位大师', 'warning'); return; }
       currentConv = { id: genId(), mode: 'round', masterKeys: roundKeys.slice(), title: '圆桌研讨', messages: [], summary: '', createdAt: nowISO(), updatedAt: nowISO() };
-      Store.saveMasterConversation(currentConv); convList.unshift(currentConv); flashSaved();
+      if (!await saveConversationOrWarn(currentConv)) return;
+      convList.unshift(currentConv); flashSaved();
     }
     if (typeof Memory !== 'undefined' && Memory.record) Memory.record('master_chat', { summary: '与大师对话：' + text.slice(0, 30) });
     if (mode === 'round' && currentConv.mode !== 'round') {
       currentConv = { id: genId(), mode: 'round', masterKeys: roundKeys.slice(), title: '圆桌研讨', messages: [], summary: '', createdAt: nowISO(), updatedAt: nowISO() };
-      Store.saveMasterConversation(currentConv); convList.unshift(currentConv); flashSaved();
+      if (!await saveConversationOrWarn(currentConv)) return;
+      convList.unshift(currentConv); flashSaved();
     }
 
     var cleanText = text.replace(/@[A-Za-z_\u4e00-\u9fa5]+\s*/, '').trim() || text;
     currentConv.messages.push({ role: 'user', content: cleanText, ts: Date.now() });
     input.value = '';
     renderChat();
-    Store.saveMasterConversation(currentConv); flashSaved();
+    if (!await saveConversationOrWarn(currentConv)) return;
+    flashSaved();
 
     var keys = (mode === '1v1') ? currentConv.masterKeys : (targetKeys || roundKeys);
     runMasters(keys, cleanText, targetKeys);
@@ -513,6 +623,35 @@
 
   // 核心：调用大师 API（并行第一轮 + 串行 reacting）
   async function runMasters(keys, userText, mentionedKeys) {
+    retryState = null;
+    var failedMessages = [];
+    var failedKeys = [];
+    var rememberFailure = function (key, result, fallback) {
+      var message = {
+        role: 'assistant',
+        content: fallback || (result && result.error) || '模型调用失败，请检查配置、网络或服务状态。',
+        error: (result && result.error) || fallback || '模型调用失败，请检查配置、网络或服务状态。',
+        errorCode: result && (result.errorCode || result.code),
+        masterKey: key,
+        status: 'error',
+        ts: Date.now(),
+      };
+      currentConv.messages.push(message);
+      failedMessages.push(message);
+      if (failedKeys.indexOf(key) < 0) failedKeys.push(key);
+      return message;
+    };
+    var rememberRetry = function () {
+      if (!failedMessages.length) return;
+      retryState = {
+        convId: currentConv && currentConv.id,
+        mode: currentConv && currentConv.mode,
+        keys: failedKeys.slice(),
+        userText: String(userText || ''),
+        mentionedKeys: [],
+        errorMessages: failedMessages.slice(),
+      };
+    };
     busy = true;
     activeController = mode === '1v1' && typeof AbortController !== 'undefined' ? new AbortController() : null;
     setGeneratingUi(true);
@@ -526,13 +665,13 @@
       var singleTyping = appendTyping(singleKey);
       var streamMessage = { role: 'assistant', content: '', masterKey: singleKey, status: 'streaming', ts: Date.now() };
       currentConv.messages.push(streamMessage);
-      Store.saveMasterConversation(currentConv);
+      await saveConversationOrWarn(currentConv);
       var snapshotTimer = null;
       var scheduleSnapshot = function () {
         if (snapshotTimer) return;
-        snapshotTimer = setTimeout(function () {
+        snapshotTimer = setTimeout(async function () {
           snapshotTimer = null;
-          Store.saveMasterConversation(currentConv);
+          await saveConversationOrWarn(currentConv);
         }, 700);
       };
       var singleResult = await callMaster(singleKey, userText, false, activeNames, {
@@ -550,14 +689,20 @@
         streamMessage.status = singleResult.interrupted ? 'interrupted' : 'complete';
       } else if (singleResult && singleResult.error) {
         var partial = singleResult.partialContent || '';
-        streamMessage.content = partial || '（生成失败：' + singleResult.error + '）';
-        streamMessage.status = partial ? 'interrupted' : 'error';
+        if (partial) {
+          streamMessage.content = partial;
+          streamMessage.status = 'interrupted';
+        } else {
+          currentConv.messages.pop();
+          rememberFailure(singleKey, singleResult, singleResult.error);
+        }
       } else {
-        streamMessage.content = '（模型未返回内容）';
-        streamMessage.status = 'error';
+        currentConv.messages.pop();
+        rememberFailure(singleKey, { error: '模型未返回内容' }, '模型未返回内容');
       }
+      rememberRetry();
       renderChat();
-      Store.saveMasterConversation(currentConv); flashSaved();
+      if (await saveConversationOrWarn(currentConv)) flashSaved();
       busy = false;
       setGeneratingUi(false);
       $('msg-input').disabled = false;
@@ -585,20 +730,22 @@
         currentConv.messages.push({ role: 'assistant', content: r.content, masterKey: k, ts: Date.now() });
         repliedKeys.push(k);
       } else if (r && r.error) {
-        currentConv.messages.push({ role: 'assistant', content: '（生成失败：' + r.error + '）', masterKey: k, ts: Date.now() });
+        rememberFailure(k, r);
+      } else if (!r) {
+        rememberFailure(k, { error: '模型未返回内容' }, '模型未返回内容');
       }
       // ponytail: 空格/空回复 = 跳过，与 Chat 一致
     });
+    rememberRetry();
     renderChat();
-    Store.saveMasterConversation(currentConv); flashSaved();
+    if (await saveConversationOrWarn(currentConv)) flashSaved();
 
-    // Round 2：串行 reacting（仅圆桌模式，>=2 位大师回复）
-    if (mode === 'round' && repliedKeys.length >= 2) {
-      var isMention = mentionedKeys && mentionedKeys.length > 0;
-
-      if (isMention) {
-        // @mention 流程：其他人回应被@的大师 → 被@大师总结
-        var targetKey = mentionedKeys[0];
+    // Z3（XJ519-Z3）：主回复完成后不再自动发起逐大师二次请求（reacting/总结波次）。
+    // 每轮只保留用户请求的各位大师回复，禁止额外请求、碎片回复与失败卡污染摘要。
+    // @大师 指定发言属于用户显式请求，保留其「其他人回应被@大师」的流程。
+    if (mode === 'round' && repliedKeys.length >= 2 && mentionedKeys && mentionedKeys.length > 0) {
+      // @mention 流程：其他人回应被@的大师 → 被@大师总结
+      var targetKey = mentionedKeys[0];
         var others = repliedKeys.filter(function (k) { return k !== targetKey; });
         if (others.length > 0) {
           // 其他人并行回应被@的大师
@@ -611,9 +758,14 @@
             var k = others[i];
             if (r.status === 'fulfilled' && r.value && r.value.content && r.value.content.trim() && r.value.content.trim() !== ' ') {
               currentConv.messages.push({ role: 'assistant', content: r.value.content, masterKey: k, ts: Date.now() });
+            } else if (r.status === 'fulfilled' && r.value && r.value.error) {
+              rememberFailure(k, r.value);
+            } else if (r.status === 'rejected') {
+              rememberFailure(k, { error: '模型调用失败，请检查配置、网络或服务状态。' });
             }
           });
-          renderChat(); Store.saveMasterConversation(currentConv); flashSaved();
+          rememberRetry();
+          renderChat(); if (await saveConversationOrWarn(currentConv)) flashSaved();
         }
         // 被@大师做总结
         var targetTyping = appendTyping(targetKey);
@@ -621,40 +773,11 @@
         if (targetTyping) targetTyping.remove();
         if (summaryResult && summaryResult.content && summaryResult.content.trim()) {
           currentConv.messages.push({ role: 'assistant', content: summaryResult.content, masterKey: targetKey, ts: Date.now() });
+        } else if (summaryResult && summaryResult.error) {
+          rememberFailure(targetKey, summaryResult);
         }
-        renderChat(); Store.saveMasterConversation(currentConv); flashSaved();
-      } else {
-        // 正常串行流程
-        var serialOrder = repliedKeys.filter(function (k) { return k !== 'winnicott'; });
-        if (repliedKeys.indexOf('winnicott') >= 0) serialOrder.push('winnicott');
-
-        for (var i = 0; i < serialOrder.length; i++) {
-          var sk = serialOrder[i];
-          var isLast = (i === serialOrder.length - 1);
-
-          // 收集其他大师的发言（过滤掉自己的）— 与 Chat 一致
-          var context = repliedKeys.filter(function (k) { return k !== sk; }).map(function (k) {
-            return masterName(k) + '：' + round1Results[k].content;
-          }).join('\n\n');
-
-          var reactPrompt = isLast
-            ? '以下是其他大师对同一议题的发言，请你作为总结者，综合各位观点，给出你的最终回应：\n\n' + context
-            : '以下是其他大师对这一议题的发言，请你就他们的观点做出回应，可补充、质疑或深化：\n\n' + context;
-
-          var typingEl = appendTyping(sk);
-          var rr = await callMaster(sk, reactPrompt, isLast ? 'summary' : true, activeNames);
-          if (typingEl) typingEl.remove();
-
-          // ponytail: 空格/空回复 = 跳过
-          if (rr && !rr.error && rr.content && rr.content.trim() && rr.content.trim() !== ' ') {
-            currentConv.messages.push({ role: 'assistant', content: rr.content, masterKey: sk, ts: Date.now() });
-          }
-          renderChat();
-          Store.saveMasterConversation(currentConv); flashSaved();
-
-          if (!isLast) await sleep(600);
-        }
-      }
+        rememberRetry();
+        renderChat(); if (await saveConversationOrWarn(currentConv)) flashSaved();
     }
 
     busy = false;
@@ -663,6 +786,42 @@
     $('msg-input').focus();
     activeController = null;
   }
+
+  async function retryLastMasterRequest(button) {
+    if (!retryState || busy) return;
+    var state = retryState;
+    if (!currentConv || currentConv.id !== state.convId || currentConv.mode !== state.mode) {
+      retryState = null;
+      renderChat();
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = '重试中…';
+    }
+    retryState = null;
+    currentConv.messages = currentConv.messages.filter(function (message) {
+      return state.errorMessages.indexOf(message) < 0;
+    });
+    renderChat();
+    if (!await saveConversationOrWarn(currentConv)) {
+      retryState = state;
+      renderChat();
+      return;
+    }
+    await runMasters(state.keys, state.userText, state.mentionedKeys);
+  }
+
+  function openMasterRecoveryDestination() {
+    var requiresAccount = retryState && retryState.errorMessages.some(function (message) {
+      return message && (message.errorCode === 'account_session_required' || message.errorCode === 'XJ_AI_ACCOUNT_SESSION_REQUIRED');
+    });
+    window.location.href = requiresAccount ? 'account.html' : 'settings.html#ai';
+  }
+
+  // 事件委托在文件尾部注册；仅暴露受控动作函数，不暴露会话、请求或恢复状态。
+  window.__xjMastersRetry = retryLastMasterRequest;
+  window.__xjMastersOpenRecovery = openMasterRecoveryDestination;
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
@@ -704,6 +863,7 @@
           if (res && res.content && !res.error) return { content: res.content, interrupted: !!res.interrupted };
           return {
             error: (res && res.error) || '无响应',
+            errorCode: res && (res.errorCode || res.code),
             partialContent: (res && res.partialContent) || '',
             interrupted: !!(res && res.interrupted),
           };
@@ -735,13 +895,13 @@
 
   // ---------- 新对话 / 删除 ----------
   // 语义：先把当前对话存入历史记录（若含消息），再开启一个全新、无上下文的对话
-  window.newConversation = function () {
+  window.newConversation = async function () {
     if (currentConv && currentConv.messages && currentConv.messages.length) {
       if (!convList.some(function (c) { return c.id === currentConv.id; })) {
-        Store.saveMasterConversation(currentConv);
+        await saveConversationOrWarn(currentConv);
         convList.unshift(currentConv);
       } else {
-        Store.saveMasterConversation(currentConv); // 已在历史中，确保最新消息落盘
+        await saveConversationOrWarn(currentConv); // 已在历史中，确保最新消息落盘
       }
     }
     currentConv = null; roundKeys = [];
@@ -749,10 +909,18 @@
   };
   window.deleteCurrent = function () {
     if (!currentConv) return;
+    var deleteId = currentConv.id;
     App.confirmDialog('确定删除当前对话？此操作不可恢复。', function () {
-      Store.deleteMasterConversation(currentConv.id);
-      convList = convList.filter(function (c) { return c.id !== currentConv.id; });
-      currentConv = null; renderMasterList(); renderChat(); renderHistList();
+      return Store.deleteMasterConversationDurable(deleteId).then(function (result) {
+        if (!result || !result.ok) {
+          App.showToast('删除失败：对话未改变，请恢复存储后重试', 'error');
+          return false;
+        }
+        convList = convList.filter(function (c) { return c.id !== deleteId; });
+        if (currentConv && currentConv.id === deleteId) currentConv = null;
+        renderMasterList(); renderChat(); renderHistList();
+        return true;
+      });
     }, true);
   };
   // v3.4.2: 导出当前对话为 Markdown
@@ -777,10 +945,16 @@
   window.deleteConvById = function (id, event) {
     if (event) event.stopPropagation();
     App.confirmDialog('确定删除这条对话？此操作不可恢复。', function () {
-      Store.deleteMasterConversation(id);
-      convList = convList.filter(function (c) { return c.id !== id; });
-      if (currentConv && currentConv.id === id) currentConv = null;
-      renderMasterList(); renderChat(); renderHistList();
+      return Store.deleteMasterConversationDurable(id).then(function (result) {
+        if (!result || !result.ok) {
+          App.showToast('删除失败：对话未改变，请恢复存储后重试', 'error');
+          return false;
+        }
+        convList = convList.filter(function (c) { return c.id !== id; });
+        if (currentConv && currentConv.id === id) currentConv = null;
+        renderMasterList(); renderChat(); renderHistList();
+        return true;
+      });
     }, true);
   };
 
@@ -793,6 +967,8 @@
     var title = lock.querySelector('strong');
     var copy = lock.querySelector('span');
     var action = $('btn-view-masters-plan');
+    var license = (App.getLicenseState && App.getLicenseState()) || {};
+    var currentTier = license.tier === 'custom' ? '旗舰版' : (license.tier === 'pro' || license.tier === 'full' ? '会员' : '免费版');
     if (eligible && compute) {
       lock.classList.add('hidden');
       input.disabled = !currentConv; sendBtn.disabled = !currentConv;
@@ -801,11 +977,11 @@
       input.disabled = true; sendBtn.disabled = true;
       if (!eligible) {
         if (title) title.textContent = '大师对话是会员功能';
-        if (copy) copy.textContent = '可预览理论学派、一对一与圆桌界面；解锁后才会调用 AI。';
+        if (copy) copy.textContent = '功能：大师对话 · 所需档位：会员 · 当前档位：' + currentTier + '。可预览理论学派、一对一与圆桌界面；解锁后才会调用 AI。';
         if (action) { action.textContent = '查看并解锁会员'; action.href = 'activation.html'; }
       } else {
         if (title) title.textContent = '尚未检测到可用 AI 算力';
-        if (copy) copy.textContent = '会员权益已生效。请检查内置服务，或配置并验证个人 API。';
+        if (copy) copy.textContent = '功能：大师对话 · 所需档位：会员 · 当前档位：' + currentTier + '。会员权益已生效，请检查内置服务或配置并验证个人 API。';
         if (action) { action.textContent = '配置 AI'; action.href = 'settings.html#ai'; }
       }
     }
@@ -840,3 +1016,190 @@
     },
   });
 })();
+
+
+(function () {
+  'use strict';
+
+  // 单一状态源；body/panel class 与 aria 属性均由此状态派生，避免两个状态漂移。
+  var panelState = window.__xjMastersPanelState || { left: false, right: false };
+  window.__xjMastersPanelState = panelState;
+
+  function getPanel(side) {
+    return document.getElementById(side === 'left' ? 'master-source-panel' : 'master-inspector-panel');
+  }
+
+  function getButton(side) {
+    return document.getElementById(side === 'left' ? 'masters-collapse-left' : 'masters-collapse-right');
+  }
+
+  function syncPanel(side, keepFocus) {
+    if (side !== 'left' && side !== 'right') return;
+    var panel = getPanel(side);
+    var button = getButton(side);
+    if (!panel || !button || !document.body) return;
+
+    var collapsed = panelState[side] === true;
+    var label = side === 'left' ? '大师视角栏' : '摘要历史栏';
+    var action = collapsed ? '恢复' : '折叠';
+    var icon = side === 'left'
+      ? (collapsed ? 'chevron-right' : 'chevron-left')
+      : (collapsed ? 'chevron-left' : 'chevron-right');
+
+    panel.classList.toggle('collapsed', collapsed);
+    document.body.classList.toggle('masters-' + side + '-collapsed', collapsed);
+    button.setAttribute('aria-controls', panel.id);
+    button.setAttribute('aria-expanded', String(!collapsed));
+    button.setAttribute('aria-label', action + label);
+    button.title = action + label;
+    button.innerHTML = '<i data-lucide="' + icon + '" aria-hidden="true"></i>';
+    if (window.IconSystem && IconSystem.render) IconSystem.render(button);
+    if (keepFocus) {
+      try { button.focus({ preventScroll: true }); } catch (e) { button.focus(); }
+    }
+  }
+
+  window.toggleMasterPanel = function (side) {
+    if (side !== 'left' && side !== 'right') return;
+    // 以当前 DOM 为事实来源。路由重渲染或 CSS 状态恢复后，旧的内存值
+    // 可能已经过期；按实际 class 反转可保证“恢复”按钮再次点击确实展开。
+    var panel = getPanel(side);
+    var currentlyCollapsed = !!(panel && panel.classList.contains('collapsed'));
+    panelState[side] = !currentlyCollapsed;
+    syncPanel(side, true);
+  };
+
+  // 016：Escape 恢复所有折叠面板（复用 panelState + syncPanel 单一状态源）
+  function restoreAllFolded(keepFocusToFirst) {
+    var restored = [];
+    ['left', 'right'].forEach(function (side) {
+      var panel = getPanel(side);
+      var folded = !!(panel && panel.classList.contains('collapsed')) || panelState[side] === true;
+      if (folded) { panelState[side] = false; restored.push(side); }
+    });
+    if (!restored.length) return restored;
+    restored.forEach(function (side) { syncPanel(side, false); });
+    if (keepFocusToFirst) {
+      var first = getButton(restored[0]);
+      if (first) { try { first.focus({ preventScroll: true }); } catch (e) { first.focus(); } }
+    }
+    return restored;
+  }
+
+  function handleMasterEscape(event) {
+    if (!event || event.key !== 'Escape') return;
+    if (event.defaultPrevented || event.isComposing) return;
+    var anyFolded = ['left', 'right'].some(function (side) {
+      var panel = getPanel(side);
+      return !!(panel && panel.classList.contains('collapsed')) || panelState[side] === true;
+    });
+    if (!anyFolded) return;
+    event.preventDefault();
+    restoreAllFolded(true);
+  }
+
+  function bindMasterEscapeOnce() {
+    if (window.__xjMasterEscapeBound === 1) return;
+    window.__xjMasterEscapeBound = 1;
+    document.addEventListener('keydown', handleMasterEscape);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindMasterEscapeOnce, { once: true });
+  else bindMasterEscapeOnce();
+
+  function initMasterPanelControls() {
+    ['left', 'right'].forEach(function (side) {
+      var button = getButton(side);
+      if (!button || button.dataset.panelBound === '1') return;
+      button.dataset.panelBound = '1';
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        window.toggleMasterPanel(side);
+      });
+      // 键盘闭环：阻止浏览器默认 click/滚动时序漂移，确保 Enter/Space 各只触发一次。
+      button.addEventListener('keydown', function (event) {
+        if (!event || event.isComposing || event.defaultPrevented || event.repeat) return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.stopPropagation();
+          window.toggleMasterPanel(side);
+          return;
+        }
+        if (event.key === ' ' || event.key === 'Spacebar' || event.code === 'Space') {
+          event.preventDefault();
+          button.dataset.panelSpacePending = '1';
+        }
+      });
+      button.addEventListener('keyup', function (event) {
+        if (!event || event.isComposing) return;
+        if (event.key === ' ' || event.key === 'Spacebar' || event.code === 'Space') {
+          event.preventDefault();
+          event.stopPropagation();
+          if (button.dataset.panelSpacePending === '1') {
+            delete button.dataset.panelSpacePending;
+            window.toggleMasterPanel(side);
+          }
+        }
+      });
+      button.addEventListener('blur', function () { delete button.dataset.panelSpacePending; });
+      syncPanel(side, false);
+    });
+  }
+
+  // 动态路由可能在 masters.js 初始化后才插入面板 DOM。对尚未完成直接绑定的
+  // 控件保留委托入口，确保按钮始终可用且不会与直接监听器重复切换。
+  function bindMasterPanelDelegation() {
+    if (window.__xjMasterPanelDelegationBound === 1) return;
+    window.__xjMasterPanelDelegationBound = 1;
+    document.addEventListener('click', function (event) {
+      var button = event.target && event.target.closest ? event.target.closest('.masters-collapse-btn') : null;
+      if (!button || button.dataset.panelBound === '1') return;
+      var side = button.id === 'masters-collapse-left' ? 'left' : (button.id === 'masters-collapse-right' ? 'right' : '');
+      if (!side) return;
+      event.preventDefault();
+      window.toggleMasterPanel(side);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (!event || event.isComposing || event.defaultPrevented || event.key !== 'Enter') return;
+      var button = event.target && event.target.closest ? event.target.closest('.masters-collapse-btn') : null;
+      if (!button || button.dataset.panelBound === '1') return;
+      var side = button.id === 'masters-collapse-left' ? 'left' : (button.id === 'masters-collapse-right' ? 'right' : '');
+      if (!side) return;
+      event.preventDefault();
+      window.toggleMasterPanel(side);
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initMasterPanelControls, { once: true });
+  else initMasterPanelControls();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindMasterPanelDelegation, { once: true });
+  else bindMasterPanelDelegation();
+
+  // App 路由会异步替换页面片段；面板晚于脚本出现时重新执行一次绑定与状态同步。
+  if (window.MutationObserver && !window.__xjMasterPanelObserver) {
+    window.__xjMasterPanelObserver = new MutationObserver(function (mutations) {
+      var needsInit = mutations.some(function (mutation) {
+        return Array.prototype.some.call(mutation.addedNodes || [], function (node) {
+          return node && node.nodeType === 1 && (node.id === 'master-source-panel' || node.id === 'master-inspector-panel' ||
+            (node.querySelector && (node.querySelector('#masters-collapse-left') || node.querySelector('#masters-collapse-right'))));
+        });
+      });
+      if (needsInit) initMasterPanelControls();
+    });
+    window.__xjMasterPanelObserver.observe(document.documentElement || document.body, { childList: true, subtree: true });
+  }
+})();
+
+  document.addEventListener('click', function (e) {
+    var button = e.target && e.target.closest ? e.target.closest('[data-masters-action]') : null;
+    if (!button) return;
+    var action = button.getAttribute('data-masters-action');
+    if (action === 'retry') {
+      e.preventDefault();
+      if (typeof window.__xjMastersRetry === 'function') window.__xjMastersRetry(button);
+    } else if (action === 'account') {
+      e.preventDefault();
+      if (typeof window.__xjMastersOpenRecovery === 'function') window.__xjMastersOpenRecovery();
+    }
+  });

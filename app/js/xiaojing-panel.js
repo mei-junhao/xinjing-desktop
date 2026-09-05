@@ -174,7 +174,7 @@ const XiaojingPanel = (() => {
         'will-change:opacity;transition:opacity .3s cubic-bezier(.4,0,.2,1)}' +
       '.xj-panel-v3.open .xj3-overlay{opacity:1;pointer-events:auto}' +
       '.xj3-fab{position:fixed;right:20px;bottom:24px;width:52px;height:52px;border-radius:50%;border:none;' +
-        'background:var(--accent);color:#fff;font-size:20px;font-weight:700;font-family:var(--serif);' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font-size:20px;font-weight:700;font-family:var(--serif);' +
         'cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.15);pointer-events:auto;' +
         'will-change:transform,opacity;transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .2s ease;' +
         'display:flex;align-items:center;justify-content:center}' +
@@ -226,7 +226,7 @@ const XiaojingPanel = (() => {
       '.xj3-input-row input{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 12px;' +
         'font:13px var(--sans);outline:none;background:var(--bg);transition:border-color .15s ease}' +
       '.xj3-input-row input:focus{border-color:var(--accent)}' +
-      '.xj3-input-row button{background:var(--accent);color:#fff;border:none;border-radius:10px;' +
+      '.xj3-input-row button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;' +
         'padding:0 16px;font:600 13px var(--sans);cursor:pointer;transition:opacity .15s ease}' +
       '.xj3-input-row button:hover{opacity:.9}' +
       '.xj3-input-row button:active{opacity:.8}' +
@@ -240,7 +240,7 @@ const XiaojingPanel = (() => {
       '.xj3-confirm-preview{font-size:12px;color:var(--ink);margin-bottom:10px;line-height:1.6}' +
       '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
       '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
-      '.xj3-confirm-actions .xj3-ok{background:var(--accent);color:#fff;border-color:var(--accent)}' +
+      '.xj3-confirm-actions .xj3-ok{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}' +
       '.xj3-progress{font-size:11px;color:var(--ink-3);padding:4px 8px;align-self:flex-start}' +
       '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
         'padding:10px 12px;margin:2px 0;align-self:stretch}' +
@@ -402,6 +402,18 @@ const XiaojingPanel = (() => {
   }
 
   function buildSystemPrompt() {
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.registerPrompt) {
+      PromptGovernance.registerPrompt({
+        id: 'xiaojing.panel.system',
+        version: '4.4.0',
+        task: 'assistant-navigation',
+        model: 'chat-completions-compatible',
+        author: 'XinJing product team',
+        source: 'app/js/xiaojing-panel.js',
+        changeLog: ['4.4.0: registered Xiaojing panel identity; live page context remains outside the manifest hash.'],
+        content: XIAOJING_IDENTITY,
+      });
+    }
     var preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
     var ctx = '';
     try {
