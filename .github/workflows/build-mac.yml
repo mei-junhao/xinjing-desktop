@@ -1,10 +1,10 @@
-name: Build Mac (dmg + zip) and publish to COS
+name: Internal Mac Candidate
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
+
+permissions:
+  contents: read
 
 jobs:
   mac:
@@ -21,98 +21,81 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Codegen (secret / version / builtin prompts)
-        env:
-          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
+      - name: Generate runtime files
         run: |
           node scripts/codegen-secret.js
           node scripts/codegen-version.js
           python3 scripts/gen-knowledge-builtins.py
-          # gen-prompts-builtin 正则对当前 supervisors.js 脆弱，与 Windows cnb-build 一致：
-          # 失败仅告警、不阻断（已提交的 app/js/prompts.builtin.js 会被打包使用）
-          python3 scripts/gen-prompts-builtin.py || echo "gen-prompts-builtin 跳过（非致命，使用已提交的 prompts.builtin.js）"
+          python3 scripts/gen-prompts-builtin.py || echo "Using committed prompt bundle"
 
-      # electron-builder 24 捆绑的 7zip-bin 7za 16.02 在 macOS 15/26 创建 DMG 报
-      # E_INVALIDARG（老二进制与新系统不兼容）。用官方新版 7zz（7-Zip 26，universal）
-      # 覆盖，命令行参数兼容，不影响其它步骤。
-      - name: Fix 7za for macOS 15+ (E_INVALIDARG)
+      - name: Fix 7za for current macOS
         run: |
           set -e
           curl -fSL -o /tmp/7z-mac.tar.xz "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-mac.tar.xz" \
             || curl -fSL -o /tmp/7z-mac.tar.xz "https://7-zip.org/a/7z2602-mac.tar.xz"
-          rm -rf /tmp/7zmac && mkdir -p /tmp/7zmac
+          mkdir -p /tmp/7zmac
           tar -xf /tmp/7z-mac.tar.xz -C /tmp/7zmac
-          SRC=$(find /tmp/7zmac -name '7zz' -type f | head -1)
-          [ -n "$SRC" ] || SRC=$(find /tmp/7zmac -name '7zzs' -type f | head -1)
-          [ -n "$SRC" ] || { echo "未找到 7zz 二进制"; exit 1; }
-          ARCH=$(uname -m)
-          if [ "$ARCH" = "arm64" ]; then P="mac/arm64/7za"; else P="mac/x64/7za"; fi
-          DST="node_modules/7zip-bin/$P"
-          mkdir -p "$(dirname "$DST")"
-          cp -f "$SRC" "$DST"
-          chmod +x "$DST"
-          echo "7za 已替换为：$("$DST" i 2>&1 | head -3)"
+          src=$(find /tmp/7zmac -name 7zz -type f | head -1)
+          [ -n "$src" ] || src=$(find /tmp/7zmac -name 7zzs -type f | head -1)
+          [ -n "$src" ] || { echo "7zz missing"; exit 1; }
+          arch=$(uname -m)
+          if [ "$arch" = arm64 ]; then destination=mac/arm64/7za; else destination=mac/x64/7za; fi
+          mkdir -p "node_modules/7zip-bin/$(dirname "$destination")"
+          cp "$src" "node_modules/7zip-bin/$destination"
+          chmod +x "node_modules/7zip-bin/$destination"
 
-      - name: Build Mac (unsigned, no notarization)
+      - name: Build unsigned candidate
         run: npm run dist -- --mac --publish never
 
-      # electron-builder 的 DMG 走 7za（7zip-bin 16.02 在 macOS 15+ 报 E_INVALIDARG/ E_NOTIMPL）。
-      # 改为：上面的 zip 走 7zz 正常产出；DMG 用系统 hdiutil 生成「真正可挂载」的磁盘镜像，
-      # 内含 App + /Applications 快捷方式，命名与 artifactName 一致（xinjing-${version}.dmg）。
-      - name: Create DMG via hdiutil (real mountable DMG, bypass 7za)
+      - name: Create mountable DMG
         run: |
           set -e
-          APP=$(find dist -maxdepth 2 -name '心镜 XinJing.app' -type d | head -1)
-          [ -n "$APP" ] || { echo "未找到 心镜 XinJing.app"; ls -R dist | head -40; exit 1; }
-          TMP=$(mktemp -d)
-          cp -R "$APP" "$TMP/"
-          ln -s /Applications "$TMP/Applications"
-          # 动态版本号命名（旧版硬编码 xinjing-3.6.3.dmg，导致 latest-mac.yml 与 dist 实际文件名错位）
-          VERSION=$(node -p "require('./package.json').version")
-          hdiutil create -volname "XinJing" -srcfolder "$TMP" -ov -format UDZO "dist/xinjing-${VERSION}.dmg"
-          rm -rf "$TMP"
-          echo "DMG 创建完成：$(du -h dist/xinjing-${VERSION}.dmg)"
+          app=$(find dist -maxdepth 2 -name '*.app' -type d | head -1)
+          [ -n "$app" ] || { echo "App bundle missing"; exit 1; }
+          version=$(node -p "require('./package.json').version")
+          staging=$(mktemp -d)
+          cp -R "$app" "$staging/"
+          ln -s /Applications "$staging/Applications"
+          hdiutil create -volname XinJing -srcfolder "$staging" -ov -format UDZO "dist/xinjing-${version}.dmg"
+          rm -rf "$staging"
 
-      - name: Postbuild (patch latest-mac.yml)
-        run: node scripts/postbuild.js
-
-      - name: Install coscli
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate and verify update metadata
         run: |
-          ARCH=$(uname -m)
-          if [ "$ARCH" = "arm64" ]; then A="darwin-arm64"; else A="darwin-amd64"; fi
-          # 用 gh（已认证）取最新版本，避免 api.github.com 未认证限流导致 VER 为空
-          VER=$(gh api repos/tencentyun/coscli/releases/latest --jq '.tag_name' 2>/dev/null || true)
-          [ -n "$VER" ] || VER="v1.0.8"
-          echo "coscli version: $VER  arch: $A"
-          URL="https://github.com/tencentyun/coscli/releases/download/${VER}/coscli-${VER}-${A}"
-          echo "downloading $URL"
-          curl -fSL -o coscli "$URL" || \
-            curl -fSL -o coscli "https://ghproxy.net/${URL}"
-          chmod +x coscli
-          ./coscli --version
+          set -e
+          node scripts/postbuild.js
+          version=$(node -p "require('./package.json').version")
+          dmg="dist/xinjing-${version}.dmg"
+          zip="dist/xinjing-${version}.zip"
+          test -s "$dmg"
+          test -s "$zip"
+          test -s dist/latest-mac.yml
+          unzip -t "$zip"
+          mount=$(mktemp -d)
+          hdiutil attach "$dmg" -nobrowse -mountpoint "$mount"
+          test -n "$(find "$mount" -maxdepth 1 -name '*.app' -type d -print -quit)"
+          hdiutil detach "$mount"
+          node - <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const version = require('./package.json').version;
+          const raw = fs.readFileSync('dist/latest-mac.yml', 'utf8');
+          const path = (raw.match(/^path:\s*(.+)$/m) || [])[1];
+          const size = Number((raw.match(/^    size:\s*(\d+)$/m) || [])[1]);
+          const sha512 = (raw.match(/^    sha512:\s*(.+)$/m) || [])[1];
+          if (!path || !sha512 || !raw.includes('version: ' + version)) throw new Error('invalid latest-mac.yml');
+          const bytes = fs.readFileSync('dist/' + path);
+          const actual = crypto.createHash('sha512').update(bytes).digest('base64');
+          if (bytes.length !== size || actual !== sha512) throw new Error('latest-mac.yml hash or size mismatch');
+          console.log(JSON.stringify({ version, path, size, sha512 }, null, 2));
+          NODE
 
-      - name: Upload to Tencent COS
-        env:
-          COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
-          COS_SECRET_KEY: ${{ secrets.COS_SECRET_KEY }}
-          COS_BUCKET: ${{ secrets.COS_BUCKET }}
-          COS_REGION: ${{ secrets.COS_REGION }}
-        run: |
-          cat > "$HOME/.cos.yaml" <<EOF
-          cos:
-            base:
-              secretid: "$COS_SECRET_ID"
-              secretkey: "$COS_SECRET_KEY"
-            buckets:
-              - name: $COS_BUCKET
-                alias: $COS_BUCKET
-                region: $COS_REGION
-          EOF
-          for f in dist/xinjing-*.dmg dist/xinjing-*.zip dist/*.blockmap dist/latest-mac.yml; do
-            [ -f "$f" ] || continue
-            echo "uploading $f"
-            ./coscli cp "$f" "cos://$COS_BUCKET/$(basename "$f")" --acl public-read
-          done
-          echo "==> Done. COS latest-mac.yml: https://$COS_BUCKET.cos.$COS_REGION.myqcloud.com/latest-mac.yml"
+      - name: Upload internal candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: xinjing-macos-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            dist/xinjing-*.dmg
+            dist/xinjing-*.zip
+            dist/*.blockmap
+            dist/latest-mac.yml
