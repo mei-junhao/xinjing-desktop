@@ -48,7 +48,7 @@ jobs:
           chmod +x "node_modules/7zip-bin/$destination"
 
       - name: Build unsigned candidate
-        run: npm run dist -- --mac --publish never
+        run: npx --yes electron-builder@24.13.3 --mac --publish never
 
       - name: Create mountable DMG
         run: |
