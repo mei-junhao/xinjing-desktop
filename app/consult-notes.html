@@ -147,7 +147,7 @@
     <div class="foot-actions">
       <button id="btn-save-record" class="btn-primary" onclick="saveNotes()"><i data-lucide="save"></i>保存记录</button>
       <button type="button" id="btn-ai-fill" onclick="aiFillPage()"><i data-lucide="sparkles"></i>AI 填写 <span id="ai-fill-lock"></span></button>
-      <button type="button" id="btn-desensitize" onclick="openDesensitize()" style="border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 14px;font:600 12px var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:4px"><i data-lucide="shield-check"></i>生成脱敏文档</button>
+      <button type="button" id="btn-desensitize" onclick="openDesensitize()" style="border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:8px 14px;font:600 12px var(--sans);cursor:pointer;display:inline-flex;align-items:center;gap:4px"><i data-lucide="shield-check"></i>就地脱敏</button>
       <button style="margin-left:auto" onclick="finishAndGoReport()">完成并撰写报告 <i data-lucide="arrow-right"></i></button>
     </div>
     <div class="notes-save-status" id="notes-save-status" aria-live="polite" role="status"></div>
@@ -170,7 +170,7 @@
 </div>
 </div>
 </main></div>
-<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-task-view-model.js"></script><script src="js/session-template-view-model.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/consult-notes.js"></script>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/clinical-task-view-model.js"></script><script src="js/session-template-view-model.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/pii-sanitizer.js"></script><script src="js/consult-notes.js"></script>
 <script>
 (function () {
   'use strict';

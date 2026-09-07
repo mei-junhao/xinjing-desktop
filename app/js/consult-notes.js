@@ -3,6 +3,7 @@
   'use strict';
   var currentClientId = null;
   var currentSessionId = null;
+  var summaryRequestVersion = 0;
   var currentMode = 'apa';
   var allClients = [];
   var autoSaveTimer = null;
@@ -380,6 +381,7 @@
 
   // 选择来访者：填充会话下拉并显示上传/导出入口
   window.onClientChange = function () {
+    summaryRequestVersion += 1;
     var sel = document.getElementById('sel-client');
     currentClientId = sel.value || currentClientId;
     if (currentClientId && App.setActiveClientId) App.setActiveClientId(currentClientId);
@@ -422,6 +424,7 @@
 
   // 选择已有会话：把该节次内容载入编辑区（按记录类型匹配模式）
   window.onSessionChange = function () {
+    summaryRequestVersion += 1;
     var sessSel = document.getElementById('sel-session');
     currentSessionId = sessSel.value || null;
     renderNoteSummary('');
@@ -529,46 +532,44 @@
   }
 
   // silent=true 时为自动保存（不弹 toast、空内容直接跳过）
-  // XJ-5.1.9-desensitize-work-style：收集当前记录字段 → 跳转脱敏结果页（本地处理，数据不出本机）
+  // XJ-5.1.9-desensitize-work-style（就地替换版）：点击「就地脱敏」后立刻用脱敏结果
+  // 替换当前面板已填写字段（用户裁决）；原文可通过「保存记录」前的撤销/再编辑恢复。
   window.openDesensitize = function () {
-    var sections = [];
+    if (typeof XJPIISanitizer === 'undefined' || typeof XJPIISanitizer.maskDocument !== 'function') {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('本地脱敏引擎未就绪', 'error');
+      return;
+    }
+    var rules = {};
+    try { rules = JSON.parse(localStorage.getItem('xj_desensitize_custom_rules') || '{}'); } catch (e) { rules = {}; }
     var paneIds = ['pane-apa', 'pane-soap', 'pane-dap', 'pane-free'];
-    var collected = 0;
+    var total = 0;
+    var fields = 0;
     paneIds.forEach(function (paneId) {
       var pane = document.getElementById(paneId);
       if (!pane || pane.style.display === 'none') return;
       pane.querySelectorAll('textarea').forEach(function (ta) {
         var value = (ta.value || '').trim();
         if (!value) return;
-        collected += 1;
-        var field = ta.closest('.field');
-        var label = field && field.querySelector('label') ? field.querySelector('label').textContent.trim() : '';
-        var NL = String.fromCharCode(10);
-        if (label) sections.push('## ' + label + NL + NL + value);
-        else sections.push(value);
+        var r = XJPIISanitizer.maskDocument(ta.value, {
+          documentName: '咨询记录.md',
+          customWords: rules.words || [],
+          customPatterns: rules.patterns || [],
+          excludeWords: rules.exclude || [],
+        });
+        if (r.ok && r.report.summary.total_findings > 0) {
+          ta.value = r.text;
+          fields += 1;
+          total += r.report.summary.total_findings;
+        }
       });
     });
-    if (!collected) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast('当前记录为空，请先填写内容再生成脱敏文档', 'warning');
+    if (fields === 0) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('未命中敏感信息（或记录为空）', 'info');
       return;
     }
-    var today = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
-    var docName = '咨询记录_' + today + '.md';
-    var NL2 = String.fromCharCode(10);
-    var docText = '# 咨询记录（' + today + '）' + NL2 + NL2 + sections.join(NL2 + NL2) + NL2;
-    try {
-      sessionStorage.setItem('xj_desensitize_task', JSON.stringify({
-        name: docName,
-        text: docText,
-        sourceLabel: '咨询记录',
-        savedAt: new Date().toISOString(),
-      }));
-    } catch (e) {
-      if (typeof App !== 'undefined' && App.showToast) App.showToast('无法暂存脱敏任务，请重试', 'error');
-      return;
-    }
-    location.href = 'desensitize-result.html';
+    if (typeof App !== 'undefined' && App.showToast) App.showToast('已就地脱敏 ' + total + ' 处（' + fields + ' 个字段）；请检查后保存记录', 'success');
   };
+
 
   window.saveNotes = function (silent) {
     return (async function () {
@@ -914,10 +915,17 @@
   window.generateNoteSummary = function () {
     var data = collectCurrent();
     if (!currentSessionId || !data || !data.notes) { App.showToast('请先保存含内容的咨询记录', 'warning'); return; }
+    var requestClientId = currentClientId;
+    var requestSessionId = currentSessionId;
     if (!App.featureGate('ai-notes') || typeof AI === 'undefined' || !AI.send) { App.showToast('生成摘要需激活 AI 功能', 'warning'); return; }
+    var requestVersion = ++summaryRequestVersion;
     App.showToast('正在生成会谈摘要…', 'info');
     AI.send([{ role: 'system', content: '你是心理咨询记录助手。基于输入记录生成一段简洁、非诊断性的会谈摘要，只陈述已有材料，不补充事实。' }, { role: 'user', content: data.notes }], async function (res) {
       if (!res || res.error || !res.content) { App.showToast('生成摘要失败，请重试', 'error'); return; }
+      if (requestVersion !== summaryRequestVersion || currentClientId !== requestClientId || currentSessionId !== requestSessionId) {
+        App.showToast('会谈已切换，已丢弃旧摘要结果', 'warning');
+        return;
+      }
       var summary = String(res.content).trim();
       if (!summary) { App.showToast('模型返回了空摘要，请重试', 'error'); return; }
       // 先展示真实生成结果，避免持久化异常让用户只看到加载状态消失。
@@ -925,7 +933,7 @@
       var box = document.getElementById('note-summary');
       var status = box && box.querySelector('.note-summary-status');
       if (status) status.textContent = '正在保存到本次会谈…';
-      var s = Store.getSession(currentSessionId);
+      var s = Store.getSession(requestSessionId);
       if (!s) {
         if (status) status.textContent = '未找到本次会谈，摘要仅保留在当前页面';
         App.showToast('未找到本次会谈，摘要未写入本地', 'error');

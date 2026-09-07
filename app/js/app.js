@@ -251,6 +251,7 @@ const App = (() => {
     { key: 'workbench', label: '工作台', icon: 'home', href: 'index.html', group: 'clinical' },
     { key: 'calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html', group: 'clinical' },
     { key: 'clients', label: '文档中心', icon: 'docCenter', href: 'doc-center.html', group: 'clinical' },
+    { key: 'desensitize', label: '文档脱敏', icon: 'lock-keyhole', href: 'desensitize.html', group: 'clinical' },
     { key: 'clinical', label: '临床材料', icon: 'calendar', href: 'consult-notes.html', group: 'clinical' },
     { key: 'supervision', label: '督导空间', icon: 'cap', href: 'supervision.html', group: 'clinical', feature: 'ai-supervise' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html', group: 'clinical', feature: 'ai-masters' },
@@ -512,7 +513,7 @@ const App = (() => {
           '<span class="nav-group-chevron">' + svgIcon('chevron-down') + '</span>' +
         '</button><div class="nav-group-body">' + entries.map(renderItem).join('') + '</div></section>';
     };
-    const workspace = NAV_ITEMS.filter((item) => item.key === 'workbench' || item.key === 'calendar' || item.key === 'clients').map(renderItem).join('');
+    const workspace = NAV_ITEMS.filter((item) => item.key === 'workbench' || item.key === 'calendar' || item.key === 'clients' || item.key === 'desensitize').map(renderItem).join('');
     const clinicalMaterials = CLINICAL_MATERIAL_ITEMS;
     const supervisionSpace = SUPERVISION_SPACE_ITEMS;
     const resources = NAV_ITEMS.filter((item) => item.key === 'masters' || item.key === 'knowledge').map(renderItem).join('') +

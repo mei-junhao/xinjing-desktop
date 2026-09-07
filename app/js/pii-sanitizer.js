@@ -179,6 +179,12 @@
     var digits = String(value).replace(/\D/g, '');
     return digits.length === 18 && /^\d{17}[\dXx]$/.test(digits);
   }
+  // 文档模式专属：长数字串兜底（7-19 位）——覆盖 13 位误写号码等漏检形态；具体类型优先。
+  var DOC_NUMBER_PATTERN = /(?<!\d)\d{7,19}(?!\d)/g;
+  // 文档模式专属：裸姓名启发式——常见姓氏 + 1-2 字；前置需为边界/标点/动作连接词；排除常见非名词与地域后缀。
+  var DOC_SURNAME = '李|王|张|刘|陈|杨|黄|赵|吴|周|徐|孙|马|朱|胡|郭|何|高|林|罗|郑|梁|谢|宋|唐|许|韩|冯|邓|曹|彭|曾|肖|田|董|袁|潘|蒋|蔡|余|杜|叶|程|苏|魏|吕|丁|任|沈|姚|卢|姜|崔|钟|谭|陆|汪|范|金|石|廖|贾|夏|韦|傅|方|白|邹|孟|熊|秦|邱|江|尹|薛|闫|段|雷|侯|龙|史|陶|黎|贺|顾|毛|郝|龚|邵|万|钱|严|覃|武|戴|莫|孔|向|汤|常|温|康|施|文|牛|樊|葛|邢|安|齐|易|乔|伍|庞|颜|倪|庄|聂|章|鲁|岳|翟|殷|詹|申|欧|耿|关|兰|焦|俞|左|柳|甘|祝|包|宁|尚|符|阮|柯|纪|梅|童|凌|毕|季|裴|霍|涂|成|苗|盛|曲|翁|骆';
+  var DOC_PERSON_BARE = new RegExp('(?:^|(?<=[^\\u4e00-\\u9fa5A-Za-z0-9])|(?<=即|如|例如|和|与|同|跟|给|找|叫|让|向|对|陪|带|约|见|问|请|由|从|为|来访|来访者和|咨询|联系))((?:' + DOC_SURNAME + ')[\\u4e00-\\u9fa5]{1,2})', 'g');
+  var DOC_NAME_EXCLUDE = ['马上', '白天', '万一', '王子', '大王', '大人', '天天', '何必', '何时', '何处', '何况', '天津', '长春', '长沙', '长江', '黄山', '海口', '山口', '四方', '东方', '西方', '北方', '南方', '方面', '方式', '方向', '平方', '立方', '四周', '四处', '四面', '高地', '高举', '张开', '开放', '放开', '高度', '说明', '说明'];
 
   function maskMiddle(value, left, right) {
     if (value.length <= left + right) return value;
@@ -218,6 +224,12 @@
         return /出生\s*$/.test(value) ? '****年**月**日出生' : '****年**月**日';
       case 'ACCOUNT':
         return maskMiddle(compact, 2, 2);
+      case 'NUMBER':
+        return maskMiddle(compact, 3, 4);
+      case 'CUSTOM':
+      case 'CUSTOM_PATTERN':
+        // 短词（≤2 字）也必须产生可感知变化：首字 + ***
+        return compact.length <= 2 ? compact.charAt(0) + '***' : maskMiddle(compact, 1, 1);
       case 'PERSON_NAME': {
         var compactName = String(value).replace(/\s+/g, '');
         if (compactName.length <= 1) return compactName;
@@ -248,7 +260,21 @@
     return '正文 · 第 ' + n + ' 段';
   }
 
-  function collectDocMatches(text) {
+  // 名字终止字：这些字跟在姓氏段后通常是动词/助词/连词（如「李林给」「王二打」中的 给/打）。
+  var DOC_NAME_TERM_CHARS = '打给说叫让找问聊谈提拨来去到会要能可是和与及或的了在有着向从对被把使等将至为';
+  function trimTrailingTerm(rawText, surnameChar) {
+    var name = String(rawText);
+    var guard = 0;
+    while (name.length > surnameChar.length + 0 && DOC_NAME_TERM_CHARS.indexOf(name.charAt(name.length - 1)) !== -1) {
+      name = name.slice(0, -1);
+      guard += 1;
+      if (guard > 4) break;
+    }
+    return { name: name, ok: name.length > surnameChar.length };
+  }
+
+  function collectDocMatches(text, extra) {
+    extra = extra || {};
     var matches = [];
     HIGH_RISK_PATTERNS.forEach(function (spec) {
       spec.regex.lastIndex = 0;
@@ -271,6 +297,7 @@
         var offset2 = m[0].indexOf(raw2);
         if (offset2 < 0) continue;
         var type2 = spec.type === 'PERSON_NAME' ? 'PERSON_NAME' : spec.type;
+        if (type2 === 'PERSON_NAME' && /^(说明|表示|认为|提到|描述|报告|反馈|建议)/.test(raw2)) continue;
         matches.push({ type: type2, start: m.index + offset2, end: m.index + offset2 + raw2.length, raw: raw2, score: type2 === 'PERSON_NAME' ? 0.95 : 0.9 });
         if (m[0].length === 0) spec.regex.lastIndex += 1;
       }
@@ -283,6 +310,43 @@
       if (bankDigits.length < 15 || docLooksLikeIdCard(bankRaw)) continue;
       matches.push({ type: 'BANK_CARD', start: bm.index, end: bm.index + bankRaw.length, raw: bankRaw, score: 0.8 });
     }
+    // 长数字串兜底（7-19 位）：覆盖 13 位误写号码等漏检形态；具体类型（身份证/银行卡/手机号）在去重时优先。
+    DOC_NUMBER_PATTERN.lastIndex = 0;
+    var nm;
+    while ((nm = DOC_NUMBER_PATTERN.exec(text))) {
+      matches.push({ type: 'NUMBER', start: nm.index, end: nm.index + nm[0].length, raw: nm[0], score: 0.75 });
+    }
+    // 裸姓名（高召回启发式）：常见姓氏 + 1-2 字；前置需为边界/标点/动作连接词；排除常见非名词与地域后缀。
+    DOC_PERSON_BARE.lastIndex = 0;
+    var pm;
+    while ((pm = DOC_PERSON_BARE.exec(text))) {
+      var matchedRaw = String(pm[0]);
+      var surnameCh = matchedRaw.charAt(0);
+      var trimmed = trimTrailingTerm(matchedRaw, surnameCh);
+      if (!trimmed.ok) continue;
+      var candidate = trimmed.name;
+      if (/^(高度|高频|高兴|长期|方面|方式|方向|马上)/.test(candidate)) continue;
+      if (DOC_NAME_EXCLUDE.indexOf(candidate) !== -1) continue;
+      if ((extra.excludeWords || []).indexOf(candidate) !== -1) continue;
+      matches.push({ type: 'PERSON_NAME', start: pm.index, end: pm.index + candidate.length, raw: candidate, score: 0.85 });
+    }
+    // 自定义词条/正则（脱敏工作台配置；与既有命中一起参与去重，长 span 优先）。
+    (extra.customWords || []).forEach(function (word) {
+      var from = 0;
+      var idx;
+      while ((idx = text.indexOf(word, from)) !== -1) {
+        matches.push({ type: 'CUSTOM', start: idx, end: idx + word.length, raw: word, score: 1 });
+        from = idx + Math.max(word.length, 1);
+      }
+    });
+    (extra.customPatterns || []).forEach(function (spec) {
+      spec.regex.lastIndex = 0;
+      var cm;
+      while ((cm = spec.regex.exec(text))) {
+        if (cm[0]) matches.push({ type: 'CUSTOM_PATTERN', start: cm.index, end: cm.index + cm[0].length, raw: cm[0], score: 1 });
+        if (cm[0].length === 0) spec.regex.lastIndex += 1;
+      }
+    });
     DOC_ORG_PATTERN.regex.lastIndex = 0;
     var om;
     while ((om = DOC_ORG_PATTERN.regex.exec(text))) {
@@ -300,15 +364,20 @@
         matches.push({ type: 'ORG_NAME', start: om.index + trimmed, end: om.index + om[0].length, raw: orgRaw, score: 0.88 });
       }
     }
-    // 重叠去重：位置优先、长 span 优先、高置信度优先（与出站去重同口径）
-    matches.sort(function (a, b) { return a.start - b.start || (b.end - b.start) - (a.end - a.start) || b.score - a.score; });
+    // 重叠去重：自定义词条/正则（用户显式意图）优先占位；其余按位置/长 span/高置信度；
     var kept = [];
-    var cursorEnd = -1;
-    matches.forEach(function (item) {
-      if (item.start < cursorEnd) return;
-      kept.push(item);
-      cursorEnd = item.end;
-    });
+    function overlapsAny(item) {
+      return kept.some(function (k) { return item.start < k.end && item.end > k.start; });
+    }
+    matches.filter(function (m) { return m.score === 1; })
+      .sort(function (a, b) { return a.start - b.start || (b.end - b.start) - (a.end - a.start); })
+      .forEach(function (item) { if (!overlapsAny(item)) kept.push(item); });
+    matches.filter(function (m) { return m.score !== 1; })
+      .sort(function (a, b) { return a.start - b.start || (b.end - b.start) - (a.end - a.start) || b.score - a.score; })
+      .forEach(function (item) {
+        if (!overlapsAny(item)) kept.push(item);
+      });
+    kept.sort(function (a, b) { return a.start - b.start; });
     return kept;
   }
 
@@ -318,7 +387,19 @@
       return { ok: false, code: 'XJ_MASK_EMPTY_INPUT', text: text, report: null };
     }
     var documentName = String(options.documentName || '未命名文档');
-    var matches = collectDocMatches(text);
+    var customWords = Array.isArray(options.customWords) ? options.customWords.filter(function (w) { return typeof w === 'string' && w.trim(); }).map(function (w) { return w.trim(); }) : [];
+    var customPatterns = [];
+    (Array.isArray(options.customPatterns) ? options.customPatterns : []).forEach(function (src) {
+      if (typeof src !== 'string' || !src.trim()) return;
+      try { customPatterns.push({ regex: new RegExp(src, 'g'), source: src }); }
+      catch (e) { /* 非法正则忽略并在 warnings 提示 */ }
+    });
+    var excludeWords = Array.isArray(options.excludeWords) ? options.excludeWords.filter(function (w) { return typeof w === 'string' && w.trim(); }) : [];
+    var matches = collectDocMatches(text, { customWords: customWords, customPatterns: customPatterns, excludeWords: excludeWords });
+    // 排除词对全部命中类型生效（用户显式豁免优先于任何规则，含自定义词条/正则）
+    if (excludeWords.length) {
+      matches = matches.filter(function (m) { return excludeWords.indexOf(m.raw) === -1; });
+    }
     // 主体代称稳定性：同一原文 → 同一代称；机构简称（为更长机构名的后缀子串）归并到同一代称。
     var tokenByOriginal = Object.create(null);
     var orgMatches = matches.filter(function (m) { return m.type === 'ORG_NAME'; });
@@ -375,6 +456,9 @@
     var warnings = total === 0
       ? ['未命中敏感信息，仍建议人工抽样复核。']
       : ['自动识别可能存在漏检或误检；低置信度（<0.80）命中建议人工复核后再外发。'];
+    if (customPatterns.length !== (Array.isArray(options.customPatterns) ? options.customPatterns.filter(function (x) { return typeof x !== 'string' || x.trim(); }).length : 0)) {
+      warnings.push('部分自定义正则无效，已被忽略。');
+    }
     return {
       ok: true,
       code: null,
