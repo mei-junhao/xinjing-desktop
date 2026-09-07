@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "listVersion": 1,
+  "issuedAt": "2026-07-20T13:59:30.490Z",
+  "expiresAt": "2027-07-20T13:59:30.490Z",
+  "keyId": "revocation-ed25519-2026-01",
+  "revokedLicenseIds": [],
+  "signature": "fr8-9Z7ruIyIx-MZsgsZO7OLHq2RufRvfSCjIGaDvaxR1rEwAsRLqrozvltllftOkB01Yj42MZKNLItC8fDvDA"
+}

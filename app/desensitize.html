@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档脱敏 — 心镜</title>
+    <!--
+      XJ-5.1.9-desensitize-work-style 阶段 2：一级独立入口（侧栏「文档脱敏」）。
+      工作台：输入区（粘贴/书写任意文本）→ 自定义命中规则（敏感词/正则/排除词，localStorage 持久化）
+      → 本地执行脱敏（pii-sanitizer maskDocument，零网络）→ 结果（指标/命中类型/明细/遮蔽后全文）→ 导出。
+      视觉与 desensitize-result.html 同族（黑白编辑风，与皮肤体系正交）。
+    -->
+    <style>
+        :root {
+            --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", sans-serif;
+            --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Segoe UI", "Microsoft YaHei", sans-serif;
+            --bg: #ffffff; --bg-subtle: #f5f5f3; --accent: #111111; --accent-light: #f0f0ed; --accent-hover: #333333;
+            --text-primary: #111111; --text-secondary: #52525b; --text-muted: #71717a; --border: #d4d4d4;
+            --shadow: 0 10px 26px rgba(0, 0, 0, 0.08); --shadow-lg: 0 14px 34px rgba(0, 0, 0, 0.1);
+            --red: #8d1f1f; --red-bg: #f3e4df;
+            --orange: #a75b12; --orange-bg: #f6ead8;
+            --blue: #315f72; --blue-bg: #e6eef1;
+            --green: #36673a; --green-bg: #edf5ec;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font-ui); background: #ffffff; color: var(--text-primary); min-height: 100vh; line-height: 1.65; font-size: 16px; -webkit-font-smoothing: antialiased; }
+        body.dark {
+            --bg: #18181a; --bg-subtle: #242426; --accent: #e4e4e7; --accent-light: #2a2a2d; --accent-hover: #fafafa;
+            --text-primary: #e4e4e7; --text-secondary: #a1a1aa; --text-muted: #71717a; --border: #3f3f46;
+            --shadow: 0 10px 26px rgba(0,0,0,0.4); --shadow-lg: 0 14px 34px rgba(0,0,0,0.5);
+            --red: #f87171; --red-bg: #3d1a1a; --orange: #fbbf24; --orange-bg: #3d2e0a;
+            --blue: #7dd3fc; --blue-bg: #0a2e3d; --green: #6ee7b7; --green-bg: #0a3d2e;
+        }
+        body.dark, body.dark .page-wrap { background: #18181a; }
+        body.dark .sidebar { background: #1e1e20; }
+        body.dark .ov-card, body.dark .table-wrap, body.dark .notice-block, body.dark textarea { background: var(--bg); }
+        body.dark table th { color: var(--text-muted); }
+        body.dark table td { color: var(--text-secondary); }
+        body.dark .side-nav-list a { color: var(--text-secondary); }
+        body.dark .side-nav-list a:hover { background: var(--accent-light); color: var(--text-primary); }
+        body.dark .dl-link { background: var(--bg); color: var(--text-secondary); border-color: var(--border); }
+        body.dark .dl-link:hover { color: var(--text-primary); border-color: var(--text-primary); }
+        body.dark .dl-link.primary { background: var(--accent); color: #18181a; border-color: var(--accent); }
+        body.dark .section-title, body.dark h1, body.dark .metric { color: var(--text-primary); }
+        body.dark .eyebrow, body.dark .ov-label { color: var(--text-secondary); }
+        body.dark .supporting, body.dark .notice-block, body.dark .rules-hint { color: var(--text-secondary); }
+        body.dark .section-meta { color: var(--text-muted); }
+        body.dark .download-toast { color: #18181a; }
+
+        .sidebar {
+            position: fixed; left: 0; top: 0; bottom: 0; width: 264px; z-index: 51;
+            overflow: auto; padding: 6px 12px 8px; background: var(--bg);
+            border-right: 1px solid var(--border); display: flex; flex-direction: column;
+        }
+        .sidebar-main { flex: 1 1 auto; min-height: 0; }
+        .sidebar-logo-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0 6px; }
+        .logo { font-family: var(--font-display); font-size: 22px; font-weight: 760; color: var(--text-primary); text-decoration: none; }
+        .logo small { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-left: 6px; }
+        .theme-toggle {
+            display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+            border: 1px solid var(--border); border-radius: 6px; background: transparent;
+            color: var(--text-muted); font-size: 14px; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+        }
+        .theme-toggle:hover { color: var(--text-primary); border-color: var(--text-primary); }
+        .theme-icon-dark { display: none; }
+        body.dark .theme-icon-light { display: none; }
+        body.dark .theme-icon-dark { display: inline; }
+        .side-nav-title { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 10px 10px 4px; }
+        .side-nav-list { list-style: none; }
+        .side-nav-list a { display: block; min-height: 30px; padding: 5px 10px; font-size: 15px; font-weight: 450; color: var(--text-secondary); text-decoration: none; border-radius: 8px; transition: all 0.2s; }
+        .side-nav-list a:hover { background: var(--accent-light); color: var(--text-primary); }
+        .side-nav-list a.active { background: #111; color: #fff; font-weight: 600; }
+        body.dark .side-nav-list a.active { background: #e4e4e7; color: #18181a; }
+        .back-prev {
+            display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 10px;
+            border: 0; border-radius: 7px; background: #111; color: #fff; font: inherit;
+            font-size: 14px; font-weight: 600; cursor: pointer; margin: 8px 0 0; flex-shrink: 0; transition: all 0.15s;
+        }
+        .back-prev:hover { background: #333; }
+        body.dark .back-prev { background: #e4e4e7; color: #18181a; }
+
+        .page-wrap { max-width: 1120px; margin: 0 auto 0 264px; padding: 36px 32px 80px; }
+        section { margin-bottom: 44px; }
+        .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+        .section-title { font-family: var(--font-display); font-size: 30px; line-height: 1.25; font-weight: 720; color: var(--text-primary); }
+        .section-meta { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+        .ov-card { background: var(--bg); border-radius: 8px; padding: 24px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+        .eyebrow { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 10px; display: inline-flex; align-items: center; gap: 8px; }
+        .eyebrow::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent); border-radius: 1px; }
+        h2.sub { font-family: var(--font-display); font-size: 20px; font-weight: 720; margin-bottom: 12px; }
+
+        textarea.ds {
+            width: 100%; min-height: 200px; border: 1px solid var(--border); border-radius: 8px;
+            padding: 14px 16px; font: 14px/1.8 var(--font-ui); background: var(--bg); color: var(--text-primary);
+            outline: none; resize: vertical; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        textarea.ds:focus { border-color: var(--text-primary); box-shadow: 0 0 0 3px rgba(0,0,0,.06); }
+        body.dark textarea.ds:focus { box-shadow: 0 0 0 3px rgba(255,255,255,.1); }
+        textarea.rules { min-height: 88px; font: 13px/1.7 var(--font-mono, "Cascadia Mono", Menlo, Consolas, monospace); }
+
+        .btn-row { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+        .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; border-radius: 8px; font: 600 14px var(--font-ui); cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+        .btn.primary { background: var(--accent); color: #fff; }
+        body.dark .btn.primary { color: #18181a; }
+        .btn.primary:hover { background: var(--accent-hover); }
+        .btn.ghost2 { background: var(--bg); color: var(--text-secondary); border-color: var(--border); }
+        .btn.ghost2:hover { color: var(--text-primary); border-color: var(--text-primary); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        .overview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 24px; }
+        .ov-label { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 16px; display: inline-flex; align-items: center; gap: 8px; }
+        .ov-label::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent); border-radius: 1px; }
+        .metric { font-family: var(--font-display); font-size: 36px; font-weight: 720; line-height: 1; color: var(--text-primary); }
+        .metric-sub { font-size: 14px; color: var(--text-secondary); margin-top: 8px; }
+        .entity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+        .entity-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: var(--shadow); }
+        .entity-chip strong { font-family: var(--font-display); display: block; font-size: 28px; font-weight: 720; line-height: 1; margin-bottom: 6px; color: var(--text-primary); }
+        .entity-chip span { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+        .table-wrap { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); box-shadow: var(--shadow); overflow: auto; max-height: 420px; }
+        table { width: 100%; border-collapse: collapse; min-width: 640px; }
+        th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        th { color: var(--text-muted); font-size: 12px; font-weight: 600; }
+        tbody tr:last-child td { border-bottom: none; }
+        .rb-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .rb-high { background: var(--red-bg); color: var(--red); }
+        .rb-medium { background: var(--orange-bg); color: var(--orange); }
+        .rb-low { background: var(--blue-bg); color: var(--blue); }
+        .notice-block { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+        .masked-preview { white-space: pre-wrap; font: 14px/1.9 var(--font-ui); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; max-height: 420px; overflow: auto; }
+        .download-toast {
+            position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+            max-width: min(560px, calc(100vw - 32px)); padding: 12px 16px;
+            border: 1px solid var(--border); border-radius: 12px;
+            background: var(--text-primary); color: #fff; font-size: 13px;
+            box-shadow: var(--shadow-lg); z-index: 200; display: none;
+        }
+        body.dark .download-toast { color: #18181a; }
+        .download-toast.show { display: block; }
+        .rules-hint { font-size: 12px; color: var(--text-muted); line-height: 1.7; margin-top: 8px; }
+        #results.on, #rules-card { display: block; }
+        #results { display: none; }
+    </style>
+</head>
+<body>
+
+<aside class="sidebar">
+    <div class="sidebar-main">
+        <div class="sidebar-logo-row">
+            <a href="javascript:void(0)" class="logo">心镜<small>文档脱敏</small></a>
+            <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换主题" onclick="document.body.classList.toggle('dark')">
+                <span class="theme-icon-light">☀</span>
+                <span class="theme-icon-dark">☾</span>
+            </button>
+        </div>
+        <p class="side-nav-title">导航</p>
+        <ul class="side-nav-list">
+            <li><a href="#input-sec" class="active">输入与执行</a></li>
+            <li><a href="#rules-sec">自定义命中规则</a></li>
+            <li><a href="#results-sec">结果</a></li>
+        </ul>
+        <button class="back-prev" type="button" onclick="location.href = 'index.html'">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            返回工作台
+        </button>
+    </div>
+</aside>
+
+<div class="page-wrap">
+    <div class="content">
+
+        <section id="input-sec">
+            <div class="section-head"><h2 class="section-title">文档脱敏</h2><span class="section-meta">本地处理 · 数据不出本机</span></div>
+            <div class="ov-card">
+                <p class="eyebrow">输入待脱敏文本</p>
+                <p class="supporting" style="margin-bottom:14px">粘贴或书写任意文本（咨询记录、案例报告、逐字稿片段…）。引擎自动识别手机号、证件、银行卡、住址、人名、机构等敏感信息并按「保留格式打码」策略遮蔽。</p>
+                <textarea class="ds" id="ds-input" placeholder="在此粘贴或输入待脱敏文本…"></textarea>
+                <div class="btn-row">
+                    <button class="btn primary" id="btn-run" type="button">执行脱敏</button>
+                    <button class="btn ghost2" id="btn-clear" type="button">清空</button>
+                    <span class="rules-hint" id="run-hint"></span>
+                </div>
+            </div>
+        </section>
+
+        <section id="rules-sec">
+            <div class="section-head"><h2 class="section-title">自定义命中规则</h2><span class="section-meta">保存在本机，自动应用于每次脱敏</span></div>
+            <div class="ov-card">
+                <p class="ov-label">自定义敏感词（每行一个，命中即遮蔽）</p>
+                <textarea class="ds rules" id="rules-words" placeholder="例如：&#10;李林&#10;王二&#10;智远科技"></textarea>
+                <p class="ov-label" style="margin-top:18px">自定义正则（每行一条，高级）</p>
+                <textarea class="ds rules" id="rules-regex" placeholder="例如：AB-\d{4}"></textarea>
+                <p class="ov-label" style="margin-top:18px">排除词（这些词永不遮蔽）</p>
+                <textarea class="ds rules" id="rules-exclude" placeholder="例如：马上"></textarea>
+                <p class="rules-hint">说明：裸姓名识别为高召回启发式（常见姓氏表 + 动作连接词边界），存在少量误检可能——误检词加入「排除词」即可；漏检的人名/代号加入「自定义敏感词」即可。规则保存在本机。</p>
+                <div class="btn-row">
+                    <button class="btn ghost2" id="btn-save-rules" type="button">保存规则</button>
+                    <span class="rules-hint" id="rules-saved"></span>
+                </div>
+            </div>
+        </section>
+
+        <section id="results-sec">
+            <div id="results">
+                <div class="section-head"><h2 class="section-title">脱敏结果</h2><span class="section-meta" id="result-meta">—</span></div>
+                <div class="overview-grid">
+                    <div class="ov-card"><p class="ov-label">命中总数</p><p class="metric" id="metric-total">0</p><p class="metric-sub">处敏感信息</p></div>
+                    <div class="ov-card"><p class="ov-label">文本长度</p><p class="metric" style="font-size:26px" id="metric-len">0</p><p class="metric-sub">字符</p></div>
+                    <div class="ov-card"><p class="ov-label">处理策略</p><p class="metric" style="font-size:26px">格式打码</p><p class="metric-sub">例如 138****5678</p></div>
+                </div>
+            </div>
+            <div id="entity-block" style="display:none">
+                <div class="section-head"><h2 class="section-title">命中类型</h2></div>
+                <div class="entity-grid" id="entity-grid"></div>
+            </div>
+            <div id="details-block" style="display:none">
+                <div class="section-head"><h2 class="section-title">处理明细</h2><span class="section-meta">最多展示 500 条</span></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>类型</th><th>位置</th><th>替换为</th><th>预览</th><th>置信度</th></tr></thead>
+                        <tbody id="details-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="preview-block" style="display:none">
+                <div class="section-head"><h2 class="section-title">遮蔽后全文</h2></div>
+                <div class="masked-preview" id="masked-preview"></div>
+                <div class="btn-row">
+                    <a href="javascript:void(0)" class="btn primary" id="dl-masked" style="text-decoration:none">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        导出脱敏结果文件
+                    </a>
+                    <a href="javascript:void(0)" class="btn ghost2" id="dl-report" style="text-decoration:none">导出报告 JSON</a>
+                </div>
+            </div>
+            <div id="empty-block" style="display:none">
+                <div class="notice-block" style="text-align:center">未命中敏感信息。仍建议人工抽样复核。</div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="download-toast" id="toast">已开始下载</div>
+
+<script src="js/pii-sanitizer.js"></script>
+<script>
+(function () {
+    'use strict';
+    var RULES_KEY = 'xj_desensitize_custom_rules';
+    var lastResult = null;
+
+    function toast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+    }
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function linesOf(id) {
+        return (document.getElementById(id).value || '').split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+    }
+    function loadRules() {
+        try {
+            var r = JSON.parse(localStorage.getItem(RULES_KEY) || '{}');
+            document.getElementById('rules-words').value = (r.words || []).join('\n');
+            document.getElementById('rules-regex').value = (r.patterns || []).join('\n');
+            document.getElementById('rules-exclude').value = (r.exclude || []).join('\n');
+        } catch (e) { /* 首次无规则 */ }
+    }
+    function saveRules() {
+        try {
+            localStorage.setItem(RULES_KEY, JSON.stringify({
+                words: linesOf('rules-words'),
+                patterns: linesOf('rules-regex'),
+                exclude: linesOf('rules-exclude'),
+            }));
+            document.getElementById('rules-saved').textContent = '已保存 ✓';
+            setTimeout(function () { document.getElementById('rules-saved').textContent = ''; }, 2000);
+        } catch (e) { toast('规则保存失败：本机存储不可用'); }
+    }
+    function currentRules() {
+        return {
+            customWords: linesOf('rules-words'),
+            customPatterns: linesOf('rules-regex'),
+            excludeWords: linesOf('rules-exclude'),
+        };
+    }
+
+    function renderResult(r) {
+        lastResult = r;
+        document.getElementById('result-meta').textContent = new Date().toLocaleTimeString('zh-CN');
+        document.getElementById('metric-total').textContent = String(r.report.summary.total_findings);
+        document.getElementById('metric-len').textContent = String(r.text.length);
+        var keys = Object.keys(r.report.summary.entity_counts);
+        document.getElementById('entity-block').style.display = keys.length ? 'block' : 'none';
+        document.getElementById('entity-grid').innerHTML = keys.map(function (k) {
+            return '<div class="entity-chip"><strong>' + esc(r.report.summary.entity_counts[k]) + '</strong><span>' + esc(TYPE_LABEL[k] || k) + '</span></div>';
+        }).join('');
+        document.getElementById('details-block').style.display = r.report.findings.length ? 'block' : 'none';
+        document.getElementById('details-body').innerHTML = r.report.findings.slice(0, 500).map(function (f) {
+            return '<tr><td><span class="rb-badge ' + (RISK[f.type] || 'rb-low') + '">' + esc(TYPE_LABEL[f.type] || f.type) + '</span></td>'
+                + '<td>' + esc(f.locator) + '</td><td>' + esc(f.replacement) + '</td><td>' + esc(f.preview) + '</td><td>' + esc(f.score) + '</td></tr>';
+        }).join('');
+        document.getElementById('preview-block').style.display = 'block';
+        document.getElementById('masked-preview').textContent = r.text;
+        document.getElementById('empty-block').style.display = r.report.summary.total_findings === 0 ? 'block' : 'none';
+    }
+
+    var TYPE_LABEL = { PHONE: '手机号', ID_CARD: '身份证号', PERSON_NAME: '人名', BANK_CARD: '银行卡', ADDRESS: '住址', ORG_NAME: '机构名', EMAIL: '邮箱', IP_ADDRESS: 'IP 地址', URL: '链接', ACCOUNT: '账号', DATE: '日期', NUMBER: '号码', CUSTOM: '自定义词', CUSTOM_PATTERN: '自定义规则' };
+    var RISK = { PHONE: 'rb-high', ID_CARD: 'rb-high', PERSON_NAME: 'rb-high', BANK_CARD: 'rb-high', ADDRESS: 'rb-medium', ORG_NAME: 'rb-medium', NUMBER: 'rb-medium', DATE: 'rb-medium', EMAIL: 'rb-low', IP_ADDRESS: 'rb-low', URL: 'rb-low', ACCOUNT: 'rb-low', CUSTOM: 'rb-high', CUSTOM_PATTERN: 'rb-high' };
+
+    document.getElementById('btn-run').addEventListener('click', function () {
+        var text = document.getElementById('ds-input').value || '';
+        var hint = document.getElementById('run-hint');
+        if (!text.trim()) { hint.textContent = '请先输入待脱敏文本'; return; }
+        hint.textContent = '';
+        if (typeof window.XJPIISanitizer === 'undefined' || typeof window.XJPIISanitizer.maskDocument !== 'function') {
+            toast('本地脱敏引擎未就绪'); return;
+        }
+        var rules = currentRules();
+        var r = window.XJPIISanitizer.maskDocument(text, {
+            documentName: '工作台文本_' + new Date().toISOString().slice(0, 10) + '.md',
+            customWords: rules.customWords,
+            customPatterns: rules.customPatterns,
+            excludeWords: rules.excludeWords,
+        });
+        renderResult(r);
+        document.getElementById('results-sec').scrollIntoView({ behavior: 'smooth' });
+        toast(r.report.summary.total_findings ? '脱敏完成：命中 ' + r.report.summary.total_findings + ' 处' : '未命中敏感信息');
+    });
+    document.getElementById('btn-clear').addEventListener('click', function () {
+        document.getElementById('ds-input').value = '';
+    });
+    document.getElementById('btn-save-rules').addEventListener('click', saveRules);
+    document.getElementById('dl-masked').addEventListener('click', function () {
+        if (!lastResult) { toast('请先执行脱敏'); return; }
+        var blob = new Blob([lastResult.text], { type: 'text/markdown;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = '脱敏文本_' + new Date().toISOString().slice(0, 10) + '.md';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        toast('已下载脱敏结果文件');
+    });
+    document.getElementById('dl-report').addEventListener('click', function () {
+        if (!lastResult) { toast('请先执行脱敏'); return; }
+        var blob = new Blob([JSON.stringify(lastResult.report, null, 2)], { type: 'application/json;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = '脱敏报告.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        toast('已下载脱敏报告 JSON');
+    });
+
+    loadRules();
+})();
+</script>
+</body>
+</html>
