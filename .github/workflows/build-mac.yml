@@ -22,6 +22,9 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Generate runtime files
+        env:
+          LICENSE_SECRET: ${{ secrets.LICENSE_SECRET }}
+          APP_PROXY_KEY: ${{ secrets.APP_PROXY_KEY }}
         run: |
           node scripts/codegen-secret.js
           node scripts/codegen-version.js
