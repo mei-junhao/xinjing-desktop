@@ -309,7 +309,7 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
     var sys = '你是心理咨询逐字稿校对专家。请逐句分析以下逐字稿，返回 JSON：{"errors":[{"line":行号,"pos":位置,"len":长度,"fix":"修正","reason":"理由","type":"typology|term|clinical"}],"insights":[{"line":行号,"topic":"临床议题","quoi":"注意内容"}]}。只输出 JSON。';
     var guide = document.getElementById('guide-body');
     var fixBody = document.getElementById('fix-body');
-    guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 分析中…</div>正在逐句阅读逐字稿，请稍候。</div>';
+    guide.innerHTML = '<div class="guide-msg ai" data-guide-streaming="true"><div class="gm-role">AI 分析中…</div><div class="gm-content">正在逐句阅读逐字稿，请稍候。</div></div>';
     var run = ClinicalContext.createActionRun(contextForRun);
     if (!run) { guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">来源校验失败</div>没有创建分析记录，未发送请求。</div>'; return; }
     if (ClinicalContextView && ClinicalContextView.confirmSend && !ClinicalContextView.confirmSend(contextForRun)) { ClinicalContext.failActionRun(run.id, '用户取消发送', 'cancelled'); guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">已取消</div>你没有发送当前会谈上下文。</div>'; return; }
@@ -372,12 +372,16 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
         ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败');
         guide.innerHTML = '<div class="guide-msg ai"><div class="gm-role">AI 分析失败</div>' + (res ? App.escapeHtml(res.error || '') : '') + '</div>';
       }
+    }, function (piece, fullText) {
+      var node = guide.querySelector('[data-guide-streaming="true"] .gm-content');
+      if (node) node.textContent = fullText || piece || '';
+      guide.scrollTop = guide.scrollHeight;
     });
   }
 
   // AI 请求必须有明确的失败出口，且与主进程 120 秒上游闸门对齐，避免客户端过早取消主力模型响应。
   var GUIDE_REQUEST_TIMEOUT_MS = 125000;
-  function sendGuideRequest(messages, callback) {
+  function sendGuideRequest(messages, callback, onDelta) {
     var settled = false;
     var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var timer = setTimeout(function () {
@@ -391,7 +395,7 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
       settled = true;
       clearTimeout(timer);
       callback(res || { error: '模型调用失败，请重试' });
-    }, controller ? { signal: controller.signal } : undefined);
+    }, { signal: controller ? controller.signal : undefined, onDelta: onDelta });
   }
 
   window.sendGuideMsg = function () {
@@ -403,7 +407,7 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
     var text = input.value.trim();
     if (!text) return;
     var guide = document.getElementById('guide-body');
-    guide.innerHTML += '<div class="guide-msg user"><div class="gm-role">你</div>' + App.escapeHtml(text) + '</div>';
+    guide.innerHTML += '<div class="guide-msg user"><div class="gm-role">你</div>' + App.escapeHtml(text) + '</div><div class="guide-msg ai" data-guide-streaming="true"><div class="gm-role">AI 引导 · 当前会谈</div><div class="gm-content">思考中…</div></div>';
     input.value = '';
     var sys = '你是心理咨询逐字稿校对专家。用户正在询问当前会谈逐字稿。回答必须只基于当前会谈来源，若问题超出来源范围请明确说明。每次回复控制在150字以内。';
     var questionContext = ClinicalContext.build('transcript-ai-detect', { clientId: clientIdForQuestion, sessionId: sessionIdForQuestion }, { inputText: text, history: guideHistory, instruction: '回答用户关于当前会谈逐字稿的问题，不修改正式记录。', system: sys });
@@ -418,11 +422,16 @@ App.initPage({ title: '逐字稿 · 对话引导', onReady: function () {
       if (res && res.content && !res.error) {
         guideHistory.push({ role: 'assistant', content: res.content });
         ClinicalContext.completeActionRun(questionRun.id, { kind: questionContext.taskSpec.outputSchema.kind, summary: res.content, citations: questionContext.sources.map(function (source) { return { kind: source.kind, id: source.id, sourceContentHash: source.sourceContentHash }; }) });
-        guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">AI 引导 · 当前会谈</div>' + App.escapeHtml(res.content) + '</div>';
+        var streamed = guide.querySelector('[data-guide-streaming="true"]');
+        if (streamed) { streamed.removeAttribute('data-guide-streaming'); streamed.querySelector('.gm-content').textContent = res.content; }
       } else {
         ClinicalContext.failActionRun(questionRun.id, (res && res.error) || 'AI 引导失败');
         guide.innerHTML += '<div class="guide-msg ai"><div class="gm-role">AI 引导失败</div>' + App.escapeHtml((res && res.error) || '请稍后重试') + '</div>';
       }
+      guide.scrollTop = guide.scrollHeight;
+    }, function (piece, fullText) {
+      var node = guide.querySelector('[data-guide-streaming="true"] .gm-content');
+      if (node) node.textContent = fullText || piece || '';
       guide.scrollTop = guide.scrollHeight;
     });
   };

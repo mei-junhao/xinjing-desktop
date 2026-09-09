@@ -319,7 +319,10 @@ App.initPage({ title: '真人督导 · AI分析', onReady: function () {
       } else {
         ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败'); if (activeAnalysisRun && activeAnalysisRun.id === run.id) activeAnalysisRun = null; analysisReady = false; setActionState(); qaBody.innerHTML = '<div style="font:13px var(--sans);color:var(--danger);text-align:center;padding:20px">AI 分析失败，请检查网络或稍后重试。</div>';
       }
-    });
+    }, { onDelta: function (piece, fullText) {
+      var body = document.getElementById('qa-body');
+      if (body) body.innerHTML = '<div class="qa-pair"><div class="qa-a"><div class="label">AI 流式分析</div><div class="text">' + App.escapeHtml(fullText || piece || '') + '</div></div></div>';
+    } });
   }
 
   window.analyzeCurrent = function () {

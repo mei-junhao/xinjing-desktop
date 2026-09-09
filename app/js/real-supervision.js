@@ -283,7 +283,10 @@
       } else {
         ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 分析失败'); App.showToast('AI 分析失败', 'error');
       }
-    });
+    }, { onDelta: function (piece, fullText) {
+      var summary = document.getElementById('rs-summary');
+      if (summary) summary.value = fullText || piece || '';
+    } });
   };
 
   window.saveReport = async function () {

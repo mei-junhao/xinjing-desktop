@@ -281,7 +281,13 @@
         } else {
           ClinicalContext.failActionRun(run.id, (res && res.error) || '生成失败'); notifyReportAiState('error', '生成失败，请检查配置或网络后重试；未确认内容不会写入报告。'); App.showToast('生成失败，请重试', 'error');
         }
-      }, controller ? { signal: controller.signal } : undefined);
+      }, { signal: controller ? controller.signal : undefined, onDelta: function (piece, fullText) {
+        var streaming = document.getElementById('ai-suggest-content');
+        var streamBox = document.getElementById('ai-suggest');
+        if (streaming) streaming.textContent = fullText || piece || '';
+        if (streamBox) streamBox.classList.add('show');
+        notifyReportAiState('streaming', 'AI 正在流式生成草稿…');
+      } });
     } else {
       if (ta) ta.value = '';
       ClinicalContext.failActionRun(run.id, 'AI 模块未就绪'); notifyReportAiState('error', 'AI 模块未就绪，请检查配置后重试；未确认内容不会写入报告。'); App.showToast('AI 模块未就绪', 'error');
@@ -345,7 +351,7 @@
           } catch (e) {}
         }
         autoParseSections(text, filename);
-      });
+      }, { onDelta: function (piece, fullText) { notifyReportAiState('streaming', '模板结构正在流式分析…已生成 ' + String(fullText || piece || '').length + ' 字'); } });
     } else {
       autoParseSections(text, filename);
     }

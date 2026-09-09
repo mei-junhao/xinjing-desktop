@@ -488,6 +488,7 @@
     div.innerHTML = App.escapeHtml(text).replace(/\n/g, '<br>');
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
+    return div;
   }
 
   // 收集当前编辑区内容（返回 {notes, hasSoap, hasDap, hasTranscript, soap, dap, transcript}）
@@ -711,7 +712,7 @@
         if (lastMsg) lastMsg.remove();
         if (res && res.content) addXjMsg('ai', res.content);
         else addXjMsg('ai', '生成失败，请重试。');
-      });
+      }, { onDelta: function (piece, fullText) { if (lastMsg) { lastMsg.textContent = fullText || piece || ''; } } });
     } else {
       if (lastMsg) lastMsg.remove();
       addXjMsg('ai', 'AI 模块未就绪，请重启应用。');
@@ -778,6 +779,7 @@
       '{"clientName":"来访者姓名","keyIssues":["核心议题1","核心议题2"],"supervisorTechniques":["督导师使用的技术1","技术2"],"knowledgeSource":"对应的理论/知识来源","suggestions":["给咨询师的建议"]}\n只输出 JSON，不要其他文字。';
     var ud = (typeof window !== 'undefined' && window.UserDocs && window.UserDocs.getContextBlock) ? window.UserDocs.getContextBlock() : '';
     if (ud) sys += '\n\n' + ud;
+    var streamMsg = addXjMsg('ai', '正在流式分析…');
     AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
       if (res && res.content && !res.error) {
         try {
@@ -799,7 +801,7 @@
       } else {
         App.showToast('AI 分析失败', 'error');
       }
-    });
+    }, { onDelta: function (piece, fullText) { if (streamMsg) { streamMsg.textContent = fullText || piece || ''; } } });
   }
 
   // ---------- AI 根据逐字稿填写本页（会员功能）----------
@@ -870,7 +872,11 @@
       } else {
         App.showToast('AI 填写失败', 'error');
       }
-    });
+    }, { onDelta: function (piece, fullText) {
+      var preview = document.getElementById('rdock-chat');
+      var node = preview && preview.lastElementChild;
+      if (node) node.textContent = fullText || piece || '';
+    } });
   };
 
   // ---------- 导出当前编辑内容 ----------
@@ -955,7 +961,7 @@
       if (status) status.textContent = '已保存到本次会谈';
       renderNoteSummary(saved.value && saved.value.summary ? saved.value.summary : summary);
       App.showToast('会谈摘要已保存', 'success');
-    });
+    }, { onDelta: function (piece, fullText) { renderNoteSummary(fullText || piece || ''); } });
   };
 
   App.initPage({ title: '咨询记录', subtitle: '', actions: '', onReady: function () {

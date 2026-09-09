@@ -201,7 +201,7 @@
   // onConfirm(toolCall, args) → Promise<{ ok, edited?, args? }>
   // onProgress(toolName, status, result?) → 同步回调，状态：'executing' / 'done'
   // 返回 { reply, messages, error? }
-  async function runRound(messages, onConfirm, onProgress, onEvent) {
+  async function runRound(messages, onConfirm, onProgress, onEvent, onDelta) {
     const AI = getAI();
     const tools = getTools();
     // 深度临床工作依赖专用页面的材料、历史和状态机。小镜只获得跳转工具，
@@ -269,7 +269,7 @@
           AI.send(baseMessages.concat([ANSWER_NUDGE]), function (rr) {
             if (rr && rr.error) reject(new Error(rr.error));
             else resolve(rr);
-          }, { tools: wireSchemas, tool_choice: 'none' });
+          }, { tools: wireSchemas, tool_choice: 'none', onDelta: onDelta });
         });
         const m = (r && r.choices && r.choices[0] && r.choices[0].message) || r;
         return (m && typeof m.content === 'string') ? m.content : '';
@@ -292,7 +292,7 @@
           AI.send(resultSeen ? trimmed.concat([ANSWER_NUDGE]) : trimmed, function (r) {
             if (r && r.error) reject(new Error(r.error));
             else resolve(r);
-          }, { tools: wireSchemas, tool_choice: 'auto' });
+          }, { tools: wireSchemas, tool_choice: 'auto', onDelta: onDelta });
         });
       } catch (e) {
         return { error: '模型调用失败：' + (e.message || '未知错误') };

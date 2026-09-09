@@ -657,7 +657,7 @@
       inputEl.style.height = '';
       renderMsg('user', text);
       messages.push({ role: 'user', content: text });
-      renderTyping();
+      const typingEl = renderTyping();
       if (messages.length === 0 || messages[0].role !== 'system') {
         messages.unshift({ role: 'system', content: '' });
       }
@@ -703,6 +703,9 @@
           if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
             renderFollowupCard(evt.items);
           }
+        }, function (piece, fullText) {
+          if (typingEl) { var bubble = typingEl.querySelector('.bubble'); if (bubble) bubble.textContent = fullText || piece || ''; }
+          if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
         });
         clearTyping();
         if (!result.error) markNewModelMessages(responseStartIndex);

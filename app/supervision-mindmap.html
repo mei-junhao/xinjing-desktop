@@ -372,7 +372,12 @@ App.initPage({ title: '督导 · 思维导图', onReady: function () {
         var ln = leaf && leaf.name ? leaf.name : '未命名';
         html += '<div class="mm-list-item" tabindex="0" role="treeitem" data-node-name="' + esc(ln) + '" data-node-desc="' + esc(leaf && leaf.desc ? leaf.desc : '') + '" style="padding-left:34px"><span class="mm-dot" style="background:var(--ink-3)"></span><span class="mm-name">' + esc(ln) + '</span><span class="mm-desc">' + (leaf && leaf.desc ? esc(leaf.desc) : '') + '</span></div>';
       });
-    });
+    }, { onDelta: function (piece, fullText) {
+      var preview = fullText || piece || '';
+      canvas.innerHTML = '<div class="empty-state" style="white-space:pre-wrap;text-align:left">AI 正在生成思维导图数据…\n\n' + App.escapeHtml(preview) + '</div>';
+      var listPreview = document.getElementById('list-view');
+      if (listPreview) listPreview.innerHTML = '<div class="empty-state" style="white-space:pre-wrap;text-align:left">' + App.escapeHtml(preview) + '</div>';
+    } });
     list.innerHTML = html;
     list.querySelectorAll('[data-node-name]').forEach(function (node) {
       node.addEventListener('click', function () {

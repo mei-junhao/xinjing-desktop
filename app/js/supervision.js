@@ -26,6 +26,12 @@ App.initPage({
     var uploadLastFileName = '';
     var lastFailedRequest = null;
     var activeSupervisionController = null;
+    var multiSchoolMode = false;
+    var multiSchoolResult = null;
+    var multiSchoolProgressRows = [];
+    var multiSchoolBusy = false;
+    var multiSchoolBound = false;
+    var multiSchoolContext = null;
 
     // XJ519-Z4：AI 督导生成链路不得同步阻塞 renderer。
     // 原 ClinicalContextView.confirmSend 使用 window.confirm——原生模态会冻结渲染主线程
@@ -326,10 +332,202 @@ App.initPage({
     function syncAccessUI() {
       var unlock = document.getElementById('sup-unlock-button');
       if (unlock) unlock.style.display = App.canUse('ai-supervise') ? 'none' : '';
+      var multiButton = document.getElementById('sup-mode-multi');
+      var lock = document.getElementById('sup-mode-multi-lock');
+      var allowed = !!(App.canUse && App.canUse('ai-masters'));
+      if (multiButton) {
+        multiButton.disabled = !allowed;
+        multiButton.setAttribute('aria-disabled', String(!allowed));
+        multiButton.title = allowed ? '切换到多学派督导' : '多学派督导需要会员权益';
+      }
+      if (lock) lock.hidden = allowed;
+      if (!allowed && multiSchoolMode) setSupervisionMode('standard');
     }
     syncAccessUI();
     updateContextState();
     if (App.onLicenseStateChange) App.onLicenseStateChange(syncAccessUI);
+
+    function multiSchoolFeatureAllowed() {
+      return !!(App.canUse && App.canUse('ai-masters'));
+    }
+
+    function setMultiSchoolStatus(text, state) {
+      var status = document.getElementById('sup-multi-status');
+      if (status) { status.textContent = text || ''; status.dataset.state = state || 'idle'; }
+    }
+
+    function selectedMultiSchools() {
+      return Array.prototype.slice.call(document.querySelectorAll('#sup-multi-schools input[type="checkbox"]:checked'))
+        .map(function (input) { return input.value; }).slice(0, 3);
+    }
+
+    function renderMultiSchoolResults(result) {
+      var host = document.getElementById('sup-multi-results');
+      var synthesis = document.getElementById('sup-multi-synthesis');
+      var rows = result && (result.schoolResults || result.analyses || result.results) || [];
+      if (host) {
+        host.innerHTML = rows.length ? rows.map(function (row) {
+          var key = row.key || row.schoolKey || '';
+          var member = (window.SupervisionSyndicateData && SupervisionSyndicateData.getByKey) ? SupervisionSyndicateData.getByKey(key) : null;
+          var name = row.name || (member && member.name) || key || '学派';
+          var absent = row.status === 'absent' || row.error;
+          var streaming = row.status === 'streaming';
+          return '<details class="sup-multi-result" data-state="' + (absent ? 'absent' : (streaming ? 'streaming' : 'ok')) + '" open><summary><span>' + App.escapeHtml(name) + '</span><span class="result-state">' + (absent ? '缺席' : (streaming ? '生成中…' : '已完成')) + '</span></summary><div class="result-body">' + App.escapeHtml(absent ? ('本派本轮未能返回分析：' + (row.error || '调用失败')) : (row.content || row.analysis || '')) + '</div></details>';
+        }).join('') : '<div class="sup-multi-empty">暂无逐派结果。</div>';
+      }
+      var synthesisValue = result && result.synthesis;
+      var text = typeof synthesisValue === 'string' ? synthesisValue : (synthesisValue && synthesisValue.content) || (result && (result.combined || result.content)) || '';
+      if (synthesis) { synthesis.dataset.state = result && result.error ? 'error' : 'ready'; synthesis.textContent = text || (result && result.error) || '等待综合结果。'; }
+    }
+
+    async function runMultiSchool() {
+      if (multiSchoolBusy) return;
+      if (!multiSchoolFeatureAllowed()) { if (App.openMembershipGate) App.openMembershipGate('ai-masters'); return; }
+      var material = (document.getElementById('sup-multi-material') || {}).value || '';
+      material = material.trim();
+      if (!material) { App.showToast('请先填写多学派督导材料', 'warning'); return; }
+      if (typeof SupervisionSyndicate === 'undefined' || !SupervisionSyndicate.run) { App.showToast('多学派督导模块未就绪', 'error'); return; }
+      multiSchoolBusy = true;
+      multiSchoolResult = null;
+      multiSchoolProgressRows = [];
+      var runButton = document.getElementById('sup-multi-run');
+      var saveButton = document.getElementById('sup-multi-save');
+      if (runButton) runButton.disabled = true;
+      if (saveButton) saveButton.disabled = true;
+      var host = document.getElementById('sup-multi-results');
+      if (host) host.innerHTML = '<div class="sup-multi-empty">正在预处理材料并安排学派分析…</div>';
+      setMultiSchoolStatus('分析进行中', 'running');
+      var multiContext = null;
+      var multiActionRun = null;
+      try {
+        if (typeof ClinicalContext === 'undefined' || !ClinicalContext.build) throw new Error('临床上下文模块未就绪');
+        multiContext = ClinicalContext.build('supervision-multi-school', { clientId: currentClientId, sessionId: currentSessionId }, { system: '多学派临床督导编排；输出仅为草稿。', inputText: material, instruction: '运行多学派督导并生成对比、分歧与整合建议' });
+        if (!multiContext || !multiContext.ok) throw new Error('当前上下文无效，请重新选择来访者或材料');
+        if (!(await confirmContextSendAsync(multiContext))) throw new Error('用户已取消本次多学派督导');
+        multiActionRun = ClinicalContext.createActionRun(multiContext);
+        if (!multiActionRun) throw new Error('无法确认材料归属，已取消分析');
+        multiSchoolContext = multiContext;
+        var result = await SupervisionSyndicate.run({
+          material: material,
+          schoolKeys: (function () { var selected = selectedMultiSchools(); return selected.length ? selected : null; }()),
+          clientId: currentClientId || '',
+          sessionId: currentSessionId || '',
+          options: { autoSave: false },
+          onProgress: function (event) {
+            if (!event) return;
+            if (event.type === 'summary') setMultiSchoolStatus('已完成材料摘要', 'running');
+            else if (event.type === 'route') setMultiSchoolStatus('已路由 ' + ((event.schoolKeys || []).length) + ' 个学派', 'running');
+            else if (event.type === 'school-start') setMultiSchoolStatus('正在分析：' + (event.name || event.schoolKey || '学派'), 'running');
+            else if (event.type === 'school-result') {
+              var previousIndex = multiSchoolProgressRows.findIndex(function (item) { return item && item.key === event.schoolKey; });
+              if (previousIndex >= 0) multiSchoolProgressRows[previousIndex] = event.result;
+              else multiSchoolProgressRows.push(event.result);
+              renderMultiSchoolResults({ schoolResults: multiSchoolProgressRows });
+              setMultiSchoolStatus('已完成：' + (event.name || event.schoolKey || '学派'), 'running');
+            }
+          },
+          onDelta: function (piece, fullText, stage) {
+            var text = fullText || piece || '';
+            if (stage === 'synthesis') {
+              var synthesis = document.getElementById('sup-multi-synthesis');
+              if (synthesis) { synthesis.dataset.state = 'streaming'; synthesis.textContent = text; }
+              return;
+            }
+            if (stage && stage.indexOf('school:') === 0) {
+              var key = stage.slice(7);
+              var row = multiSchoolProgressRows.filter(function (item) { return item && item.key === key; })[0];
+              if (!row) { row = { key: key, status: 'streaming', content: text }; multiSchoolProgressRows.push(row); }
+              else row.content = text;
+              renderMultiSchoolResults({ schoolResults: multiSchoolProgressRows });
+            }
+          },
+        });
+        var latestMaterial = (document.getElementById('sup-multi-material') || {}).value || '';
+        if (!ClinicalContext.isSnapshotCurrent(multiContext.snapshot, latestMaterial.trim(), { clientId: currentClientId, sessionId: currentSessionId })) {
+          ClinicalContext.failActionRun(multiActionRun.id, '上下文已变更', 'stale');
+          multiActionRun = null;
+          throw new Error('上下文已变更，旧分析未采用');
+        }
+        multiSchoolResult = result;
+        renderMultiSchoolResults(result);
+        if (result && result.ok) {
+          ClinicalContext.completeActionRun(multiActionRun.id, { kind: 'supervision-multi-school', summary: result.synthesis || '', citations: [] });
+          setMultiSchoolStatus('综合完成，可归档', 'ready');
+          if (saveButton) saveButton.disabled = false;
+        } else {
+          ClinicalContext.failActionRun(multiActionRun.id, (result && result.error) || '多学派督导失败');
+          setMultiSchoolStatus('本次督导失败：' + ((result && result.error) || '未获得综合结果'), 'error');
+        }
+      } catch (error) {
+        if (multiActionRun) ClinicalContext.failActionRun(multiActionRun.id, error && error.message ? error.message : '多学派督导失败');
+        multiSchoolResult = { ok: false, error: error && error.message ? error.message : '多学派督导失败' };
+        renderMultiSchoolResults(multiSchoolResult);
+        setMultiSchoolStatus('本次督导失败', 'error');
+      } finally {
+        multiSchoolBusy = false;
+        if (runButton) runButton.disabled = false;
+      }
+    }
+
+    async function archiveMultiSchool() {
+      if (!multiSchoolResult || !multiSchoolResult.ok) { App.showToast('请先完成一次多学派督导', 'warning'); return; }
+      var currentMaterial = (document.getElementById('sup-multi-material') || {}).value || '';
+      if (multiSchoolContext && !ClinicalContext.isSnapshotCurrent(multiSchoolContext.snapshot, currentMaterial.trim(), { clientId: currentClientId, sessionId: currentSessionId })) { App.showToast('材料或来访者已变化，请重新运行多学派督导', 'warning'); return; }
+      var saved = null;
+      try {
+        if (SupervisionSyndicate.archive) saved = await SupervisionSyndicate.archive(multiSchoolResult, { clientId: currentClientId || '', sessionId: currentSessionId || '', material: (document.getElementById('sup-multi-material') || {}).value || '' });
+        else saved = multiSchoolResult.saved;
+      } catch (error) { saved = { ok: false, error: error && error.message }; }
+      if (!saved || saved.ok === false) { App.showToast('归档失败：督导草稿已保留，请恢复存储后重试', 'error'); return; }
+      setMultiSchoolStatus('已归档多学派督导', 'saved');
+      App.showToast('多学派督导已归档', 'success');
+    }
+
+    function setSupervisionMode(mode) {
+      var next = mode === 'multi' ? 'multi' : 'standard';
+      if (next === 'multi' && !multiSchoolFeatureAllowed()) { if (App.openMembershipGate) App.openMembershipGate('ai-masters'); return; }
+      multiSchoolMode = next === 'multi';
+      var standard = document.getElementById('sup-standard-view');
+      var multi = document.getElementById('sup-multi-panel');
+      var standardButton = document.getElementById('sup-mode-standard');
+      var multiButton = document.getElementById('sup-mode-multi');
+      if (standard) standard.hidden = multiSchoolMode;
+      if (multi) multi.hidden = !multiSchoolMode;
+      if (standardButton) standardButton.setAttribute('aria-selected', String(!multiSchoolMode));
+      if (multiButton) multiButton.setAttribute('aria-selected', String(multiSchoolMode));
+      if (multiSchoolMode) {
+        var standardMaterial = document.getElementById('sup-material');
+        var multiMaterial = document.getElementById('sup-multi-material');
+        if (multiMaterial && !multiMaterial.value && standardMaterial) multiMaterial.value = standardMaterial.value;
+      }
+    }
+
+    function bindMultiSchoolMode() {
+      if (multiSchoolBound) return;
+      multiSchoolBound = true;
+      var schoolsHost = document.getElementById('sup-multi-schools');
+      var list = (window.SupervisionSyndicateData && SupervisionSyndicateData.getSchools) ? SupervisionSyndicateData.getSchools() : [];
+      if (schoolsHost) schoolsHost.innerHTML = list.map(function (school) { return '<label class="sup-multi-school"><input type="checkbox" value="' + App.escapeHtml(school.key) + '"><span><b>' + App.escapeHtml(school.name) + '</b><br><small>' + App.escapeHtml(school.school || '') + '</small></span></label>'; }).join('');
+      if (schoolsHost) schoolsHost.addEventListener('change', function (event) {
+        if (!event.target || event.target.type !== 'checkbox') return;
+        if (event.target.checked) {
+          var checked = schoolsHost.querySelectorAll('input[type="checkbox"]:checked');
+          if (checked.length > 3) { event.target.checked = false; App.showToast('最多选择 3 个学派', 'warning'); }
+        }
+        var label = event.target.closest ? event.target.closest('.sup-multi-school') : null;
+        if (label) label.classList.toggle('selected', !!event.target.checked);
+      });
+      var standardButton = document.getElementById('sup-mode-standard');
+      var multiButton = document.getElementById('sup-mode-multi');
+      if (standardButton) standardButton.addEventListener('click', function () { setSupervisionMode('standard'); });
+      if (multiButton) multiButton.addEventListener('click', function () { setSupervisionMode('multi'); });
+      var runButton = document.getElementById('sup-multi-run'); if (runButton) runButton.addEventListener('click', runMultiSchool);
+      var saveButton = document.getElementById('sup-multi-save'); if (saveButton) saveButton.addEventListener('click', archiveMultiSchool);
+      var clearButton = document.getElementById('sup-multi-clear'); if (clearButton) clearButton.addEventListener('click', function () { multiSchoolResult = null; multiSchoolContext = null; renderMultiSchoolResults(null); setMultiSchoolStatus('等待材料', 'idle'); if (saveButton) saveButton.disabled = true; });
+      var copyButton = document.getElementById('sup-multi-use-material'); if (copyButton) copyButton.addEventListener('click', function () { var source = document.getElementById('sup-material'); var target = document.getElementById('sup-multi-material'); if (source && target) target.value = source.value; });
+      syncAccessUI();
+    }
+    bindMultiSchoolMode();
 
     // Tab 切换
     window.switchTab = function (tab) {
@@ -476,7 +674,7 @@ App.initPage({
     function addTyping() {
       var div = document.createElement('div');
       div.className = 'msg ai'; div.id = 'sup-typing';
-      div.innerHTML = '<div class="src">小镜</div>思考中…';
+      div.innerHTML = '<div class="src">小镜</div><span data-sup-stream>思考中…</span>';
       chat.appendChild(div);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -513,7 +711,7 @@ App.initPage({
       return [{ role: 'system', content: sys }].concat(hist).concat([{ role: 'user', content: userContent }]);
     }
 
-    function callAI(msgs, signal) {
+    function callAI(msgs, signal, onDelta) {
       return new Promise(function (resolve) {
         if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
         var input = materialTA ? materialTA.value.trim() : '';
@@ -531,7 +729,7 @@ App.initPage({
             if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentInput, { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); resolve({ error: '上下文已变更，旧结果未采用' }); return; }
             if (res && res.content && !res.error) { ClinicalContext.completeActionRun(run.id, { kind: 'supervision-preview', summary: res.content, citations: [] }); resolve({ content: res.content }); }
             else { ClinicalContext.failActionRun(run.id, (res && res.error) || '无响应'); resolve({ error: (res && res.error) || '无响应', code: res && res.code, errorCode: res && res.errorCode, interrupted: !!(res && res.interrupted) }); }
-          }, signal ? { signal: signal } : undefined);
+          }, { signal: signal || undefined, onDelta: onDelta });
         });
       });
     }
@@ -646,7 +844,11 @@ App.initPage({
       }
       try {
         var msgs = buildMessages(text, isImpression);
-        var r = await callAI(msgs, controller ? controller.signal : null);
+        var r = await callAI(msgs, controller ? controller.signal : null, function (piece, fullText) {
+          var stream = typingEl && typingEl.querySelector('[data-sup-stream]');
+          if (stream) stream.textContent = fullText || piece || '';
+          if (typingEl) chat.scrollTop = chat.scrollHeight;
+        });
         removeTyping();
         if (r && r.cancelled) {
           addMsg('ai', '已取消本次 AI 督导（上下文未发送）。');

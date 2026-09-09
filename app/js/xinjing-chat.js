@@ -972,6 +972,7 @@ const XinJingChat = (() => {
           if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
             renderFollowupCard(evt.items);
           }
+        }, function (piece, fullText) { updateAiMsg(typingDiv, fullText || piece || '');
         });
         if (result.error && String(result.error).indexOf('account-session-required') >= 0) {
           showAccountSessionRecovery(typingDiv, text);
@@ -1004,7 +1005,7 @@ const XinJingChat = (() => {
             }
             busy = false;
             saveMemory();
-          });
+          }, { onDelta: function (piece, fullText) { updateAiMsg(typingDiv, fullText); } });
           return;
         } else {
           updateAiMsg(typingDiv, 'AI 模块未就绪，请重启应用。');

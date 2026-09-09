@@ -1565,12 +1565,18 @@
     log.scrollTop = log.scrollHeight;
     App.showToast('AI 记账中…', 'info');
     var sys = '你是心理咨询师的记账助手。根据用户用自然语言描述的账目，提取结构化信息并简要确认：来访者姓名、日期、节次、费用、是否已收。用简洁中文回复，不要废话。';
+    log.innerHTML += '<div data-ai-streaming="true" style="margin-bottom:10px"><span style="color:var(--success,#6E7E62);font-weight:600">AI：</span>思考中…</div>';
     try {
       AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+        var stream = log.querySelector('[data-ai-streaming="true"]');
+        if (stream) stream.removeAttribute('data-ai-streaming');
         var reply = (res && res.content) ? res.content : '（AI 无响应）';
         log.innerHTML += '<div style="margin-bottom:10px"><span style="color:var(--success,#6E7E62);font-weight:600">AI：</span>' + App.escapeHtml(reply) + '</div>';
         log.scrollTop = log.scrollHeight;
-      });
+      }, { onDelta: function (piece, fullText) {
+        log.innerHTML = log.innerHTML.replace(/(<div data-ai-streaming="true">)[\s\S]*?(<\/div>\s*)$/, '$1' + App.escapeHtml(fullText || piece || '') + '$2');
+        log.scrollTop = log.scrollHeight;
+      } });
     } catch (e) { log.innerHTML += '<div style="color:var(--danger,#B85450)">AI 调用出错：' + App.escapeHtml(e.message || e) + '</div>'; }
   };
 
@@ -1664,7 +1670,10 @@
       aiBillingBatch = { records: records };
       renderAiResults();
       if (actions) actions.style.display = 'flex';
-    });
+    }, { onDelta: function (piece, fullText) {
+      status.textContent = '识别中…已生成 ' + String(fullText || piece || '').length + ' 字';
+      results.innerHTML = '<div style="white-space:pre-wrap;padding:10px;color:var(--ink-2)">' + App.escapeHtml(fullText || piece || '') + '</div>';
+    } });
   }
 
   function renderAiResults() {

@@ -717,7 +717,9 @@
 
     var round1Results = {};
     var promises = keys.map(function (k) {
-      return callMaster(k, userText, false, activeNames).then(function (r) { round1Results[k] = r; });
+      return callMaster(k, userText, false, activeNames, {
+        onDelta: function (piece, fullText) { updateTyping(typingEls[k], fullText || piece || ''); }
+      }).then(function (r) { round1Results[k] = r; });
     });
     await Promise.allSettled(promises);
 
@@ -749,9 +751,13 @@
         var others = repliedKeys.filter(function (k) { return k !== targetKey; });
         if (others.length > 0) {
           // 其他人并行回应被@的大师
+          var mentionTyping = {};
+          others.forEach(function (k) { mentionTyping[k] = appendTyping(k); });
           var mentionPromises = others.map(function (k) {
             var context = masterName(targetKey) + '：' + round1Results[targetKey].content;
-            return callMaster(k, '以下是' + masterName(targetKey) + '的发言，请你就其观点做出回应：\n\n' + context, true, activeNames);
+            return callMaster(k, '以下是' + masterName(targetKey) + '的发言，请你就其观点做出回应：\n\n' + context, true, activeNames, {
+              onDelta: function (piece, fullText) { updateTyping(mentionTyping[k], fullText || piece || ''); }
+            }).then(function (result) { if (mentionTyping[k]) mentionTyping[k].remove(); return result; });
           });
           var mentionResults = await Promise.allSettled(mentionPromises);
           mentionResults.forEach(function (r, i) {
@@ -769,7 +775,9 @@
         }
         // 被@大师做总结
         var targetTyping = appendTyping(targetKey);
-        var summaryResult = await callMaster(targetKey, null, 'summary', activeNames);
+        var summaryResult = await callMaster(targetKey, null, 'summary', activeNames, {
+          onDelta: function (piece, fullText) { updateTyping(targetTyping, fullText || piece || ''); }
+        });
         if (targetTyping) targetTyping.remove();
         if (summaryResult && summaryResult.content && summaryResult.content.trim()) {
           currentConv.messages.push({ role: 'assistant', content: summaryResult.content, masterKey: targetKey, ts: Date.now() });

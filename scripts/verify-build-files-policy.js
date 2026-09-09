@@ -38,7 +38,7 @@ try {
 } catch (e) { /* 忽略：日志静默失败不影响验证 */ }
 
 const EXPECTED_NAME = 'xinjing';
-const EXPECTED_VERSION = '5.1.9';
+const EXPECTED_VERSION = '5.1.11';
 const EXPECTED_MAIN = 'main.js';
 
 // 正向 allowlist：根级生产文件（精确集合，任何其它根文件进入 app.asar 均视为违规）

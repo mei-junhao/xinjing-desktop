@@ -400,7 +400,6 @@
     const typingEl = renderTyping();
     try {
       const result = await AgentCore.runRound(messages, requestConfirm, function (name, status, data) {
-        clearTyping();
         if (status === 'executing') renderProgress('正在执行：' + name + '…');
         else if (status === 'done') {
           // 配置 API 成功：自动切换到用户模型，刷新模型质量提示。
@@ -441,6 +440,12 @@
         // 层3 主动提示：写工具成功后经 onEvent 推送，渲染轻量跟进卡（非确认卡、不阻断）
         if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
           renderFollowupCard(evt.items);
+        }
+      }, null, function (piece, fullText) {
+        if (typingEl) {
+          typingEl.textContent = fullText || piece || '思考中…';
+          typingEl.style.whiteSpace = 'pre-wrap';
+          messagesEl.scrollTop = messagesEl.scrollHeight;
         }
       });
       clearTyping();

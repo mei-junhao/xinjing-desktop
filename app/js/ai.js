@@ -721,13 +721,20 @@ ${transcript}
 
   // 通用发送：接受一个完整的 messages 数组（可携带自定义 system 提示词、历史与摘要上下文）。
   // 大师对话 / 圆桌即使用此接口，传入大师人格 system prompt + 长时记忆摘要 + 对话历史。
-  // options?: { tools?, tool_choice? } — 可选；不传时与旧行为字节等价（tool_calls 为 undefined）。
+  // options?: { tools?, tool_choice?, onDelta? }。有 callback 时保留回调契约；
+  // 无 callback 时返回 Promise，供流式页面通过 onDelta 更新现有输出容器。
   function send(messages, callback, options) {
     if (!Array.isArray(messages) || !messages.length) {
-      callback({ error: '空消息' });
-      return;
+      var empty = Promise.resolve({ error: '空消息' });
+      if (typeof callback === 'function') empty.then(callback);
+      return empty;
     }
-    callWithManualOnly(messages, options).then((res) => {
+    if (typeof callback !== 'function') {
+      options = callback || options || {};
+      return callWithManualOnly(messages, options);
+    }
+    const pending = callWithManualOnly(messages, options);
+    pending.then((res) => {
       if (res.error) {
         callback({
           error: res.error,
@@ -749,6 +756,15 @@ ${transcript}
         transportState: res.transportState,
       });
     });
+    return pending;
+  }
+
+  // Explicit streaming surface for UI callers. The final promise retains the
+  // same result/error shape as send(), while onDelta receives (piece, fullText).
+  function stream(messages, onDelta, options) {
+    if (!Array.isArray(messages) || !messages.length) return Promise.resolve({ error: '空消息' });
+    const transportOptions = Object.assign({}, options || {}, { onDelta: onDelta });
+    return callWithManualOnly(messages, transportOptions);
   }
 
   // AI 督导：用指定督导师身份的提示词 + 会谈材料生成督导意见。
@@ -790,6 +806,7 @@ ${transcript}
     generateSoapFromTranscript,
     chat,
     send,
+    stream,
     supervise,
     // 新增：暴露当前生效配置与档位（供 Agent / 设置页判断与提示）
     getActiveConfig,

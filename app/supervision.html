@@ -90,6 +90,43 @@
 .supervisor-picker-label{display:flex;align-items:center;gap:6px;margin:12px 0 7px;color:var(--ink-3);font-size:11px;font-weight:650}.supervisor-option-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.supervisor-option{position:relative;display:grid;grid-template-columns:32px minmax(0,1fr) 18px;align-items:center;gap:9px;min-height:60px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--paper-2);color:var(--ink);text-align:left;cursor:pointer}.supervisor-option:hover{border-color:var(--accent);background:var(--accent-soft)}.supervisor-option.selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.supervisor-option-mark{width:30px;height:30px;display:grid;place-items:center;border-radius:6px;background:var(--bg-sunken);color:var(--accent);font-size:12px;font-weight:750}.supervisor-option strong{display:block;font-size:12px}.supervisor-option small{display:block;margin-top:2px;color:var(--ink-3);font-size:10px;line-height:1.45}.supervisor-option-check{display:none;width:16px;height:16px;color:var(--accent)}.supervisor-option.selected .supervisor-option-check{display:block}.supervisor-option.special{background:var(--accent-soft)}.supervisor-option.custom{grid-template-columns:32px minmax(0,1fr) auto}.supervisor-flagship{font-size:10px;color:#8b651e;font-weight:700;white-space:nowrap}
 .sup-package-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 20px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0}.sup-package-copy{min-width:0}.sup-package-copy strong{display:flex;align-items:center;gap:7px;font-size:12px}.sup-package-copy p{margin:3px 0 0;color:var(--ink-3);font-size:11px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sup-package-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.sup-package-actions button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2);color:var(--ink-2);font:12px var(--sans);cursor:pointer}.sup-package-actions button:hover{border-color:var(--accent);color:var(--accent)}.sup-package-actions button.primary{border-color:var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}.sup-package-actions button:disabled{cursor:not-allowed;opacity:.6}.sup-package-status{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-2)}.sup-package-status[data-state="available"],.sup-package-status[data-state="installed"]{color:var(--success)}.sup-package-status[data-state="locked"]{color:var(--warning)}
 .sup-orient-native{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sup-mode-switch{display:inline-flex;align-items:center;gap:2px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--bg-sunken,#f7f8f7)}
+.sup-mode-switch button{display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--ink-2);font:12px var(--sans);cursor:pointer;white-space:nowrap}
+.sup-mode-switch button[aria-selected="true"]{background:var(--paper-2,#fff);color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:650}
+.sup-mode-switch button:disabled{cursor:not-allowed;opacity:.55}
+.sup-mode-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.sup-multi-panel{display:flex;flex:1;min-height:0;flex-direction:column;overflow:auto;padding:18px 20px;gap:14px;background:var(--bg)}
+.sup-multi-panel[hidden]{display:none}
+.sup-multi-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.sup-multi-head h3{font:650 16px var(--sans);margin:0;color:var(--ink)}
+.sup-multi-head p{margin:3px 0 0;font:12px/1.5 var(--sans);color:var(--ink-2)}
+.sup-multi-head .sp{flex:1}
+.sup-multi-status{font-size:11px;color:var(--ink-3);padding-top:3px}
+.sup-multi-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(280px,1fr);gap:14px;min-height:0}
+.sup-multi-block{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:8px;padding:14px;min-width:0}
+.sup-multi-block h4{display:flex;align-items:center;gap:6px;margin:0 0 9px;font:650 13px var(--sans);color:var(--ink)}
+.sup-multi-material{width:100%;min-height:230px;resize:vertical;border:1px solid var(--border);border-radius:7px;padding:10px;font:13px/1.7 var(--sans);background:var(--bg);color:var(--ink);outline:none}
+.sup-multi-material:focus{border-color:var(--accent)}
+.sup-multi-schools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.sup-multi-school{display:flex;align-items:flex-start;gap:7px;padding:8px;border:1px solid var(--border);border-radius:7px;font-size:12px;color:var(--ink-2);cursor:pointer}
+.sup-multi-school.selected{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.sup-multi-school input{margin-top:2px;accent-color:var(--accent)}
+.sup-multi-actions{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.sup-multi-actions button{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border:1px solid var(--border);border-radius:7px;background:var(--paper-2,#fff);color:var(--ink-2);font:12px var(--sans);cursor:pointer}
+.sup-multi-actions button.primary{border-color:var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}
+.sup-multi-actions button:disabled{opacity:.5;cursor:not-allowed}
+.sup-multi-results{display:flex;flex-direction:column;gap:8px;min-height:80px}
+.sup-multi-result{border:1px solid var(--border);border-radius:7px;background:var(--bg);overflow:hidden}
+.sup-multi-result summary{display:flex;align-items:center;gap:7px;padding:9px 10px;cursor:pointer;font-size:12px;color:var(--ink);font-weight:600}
+.sup-multi-result summary .result-state{margin-left:auto;font-size:10px;font-weight:500;color:var(--success,#2f7a59)}
+.sup-multi-result[data-state="absent"] summary .result-state{color:var(--warning,#a86a16)}
+.sup-multi-result .result-body{padding:0 10px 10px;font:12px/1.7 var(--sans);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.sup-multi-result .result-body:empty:before{content:'等待结果…';color:var(--ink-3)}
+.sup-multi-synthesis{min-height:150px;padding:10px;border:1px dashed var(--border);border-radius:7px;background:var(--bg);font:13px/1.8 var(--sans);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.sup-multi-synthesis[data-state="error"]{border-color:var(--danger,#a33);color:var(--danger,#a33)}
+.sup-multi-empty{padding:28px 10px;text-align:center;color:var(--ink-3);font-size:12px}
+@media(max-width:1000px){.sup-multi-grid{grid-template-columns:1fr}.sup-multi-schools{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.sup-mode-switch{order:4;width:100%}.sup-mode-switch button{flex:1}.sup-multi-schools{grid-template-columns:repeat(2,minmax(0,1fr))}.sup-multi-panel{padding:14px}.sup-multi-material{min-height:180px}}
 @media(max-width:1280px){.sup-body{grid-template-columns:220px minmax(0,1fr) 300px}.supervisor-option-grid{grid-template-columns:1fr}.sup-top{padding-inline:14px}}
 
 .sup-draft-note{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--bg-sunken);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-wrap:wrap;flex-shrink:0}
@@ -107,7 +144,7 @@
 <div class="sup-page">
 <div class="sup-top">
   <button class="back" onclick="location.href='index.html'"><i data-lucide="chevron-left"></i>返回工作台</button>
-  <h2>AI 督导</h2><span id="member-badge-slot"></span><button class="supervisor-open" id="sup-unlock-button" type="button" onclick="App.openPlans()"><i data-lucide="unlock-keyhole"></i>解锁会员</button><span class="sp"></span><a href="supervision-mindmap.html" class="xj-premium-btn"><i data-lucide="git-fork"></i>思维导图</a>
+  <h2>AI 督导</h2><span id="member-badge-slot"></span><button class="supervisor-open" id="sup-unlock-button" type="button" onclick="App.openPlans()"><i data-lucide="unlock-keyhole"></i>解锁会员</button><span class="sp"></span><div class="sup-mode-switch" id="sup-mode-switch" role="tablist" aria-label="督导模式"><button type="button" id="sup-mode-standard" role="tab" aria-selected="true" aria-controls="sup-standard-view"><i data-lucide="user-round"></i>标准督导</button><button type="button" id="sup-mode-multi" role="tab" aria-selected="false" aria-controls="sup-multi-panel" data-feature="ai-masters" title="多学派督导需要会员权益"><i data-lucide="users-round"></i>多学派督导<span id="sup-mode-multi-lock" class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>会员</span></button></div><span class="sp"></span><a href="supervision-mindmap.html" class="xj-premium-btn"><i data-lucide="git-fork"></i>思维导图</a>
   <span class="sp"></span>
   <select id="sup-client" onchange="onClientChange()" aria-label="可选：关联来访者"><option value="">不绑定来访者（独立督导）</option></select><span id="sup-context-state" class="badge">独立督导</span>
   <div class="supervisor-strip">
@@ -152,7 +189,17 @@
   <span>AI 输出始终为草稿，仅在点击「保存」后写入督导记录。</span>
 </div>
 
-<div class="sup-body">
+<section class="sup-multi-panel" id="sup-multi-panel" aria-labelledby="sup-multi-title" hidden>
+  <div class="sup-multi-head"><div><h3 id="sup-multi-title">多学派督导</h3><p>不指定时由主理人按材料路由 1–3 个学派，也可手动选择参与学派。</p></div><span class="sp"></span><span class="sup-multi-status" id="sup-multi-status" role="status" aria-live="polite">等待材料</span></div>
+  <div class="sup-multi-grid">
+    <div class="sup-multi-block"><h4><i data-lucide="clipboard-pen-line"></i>案例材料</h4><textarea id="sup-multi-material" class="sup-multi-material" placeholder="粘贴逐字稿或案例材料……"></textarea><div class="sup-multi-actions"><button type="button" id="sup-multi-use-material"><i data-lucide="copy"></i>使用标准材料</button><button type="button" class="primary" id="sup-multi-run"><i data-lucide="sparkles"></i>开始多学派督导</button></div></div>
+    <div class="sup-multi-block"><h4><i data-lucide="layers-3"></i>参与学派 <span style="font-size:10px;color:var(--ink-3);font-weight:400">最多 3 个</span></h4><div class="sup-multi-schools" id="sup-multi-schools"></div><div class="sup-multi-actions"><button type="button" id="sup-multi-clear"><i data-lucide="rotate-ccw"></i>清空结果</button><button type="button" class="primary" id="sup-multi-save" disabled><i data-lucide="save"></i>归档综合结果</button></div></div>
+  </div>
+  <div class="sup-multi-block"><h4><i data-lucide="messages-square"></i>逐派分析</h4><div class="sup-multi-results" id="sup-multi-results"><div class="sup-multi-empty">开始分析后，这里会按学派显示独立结果；失败学派会明确标记为缺席。</div></div></div>
+  <div class="sup-multi-block"><h4><i data-lucide="git-compare-arrows"></i>综合督导</h4><div class="sup-multi-synthesis" id="sup-multi-synthesis" data-state="idle">等待各学派结果。</div></div>
+</section>
+
+<div class="sup-body" id="sup-standard-view">
   <!-- 左栏：来访者会话历史 -->
   <div class="col-left">
     <div class="lh-head"><i data-lucide="history"></i>会话历史</div>
@@ -248,6 +295,8 @@
 <script src="js/prompts.builtin.js"></script>
 <script src="js/supervisors.js"></script>
 <script src="js/supervision-core.js"></script>
+<script src="js/supervision-syndicate-data.js"></script>
+<script src="js/supervision-syndicate.js"></script>
 <script src="js/supervision-package.js"></script>
 <script src="js/supervision.js"></script>
 <script src="vendor/mammoth.browser.min.js"></script>

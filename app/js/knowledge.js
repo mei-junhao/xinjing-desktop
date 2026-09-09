@@ -847,7 +847,10 @@
     });
     messages.push({ role: 'user', content: q });
     try {
-      var reply = await AI.send(messages);
+      var reply = await AI.send(messages, { onDelta: function (piece, fullText) {
+        state.chat[state.chat.length - 1] = { role: 'ai', text: fullText || piece || '思考中…' };
+        paintChat();
+      } });
       var text = typeof reply === 'string' ? reply : (reply && (reply.content || reply.text)) || '（无回复）';
       state.chat[state.chat.length - 1] = { role: 'ai', text: text, cites: guessCites(text) };
     } catch (e) {

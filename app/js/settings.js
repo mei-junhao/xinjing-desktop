@@ -11,7 +11,7 @@ App.initPage({
 
     // sandbox preload 通过主进程读取真实应用版本，避免本地 require 在沙箱中失效。
     async function getAppVersion() {
-      var ver = '5.1.9';
+      var ver = '5.1.11';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
           ver = await window.__XJ_API__.getVersion() || ver;

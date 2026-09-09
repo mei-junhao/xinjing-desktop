@@ -359,7 +359,10 @@ App.initPage({ title: 'AI 成长洞察', onReady: function () {
             renderState('预览核对失败', '未自动写入任何临床对象。请重新生成预览。', 'error', true);
           restoreRetry(clientId);
         });
-      });
+      }, { onDelta: function (piece, fullText) {
+        setStatus('正在流式生成预览…已生成 ' + String(fullText || piece || '').length + ' 字');
+        renderState('正在生成预览', fullText || piece || '');
+      } });
     } catch (error) {
       setStatus('预览准备失败，请重新核对来源');
       renderState('预览准备失败', '未自动写入任何临床对象。请重新核对来源后重试。', 'error', true);

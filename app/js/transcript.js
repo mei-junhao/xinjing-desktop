@@ -285,7 +285,10 @@
       } else {
         ClinicalContext.failActionRun(run.id, (res && res.error) || 'AI 检测失败'); App.showToast('AI 检测失败', 'error');
       }
-    });
+    }, { onDelta: function (piece, fullText) {
+      var status = document.getElementById('src-status');
+      if (status) status.textContent = 'AI 检测中…已生成 ' + String(fullText || piece || '').length + ' 字';
+    } });
   };
 
   function applyMemRules() {
