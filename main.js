@@ -916,7 +916,7 @@ async function handleAccountRegister(event, payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return accountInvalidRequestFailure();
   let result = null;
   try {
-    result = await createMainAccountClient().register({ email: payload.email, password: payload.password });
+    result = await createMainAccountClient().register({ email: payload.email, password: payload.password, machineCode: getMachineCode() });
   } catch (e) { result = null; }
   if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
   return { ok: true, accountId: result.accountId, email: result.email };
@@ -938,7 +938,7 @@ async function handleAccountVerify(event, payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return accountInvalidRequestFailure();
   let result = null;
   try {
-    result = await createMainAccountClient().verify({ token: payload.token });
+    result = await createMainAccountClient().verify({ token: payload.token, machineCode: getMachineCode() });
   } catch (e) { result = null; }
   if (!result || result.ok !== true) return result || { ok: false, error: { code: 'account-unavailable', retryable: true } };
   return { ok: true, accountId: result.accountId, email: result.email };
@@ -2888,6 +2888,213 @@ ipcMain.handle('xj:backup:writeSafetySnapshot', async (event, input) => {
 // Recipient-grant renderer boundary is intentionally read-only. Issuance, lifecycle,
 // quota, entitlement and decryption authority remain inside the main process.
 registerRecipientGrantIpc(ipcMain);
+
+// ---------- 2026-09-11 Hermes: agent 文件能力（读写模式 v2，授权决策在主进程）----------
+// 安全模型：渲染层只能“请求”，授权/放行/开关全部由主进程原生 UI 完成（对抗审查 P1-P7 修复）
+const fileAllowExtra = new Set();      // 会话级用户授权（仅主进程可写）
+let fileUnrestricted = false;          // 会话级“完全无限制”开关（仅主进程可切换）
+function agentWorkdirPath() {
+  try {
+    const pref = path.join(userDataDir(), 'agent-workdir.txt');
+    if (fs.existsSync(pref)) {
+      const d = fs.readFileSync(pref, 'utf8').trim();
+      if (d && fs.existsSync(d)) return path.resolve(d);
+    }
+  } catch (e) { /* fallthrough */ }
+  try { return path.join(app.getPath('documents'), 'XinJing-Agent-Work'); }
+  catch (e) { return path.join(userDataDir(), 'XinJing-Agent-Work'); }
+}
+function realpathSafe(p) {
+  try { return fs.realpathSync(p); } catch (e) { return null; }
+}
+// N1: 目录级 realpath——文件/目录不存在时沿祖先进化到最近存在的祖先，再拼接剩余路径
+function realpathDirAncestor(p) {
+  let cur = p;
+  const rest = [];
+  for (;;) {
+    const rp = realpathSafe(cur);
+    if (rp) return { realBase: rp, rel: rest.reverse() };
+    const parent = path.dirname(cur);
+    if (parent === cur) return { realBase: null, rel: rest.reverse() };
+    rest.push(path.basename(cur));
+    cur = parent;
+  }
+}
+function pathWithinBase(p, baseP) {
+  const baseReal = realpathSafe(baseP);
+  if (!baseReal) return false;
+  const { realBase, rel } = realpathDirAncestor(p);
+  if (!realBase) return false;
+  if (!(realBase === baseReal || realBase.startsWith(baseReal + path.sep))) return false;
+  return true;
+}
+function filePathAllowed(abs) {
+  // 读：文件必须真实存在（不存在的文件直接由调用方返回 ENOENT，不弹窗）
+  const rp = realpathSafe(abs);
+  if (!rp) return false;
+  const wd = realpathSafe(agentWorkdirPath());
+  if (wd && (rp === wd || rp.startsWith(wd + path.sep))) return true;
+  for (const base of fileAllowExtra) {
+    const rb = realpathSafe(base);
+    if (rb && (rp === rb || rp.startsWith(rb + path.sep))) return true;
+  }
+  return false;
+}
+let fileDialogBusy = false; // N2/R3-1: 主进程全部原生弹窗共享单飞（授权/无限制开关/目录选择器），防连环堆叠 DoS
+async function withFileDialogGate(fn) {
+  if (fileDialogBusy) return 'busy';
+  fileDialogBusy = true;
+  try {
+    return await fn();
+  } finally {
+    fileDialogBusy = false;
+  }
+}
+async function requestFileAccessApproval(abs, purpose) {
+  return withFileDialogGate(function () { return requestFileAccessApprovalInner(abs, purpose); });
+}
+async function requestFileAccessApprovalInner(abs, purpose) {
+  const isWrite = purpose === 'write';
+  let win = mainWindow;
+  if (!win || win.isDestroyed()) win = null;
+  const r = await dialog.showMessageBox(win, {
+    type: 'question',
+    buttons: ['取消', '允许单次', '全部允许'],
+    defaultId: 2,
+    cancelId: 0,
+    title: '心镜 · 文件访问请求',
+    message: 'Agent 请求' + (isWrite ? '写入' : '读取') + '：' + abs,
+    detail: '该路径不在工作文件夹内。' + (isWrite ? '写入任意路径有风险，请确认文件可信。' : ''),
+  });
+  if (r && r.response === 1) return 'single';
+  if (r && r.response === 2) return 'all';
+  return 'cancel';
+}
+function resolveFileRequestPath(req) {
+  req = req || {};
+  let raw = String(req.path || '');
+  if (!raw) return { error: 'empty-path' };
+  // 相对路径统一以工作文件夹为基准（P7）
+  if (!/^([A-Za-z]:[\\/]|\\\\|\/)/.test(raw)) {
+    raw = path.join(agentWorkdirPath(), raw);
+  }
+  return { abs: path.resolve(raw) };
+}
+ipcMain.handle('xj:file:read', async (event, req) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, code: 'XJ_IPC_SENDER_DENIED' };
+  const rp = resolveFileRequestPath(req);
+  if (rp.error) return { ok: false, error: rp.error };
+  const abs = rp.abs;
+  // 先 stat：不存在的文件直接 ENOENT，不弹授权窗（N1 错误归因修复）
+  let stat;
+  try {
+    stat = fs.statSync(abs);
+    if (!stat.isFile()) return { ok: false, code: 'XJ_FILE_NOT_FILE', path: abs };
+  } catch (e) {
+    return { ok: false, error: (e && e.code) || 'ENOENT', path: abs };
+  }
+  if (stat.size > 4 * 1024 * 1024) return { ok: false, code: 'XJ_FILE_TOO_LARGE', path: abs, size: stat.size };
+  // unrestricted 只由主进程状态决定；渲染层参数一律忽略（P1）
+  if (!fileUnrestricted && !filePathAllowed(abs)) {
+    const decision = await requestFileAccessApproval(abs, 'read');
+    if (decision === 'busy') return { ok: false, code: 'XJ_FILE_DIALOG_BUSY', path: abs };
+    if (decision === 'cancel') return { ok: false, code: 'XJ_FILE_PERMISSION', path: abs, denied: true };
+    fileAllowExtra.add(decision === 'all' ? path.dirname(abs) : abs);
+  }
+  try {
+    return { ok: true, content: fs.readFileSync(abs, 'utf8'), size: stat.size, path: abs };
+  } catch (e) { return { ok: false, error: (e && e.code) || 'EIO', path: abs }; }
+});
+ipcMain.handle('xj:file:write', async (event, req) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, code: 'XJ_IPC_SENDER_DENIED' };
+  const rp = resolveFileRequestPath(req);
+  if (rp.error) return { ok: false, error: rp.error };
+  const abs = rp.abs;
+  const content = String(((req || {}).content) == null ? '' : req.content);
+  if (!fileUnrestricted) {
+    // 默认模式：仅工作文件夹内可写（N1：目录级 realpath 判断，允许新建文件；树外明确拒绝）
+    if (!pathWithinBase(abs, agentWorkdirPath())) {
+      return { ok: false, code: 'XJ_FILE_PERMISSION', path: abs, message: '仅工作文件夹内可写入；如需写入其他位置，请先在模式条开启“完全无限制”。' };
+    }
+  } else {
+    // 完全无限制：任意路径，但每次写入仍需主进程原生确认（P1）
+    const decision = await requestFileAccessApproval(abs, 'write');
+    if (decision === 'busy') return { ok: false, code: 'XJ_FILE_DIALOG_BUSY', path: abs };
+    if (decision === 'cancel') return { ok: false, code: 'XJ_FILE_PERMISSION', path: abs, denied: true };
+  }
+  try {
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content, 'utf8');
+    return { ok: true, path: abs, bytes: Buffer.byteLength(content, 'utf8') };
+  } catch (e) { return { ok: false, error: (e && e.code) || 'EIO', path: abs }; }
+});
+// 授权请求：渲染层只能触发主进程原生弹窗，无法自行授予（P1/P6）
+ipcMain.handle('xj:file:requestAccess', async (event, req) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, code: 'XJ_IPC_SENDER_DENIED' };
+  const rp = resolveFileRequestPath(req);
+  if (rp.error) return { ok: false, error: rp.error };
+  const abs = rp.abs;
+  const purpose = (req && req.purpose === 'write') ? 'write' : 'read';
+  const decision = await requestFileAccessApproval(abs, purpose);
+  if (decision === 'busy') return { ok: false, code: 'XJ_FILE_DIALOG_BUSY', path: abs };
+  if (decision === 'cancel') return { ok: false, code: 'XJ_FILE_PERMISSION', path: abs, denied: true };
+  fileAllowExtra.add(decision === 'all' ? path.dirname(abs) : abs);
+  return { ok: true, scope: decision, granted: abs };
+});
+// 完全无限制开关：主进程原生确认后才生效（P1/P2）
+ipcMain.handle('xj:file:setUnrestricted', async (event, enabled) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, code: 'XJ_IPC_SENDER_DENIED' };
+  const want = enabled === true;
+  if (want === fileUnrestricted) return { ok: true, unrestricted: fileUnrestricted };
+  if (want) {
+    const gate = await withFileDialogGate(async function () {
+      let win = mainWindow;
+      if (!win || win.isDestroyed()) win = null;
+      const r = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: ['取消', '开启'],
+        defaultId: 0,
+        cancelId: 0,
+        title: '心镜 · 完全无限制模式',
+        message: '开启后 Agent 可读取任意路径的文件；写入任意路径时仍会每次弹窗确认。',
+        detail: '仅建议对可信的本地内容开启。此开关为会话级，重启后恢复默认权限。',
+      });
+      return r && r.response === 1;
+    });
+    if (gate === 'busy') return { ok: false, unrestricted: fileUnrestricted, busy: true };
+    if (!gate) return { ok: false, unrestricted: fileUnrestricted, canceled: true };
+  }
+  fileUnrestricted = want;
+  return { ok: true, unrestricted: fileUnrestricted };
+});
+ipcMain.handle('xj:file:workdir:get', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, code: 'XJ_IPC_SENDER_DENIED' };
+  const wd = path.resolve(agentWorkdirPath());
+  if (!fs.existsSync(wd)) { try { fs.mkdirSync(wd, { recursive: true }); } catch (e) {} }
+  return { ok: true, workdir: wd };
+});
+// 工作文件夹设置：仅主进程原生目录选择器（P1：渲染层无法自设路径）
+ipcMain.handle('xj:file:workdir:set', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, code: 'XJ_IPC_SENDER_DENIED' };
+  const gate = await withFileDialogGate(async function () {
+    try {
+      let win = mainWindow;
+      if (!win || win.isDestroyed()) win = null;
+      const picked = await dialog.showOpenDialog(win, {
+        properties: ['openDirectory', 'createDirectory'],
+        title: '选择 Agent 工作文件夹',
+      });
+      if (!picked || picked.canceled || !picked.filePaths || !picked.filePaths.length) return { ok: false, canceled: true };
+      const abs = path.resolve(picked.filePaths[0]);
+      fs.mkdirSync(abs, { recursive: true });
+      fs.writeFileSync(path.join(userDataDir(), 'agent-workdir.txt'), abs, 'utf8');
+      return { ok: true, workdir: abs };
+    } catch (e) { return { ok: false, error: (e && e.code) || 'EIO' }; }
+  });
+  if (gate === 'busy') return { ok: false, busy: true };
+  return gate;
+});
+
 ipcMain.handle('xj:aiRequest', handleAiRequest);
 ipcMain.on('xj:aiCancel', (event, requestId) => {
   if (!isTrustedRendererEvent(event)) return;

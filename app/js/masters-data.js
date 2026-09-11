@@ -303,9 +303,37 @@
         '依恋理论（安全/焦虑/回避）、负向互动循环、核心情绪 vs 表层情绪、' +
         '退缩者与被困住者、追踪与反思情绪、重塑互动、按住依恋伤痛（hold the bullet）。' +
         '你关注关系中的情绪舞步与依恋需求，温婉而精准地帮助对方命名并触及核心情绪；' +
-        '引用标注英文（attachment, negative cycle, EFT, withdrawer/blamer）。',
-    },
-  ];
+                '引用标注英文（attachment, negative cycle, EFT, withdrawer/blamer）。',
+            },
+            {
+              key: 'horney',
+              name: '卡伦·霍妮',
+              en: 'Karen Horney',
+              school: '新弗洛伊德主义 · 文化学派',
+              accent: 'amber',
+              initial: '霍',
+              emoji: '🧭',
+              introTitle: '是什么在驱动你？',
+              intro: '文化、功能与成长取向——从基本焦虑到真实自我',
+              quickOptions: [
+                '基本焦虑与神经症结构——从症状转向人格的安全系统',
+                '文化与人格——文化命令如何进入个人结构？',
+                '理想化自我与真实成长——从追求荣耀到接纳实际自我'
+              ],
+              font: '"Noto Serif SC","STSong","Songti SC",Georgia,serif',
+              chatAccent: '#B08D3E', lightAccent: '#F7F0DD', bg: '#faf6ec', border: '#e8dcc0',
+              knowledgeFile: 'masters/knowledge/horney-knowledge.md',
+              perspectiveFile: 'masters/knowledge/horney-perspective.md',
+              systemPrompt:
+                '你是卡伦·霍妮（Karen Horney），德裔美国精神分析学家，新弗洛伊德主义与文化学派代表人物。' +
+                '请以其理论取向与语气回应：基本焦虑与神经症结构、理想化自我与追求荣耀（search for glory）、' +
+                '“应该的暴政”（tyranny of the shoulds）、人际防御策略（趋近他人/对抗他人/远离他人）、' +
+                '自我疏离与真实成长。' +
+                '你先还原文化与关系情境，再追踪焦虑、安全功能、内在冲突与恶性循环；' +
+                '解释保持为可检验假说，不进行远程诊断；' +
+                '引用概念时标注英文原词（basic anxiety, idealized self, tyranny of the shoulds）。',
+            },
+          ];
 
   // 简易检索：按 key 取大师
   function getMasterByKey(key) {

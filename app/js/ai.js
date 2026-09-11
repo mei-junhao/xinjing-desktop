@@ -441,37 +441,63 @@ const AI = (() => {
     return out;
   }
 
-  function createSseAccumulator(onDelta) {
+  function createSseAccumulator(onDelta, onReasoning) {
     let buffer = '';
     let content = '';
+    let reasoning = '';
     let received = false;
+    const toolCalls = {};
     function consume(line) {
-      if (!line || line.indexOf('data:') !== 0) return;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === '[DONE]') return;
-      let packet;
-      try { packet = JSON.parse(payload); } catch (e) { return; }
-      const delta = packet && packet.choices && packet.choices[0] && packet.choices[0].delta;
-      const piece = delta && typeof delta.content === 'string' ? delta.content : '';
-      if (!piece) return;
-      received = true;
-      content += piece;
-      onDelta(piece, content);
+        if (!line || line.indexOf('data:') !== 0) return;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') return;
+        let packet;
+        try { packet = JSON.parse(payload); } catch (e) { return; }
+        const delta = packet && packet.choices && packet.choices[0] && packet.choices[0].delta;
+        // 2026-09-11 修复：流式响应中的 tool_calls 分段到达（同一 index 多帧合并），
+        // 此前被丢弃导致 runRound 永远收不到模型工具调用（流式→非流式行为不一致）
+        if (delta && Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const idx = Number.isInteger(tc.index) ? tc.index : 0;
+            if (!toolCalls[idx]) toolCalls[idx] = { id: '', type: 'function', function: { name: '', arguments: '' } };
+            const t = toolCalls[idx];
+            if (tc.id) t.id = tc.id;
+            if (tc.type) t.type = tc.type;
+            if (tc.function) {
+              if (typeof tc.function.name === 'string') t.function.name += tc.function.name;
+              if (typeof tc.function.arguments === 'string') t.function.arguments += tc.function.arguments;
+            }
+          }
+          received = true;
+        }
+        const piece = delta && typeof delta.content === 'string' ? delta.content : '';
+        // 2026-09-11：DeepSeek 系思考过程（reasoning_content）累积透传，供调用方渲染"思考过程"
+        const rPiece = delta && typeof delta.reasoning_content === 'string' ? delta.reasoning_content : '';
+        if (rPiece) {
+          reasoning += rPiece;
+          if (typeof onReasoning === 'function') onReasoning(rPiece, reasoning);
+        }
+        if (!piece) return;
+        received = true;
+        content += piece;
+        onDelta(piece, content);
     }
     return {
-      push: function (chunk) {
-        buffer += String(chunk || '');
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() || '';
-        lines.forEach(consume);
-      },
-      finish: function () {
-        if (buffer) consume(buffer);
-        buffer = '';
-        return { content: content, received: received };
-      },
+        push: function (chunk) {
+          buffer += String(chunk || '');
+          const lines = buffer.split(/\r?\n/);
+          buffer = lines.pop() || '';
+          lines.forEach(consume);
+        },
+        finish: function () {
+          if (buffer) consume(buffer);
+          buffer = '';
+          const tcList = Object.keys(toolCalls).map(function (k) { return toolCalls[k]; })
+            .filter(function (t) { return t && t.function && (t.function.name || t.function.arguments); });
+          return { content: content, reasoning: reasoning, received: received, toolCalls: tcList };
+        },
     };
-  }
+    }
 
   function parseChatMessage(bodyText) {
     let data = null;
@@ -534,7 +560,7 @@ const AI = (() => {
       body.tools = options.tools;
       if (options.tool_choice) body.tool_choice = options.tool_choice;
     }
-    const stream = streaming ? createSseAccumulator(options.onDelta) : null;
+    const stream = streaming ? createSseAccumulator(options.onDelta, options.onReasoning) : null;
     let result;
     try {
       result = await requestAiBroker(config, body, options, stream ? stream.push : null);
@@ -594,7 +620,9 @@ const AI = (() => {
         abortErr.partialContent = streamed.content;
         throw abortErr;
       }
-      return { content: streamed.content, commercial: acceptCommercialProjection(result.commercial) };
+      const streamedMsg = { content: streamed.content, reasoning: streamed.reasoning, commercial: acceptCommercialProjection(result.commercial) };
+      if (Array.isArray(streamed.toolCalls) && streamed.toolCalls.length) streamedMsg.tool_calls = streamed.toolCalls;
+      return streamedMsg;
     }
     const message = parseChatMessage(result.bodyText);
     const commercial = acceptCommercialProjection(result.commercial);
@@ -610,6 +638,7 @@ const AI = (() => {
       const message = await callDirect(config, messages, options);
       return {
         content: message.content || '',
+        reasoning: message.reasoning || message.reasoning_content || '',
         tool_calls: message.tool_calls,
         commercial: message.commercial,
         tier: config.label,

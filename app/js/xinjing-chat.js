@@ -27,7 +27,7 @@ const XinJingChat = (() => {
 
   var messages = [];
   var MEM_KEY = 'xj_xinjing_chat_v1';
-  var MEM_MAX = 30;
+  var MEM_MAX = 50; // 2026-09-11 与 chat-home 统一（原 30）
 
   var lastWriteAction = null;
   var undoPending = false;
@@ -60,6 +60,9 @@ const XinJingChat = (() => {
     try {
       var chat = messages.filter(function (m) { return m.role !== 'system'; });
       if (chat.length > MEM_MAX) chat = chat.slice(-MEM_MAX);
+      // 截断后丢弃开头孤儿 tool 消息（其配对 assistant.tool_calls 已被截掉），
+      // 避免孤儿 tool 污染历史导致模型上下文错乱、退化短答（2026-09-11 Hermes 实测定位）
+      while (chat.length && chat[0].role === 'tool') chat.shift();
       localStorage.setItem(MEM_KEY, JSON.stringify(chat));
     } catch (e) { /* ignore */ }
   }
@@ -71,6 +74,14 @@ const XinJingChat = (() => {
         var chat = JSON.parse(saved);
         if (Array.isArray(chat) && chat.length > 0) {
           for (var i = 0; i < chat.length; i++) {
+            // 恢复时跳过 tool 消息及其配对 tool_calls（仅保留纯文本对话），
+            // 防止旧存储中的孤儿 tool / 悬空 tool_calls 污染上下文（2026-09-11 修复）
+            if (chat[i].role === 'tool') continue;
+            if (chat[i].role === 'assistant' && Array.isArray(chat[i].tool_calls)) {
+              messages.push({ role: 'assistant', content: chat[i].content || '' });
+              if (chat[i].content) appendAiMsgRaw(chat[i].content);
+              continue;
+            }
             messages.push(chat[i]);
             if (chat[i].role === 'user') appendUserMsgRaw(chat[i].content);
             else if (chat[i].role === 'assistant') appendAiMsgRaw(chat[i].content);
@@ -314,6 +325,10 @@ const XinJingChat = (() => {
       '.xj3-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}' +
       '.xj3-msg.typing{opacity:.6;font-style:italic}' +
       '.xj3-msg.system{background:transparent;color:var(--ink-3);font-size:11px;align-self:center;padding:4px 8px}' +
+      // 2026-09-11：DeepSeek 思考过程折叠区样式
+      '.xj3-thinking{max-width:88%;align-self:flex-start;margin:2px 0 6px;border:1px dashed rgba(128,128,128,.4);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--ink-3);background:rgba(128,128,128,.05)}' +
+      '.xj3-thinking summary{cursor:pointer;font-weight:600;user-select:none;outline:none}' +
+      '.xj3-thinking-body{margin-top:6px;white-space:pre-wrap;word-break:break-word;line-height:1.6}' +
       '.xj3-msg.progress{background:transparent;color:var(--ink-3);font-size:11px;align-self:flex-start;padding:2px 4px}' +
       '.xj3-tier-banner{font-size:11px;padding:8px 12px;border-radius:8px;margin-bottom:4px;text-align:center}' +
       '.xj3-tier-banner.tier-user{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}' +
@@ -932,6 +947,26 @@ const XinJingChat = (() => {
     var hasTools = typeof AgentTools !== 'undefined';
     busy = true;
     var typingDiv = appendAiMsg('思考中…', true);
+    // 2026-09-11：DeepSeek 思考过程（reasoning_content）渲染为可折叠"思考过程"区
+    var thinkingDiv = null;
+    function handleReasoning(piece, full) {
+      if (!full) return;
+      if (!thinkingDiv && bodyEl && typingDiv) {
+        thinkingDiv = document.createElement('details');
+        thinkingDiv.className = 'xj3-thinking';
+        var sumEl = document.createElement('summary');
+        sumEl.textContent = '思考过程';
+        var bodyEl2 = document.createElement('div');
+        bodyEl2.className = 'xj3-thinking-body';
+        thinkingDiv.appendChild(sumEl);
+        thinkingDiv.appendChild(bodyEl2);
+        bodyEl.insertBefore(thinkingDiv, typingDiv);
+      }
+      if (thinkingDiv) {
+        var tb = thinkingDiv.querySelector('.xj3-thinking-body');
+        if (tb) tb.textContent = full;
+      }
+    }
 
     try {
       ensureSystemPrompt();
@@ -972,8 +1007,9 @@ const XinJingChat = (() => {
           if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
             renderFollowupCard(evt.items);
           }
-        }, function (piece, fullText) { updateAiMsg(typingDiv, fullText || piece || '');
-        });
+        }, function (piece, fullText) { updateAiMsg(typingDiv, fullText || piece || ''); },
+          handleReasoning
+        );
         if (result.error && String(result.error).indexOf('account-session-required') >= 0) {
           showAccountSessionRecovery(typingDiv, text);
         } else if (result.error) {
@@ -1005,7 +1041,7 @@ const XinJingChat = (() => {
             }
             busy = false;
             saveMemory();
-          }, { onDelta: function (piece, fullText) { updateAiMsg(typingDiv, fullText); } });
+          }, { onDelta: function (piece, fullText) { updateAiMsg(typingDiv, fullText); }, onReasoning: handleReasoning });
           return;
         } else {
           updateAiMsg(typingDiv, 'AI 模块未就绪，请重启应用。');
@@ -1228,6 +1264,7 @@ const XinJingChat = (() => {
   }
 
   return api;
+
 })();
 
 // 511-004: GPT-5.6 account-session-required 单一去重恢复卡（保留草稿；显式动作，无自动降级）
@@ -1276,3 +1313,12 @@ function showInlineRecoveryError(card, msg) {
   card.appendChild(err);
 }
 window.showInlineRecoveryError = showInlineRecoveryError;
+
+// 2026-09-11 读写模式入口（与 chat-home 共用同一套逻辑；页面加载后注入）
+(function () {
+  function injectModeBar() {
+    if (typeof AgentTools !== 'undefined' && AgentTools.initAgentModeBar) AgentTools.initAgentModeBar();
+  }
+  if (document.readyState !== 'loading') injectModeBar();
+  else window.addEventListener('DOMContentLoaded', injectModeBar);
+})();

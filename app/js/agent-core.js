@@ -201,13 +201,31 @@
   // onConfirm(toolCall, args) → Promise<{ ok, edited?, args? }>
   // onProgress(toolName, status, result?) → 同步回调，状态：'executing' / 'done'
   // 返回 { reply, messages, error? }
-  async function runRound(messages, onConfirm, onProgress, onEvent, onDelta) {
-    const AI = getAI();
-    const tools = getTools();
+  async function runRound(messages, onConfirm, onProgress, onEvent, onDelta, onReasoning) {
+      const AI = getAI();
+      const tools = getTools();
+      // 历史消毒（2026-09-11）：会话记忆经 30 条截断可能携带孤儿 tool / 悬空 tool_calls，
+      // 注入模型后导致上下文错乱、退化短答（实测复现“OK”退化）。统一净化后再进入工具循环；
+      // 净化失败不阻断（AI.send 内部仍有兜底配对修正）。
+      if (AI && typeof AI.normalizeMessageSequence === 'function') {
+        try {
+          const cleaned = AI.normalizeMessageSequence(messages);
+          if (Array.isArray(cleaned)) {
+            messages.length = 0;
+            Array.prototype.push.apply(messages, cleaned);
+          }
+        } catch (e) { /* ignore */ }
+      }
     // 深度临床工作依赖专用页面的材料、历史和状态机。小镜只获得跳转工具，
     // 不把这些兼容性 handler 暴露给模型，避免低能力模型误执行后声称完成。
+    // 2026-09-11 读写模式：模式（chat/plan/readwrite/goal）控制文件工具可见性；其余业务工具恒可见
+    const xjAgentMode = (typeof localStorage !== 'undefined' && localStorage.getItem('xj_agent_mode')) || 'chat';
+    const fileToolsVisible = xjAgentMode !== 'chat';
     const toolSchemas = tools.TOOL_SCHEMAS.filter(function (schema) {
-      return !REDIRECT_ONLY_TOOLS.has(schema.function.name);
+      if (REDIRECT_ONLY_TOOLS.has(schema.function.name)) return false;
+      const tName = String(schema.function.name || '');
+      if (tName.indexOf('file.') === 0) return fileToolsVisible;
+      return true;
     });
     const registry = tools.TOOL_REGISTRY;
 
@@ -269,7 +287,7 @@
           AI.send(baseMessages.concat([ANSWER_NUDGE]), function (rr) {
             if (rr && rr.error) reject(new Error(rr.error));
             else resolve(rr);
-          }, { tools: wireSchemas, tool_choice: 'none', onDelta: onDelta });
+          }, { tools: wireSchemas, tool_choice: 'none', onDelta: onDelta, onReasoning: onReasoning });
         });
         const m = (r && r.choices && r.choices[0] && r.choices[0].message) || r;
         return (m && typeof m.content === 'string') ? m.content : '';
@@ -292,7 +310,7 @@
           AI.send(resultSeen ? trimmed.concat([ANSWER_NUDGE]) : trimmed, function (r) {
             if (r && r.error) reject(new Error(r.error));
             else resolve(r);
-          }, { tools: wireSchemas, tool_choice: 'auto', onDelta: onDelta });
+          }, { tools: wireSchemas, tool_choice: 'auto', onDelta: onDelta, onReasoning: onReasoning });
         });
       } catch (e) {
         return { error: '模型调用失败：' + (e.message || '未知错误') };

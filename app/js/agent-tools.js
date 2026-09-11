@@ -1324,6 +1324,151 @@
   // ============================================================
   // Tool Registry
   // ============================================================
+
+  // ---------- 2026-09-11 Hermes: 文件读写工具（读写模式）----------
+  async function readWorkspaceFile(args) {
+    args = args || {};
+    const api = (typeof window !== 'undefined') ? window.__XJ_API__ : null;
+    if (!api || typeof api.fileRead !== 'function') return { ok: false, error: '文件能力未就绪（需 v5.2+ 主进程）' };
+    const r = await api.fileRead({ path: String(args.path || '') });
+    if (!r || !r.ok) {
+      // 主进程已负责：白名单校验+原生授权弹窗（允许单次/全部允许/取消）；渲染层只透传结果（L1）
+      const reason = (r && (r.message || r.error || r.code)) || '读取失败';
+      const label = (r && r.denied === true) ? '用户拒绝了文件读取权限' : reason;
+      return { ok: false, error: label === reason ? reason : label + '：' + (r.path || ''), path: r && r.path, code: r && r.code };
+    }
+    return { ok: true, content: r.content, path: r.path, size: r.size };
+  }
+  async function writeWorkspaceFile(args) {
+    args = args || {};
+    const api = (typeof window !== 'undefined') ? window.__XJ_API__ : null;
+    if (!api || typeof api.fileWrite !== 'function') return { ok: false, error: '文件能力未就绪' };
+    const r = await api.fileWrite({ path: String(args.path || ''), content: String(args.content == null ? '' : args.content) });
+    if (!r || !r.ok) {
+      if (r && r.code === 'XJ_FILE_PERMISSION' && r.denied !== true) {
+        // 默认模式工作夹外写入直接拒绝（主进程已给出明确文案）；unrestricted 模式下主进程会先弹确认
+        if (r.message) return { ok: false, error: r.message, path: r.path, code: 'XJ_FILE_PERMISSION' };
+        return { ok: false, error: '用户拒绝了文件写入权限：' + r.path, path: r.path, code: 'XJ_FILE_PERMISSION' };
+      }
+      return { ok: false, error: (r && (r.error || (r.message || r.code))) || '写入失败', path: r && r.path };
+    }
+    return { ok: true, path: r.path, bytes: r.bytes };
+  }
+  async function getWorkspaceInfo() {
+    const api = (typeof window !== 'undefined') ? window.__XJ_API__ : null;
+    if (!api || typeof api.fileGetWorkdir !== 'function') return { ok: false, error: '文件能力未就绪' };
+    const r = await api.fileGetWorkdir();
+    return r && r.ok ? { ok: true, workdir: r.workdir } : { ok: false, error: '工作文件夹不可用' };
+  }
+  const SCHEMA_FILE_READ = {
+    type: 'function',
+    function: {
+      name: 'file.read',
+      description: '读取工作文件夹内（或已授权路径）的文本文件内容。写操作之外的最常用文件工具。',
+      parameters: {
+        type: 'object',
+        properties: { path: { type: 'string', description: '要读取的文件的绝对路径' } },
+        required: ['path'],
+      },
+    },
+  };
+  const SCHEMA_FILE_WRITE = {
+    type: 'function',
+    function: {
+      name: 'file.write',
+      description: '写入（或创建）文本文件。写操作，执行前会向用户确认。仅允许写入工作文件夹内路径。',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: '要写入的文件的绝对路径' },
+          content: { type: 'string', description: '写入内容' },
+        },
+        required: ['path', 'content'],
+      },
+    },
+  };
+  const SCHEMA_FILE_WORKDIR = {
+    type: 'function',
+    function: {
+      name: 'file.workdir',
+      description: '查询当前 Agent 工作文件夹的绝对路径（只读）。',
+      parameters: { type: 'object', properties: {} },
+    },
+  };
+
+
+  // ---------- 2026-09-11 Hermes: 模式/权限/工作文件夹入口（chat-home 与小镜共用同一套逻辑）----------
+  function initAgentModeBar() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (document.getElementById('xj-agent-control')) return;
+    const bar = document.createElement('div');
+    bar.id = 'xj-agent-control';
+    bar.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:2147483646;display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.96);border:1px solid #d8d2c7;border-radius:10px;padding:5px 10px;font-size:12px;box-shadow:0 2px 14px rgba(0,0,0,.14);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#333';
+    const lab1 = document.createElement('span');
+    lab1.textContent = '模式'; lab1.style.cssText = 'color:#777';
+    const modeSel = document.createElement('select');
+    modeSel.style.cssText = 'border:1px solid #ccc;border-radius:6px;padding:2px 4px;font-size:12px';
+    [['chat', '对话'], ['plan', '计划'], ['readwrite', '读写'], ['goal', '目标']].forEach(function (pair) {
+      const o = document.createElement('option');
+      o.value = pair[0]; o.textContent = pair[1];
+      modeSel.appendChild(o);
+    });
+    modeSel.value = localStorage.getItem('xj_agent_mode') || 'chat';
+    modeSel.addEventListener('change', function () { localStorage.setItem('xj_agent_mode', modeSel.value); });
+    const lab2 = document.createElement('span');
+    lab2.textContent = '权限'; lab2.style.cssText = 'color:#777;margin-left:8px';
+    const permSel = document.createElement('select');
+    permSel.style.cssText = 'border:1px solid #ccc;border-radius:6px;padding:2px 4px;font-size:12px';
+    [['default', '默认权限'], ['unrestricted', '完全无限制']].forEach(function (pair) {
+      const o = document.createElement('option');
+      o.value = pair[0]; o.textContent = pair[1];
+      permSel.appendChild(o);
+    });
+    permSel.value = localStorage.getItem('xj_agent_permission') || 'default';
+    permSel.addEventListener('change', function () {
+      const v = permSel.value;
+      if (v === 'unrestricted') {
+        // 主进程原生确认后才真正生效（P1/P2：先确认后写入；开关状态以主进程为准）
+        const api = window.__XJ_API__;
+        const apply = function (enabled) {
+          if (enabled) localStorage.setItem('xj_agent_permission', 'unrestricted');
+          else localStorage.setItem('xj_agent_permission', 'default');
+        };
+        if (api && typeof api.fileSetUnrestricted === 'function') {
+          api.fileSetUnrestricted(true).then(function (r2) {
+            const on = !!(r2 && r2.ok && r2.unrestricted);
+            apply(on);
+            permSel.value = on ? 'unrestricted' : 'default';
+            if (!on && r2 && r2.canceled) { /* 用户取消，保持默认 */ }
+          }).catch(function () { apply(false); permSel.value = 'default'; });
+        } else if (window.confirm) {
+          const ok = window.confirm('完全无限制模式：Agent 可读取/写入任意路径（写操作仍需每次审批）。确定开启？');
+          apply(ok); permSel.value = ok ? 'unrestricted' : 'default';
+        }
+      } else {
+        localStorage.setItem('xj_agent_permission', v);
+        const api = window.__XJ_API__;
+        if (api && typeof api.fileSetUnrestricted === 'function') api.fileSetUnrestricted(false).catch(function () {});
+      }
+    });
+    const wdBtn = document.createElement('button');
+    wdBtn.textContent = '📁 工作文件夹';
+    wdBtn.style.cssText = 'border:1px solid #2f6f4f;background:#2f6f4f;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;margin-left:8px';
+    wdBtn.addEventListener('click', function () {
+      const api = window.__XJ_API__;
+      if (!api || typeof api.fileGetWorkdir !== 'function') { window.alert && window.alert('文件能力未就绪'); return; }
+      api.fileGetWorkdir().then(function (r) {
+        const cur = r && r.ok ? r.workdir : '';
+        window.alert && window.alert('当前工作文件夹：' + cur + '\n\n点击确定后将弹出系统目录选择框，请选择新的 Agent 工作文件夹。');
+        api.fileSetWorkdir().then(function (r2) {
+          window.alert && window.alert(r2 && r2.ok && !r2.canceled ? '工作文件夹已设置：' + r2.workdir : '未更改工作文件夹。');
+        });
+      });
+    });
+    bar.appendChild(lab1); bar.appendChild(modeSel); bar.appendChild(lab2); bar.appendChild(permSel); bar.appendChild(wdBtn);
+    document.body.appendChild(bar);
+  }
+
   const TOOL_REGISTRY = {
     'billing.add_record':     { schema: SCHEMA_ADD_RECORD,     handler: addBillingRecord,  kind: 'write' },
     'billing.monthly_settle': { schema: SCHEMA_MONTHLY_SETTLE, handler: monthlySettle,     kind: 'write' },
@@ -1341,7 +1486,10 @@
     'supervision.query':      { schema: SCHEMA_SUPERVISION_QUERY, handler: supervisionQuery, kind: 'read' },
     'stats.overview':         { schema: SCHEMA_STATS_OVERVIEW,  handler: statsOverview,     kind: 'read' },
     'client.insight':         { schema: SCHEMA_CLIENT_INSIGHT,  handler: clientInsight,     kind: 'read' },
-    'userdocs.search':        { schema: SCHEMA_USERDOCS_SEARCH,  handler: userdocsSearch,    kind: 'read' }
+    'userdocs.search':        { schema: SCHEMA_USERDOCS_SEARCH,  handler: userdocsSearch,    kind: 'read' },
+    'file.read':              { schema: SCHEMA_FILE_READ,       handler: readWorkspaceFile,   kind: 'read' },
+    'file.write':             { schema: SCHEMA_FILE_WRITE,      handler: writeWorkspaceFile,  kind: 'write' },
+    'file.workdir':           { schema: SCHEMA_FILE_WORKDIR,    handler: getWorkspaceInfo,    kind: 'read' }
   };
   const TOOL_SCHEMAS = Object.keys(TOOL_REGISTRY).map(function (k) { return TOOL_REGISTRY[k].schema; });
 
@@ -1350,6 +1498,7 @@
     window.AgentTools = {
       TOOL_REGISTRY: TOOL_REGISTRY,
       TOOL_SCHEMAS: TOOL_SCHEMAS,
+        initAgentModeBar: initAgentModeBar,
       // 单工具手测入口（不经 Orchestrator，直接调 handler）
       invoke: async function (name, args) {
         const t = TOOL_REGISTRY[name];

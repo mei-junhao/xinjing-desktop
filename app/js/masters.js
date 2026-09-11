@@ -47,7 +47,7 @@
   function genId() { return 'mc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function nowISO() { return new Date().toISOString(); }
   function masterName(key) { var m = getMasterByKey(key); return m ? m.name : key; }
-  function accentOf(m) { var map = { accent: 'var(--accent)', purple: 'var(--purple)', blue: 'var(--blue)', green: 'var(--green)', orange: 'var(--orange)', indigo: 'var(--indigo)', red: 'var(--red)' }; return map[m.accent] || 'var(--accent)'; }
+  function accentOf(m) { var map = { accent: 'var(--accent)', purple: 'var(--purple)', blue: 'var(--blue)', green: 'var(--green)', orange: 'var(--orange)', amber: '#B08D3E', indigo: 'var(--indigo)', red: 'var(--red)' }; return map[m.accent] || 'var(--accent)'; }
 
   function updateContextPanels() {
     var title = $('context-title');

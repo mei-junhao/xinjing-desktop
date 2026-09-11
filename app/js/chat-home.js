@@ -882,6 +882,15 @@
   } else {
     startPage();
   }
+
+  // 2026-09-11 读写模式入口（与 xinjing-chat 共用 AgentTools.initAgentModeBar）
+  if (typeof AgentTools !== 'undefined' && AgentTools.initAgentModeBar && document.readyState !== 'loading') {
+    AgentTools.initAgentModeBar();
+  } else if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', function () {
+      if (typeof AgentTools !== 'undefined' && AgentTools.initAgentModeBar) AgentTools.initAgentModeBar();
+    });
+  }
 })();
 
 /* ====================================================================

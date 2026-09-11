@@ -172,6 +172,12 @@ const api = {
   checkForUpdates: () => ipcRenderer.invoke('xj:check-updates'),
   encryptSecret: (plain) => ipcRenderer.invoke('xj:encryptSecret', plain),
   aiRequest: (payload) => ipcRenderer.invoke('xj:aiRequest', payload),
+  fileRead: (req) => ipcRenderer.invoke('xj:file:read', req),
+  fileWrite: (req) => ipcRenderer.invoke('xj:file:write', req),
+  fileRequestAccess: (req) => ipcRenderer.invoke('xj:file:requestAccess', req),
+  fileSetUnrestricted: (enabled) => ipcRenderer.invoke('xj:file:setUnrestricted', enabled === true),
+  fileGetWorkdir: () => ipcRenderer.invoke('xj:file:workdir:get'),
+  fileSetWorkdir: () => ipcRenderer.invoke('xj:file:workdir:set'),
   cancelAiRequest: (requestId) => ipcRenderer.send('xj:aiCancel', requestId),
   onAiChunk: (cb) => {
     if (typeof cb !== 'function') return null;
