@@ -162,7 +162,29 @@ App.initPage({
     } else if (unverified) {
       el.innerHTML = '🌱 <b>内置免费模型</b> · 你填的密钥<b>未验证</b>，点「接入高性能 AI」重新验证';
     } else {
-      el.innerHTML = '🌱 <b>内置主力模型</b> · ' + App.escapeHtml((cfg && cfg.label) || (cfg && cfg.model) || selectedBuiltinModelLabel()) + '（默认对话模型）';
+      const currentId = (function () {
+        try {
+          const sel = (Store.getSettings() || {}).aiModelSelection;
+          return sel && typeof sel.modelId === 'string' ? sel.modelId : 'deepseek-v4-pro';
+        } catch (e) { return 'deepseek-v4-pro'; }
+      })();
+      const localLabel = App.escapeHtml((cfg && cfg.label) || (cfg && cfg.model) || selectedBuiltinModelLabel());
+      el.innerHTML = '🌱 <b>内置主力模型</b> · ' + localLabel + '（默认对话模型）';
+      // 2026-09-13（XJ-513 反馈 #6）：主力模型名称与数量以服务器目录为权威——
+      // 拉取服务器目录后用 displayName 校正本地标签（本地映射只有 3 个，服务器可能更多）。
+      try {
+        const commercial = window.__XJ_API__ && window.__XJ_API__.commercial;
+        if (commercial && typeof commercial.getServerModelCatalog === 'function') {
+          Promise.resolve(commercial.getServerModelCatalog({})).then(function (result) {
+            if (!result || result.ok !== true) return;
+            const value = result.value;
+            const entry = value && Array.isArray(value.models) ? value.models.find(function (m) { return m && m.modelId === currentId; }) : null;
+            if (entry && entry.displayName) {
+              el.innerHTML = '🌱 <b>内置主力模型</b> · ' + App.escapeHtml(entry.displayName) + '（默认对话模型）';
+            }
+          }).catch(function () { /* 服务器目录不可用时保持本地标签 */ });
+        }
+      } catch (e) { /* ignore */ }
     }
     renderTrialQuota();
   }

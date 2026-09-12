@@ -30,7 +30,7 @@ const AI = (() => {
       const settings = typeof Store !== 'undefined' && Store.getSettings ? Store.getSettings() : {};
       const selection = settings && settings[BUILTIN_MODEL_SELECTION_KEY];
       const model = selection && typeof selection.modelId === 'string' ? selection.modelId.trim() : '';
-      return BUILTIN_SELECTABLE_MODELS.has(model) ? model : PRIMARY_TRIAL_MODEL;
+      return model ? model : PRIMARY_TRIAL_MODEL; // 2026-09-13（XJ-513 反馈 #6，审查修正）：放开白名单，信任服务器目录选择
     } catch (_) {
       return PRIMARY_TRIAL_MODEL;
     }
@@ -649,7 +649,23 @@ const AI = (() => {
       if (e && (e.partial || e.code === 'ABORT_ERR' || e.name === 'AbortError')) {
         return safeFailureResult(e, { partial: e.partial, partialContent: e.partialContent, transportState: 'manual-only' });
       }
-      return safeFailureResult(e, { transportState: 'manual-only' });
+      // 2026-09-13（XJ-513 反馈 #5，审查修正）：用户自有 API 失败时自动回退服务器主力
+      // 模型重试一次——必须用内置试用配置（buildNonAgentTrialConfig），不能用 getActiveConfig
+      // （用户 verified 时它仍返回用户配置=重复打同一故障上游，兜底无效）。
+      try {
+        const builtinConfig = buildNonAgentTrialConfig();
+        const fbMsg = await callDirect(builtinConfig, messages, options);
+        return {
+          content: fbMsg.content || '',
+          reasoning: fbMsg.reasoning || fbMsg.reasoning_content || '',
+          tool_calls: fbMsg.tool_calls,
+          commercial: fbMsg.commercial,
+          tier: (builtinConfig && builtinConfig.label) || 'builtin',
+          transportState: 'manual-fallback-builtin',
+        };
+      } catch (e2) {
+        return safeFailureResult(e, { transportState: 'manual-only' });
+      }
     }
   }
 

@@ -2777,6 +2777,13 @@ app.whenReady().then(async () => {
     enableAutoStart();
   }
   setupUpdateIntegration(); // 注册 typed 更新桥（acceptance 模式内部 fail-safe，真实更新被门拦下）
+  // 2026-09-13（XJ-513 反馈 #7）：启动后延迟自动检查一次更新（静默；有新版本时由
+  // 更新链弹原生确认框，用户确认才下载安装）——此前只能手动点「检查更新」。
+  if (!AGENT_ACCEPTANCE_MODE && app.isPackaged) {
+    setTimeout(() => {
+      try { checkForUpdatesManual(); } catch (e) { console.error('[update] 启动自动检查失败', (e && e.message) || e); }
+    }, 8000);
+  }
   // 数据异常告警：本机曾有使用记录但历史数据缺失（可能丢失或落错目录）
   const anomalyFlag = path.join(CANON_USER_DATA, 'data-anomaly.json');
   if (!AGENT_ACCEPTANCE_MODE && app.isPackaged && fs.existsSync(anomalyFlag)) {

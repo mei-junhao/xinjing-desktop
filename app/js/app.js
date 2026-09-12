@@ -357,7 +357,9 @@ const App = (() => {
     try {
       const settings = Store.getSettings() || {};
       const selection = settings.aiModelSelection;
-      return selection && typeof selection.modelId === 'string' && CLIENT_PRIMARY_MODEL_IDS.has(selection.modelId)
+      // 2026-09-13（XJ-513 反馈 #6，审查修正）：选择以服务器目录为权威——
+      // 不再用客户端白名单校验（否则用户在目录里选了非白名单模型会被静默回退默认）。
+      return selection && typeof selection.modelId === 'string' && selection.modelId
         ? selection.modelId : 'deepseek-v4-pro';
     } catch (_) { return 'deepseek-v4-pro'; }
   }
@@ -380,7 +382,9 @@ const App = (() => {
   function normalizeModelCatalog(value) {
     if (!value || typeof value !== 'object' || !Array.isArray(value.models) || !value.catalogRevision) return null;
     const models = value.models.filter(function (entry) {
-      return entry && typeof entry.modelId === 'string' && CLIENT_PRIMARY_MODEL_IDS.has(entry.modelId) && entry.fallbackOnly !== true;
+      // 2026-09-13（XJ-513 反馈 #6）：主界面模型选择以服务器目录为权威，不再用客户端
+      // 白名单裁剪（此前导致部分服务器模型不显示）；仅排除纯兜底条目（fallbackOnly）。
+      return entry && typeof entry.modelId === 'string' && entry.fallbackOnly !== true;
     }).map(function (entry) {
       return {
         modelId: entry.modelId,
@@ -1419,6 +1423,18 @@ const App = (() => {
     });
   }
 
+  // 2026-09-13（XJ-513 反馈 #4）：X 号偶发退出无效——动态重建的弹窗/按钮会丢失
+  // 按钮级监听，改为 document 捕获阶段事件委托兜底：任何 .close / [data-modal-cancel]
+  // 点击都就近找到所在 overlay 关闭（closeModalElement 幂等，重复关闭无副作用）。
+  document.addEventListener('click', function (ev) {
+    var target = ev.target;
+    if (!target || !target.closest) return;
+    var btn = target.closest('[data-modal-cancel], .close, .modal-close, .sm-close, .sc-detail-close, [aria-label*="关闭"]');
+    if (!btn) return;
+    var overlay = btn.closest('.modal-overlay, .sc-modal-overlay');
+    if (overlay) closeModalElement(overlay);
+  }, true);
+
   document.addEventListener('keydown', function (e) {
     const entry = modalStack[modalStack.length - 1];
     if (!entry) return;
@@ -1901,6 +1917,13 @@ if (typeof window !== 'undefined') {
 
   function render() {
     if (location.pathname.includes('activation.html')) return;
+    // 2026-09-13（XJ-513 反馈 #1）：未激活条幅只显示在首页，避免其它界面被顶部横幅遮挡影响使用
+    var isHome = /(^|\/)(index\.html)?$/.test(location.pathname) || location.pathname.endsWith('index.html');
+    if (!isHome) {
+      removeBar();
+      document.documentElement.classList.remove('xj-quota-reserved');
+      return;
+    }
     var showQuota = !isUnlocked();
     removeBar();
     document.documentElement.classList.toggle('xj-quota-reserved', showQuota);

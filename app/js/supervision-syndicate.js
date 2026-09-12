@@ -23,7 +23,7 @@
   var CARD_BY_KEY = Object.create(null);
   CARDS.forEach(function (card) { if (card && card.key) CARD_BY_KEY[card.key] = card; });
 
-  var MAX_INPUT_CHARS = 120000;
+  var MAX_INPUT_CHARS = 240000; // 2026-09-13（XJ-513 反馈 #2）：从 120000 放宽——超长材料走自动分段摘要，不再因文本长度拒绝督导
   var SUMMARY_THRESHOLD = 4000;
   var MAX_SCHOOLS = 3;
   var MAX_SCHOOL_ANALYSIS_CHARS = 600;
@@ -257,6 +257,32 @@
     var source = clean(material).slice(0, MAX_INPUT_CHARS);
     if (source.length <= SUMMARY_THRESHOLD) return { source: source, used: source, summarized: false, summary: '', summaryError: '' };
     var card = cardFor('sup-summarizer');
+    // 2026-09-13（XJ-513 反馈 #2）：超长材料不再因单次超限失败——自动分段摘要。
+    // 单段上限 24000 字符（约 1.2 万 tokens），重叠 800，逐段摘要后拼接，保证任意长度材料可督导。
+    if (source.length > 30000) {
+      var segments = [];
+      var SEG = 24000, OVERLAP = 800;
+      for (var pos = 0; pos < source.length; pos += (SEG - OVERLAP)) {
+        segments.push(source.slice(pos, pos + SEG));
+      }
+      var parts = [];
+      var segError = '';
+      for (var si = 0; si < segments.length; si += 1) {
+        var segPrompt = '请摘要以下临床材料分段（第 ' + (si + 1) + ' / ' + segments.length + ' 段）。保留时间线、关键原话与人物关系线索，只输出四节结构化摘要，不做诊断。\n\n【材料分段】\n' + segments[si];
+        var segResult = await withRetry(card, segPrompt, 'summary:seg' + (si + 1), options, telemetry);
+        if (segResult.ok) {
+          parts.push('【第' + (si + 1) + '段摘要】\n' + clean(segResult.result.content));
+        } else {
+          segError = segResult.error || segError;
+          parts.push('【第' + (si + 1) + '段原文节选】\n' + segments[si].slice(0, 6000));
+        }
+      }
+      var summary = parts.join('\n\n');
+      // 2026-09-13 审查加固：分段摘要拼接后统一裁剪，避免全段失败 fallback（每段 6000
+      // 原文节选）时 summary 过长（可达数万字符）导致后续路由/逐派/综合 stage 超限。
+      summary = clip(summary, 24000);
+      return { source: source, used: summary, summarized: true, summary: summary, summaryError: segError || '' };
+    }
     var prompt = buildSummaryPrompt(source);
     var result = await withRetry(card, prompt, 'summary', options, telemetry);
     if (result.ok) {

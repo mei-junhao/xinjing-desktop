@@ -32,7 +32,7 @@
   var TYPE_CFG = {
     initial: { label: '初访' },
     followup: { label: '复访' },
-    crisis: { label: '危机', fg: 'var(--accent)', bg: 'var(--accent-soft)', dot: 'var(--accent)', bold: true },
+    crisis: { label: '危机', fg: 'var(--danger)', bg: 'var(--danger-soft, #FDECEC)', dot: 'var(--danger)', bold: true },
     group: { label: '团体' },
   };
 
