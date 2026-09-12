@@ -168,9 +168,12 @@ const XiaojingPanel = (() => {
 
     var style = document.createElement('style');
     style.textContent = '' +
-      '.xj-panel-v3{position:fixed;top:0;right:0;width:0;height:100vh;z-index:9999;pointer-events:none}' +
+      // 2026-09-12（XJ-512-009 缺陷2）：与 xinjing-chat.js 的同名规则保持一致。
+      // 此文件是降级路径（xinjing-chat.js 未接管时生效），两处样式漂移会导致行为不一致。
+      '.xj-panel-v3{position:fixed;top:0;right:0;width:0;height:100vh;z-index:9999;pointer-events:none;overflow:visible}' +
+      // 遮罩保留点击命中面但改透明，面板呈现为右侧抽屉而非整屏黑幕
       '.xj3-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;' +
-        'background:rgba(0,0,0,.35);opacity:0;pointer-events:none;' +
+        'background:transparent;opacity:1;pointer-events:none;' +
         'will-change:opacity;transition:opacity .3s cubic-bezier(.4,0,.2,1)}' +
       '.xj-panel-v3.open .xj3-overlay{opacity:1;pointer-events:auto}' +
       '.xj3-fab{position:fixed;right:20px;bottom:24px;width:52px;height:52px;border-radius:50%;border:none;' +
@@ -181,7 +184,8 @@ const XiaojingPanel = (() => {
       '.xj3-fab.docked{transform:translateX(42px)}' +
       '.xj3-fab:hover{transform:translateX(0) scale(1.06)}' +
       '.xj3-fab:active{transform:translateX(0) scale(.95)}' +
-      '.xj-panel-v3.open .xj3-fab{transform:translateX(-360px) scale(0);opacity:0;pointer-events:none}' +
+      // open 时 fab 收起为贴边竖条但保持可点，用户随时可点它收起面板
+      '.xj-panel-v3.open .xj3-fab{transform:translateX(42px);opacity:1;pointer-events:auto}' +
       '.xj3-fab-icon{line-height:1}' +
       '.xj3-fab-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;' +
         'background:var(--danger,#ff5252);border:2px solid var(--accent);display:none}' +
@@ -192,7 +196,6 @@ const XiaojingPanel = (() => {
         'will-change:transform;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);' +
         'box-shadow:-4px 0 24px rgba(0,0,0,.08)}' +
       '.xj-panel-v3.open .xj3-drawer{transform:translateX(0)}' +
-      '.xj-panel-v3.open .xj3-fab{transform:translateX(-360px) scale(0);opacity:0;pointer-events:none}' +
       '.xj3-head{display:flex;align-items:center;gap:10px;padding:14px 16px;' +
         'border-bottom:1px solid var(--border);flex-shrink:0}' +
       '.xj3-avatar{width:40px;height:40px;border-radius:50%;background:var(--accent-soft);' +
@@ -262,6 +265,14 @@ const XiaojingPanel = (() => {
     panelEl.querySelector('#xj3-fab').addEventListener('click', toggle);
     panelEl.querySelector('#xj3-close').addEventListener('click', toggle);
     panelEl.querySelector('#xj3-overlay').addEventListener('click', toggle);
+    // 2026-09-12（XJ-512-009 缺陷2）：补 Escape 关闭（降级路径，xinjing-chat.js 未接管时生效）
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' && e.key !== 'Esc') return;
+      if (!panelEl || !panelEl.classList.contains('open')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }, true);
     inputEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') send();
     });
@@ -678,17 +689,25 @@ const XiaojingPanel = (() => {
     }
   }
 
+  function applyOpenClass(shouldOpen) {
+    if (!panelEl) return;
+    var fab = panelEl.querySelector('#xj3-fab');
+    if (shouldOpen) {
+      panelEl.classList.add('open');
+      if (fab) fab.classList.remove('docked');
+    } else {
+      panelEl.classList.remove('open');
+      if (fab) fab.classList.add('docked');
+    }
+  }
+
   function toggle() {
     build();
     isOpen = !isOpen;
+    applyOpenClass(isOpen);
     if (isOpen) {
-      panelEl.classList.add('open');
-      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.remove('docked'); }
       clearNewHint();
       setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
-    } else {
-      panelEl.classList.remove('open');
-      if (panelEl) { var f2 = panelEl.querySelector('#xj3-fab'); if (f2) f2.classList.add('docked'); }
     }
   }
 
@@ -696,8 +715,7 @@ const XiaojingPanel = (() => {
     build();
     if (!isOpen) {
       isOpen = true;
-      panelEl.classList.add('open');
-      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.remove('docked'); }
+      applyOpenClass(true);
       clearNewHint();
       setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
     }
@@ -706,9 +724,13 @@ const XiaojingPanel = (() => {
   function close() {
     if (isOpen && panelEl) {
       isOpen = false;
-      panelEl.classList.remove('open');
-      if (panelEl) { var f = panelEl.querySelector('#xj3-fab'); if (f) f.classList.add('docked'); }
+      applyOpenClass(false);
     }
+  }
+  // 2026-09-12（XJ-512-009 缺陷2）：当 xinjing-chat.js 接管面板时，DOM 上的 .open 类由它维护，
+  // 本模块的 isOpen 会与之漂移。向外暴露状态同步入口，避免两套状态互相翻转。
+  function syncOpenState(next) {
+    isOpen = !!next;
   }
 
   function showNewHint() {
@@ -740,7 +762,7 @@ const XiaojingPanel = (() => {
       build: build, toggle: toggle, open: open, close: close,
       send: send, quickQuery: quickQuery, askHint: askHint,
       showNewHint: showNewHint, clearNewHint: clearNewHint,
-      updateSub: updateSub, refresh: refresh
+      updateSub: updateSub, refresh: refresh, syncOpenState: syncOpenState
     };
     window.toggleXiaojing = toggle;
   }
@@ -749,6 +771,6 @@ const XiaojingPanel = (() => {
     build: build, toggle: toggle, open: open, close: close,
     send: send, quickQuery: quickQuery, askHint: askHint,
     showNewHint: showNewHint, clearNewHint: clearNewHint,
-    updateSub: updateSub, refresh: refresh
+    updateSub: updateSub, refresh: refresh, syncOpenState: syncOpenState
   };
 })();

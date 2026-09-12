@@ -77,6 +77,14 @@
     return VALID_TIERS.indexOf(value) !== -1 ? value : '';
   }
 
+  // 注册促销用机器码（可选字段）：16 位十六进制（xj-commercial-device-v1）；非法则省略（服务端不发放促销）。
+  function cleanMachineCode(value) {
+    if (typeof value !== 'string') return '';
+    const mc = value.trim();
+    if (mc.length < 8 || mc.length > 64 || !/^[A-Za-z0-9_-]+$/.test(mc)) return '';
+    return mc;
+  }
+
   function requireOkEnvelope(status, bodyText, shape) {
     if (status >= 200 && status < 300) {
       const body = parseBodySafely(bodyText);
@@ -188,7 +196,10 @@
         const password = typeof input.password === 'string' ? input.password : '';
         if (!email) return failure('invalid-email');
         if (password.length < 8 || password.length > 1024) return failure('weak-password');
-        const response = await call('/account/register', { email, password });
+        const registerPayload = { email, password };
+        const machineCode = cleanMachineCode(input.machineCode);
+        if (machineCode) registerPayload.machineCode = machineCode;
+        const response = await call('/account/register', registerPayload);
         if (response.ok === false) return response;
         return requireOkEnvelope(response.status, response.bodyText, shapeAccountOnly);
       },
@@ -228,7 +239,10 @@
         if (invalid) return invalid;
         const token = typeof input.token === 'string' ? input.token.trim() : '';
         if (!/^[0-9]{6}$/.test(token)) return failure('invalid-token');
-        const response = await call('/account/verify', { token });
+        const verifyPayload = { token };
+        const machineCode = cleanMachineCode(input.machineCode);
+        if (machineCode) verifyPayload.machineCode = machineCode;
+        const response = await call('/account/verify', verifyPayload);
         if (response.ok === false) return response;
         return requireOkEnvelope(response.status, response.bodyText, shapeAccountOnly);
       },

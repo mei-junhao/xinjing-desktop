@@ -25,7 +25,6 @@ function checkAiErrors() {
     safeFailureResult({ message: sensitive, status: 500 }, { partial: true, partialContent: '合成片段' }),
     safeFailureResult({ code: 'ABORT_ERR', message: sensitive }),
     safeFailureResult({ code: 'TRIAL_RATE_LIMIT', message: sensitive }),
-    safeFailureResult({ message: sensitive }, { fallbackFailed: true, fallbackCode: 'network' }),
   ].forEach((result) => {
     assert.ok(!JSON.stringify(result).includes(sensitive), '失败结果不得包含原始错误');
     assert.ok(!JSON.stringify(result).includes('secret-api-key'), '失败结果不得包含密钥');
@@ -37,9 +36,9 @@ function checkAiErrors() {
   const aiSource = fs.readFileSync(require.resolve('../app/js/ai.js'), 'utf8');
   assert.ok(!/if \(e && e\.code === 'TRIAL_RATE_LIMIT'\) return \{ error: e\.message/.test(aiSource), '限流错误不得直接回传代理原文');
   assert.ok(!/error:\s*e(?:2)?\.message/.test(aiSource), '生成、流式和兜底失败不得直接回传异常原文');
-  assert.ok(!/degradedReason:[^\n]*e\.message/.test(aiSource), '降级提示不得包含异常原文');
   assert.ok(/errorCode:\s*classifyError\(e\)/.test(aiSource), '普通和流式失败必须带安全错误分类');
-  assert.ok(/errorCode:\s*'builtin_fallback_failed'/.test(aiSource), '兜底失败必须使用固定分类');
+  assert.ok(/transportState:\s*'manual-only'/.test(aiSource), '失败必须显式进入 manual-only');
+  assert.ok(!/callDirect\(BUILTIN_MODEL, messages, options\)/.test(aiSource), '失败不得跨服务自动重放同一请求');
   assert.ok(/error:\s*'连接失败，请检查配置、网络或服务状态'/.test(aiSource), '连接测试必须使用固定安全文案');
   assert.ok(/errorCode === 'aborted'/.test(aiSource) && /error: '已取消生成'/.test(aiSource), '取消生成必须使用固定安全文案');
   console.log('PASS --check-ai-errors: 7 类合成错误均可归类，未暴露原始敏感信息');

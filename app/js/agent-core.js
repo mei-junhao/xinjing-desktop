@@ -15,10 +15,23 @@
 'use strict';
 
 (function () {
-  const MAX_STEPS = 8;
+  // 2026-09-12（XJ-512-009 缺陷1）：8→5。实测退化循环场景下模型拿到检索结果仍反复发同一工具调用，
+  // 8 步只延长用户等待、并不提高成功率；压到 5 步让失败更早收敛到明确回复。
+  const MAX_STEPS = 5;
   const WINDOW = 20;
   const TOOL_RESULT_MAX = 4000;
   const READ_RESULT_MAX = 20000; // 读/洞察类工具结果较大，用更高上限避免半截 JSON（v1.6.0 B1 修复）
+  // 2026-09-12（XJ-512-009 缺陷1 层②）：工具协议漂移标记。模型在 tool_choice:'none' 的强制文字阶段
+  // 会退化为输出 Claude/Anthropic 风格的 XML 工具调用文本（</toolcall><toolcall name="...">…</invoke>），
+  // 客户端若不拦截会原样渲染成"未执行的工具调用"回复。
+  const PROTOCOL_DRIFT_PATTERNS = [
+    /<\/?toolcall\b[^>]*>/i,
+    /<\/?invoke\b[^>]*>/i,
+    /<\/?parameter\b[^>]*>/i,
+    /<\/?function_calls\b[^>]*>/i,
+    /<\/?antml:invoke\b[^>]*>/i,
+    /<\/?antml:parameter\b[^>]*>/i
+  ];
   const REDIRECT_ONLY_TOOLS = new Set([
     'supervision.start',
     'supervision.ask',
@@ -103,6 +116,38 @@
     }
     return result;
   }
+
+  // ---------- 工具：XML 工具调用文本过滤（XJ-512-009 缺陷1 层②） ----------
+  // 背景：模型在 tool_choice:'none' 强制文字阶段不再返回 JSON tool_calls，而是把工具调用
+  // 写成 Claude/Anthropic 风格 XML 普通文本。这种文本不是真调用、也不会被执行，若直接渲染
+  // 就成了用户看到的"未执行的工具调用"回复。此处只做展示层剥离，不猜测模型意图、不伪造工具结果。
+  function looksLikeProtocolDrift(text) {
+    if (typeof text !== 'string') return false;
+    for (let i = 0; i < PROTOCOL_DRIFT_PATTERNS.length; i++) {
+      if (PROTOCOL_DRIFT_PATTERNS[i].test(text)) return true;
+    }
+    return false;
+  }
+
+  // 返回 { text, stripped }：stripped=true 表示确实剥离过 XML 片段。
+  function stripXmlToolCalls(text) {
+    if (typeof text !== 'string' || !text) return { text: text || '', stripped: false };
+    let out = text;
+    // 去成对块：<invoke …>…</invoke> / <toolcall …>…</toolcall> / <function_calls>…</function_calls>
+    out = out.replace(/<(?:antml:)?(?:invoke|toolcall|function_calls)\b[^>]*>[\s\S]*?<\/(?:antml:)?(?:invoke|toolcall|function_calls)>/gi, '');
+    // 去残留开闭标签（含自闭合）
+    out = out.replace(/<\/?(?:antml:)?(?:invoke|toolcall|function_calls|parameter)\b[^>]*>/gi, '');
+    // 去可能残留的孤立 </invoke> 之类零散闭合标签
+    out = out.replace(/<\/(?:antml:)?[a-z_:]+\s*>/gi, function (m) {
+      return looksLikeProtocolDrift(m) ? '' : m;
+    });
+    // 折叠因剥离产生的大量空行，避免回复成为一片空白
+    out = out.replace(/\n{3,}/g, '\n\n').trim();
+    const stripped = looksLikeProtocolDrift(text);
+    return { text: out, stripped: stripped };
+  }
+
+  const DRIFT_NOTICE = '模型输出格式异常（返回了未执行的工具调用文本），已忽略该部分内容。请重新提问，或换用支持 function-calling 的模型。';
 
   // ---------- 工具：JSON Schema 简校验（draft-07 子集） ----------
   function validateSchema(args, schema) {
@@ -280,6 +325,8 @@
     let resultSeen = false;
     let prevSingleKey = null;
     let repeatCount = 0;
+    // 2026-09-12（XJ-512-009 缺陷1）：区分"模型拒绝给文字"与"给了但格式漂移"两种失败，
+    // 前者可再试，后者必须立刻停止循环并给出明确提示，否则用户只会看到空转的"✓ 已完成"。
     async function forceTextAnswer(baseMessages) {
       try {
         const r = await new Promise(function (resolve, reject) {
@@ -290,9 +337,12 @@
           }, { tools: wireSchemas, tool_choice: 'none', onDelta: onDelta, onReasoning: onReasoning });
         });
         const m = (r && r.choices && r.choices[0] && r.choices[0].message) || r;
-        return (m && typeof m.content === 'string') ? m.content : '';
+        const raw = (m && typeof m.content === 'string') ? m.content : '';
+        if (!raw) return { text: '', drift: false, empty: true };
+        const cleaned = stripXmlToolCalls(raw);
+        return { text: cleaned.text, drift: cleaned.stripped, empty: false };
       } catch (e) {
-        return '';
+        return { text: '', drift: false, empty: true, error: e.message || '未知错误' };
       }
     }
 
@@ -328,7 +378,14 @@
       }
       messages.push(msg);
       if (!msg.tool_calls || !Array.isArray(msg.tool_calls) || !msg.tool_calls.length) {
-        return { reply: msg.content || '', messages: messages };
+        // 2026-09-12（XJ-512-009 缺陷1 层②）：正常出口同样过滤 XML 工具调用文本，
+        // 这是用户实际看到泄漏文本的主路径（模型无 tool_calls 但正文是 XML 调用）。
+        const plain = stripXmlToolCalls(msg.content);
+        if (plain.stripped) {
+          if (plain.text) return { reply: plain.text, messages: messages, driftFiltered: true };
+          return { error: DRIFT_NOTICE, drift: true, messages: messages };
+        }
+        return { reply: plain.text, messages: messages };
       }
       // === 退化循环检测（v1.6.2）===
       const willCallKeys = msg.tool_calls.map(function (tc) {
@@ -342,10 +399,17 @@
         repeatCount = singleKey ? 1 : 0;
       }
       // 同一工具连续调用 ≥2 次 → 判定退化循环，强制文字回答（不再浪费步数）
-      if (resultSeen && singleKey && singleKey === prevSingleKey && repeatCount >= 2) {
-        const finalText = await forceTextAnswer(trimmed);
-        if (finalText) return { reply: finalText, messages: messages, forced: true };
-        // 强制回答为空（极端异常）→ 继续循环，交由 MAX_STEPS 兜底
+      // 2026-09-12（XJ-512-009 缺陷1）：阈值 2→1。实测模型一旦开始重复调用，第二次必然继续重复，
+      // 等满 2 次只是白等一个往返；首次重复即强制文字，既省时间也降低撞步数上限的概率。
+      if (resultSeen && singleKey && singleKey === prevSingleKey && repeatCount >= 1) {
+        const forced = await forceTextAnswer(trimmed);
+        if (forced.text) return { reply: forced.text, messages: messages, forced: true };
+        if (forced.drift) {
+          // 模型只肯吐 XML 工具文本 → 明确告知异常，绝不把 XML 渲染成回复
+          return { error: DRIFT_NOTICE, drift: true, messages: messages };
+        }
+        // 强制回答为空且非漂移：不再静默继续循环（原逻辑会导致用户只看到"✓ 已完成"空转）
+        return { error: '模型未能给出最终回答（工具调用重复且强制文字回答为空），请重试或换用其他模型。', messages: messages };
       }
       // 分发 tool_calls
       for (const tc of msg.tool_calls) {
@@ -416,11 +480,14 @@
       resultSeen = true;
     }
     // MAX_STEPS 兜底：仍尝试强制文字回答，避免空手而归
+    // 2026-09-12（XJ-512-009 缺陷1）：兜底路径同样过滤 XML 漂移；且无论成败都必须回一条
+    // 用户可见的消息（原实现在部分 UI 路径下 error 未渲染，用户只见"✓ 已完成"后无下文）。
     try {
-      const finalText = await forceTextAnswer(trimToWindow(messages, WINDOW));
-      if (finalText) return { reply: finalText, messages: messages, forced: true };
+      const forcedFinal = await forceTextAnswer(trimToWindow(messages, WINDOW));
+      if (forcedFinal.text) return { reply: forcedFinal.text, messages: messages, forced: true };
+      if (forcedFinal.drift) return { error: DRIFT_NOTICE, drift: true, messages: messages };
     } catch (e) { /* ignore */ }
-    return { error: '操作步数超限（' + MAX_STEPS + ' 步），请分步或改用批量 records' };
+    return { error: '操作步数超限（' + MAX_STEPS + ' 步），未能得出最终回答。请把问题拆小，或改用更明确的问法（例如指定日期范围或对象名）。' };
   }
 
   // ---------- 构建系统提示 ----------
@@ -483,6 +550,7 @@
       '8. 配置 API 接口时，如果用户只说了服务商名（如 DeepSeek 或 硅基流动）和密钥，从 agent.configure_api 的 provider 参数填预设名即可——handler 会自动查出 baseUrl 和默认 model。不要让用户手动找 baseUrl 和 model 名。若用户说出未在预设列表的服务商，选 other 并问用户要 baseUrl 和 model 名。',
       '9. 涉及「谁 / 几次 / 多久 / 欠费 / 最久」等事实问题，必须先调用 client.query / session.query / supervision.query / stats.overview / client.insight 查询真实数据，再基于返回回答，严禁凭记忆编造。例：想知道工作最久的来访，调 stats.overview（看 longestClient）或 client.query（默认按 tenure 降序）。',
       '10. 调用查询工具拿到结果后，用一次文字回复直接回答用户即可，不要再调用同一查询工具；同一查询工具连续调用两次即视为已获取足够信息，必须停止调用工具。',
+      '11. 工具调用只能通过接口提供的 function-calling 机制发起，绝不能用文字书写工具调用。严禁输出任何形式的 XML/标签式工具调用文本（如 <toolcall>、</toolcall>、<invoke>、<parameter>、<function_calls> 或 antml: 前缀变体）——这类文本不会被执行，只会被当作乱码展示给用户。若你无法调用工具，就用自然语言直接回答或说明缺少什么信息。',
       '',
       '可用工具：',
       toolList || '（未注入工具）',

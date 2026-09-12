@@ -97,7 +97,9 @@
           text: h.text,
           score: h.score,
         }));
-        return { ok: true, results, tier: 'free' };
+        // 免费档（含 AI 试用期，试用不放大 RAG 权益）走关键词检索。
+        // 显式标记降级，供上层区分「权益决定的正常路径」与「向量失败的兜底」。
+        return { ok: true, results, tier: 'free', method: 'keyword', degraded: false };
       } catch (e) {
         return { ok: false, reason: e.message, results: [] };
       }
@@ -107,7 +109,7 @@
       const topK = tier === 'custom' ? 20 : 20;
       const r = await window.__XJ_API__.ragSearch(query, topK, tier);
       if (r && r.ok && r.results && r.results.length > 0) {
-        return { ok: true, results: r.results, tier };
+        return { ok: true, results: r.results, tier, method: tier === 'custom' ? 'vector-rerank' : 'vector', degraded: false };
       }
       throw new Error((r && r.reason) || 'no-results');
     } catch (e) {
@@ -123,7 +125,8 @@
           text: h.text,
           score: h.score,
         }));
-        return { ok: true, results, tier: 'free-fallback' };
+        // 向量失败后的兜底降级（权益本应允许向量检索）。
+        return { ok: true, results, tier: 'free-fallback', method: 'keyword', degraded: true, degradeReason: e.message || 'vector-unavailable' };
       } catch (e2) {
         return { ok: false, reason: e2.message, results: [] };
       }

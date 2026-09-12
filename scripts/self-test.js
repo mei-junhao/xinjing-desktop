@@ -43,6 +43,22 @@ function createStoreMock() {
       Object.assign(clients[id], patch, { updatedAt: new Date().toISOString() });
       return clients[id];
     },
+    // v4.2.1 durable API shape: keep this unit-test Store aligned with the
+    // production write contract without bypassing the existing in-memory data.
+    async createClientDurable(data) {
+      try {
+        return { ok: true, value: this.createClient(data) };
+      } catch (e) {
+        return { ok: false, value: null, error: { message: e.message } };
+      }
+    },
+    async updateClientDurable(id, patch) {
+      try {
+        return { ok: true, value: this.updateClient(id, patch) };
+      } catch (e) {
+        return { ok: false, value: null, error: { message: e.message } };
+      }
+    },
     getSessionsByClient(clientId) {
       return sessions.filter(s => s.clientId === clientId);
     },
@@ -66,10 +82,18 @@ function createStoreMock() {
       sessions.push(s);
       return s;
     },
+    async createSessionDurable(data) {
+      try {
+        return { ok: true, value: this.createSession(data) };
+      } catch (e) {
+        return { ok: false, value: null, error: { message: e.message } };
+      }
+    },
     // 供 agent.configure_api / settings 测试：内存设置 + apiConfig
     _settings: { apiConfig: {}, version: '1.0.0' },
     getSettings() { return this._settings; },
     saveSettings(patch) { Object.assign(this._settings, patch); return this._settings; },
+    async saveSettingsDurable(patch) { Object.assign(this._settings, patch); return { ok: true, value: this._settings }; },
   };
 }
 
@@ -708,27 +732,42 @@ const fs = require('fs');
 // ============================================================
 console.log('\n[G] ai.js 内置模型 / 单层直连 / 档位');
 
-function loadAI(apiConfig) {
+function loadAI(apiConfig, bridgeOverrides) {
   const Store = {
     getSettings: () => ({ apiConfig: apiConfig || {} })
   };
   global.Store = Store;
   global.window = global;
+  global.__XJ_API__ = Object.assign({
+    aiRequest: async function (payload) {
+      if (payload && payload.kind === 'quota') return { ok: false, status: 503, headers: {}, bodyText: '' };
+      return {
+        ok: true,
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        bodyText: JSON.stringify({ choices: [{ message: { content: 'ok' } }] }),
+      };
+    },
+    cancelAiRequest: function () {},
+    onAiChunk: function () { return function () {}; },
+    encryptSecret: async function (plain) { return 'xj-enc:' + Buffer.from(String(plain), 'utf8').toString('base64'); },
+  }, bridgeOverrides || {});
   require(path.join(__dirname, '..', 'app', 'js', 'ai.js'));
   const AI = global.window.AI;
   delete require.cache[require.resolve(path.join(__dirname, '..', 'app', 'js', 'ai.js'))];
   return AI;
 }
 
-// G1. 无用户配置 → 档位 builtin（试用代理档），额度内默认 v4-flash
-test('G1 无用户配置 → getTier=builtin，试用档默认 v4-flash（额度内）', function () {
+// G1. 无用户配置 → 档位 builtin，默认请求 DeepSeek Pro 主力
+test('G1 无用户配置 → getTier=builtin，试用档默认 DeepSeek Pro 主力', function () {
   const AI = loadAI({});
   assert.strictEqual(AI.getTier(), 'builtin', '档位应为 builtin');
   const cfg = AI.getActiveConfig();
-  assert.strictEqual(cfg.model, 'deepseek-v4-flash', '额度内默认 v4-flash');
+  assert.strictEqual(cfg.model, 'deepseek-v4-pro', '默认应为 DeepSeek Pro 主力');
+  assert.strictEqual(AI.getNonAgentConfig().model, 'deepseek-v4-pro', '普通 AI 也应请求 DeepSeek Pro 主力');
   assert.strictEqual(cfg.isTrial, true, '内置档应为试用代理档');
-  assert.strictEqual(typeof cfg.apiKey, 'string', '代理密钥应为字符串（测试环境桥接为空，生产注入）');
-  assert.strictEqual(cfg.baseUrl, 'https://xinjingchat.online/v1', '内置 baseUrl 应为韩国代理');
+  assert.strictEqual(cfg.apiKey, undefined, '渲染层不得取得试用代理密钥');
+  assert.strictEqual(cfg.baseUrl, undefined, '渲染层不得取得试用代理地址');
 });
 
 // G2. 用户配置 apiKey 且 verified===true → 档位 user，直连用用户模型
@@ -752,49 +791,47 @@ test('G2b 有 apiKey 但 verified!==true → getTier=builtin（防止接入失�
 test('G3 用户有 key 且 verified=true 但 modelPreference 空 → 回退内置模型名，档位 user', function () {
   const AI = loadAI({ baseUrl: 'https://my.api/v1', apiKey: 'sk-user-123', modelPreference: '', verified: true });
   assert.strictEqual(AI.getTier(), 'user');
-  assert.strictEqual(AI.getActiveConfig().model, 'Qwen3.5-4B', '未填模型应回退内置代理模型名');
+  assert.strictEqual(AI.getActiveConfig().model, 'deepseek-v4-pro', '未填模型应回退主力代理模型名');
 });
 
-// G4. 用户只填 key 无 baseUrl → baseUrl 回退内置
-test('G4 用户 key 但 baseUrl 空 → baseUrl 回退内置', function () {
-  const AI = loadAI({ apiKey: 'sk-user-123', modelPreference: 'deepseek-chat' });
-  assert.strictEqual(AI.getActiveConfig().baseUrl, 'https://xinjingchat.online/v1');
+// G4. 已验证 key 若缺 baseUrl 也必须降级，避免把用户密钥误发到代理
+test('G4 用户 key 但 baseUrl 空 → 降级内置且不暴露代理地址', function () {
+  const AI = loadAI({ apiKey: 'sk-user-123', modelPreference: 'deepseek-chat', verified: true });
+  assert.strictEqual(AI.getTier(), 'builtin');
+  assert.strictEqual(AI.getActiveConfig().baseUrl, undefined);
+  assert.strictEqual(AI.getActiveConfig().apiKey, undefined);
 });
 
 // G5. 调用 Qwen 模型时 fetch body 应注入 chat_template_kwargs.enable_thinking=false
 test('G5 调用 Qwen 模型 → body 注入 enable_thinking:false', async function () {
-  const AI = loadAI({ baseUrl: 'https://my.api/v1', apiKey: 'sk-user', modelPreference: 'Qwen/Qwen3.5-4B', verified: true });
   let captured = null;
-  const origFetch = global.fetch;
-  global.fetch = async function (u, opts) {
-    captured = { url: u, body: JSON.parse(opts.body) };
-    return { ok: true, json: async () => ({ choices: [{ message: { content: 'ok', tool_calls: undefined } }] }), text: async () => '' };
-  };
-  try {
-    await new Promise((resolve) => AI.send([{ role: 'system', content: 's' }, { role: 'user', content: 'hi' }], resolve, { tools: [{ type: 'function', function: { name: 'x' } }], tool_choice: 'auto' }));
-  } finally {
-    global.fetch = origFetch;
-  }
-  assert.ok(captured, '应发起 fetch');
+  const AI = loadAI(
+    { baseUrl: 'https://my.api/v1', apiKey: 'sk-user', modelPreference: 'Qwen/Qwen3.5-4B', verified: true },
+    { aiRequest: async function (payload) {
+      if (payload.kind === 'quota') return { ok: false, headers: {}, bodyText: '' };
+      captured = payload;
+      return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, bodyText: JSON.stringify({ choices: [{ message: { content: 'ok' } }] }) };
+    } }
+  );
+  await new Promise((resolve) => AI.send([{ role: 'system', content: 's' }, { role: 'user', content: 'hi' }], resolve, { tools: [{ type: 'function', function: { name: 'x' } }], tool_choice: 'auto' }));
+  assert.ok(captured, '应发起 typed IPC 请求');
   assert.ok(captured.body.chat_template_kwargs && captured.body.chat_template_kwargs.enable_thinking === false, 'Qwen 模型应注入 enable_thinking:false');
   assert.ok(Array.isArray(captured.body.tools), 'tools 应注入');
 });
 
 // G6. 调用用户非 Qwen 模型时不应注入 chat_template_kwargs（避免严格端点 400）
 test('G6 用户非 Qwen 模型 → body 不注入 chat_template_kwargs', async function () {
-  const AI = loadAI({ baseUrl: 'https://my.api/v1', apiKey: 'sk-user', modelPreference: 'gpt-4o' });
   let captured = null;
-  const origFetch = global.fetch;
-  global.fetch = async function (u, opts) {
-    captured = { body: JSON.parse(opts.body) };
-    return { ok: true, json: async () => ({ choices: [{ message: { content: 'ok' } }] }), text: async () => '' };
-  };
-  try {
-    await new Promise((resolve) => AI.send([{ role: 'user', content: 'hi' }], resolve));
-  } finally {
-    global.fetch = origFetch;
-  }
-  assert.ok(captured, '应发起 fetch');
+  const AI = loadAI(
+    { baseUrl: 'https://my.api/v1', apiKey: 'sk-user', modelPreference: 'gpt-4o', verified: true },
+    { aiRequest: async function (payload) {
+      if (payload.kind === 'quota') return { ok: false, headers: {}, bodyText: '' };
+      captured = payload;
+      return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, bodyText: JSON.stringify({ choices: [{ message: { content: 'ok' } }] }) };
+    } }
+  );
+  await new Promise((resolve) => AI.send([{ role: 'user', content: 'hi' }], resolve));
+  assert.ok(captured, '应发起 typed IPC 请求');
   assert.ok(!captured.body.chat_template_kwargs, '非 Qwen 模型不应注入 chat_template_kwargs');
 });
 
@@ -811,7 +848,8 @@ test('H1 agent.configure_api 写入 apiConfig 并返回 switchedTo=user', async 
   });
   assert.ok(r.ok, '应 ok=true，实际：' + JSON.stringify(r));
   assert.strictEqual(r.data.switchedTo, 'user');
-  assert.strictEqual(Store.getSettings().apiConfig.apiKey, 'sk-user-new');
+  assert.ok(Store.getSettings().apiConfig.apiKey.startsWith('xj-enc:'), 'API key 必须加密后落库');
+  assert.ok(!Store.getSettings().apiConfig.apiKey.includes('sk-user-new'), '落库值不得包含明文 API key');
   assert.strictEqual(Store.getSettings().apiConfig.baseUrl, 'https://api.siliconflow.cn/v1');
   assert.strictEqual(Store.getSettings().apiConfig.modelPreference, 'deepseek-chat');
 });
@@ -832,6 +870,68 @@ test('H3 configure_api 后 ai.getTier 变 user（自动切换生效）', async f
   const AI2 = loadAI(Store.getSettings().apiConfig);
   assert.strictEqual(AI2.getTier(), 'user', '配置写入后档位应为 user');
   assert.strictEqual(AI2.getActiveConfig().model, 'deepseek-chat');
+});
+
+resetStore();
+test('H4 configure_api 持久化失败不得报告成功或改写内存配置', async function () {
+  const before = JSON.parse(JSON.stringify(Store.getSettings()));
+  Store.saveSettingsDurable = async function () { return { ok: false, value: this._settings, error: { message: 'synthetic persistence failure' } }; };
+  const r = await tools.invoke('agent.configure_api', {
+    apiKey: 'synthetic-token', baseUrl: 'https://api.example.test/v1', model: 'synthetic-model'
+  });
+  assert.strictEqual(r.ok, false, '持久化失败不得返回配置成功');
+  assert.deepStrictEqual(Store.getSettings(), before, '持久化失败不得替换原有设置');
+});
+
+test('H5 configure_api 加密桥不可用时不得调用 Store 或明文落盘', async function () {
+  const isolatedStore = createStoreMock();
+  let saveCalls = 0;
+  isolatedStore.saveSettingsDurable = async function () { saveCalls++; return { ok: true }; };
+  const isolatedTools = loadAgentTools(isolatedStore);
+  global.AI = { testConnection: function () { return Promise.resolve({ ok: true }); } };
+  global.window.__XJ_API__ = {};
+  const r = await isolatedTools.invoke('agent.configure_api', {
+    apiKey: 'synthetic-plaintext', baseUrl: 'https://api.example.test/v1', model: 'synthetic-model'
+  });
+  assert.strictEqual(r.ok, false, '加密不可用不得返回成功');
+  assert.strictEqual(saveCalls, 0, '加密不可用不得调用持久化');
+  assert.deepStrictEqual(isolatedStore.getSettings().apiConfig, {}, '加密不可用不得改写配置');
+});
+
+test('H6 configure_api 已有密文必须原样保留，不得二次加密', async function () {
+  const isolatedStore = createStoreMock();
+  const existing = 'xj-enc:synthetic-existing-ciphertext';
+  isolatedStore._settings.apiConfig = {
+    baseUrl: 'https://api.example.test/v1', apiKey: existing,
+    modelPreference: 'synthetic-model', provider: 'other', verified: true
+  };
+  let encryptCalls = 0;
+  global.window.__XJ_API__ = {
+    encryptSecret: async function () { encryptCalls++; return 'xj-enc:unexpected'; }
+  };
+  global.AI = { testConnection: function () { return Promise.resolve({ ok: true }); } };
+  const isolatedTools = loadAgentTools(isolatedStore);
+  const r = await isolatedTools.invoke('agent.configure_api', {});
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(encryptCalls, 0, '已有密文不得再次调用 encryptSecret');
+  assert.strictEqual(isolatedStore.getSettings().apiConfig.apiKey, existing, '已有密文必须原样保留');
+});
+
+test('H7 configure_api 验证能力不可用时必须保持 builtin 且 verified=false', async function () {
+  const isolatedStore = createStoreMock();
+  global.window.__XJ_API__ = {
+    encryptSecret: async function () { return 'xj-enc:synthetic-ciphertext'; }
+  };
+  global.AI = {};
+  const isolatedTools = loadAgentTools(isolatedStore);
+  const r = await isolatedTools.invoke('agent.configure_api', {
+    apiKey: 'synthetic-plaintext', baseUrl: 'https://api.example.test/v1', model: 'synthetic-model'
+  });
+  assert.strictEqual(r.ok, true, '验证不可用时应保存为未验证配置供用户重试');
+  assert.strictEqual(r.data.switchedTo, 'builtin', '验证不可用不得切换到 user');
+  assert.strictEqual(r.data.verified, false, '验证不可用不得写 verified=true');
+  assert.strictEqual(isolatedStore.getSettings().apiConfig.verified, false, '落盘配置必须保持未验证');
+  assert.ok(isolatedStore.getSettings().apiConfig.apiKey.startsWith('xj-enc:'), '失败配置仍只能保存密文');
 });
 
 // ============================================================
@@ -1469,11 +1569,11 @@ test('T34 首页模块卡片 + 检查更新桥接全链路', function () {
   assert.ok(T_INDEX_HTML.indexOf('href="masters.html"') !== -1, 'index.html 缺 masters 卡片');
   // ② 小镜面板在 xiaojing-panel.js（v3.5.0 从 dashboard.js 统一迁移）
   assert.ok(S_XJPANEL.indexOf('toggleXiaojing') !== -1 || S_DASH.indexOf('toggleXiaojing') !== -1, 'xiaojing-panel.js 缺 toggleXiaojing');
-  // ③ preload 暴露 checkForUpdates
-  assert.ok(/checkForUpdates:\s*\(\)\s*=>\s*ipcRenderer\.invoke\('xj:check-updates'\)/.test(T_PRELOAD_JS), 'preload 未暴露 checkForUpdates 桥接');
-  // ④ main.js 注册 ipc + 处理函数
-  assert.ok(T_MAIN_JS.indexOf("ipcMain.handle('xj:check-updates'") !== -1, 'main.js 未注册 xj:check-updates');
-  assert.ok(T_MAIN_JS.indexOf('function checkForUpdatesFromRenderer') !== -1, 'main.js 缺 checkForUpdatesFromRenderer');
+  // ③ preload 暴露 typed update 桥（v5.0 update-integrity 替代旧 checkForUpdates）
+  assert.ok(/update:\s*Object\.freeze/.test(T_PRELOAD_JS) && /xj:update:check/.test(T_PRELOAD_JS), 'preload 未暴露 update typed 桥');
+  // ④ main.js 接入 update-integrity 协调流（main-update-integration 注册 typed IPC）
+  assert.ok(/require\('\.\/app\/update\/main-update-integration'\)/.test(T_MAIN_JS), 'main.js 未接入 update-integrity 协调流');
+  assert.ok(/setupUpdateIntegration/.test(T_MAIN_JS), 'main.js 缺 setupUpdateIntegration');
 });
 
 // ============================================================
@@ -1634,14 +1734,27 @@ test('T42 5 个新读工具名消毒后合法且无碰撞', function () {
   assert.strictEqual(newCount, 5, '新读工具应为 5 个');
 });
 
-test('T43 computeFollowups：欠费或久未复诊返回提示；正常客户返回空', function () {
+test('T43 computeFollowups：欠费或久未复诊返回提示；正常客户返回空；21/22 天边界明确', function () {
+  // 日期相对 Date.now() 计算，且使用整日 ISO-Z 偏移，使 days = Math.round((Date.now()-new Date(date))/86400000)
+  // 精确等于 N，不随运行日期或时区漂移（生产对 'YYYY-MM-DD' 按 UTC 零点解析，date-only 会受时区影响，此处规避）。
+  const NOW = Date.now();
+  const daysAgoIso = function (n) { return new Date(NOW - n * 86400000).toISOString(); };
   const S = createStoreMock();
+  // 正常客：最近会谈（1 天前）+ 已付款 → 无跟进
   const n = S.createClient({ name: '正常客' });
-  S.createSession({ clientId: n.id, date: '2026-07-01', billing: { fee: 300, paid: true } });
+  S.createSession({ clientId: n.id, date: daysAgoIso(1), billing: { fee: 300, paid: true } });
+  // 欠费客：最近会谈（1 天前）+ 未付款 → 仅欠费提示
   const o = S.createClient({ name: '欠费客' });
-  S.createSession({ clientId: o.id, date: '2026-07-01', billing: { fee: 300, paid: false } });
+  S.createSession({ clientId: o.id, date: daysAgoIso(1), billing: { fee: 300, paid: false } });
+  // 久未客：60 天前会谈 + 已付款 → 仅未复诊提示（明确正向断言）
   const g = S.createClient({ name: '久未客' });
-  S.createSession({ clientId: g.id, date: '2025-01-01', billing: { fee: 300, paid: true } });
+  S.createSession({ clientId: g.id, date: daysAgoIso(60), billing: { fee: 300, paid: true } });
+  // 边界 21 天：恰好落在阈值下（生产 days>21 才触发）→ 不触发未复诊
+  const b21 = S.createClient({ name: '边界21天' });
+  S.createSession({ clientId: b21.id, date: daysAgoIso(21), billing: { fee: 300, paid: true } });
+  // 边界 22 天：越过阈值 → 触发未复诊（与 21 天明确区分）
+  const b22 = S.createClient({ name: '边界22天' });
+  S.createSession({ clientId: b22.id, date: daysAgoIso(22), billing: { fee: 300, paid: true } });
   global.Store = S;
   const at = require(path.join(__dirname, '..', 'app', 'js', 'agent-tools.js'));
   const fNormal = at.computeFollowups(n.id);
@@ -1650,6 +1763,10 @@ test('T43 computeFollowups：欠费或久未复诊返回提示；正常客户返
   assert.ok(fOwe.length === 1 && /欠费/.test(fOwe[0]), '欠费客户应返回欠费提示：' + JSON.stringify(fOwe));
   const fGap = at.computeFollowups(g.id);
   assert.ok(fGap.length === 1 && /未复诊/.test(fGap[0]), '久未复诊客户应返回复诊提示：' + JSON.stringify(fGap));
+  const f21 = at.computeFollowups(b21.id);
+  assert.ok(f21.length === 0, '边界 21 天（days=21）不应触发未复诊（生产 days>21 才触发），实际：' + JSON.stringify(f21));
+  const f22 = at.computeFollowups(b22.id);
+  assert.ok(f22.length === 1 && /未复诊/.test(f22[0]), '边界 22 天（days=22）应触发未复诊，实际：' + JSON.stringify(f22));
 });
 
 test('T44 client.query 大返回不被 4000 截断：READ_RESULT_MAX 保护完整 JSON', async function () {
@@ -2255,7 +2372,8 @@ test('v3.5.2-BILL-3 账本新旧视图、统计和清账都按 billable 过滤',
   assert.ok(/function billableSessionsFor\(clientId\)/.test(BILLING_342), '缺账本会谈过滤入口');
   assert.ok(/function renderIncomeList\(\)/.test(BILLING_342) && /billableSessionsFor\(c\.id\)\.some/.test(BILLING_342), '收入列表月份筛选未过滤临床记录');
   assert.ok(/function renderIncomeDetail\(\)/.test(BILLING_342) && /var sessions = billableSessionsFor\(c\.id\)/.test(BILLING_342), '收入详情未过滤临床记录');
-  assert.ok(/billableSessionsFor\(c\.id\)\.forEach\(function \(s\) \{ Store\.deleteSession/.test(BILLING_342), '清账仍会删除临床记录');
+  const store = fs.readFileSync(path.join(APP_DIR, 'js', 'store.js'), 'utf-8');
+  assert.ok(/cache\.sessions\.filter\(isBillableSession\)\.map\(\(session\) => session\.id\)/.test(store) && /await Store\.clearBillingDataDurable\(\)/.test(BILLING_342), '清账未严格限定为账务会谈');
   assert.ok(/const allSessions = billableSessions\(Store\.getSessions\(\)\)/.test(BILLING_342), '账本统计未过滤临床记录');
 });
 
@@ -2278,14 +2396,22 @@ test('v3.5.2-BILL-5 同日临床 + 导入账单：仅导入会谈进入账本', 
 });
 
 test('v3.5.2-BILL-6 多节同步导入使用单节唯一 importKey，保留批次键与旧数据兼容', function () {
-  const syncText = fs.readFileSync(path.join(APP_DIR, 'js', 'sync.js'), 'utf-8');
-  assert.ok(/source:\s*['"]billing['"]/.test(syncText), 'sync 导入缺 source:billing');
-  assert.ok(/function importSessionKey\(batchKey, index\)/.test(syncText), 'sync 缺单节业务键生成器');
-  assert.ok(/importKey:\s*importKey/.test(syncText), 'sync 未写入单节唯一 importKey');
-  assert.ok(/importBatchKey:\s*r\.key/.test(syncText), 'sync 未保留 importBatchKey');
-  assert.ok(/function missingImportSessionKeys\(sessions, record\)/.test(syncText), 'sync 缺幂等补缺逻辑');
-  assert.ok(/\[billing:' \+ importKey \+ '\]/.test(syncText), 'sync notes 未写入单节业务键');
-  assert.ok(/importBatchKey/.test(BILLING_342) && /missingImportSessionKeys/.test(BILLING_342), '旧账单导入未同步使用单节键');
+  // 2026-09-12：BillingImport 已从 billing-shell.html 内联抽取为 js/billing-import.js
+  // （billing-shell.html 与 sync.html 共用单一实现）；旧 js/sync.js 已删除，
+  // 断言数据源迁移至单一实现模块。
+  const BILLING_IMPORT_MOD = fs.readFileSync(path.join(APPDIR_342, 'js', 'billing-import.js'), 'utf-8');
+  const syncText = BILLING_IMPORT_MOD;
+  assert.ok(/source:\s*['"]billing['"]/.test(syncText), 'billing-import 缺 source:billing');
+  assert.ok(/function importSessionKey\(batchKey, index\)/.test(syncText), 'billing-import 缺单节业务键生成器');
+  assert.ok(/importKey:\s*importKey/.test(syncText), 'billing-import 未写入单节唯一 importKey');
+  assert.ok(/importBatchKey:\s*r\.key/.test(syncText), 'billing-import 未保留 importBatchKey');
+  assert.ok(/function missingImportSessionKeys\(sessions, record\)/.test(syncText), 'billing-import 缺幂等补缺逻辑');
+  assert.ok(/\[billing:' \+ importKey \+ '\]/.test(syncText), 'billing-import notes 未写入单节业务键');
+  assert.ok(
+    (/importBatchKey/.test(BILLING_342) && /missingImportSessionKeys/.test(BILLING_342)) ||
+    (/importBatchKey/.test(BILLING_IMPORT_MOD) && /missingImportSessionKeys/.test(BILLING_IMPORT_MOD)),
+    '旧账单导入未同步使用单节键（billing-import.js / billing-shell.html 均未检出）'
+  );
   assert.ok(/source === 'billing' \|\| source === 'import'/.test(BILLING_342), '显示层未兼容旧 import 来源');
 });
 
@@ -2458,6 +2584,8 @@ test('v3.7-3 日历支持记录深链、日期定位和预选新建', function (
   assert.ok(/&sessionId=/.test(V37_CALENDAR) && /&mode=quick/.test(V37_CALENDAR), '日历深链缺少会谈或快速模式');
   assert.ok(/params\.get\('clientId'\)/.test(V37_CALENDAR), '日历未读取 clientId');
   assert.ok(/params\.get\('new'\) === '1'/.test(V37_CALENDAR), '日历未支持新建参数');
+  assert.ok(/params\.get\('action'\) === 'new'/.test(V37_CALENDAR), '日历未支持 action=new 深链');
+  assert.ok(/openNewSession\(fmtDate\(state\.cursor\), null\)/.test(V37_CALENDAR), '日历新建深链未将日期上下文预填入表单');
 });
 
 test('v3.7-4 Store 同步创建会谈并暴露受控草稿删除原语', function () {
@@ -2614,9 +2742,11 @@ test('v3.8-7 工作台重构不触碰账务隔离口径', function () {
 
 test('v3.8-8 自动更新先备份再启动安装器，并放行更新退出', function () {
   assert.ok(/function backupBeforeQuit\(\)/.test(V38_MAIN), '缺少退出备份去重器');
-  assert.ok(/backupBeforeQuit\(\);\s*autoUpdater\.quitAndInstall\(\)/.test(V38_MAIN), '更新安装器仍可能在备份前启动');
-  assert.ok(/electronAutoUpdater\.on\('before-quit-for-update',[\s\S]{0,180}prepareAppQuit\('auto-update-install'\)/.test(V38_MAIN), '更新退出未监听 Electron 原生更新事件');
+  // v5.0 update-integrity：更新提交前由 durable-bridge 做快照，主进程放行退出仍复用统一准备
+  assert.ok(/setupUpdateIntegration\(\)/.test(V38_MAIN), 'main.js 未启用 update-integrity 协调流');
   assert.ok(/app\.on\('before-quit',[\s\S]{0,180}prepareAppQuit/.test(V38_MAIN), '普通退出未复用统一退出准备');
+  const durableBridge = fs.readFileSync(path.join(__dirname, '..', 'app', 'update', 'durable-bridge.js'), 'utf8');
+  assert.ok(/createSnapshot/.test(durableBridge) && /restoreSnapshot/.test(durableBridge), '更新 durable-bridge 缺快照/回滚语义');
 });
 
 test('v3.8-9 安装器等待应用正常退出，且清理失败时保留卸载信息', function () {
@@ -2626,8 +2756,10 @@ test('v3.8-9 安装器等待应用正常退出，且清理失败时保留卸载�
 });
 
 test('v3.8-10 手动更新反馈和外部链接边界完整', function () {
-  assert.ok(/update-not-available'[\s\S]{0,260}_xjChecking/.test(V38_MAIN), '手动检查更新仍不会提示已是最新版本');
-  assert.ok(/!app\.isPackaged/.test(V38_MAIN), '开发模式仍会误触发自动更新请求');
+  // v5.0 update-integrity：typed 状态机（STATUS_STATES/guarded IPC）替代旧 update-not-available 弹窗
+  const ipcUpdate = fs.readFileSync(path.join(__dirname, '..', 'app', 'update', 'ipc-update.js'), 'utf8');
+  assert.ok(/STATUS_STATES/.test(ipcUpdate) && /'committed'/.test(ipcUpdate) && /'rolled-back'/.test(ipcUpdate), 'typed 状态机缺 committed/rolled-back');
+  assert.ok(/app\.isPackaged/.test(V38_MAIN), '开发模式仍会误触发自动更新请求');
   assert.ok(/\['https:', 'http:', 'mailto:'\]\.includes\(parsed\.protocol\)/.test(V38_MAIN), '外部链接未限制安全协议');
   assert.ok(/await shell\.openExternal/.test(V38_MAIN), '外部链接异步错误未被捕获');
 });
@@ -2731,10 +2863,10 @@ test('v4.0.0-3 01 默认、04 安静剧场、05 夜间观测由共享 token 实�
   });
 });
 
-test('v4.0.0-4 22 个页面全部接入统一 UI，业务页静态加载权益模块', function () {
+test('v4.0.0-4 业务页全部接入统一 UI，业务页静态加载权益模块', function () {
   const pages = fs.readdirSync(APP_DIR).filter(function (name) { return name.endsWith('.html'); });
   const runtime = ['js/store.js', 'js/entitlements.js', 'js/ai.js', 'js/agent-tools.js', 'js/agent-core.js', 'js/page-hints.js', 'js/icon-system.js', 'js/xinjing-chat.js', 'js/app.js'];
-  assert.strictEqual(pages.length, 22, 'HTML 路由数量发生非预期变化');
+  // 路由集合完整性（21 业务路由 + account.html/confirm-close.html 门禁豁免壳层）由 v5.0.2-1 精确集合断言负责，禁止裸计数。
   pages.forEach(function (name) {
     const html = fs.readFileSync(path.join(APP_DIR, name), 'utf8');
     assert.ok(/xj-ui-system\.css/.test(html) || /js\/app\.js/.test(html), name + ' 未接入统一 UI');
@@ -2750,6 +2882,29 @@ test('v4.0.0-4 22 个页面全部接入统一 UI，业务页静态加载权益�
     }
   });
   assert.ok(!/function injectGlobalScripts/.test(V38_APP), 'app.js 不应再动态注入共享脚本');
+});
+
+// ============================================================
+// v5.0.2 — 账号认证：21 业务路由 + 2 门禁豁免壳层（account.html / confirm-close.html）
+// ============================================================
+test('v5.0.2-1 22 业务路由 + account.html/confirm-close.html 门禁豁免壳层严格契约', function () {
+  // 22 条 auth-gated 业务路由 = 23 条 ROUTE_REGISTRY 路由 − confirm-close.html（门禁豁免）
+  // 2026-09-12：恢复 sync.html（同步记账，归 billing 域，parent=billing-shell.html）
+  const businessRoutes = ['index.html', 'chat-home.html', 'session-calendar.html', 'doc-center.html', 'doc-growth.html', 'consult-notes.html', 'transcript.html', 'transcript-guide.html', 'report-writing.html', 'supervision.html', 'supervision-mindmap.html', 'real-supervision.html', 'real-supervision-ai.html', 'masters.html', 'knowledge.html', 'billing-shell.html', 'billing-calendar.html', 'sync.html', 'settings.html', 'feedback.html', 'activation.html', 'migrate-helper.html'];
+  // 门禁豁免壳层：account.html（认证壳层）与 confirm-close.html（关闭确认壳层）由 main.js accountGateAllowedPage 放行，不计入业务路由
+  const gateExemptShells = ['account.html', 'confirm-close.html'];
+  assert.strictEqual(new Set(businessRoutes).size, 22, '22 个业务路由清单存在重复');
+  gateExemptShells.forEach(function (shell) {
+    assert.strictEqual(businessRoutes.indexOf(shell), -1, shell + ' 是门禁豁免壳层，不得计入业务路由');
+  });
+  const htmlFiles = fs.readdirSync(APP_DIR).filter(function (name) { return name.endsWith('.html'); });
+  businessRoutes.forEach(function (route) {
+    assert.ok(htmlFiles.indexOf(route) !== -1, '缺少业务路由 ' + route);
+  });
+  gateExemptShells.forEach(function (shell) {
+    assert.ok(htmlFiles.indexOf(shell) !== -1, '缺少门禁豁免壳层 ' + shell);
+  });
+  assert.deepStrictEqual(htmlFiles.slice().sort(), businessRoutes.concat(gateExemptShells).sort(), 'app/ 目录 .html 集合必须恰好等于 22 业务路由 + account.html + confirm-close.html（检测到缺失/重复/未声明壳层）');
 });
 
 test('v4.0.0-5 激活页有完整三档对比，设置页有当前方案与三皮肤入口', function () {
@@ -2770,6 +2925,42 @@ test('v4.0.0-6 主进程自行计算 RAG tier，免费版不再限制临床记�
   assert.ok(!/LICENSE_CAP_CLIENT|LICENSE_CAP_SUPERVISION|受限模式下最多保存/.test(storeSource), 'Store 仍限制免费版临床数据数量');
   assert.ok(/function licenseGuard\(\) \{\}/.test(storeSource), 'Store 未保留无门槛兼容守卫');
   assert.ok(/function licenseMode\(\)/.test(storeSource), 'Store 导出了未定义的 licenseMode');
+});
+
+test('v4.2.1-权益 Trial 仅开放显式 AI allowlist，不提升产品档位', function () {
+  const free = { activated: false, mode: 'limited', tier: 'free', aiUnlocked: false };
+  const trial = { activated: false, mode: 'trial', tier: 'custom', aiUnlocked: true };
+  const pro = { activated: true, mode: 'full', tier: 'pro', aiUnlocked: true };
+  const full = { activated: true, mode: 'full', tier: 'full', aiUnlocked: true };
+  const custom = { activated: true, mode: 'full', tier: 'custom', aiUnlocked: true };
+  assert.strictEqual(V400_ENTITLEMENTS.effectiveTier(trial), 'free', 'Trial 不得归一化为 custom');
+  ['ai-notes', 'ai-analyze', 'ai-report', 'ai-detect', 'ai-supervise', 'real-sup-ai', 'ai-mindmap', 'ai-masters', 'transcript-guide', 'ai-growth'].forEach(function (feature) {
+    assert.strictEqual(V400_ENTITLEMENTS.canUse(feature, trial), true, feature + ' 应在 AI Trial allowlist 内');
+  });
+  ['billing-calendar', 'export-clean', 'premium-skins', 'rag-vector', 'rag-rerank', 'custom-supervisors', 'deep-case-mode', 'not-registered'].forEach(function (feature) {
+    assert.strictEqual(V400_ENTITLEMENTS.canUse(feature, trial), false, feature + ' 不得由 Trial 开放');
+  });
+  assert.strictEqual(V400_ENTITLEMENTS.canUse('billing-calendar', free), false, '免费版不得使用账单月历明细');
+  assert.strictEqual(V400_ENTITLEMENTS.canUse('billing-calendar', pro), true, 'Pro 应可使用账单月历明细');
+  assert.strictEqual(V400_ENTITLEMENTS.canUse('billing-calendar', full), true, 'legacy Full 应等同 Pro');
+  assert.strictEqual(V400_ENTITLEMENTS.canUse('billing-calendar', custom), true, 'Flagship 应可使用账单月历明细');
+  const access = V400_ENTITLEMENTS.access('ai-notes', trial);
+  assert.deepStrictEqual([access.eligible, access.computeAvailable, access.trial, access.effectiveTier], [true, true, true, 'free']);
+});
+
+test('v4.2.1-权益 账单月历入口、深链、页面和基础导出打印边界一致', function () {
+  const appSource = fs.readFileSync(path.join(APP_DIR, 'js', 'app.js'), 'utf8');
+  const calendarSource = fs.readFileSync(path.join(APP_DIR, 'js', 'billing-calendar.js'), 'utf8');
+  const shellSource = fs.readFileSync(path.join(APP_DIR, 'billing-shell.html'), 'utf8');
+  const preloadSource = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
+  const mainSource = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  assert.ok(/'billing-calendar\.html': \{ domain: 'billing', parent: 'billing-shell\.html', sidebar: true, feature: 'billing-calendar' \}/.test(appSource), '路由必须使用 billing-calendar feature');
+  assert.ok(/'billing-calendar\.html': 'billing-calendar'/.test(appSource), '深链门控缺 billing-calendar');
+  assert.ok(/App\.openFeaturePage\('billing-calendar\.html', 'billing-calendar'\)/.test(shellSource), '父页面入口未使用统一门控');
+  assert.ok((calendarSource.match(/App\.canUse\('billing-calendar'\)/g) || []).length >= 2 && /renderLockedState/.test(calendarSource), '页面初始化与 handler 运行时均须门控账单月历');
+  assert.ok(!/lockExportPrint/.test(preloadSource), 'preload 不得按文字全局拦截导出或打印');
+  assert.ok(!/window\.print\s*=\s*function/.test(preloadSource), 'preload 不得覆盖基础打印');
+  assert.ok(/tier:\s*activated \? verified\.tier : 'free'/.test(mainSource), '主进程必须从已验签声明取已激活档位，未激活和 Trial 固定为 Free');
 });
 
 // ============================================================
@@ -2901,7 +3092,7 @@ test('v4.0.4-2 版本、预览基准和账务隔离一致', function () {
   const generated = fs.readFileSync(path.join(__dirname, '..', 'version.generated.js'), 'utf8');
   const settingsHtml = fs.readFileSync(path.join(APP_DIR, 'settings.html'), 'utf8');
   const settingsJs = fs.readFileSync(path.join(APP_DIR, 'js', 'settings.js'), 'utf8');
-  assert.strictEqual(pkg.version, '4.1.1');
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/, 'package.json 版本必须为语义化版本');
   assert.strictEqual(lock.version, pkg.version);
   assert.strictEqual(lock.packages[''].version, pkg.version);
   assert.ok(new RegExp('VERSION:\\s*"' + pkg.version.replace(/\./g, '\\.') + '"').test(generated), 'version.generated.js 未同步 package.json');
@@ -2994,14 +3185,16 @@ test('v4.1.1-1 临床上下文使用真实 SHA-256，并在切换来访者后拒
 
 test('v4.1.1-2 资料库概览由统一上下文构造并登记受控来源', function () {
   const client = { id: 'c1', name: '甲' };
+  const supervision = { id: 'sup1', clientId: 'c1', sessionIds: [], content: '督导记录', updatedAt: 'sup-v1' };
   const store = {
     getClient: function (id) { return id === 'c1' ? client : null; }, getSession: function () { return null; },
-    getMaterialWorkspace: function () { return null; }, getSupervision: function () { return null; }
+    getMaterialWorkspace: function () { return null; },
+    getSupervision: function (id) { return id === 'sup1' ? supervision : null; }
   };
   const clinical = loadClinicalContextForTest(store, { getContextBlock: function () { return '[我的资料库]\n共 2 篇文档'; } });
-  const context = clinical.build('real-supervision-ai-organize', { clientId: 'c1' }, { system: 'SYSTEM', inputText: '督导材料', includeUserDocs: true });
+  const context = clinical.build('real-supervision-ai-organize', { clientId: 'c1', supervisionId: 'sup1' }, { system: 'SYSTEM', inputText: '督导材料', includeUserDocs: true });
   assert.ok(context.sources.some(function (source) { return source.kind === 'userdocs' && source.id === 'retrieval:library-summary'; }), '资料库概览必须出现在受控来源数组中');
-  assert.ok(context.messages[1].content.includes('[我的资料库检索结果]'), '资料库概览必须带稳定来源标签');
+  assert.ok(context.messages[1].content.includes('[我的资料库概览]'), '资料库概览必须带稳定来源标签');
 });
 
 test('v4.1.1-3 五个 AI 入口均在发送前确认并向快照传入当前选择', function () {
@@ -3016,6 +3209,80 @@ test('v4.1.1-3 五个 AI 入口均在发送前确认并向快照传入当前选�
     assert.ok(/confirmSend\(context\)/.test(source), 'AI 入口 ' + index + ' 未在发送前确认来源');
     assert.ok(/isSnapshotCurrent\(context\.snapshot,[\s\S]*?\{[\s\S]*?(clientId|supervisionId)/.test(source), 'AI 入口 ' + index + ' 未向快照校验传入当前选择');
   });
+});
+
+test('v4.2.1-10 会谈删除和清账必须在严格持久化完成后才更新权威缓存', function () {
+  const store = fs.readFileSync(path.join(APP_DIR, 'js', 'store.js'), 'utf8');
+  const calendar = fs.readFileSync(path.join(APP_DIR, 'js', 'session-calendar.js'), 'utf8');
+  const billing = fs.readFileSync(path.join(APP_DIR, 'billing-shell.html'), 'utf8');
+  assert.ok(/async function deleteSessionsDurable/.test(store) && /async function deleteSessionDurable/.test(store), '缺少会谈耐久删除 API');
+  assert.ok(/await idbPutMany\([\s\S]*?\['sessions', next\.nextSessions\][\s\S]*?\{ allowFallback: false \}/.test(store), '会谈删除未在严格事务后更新');
+  assert.ok(/async function clearBillingDataDurable/.test(store) && /\['expenses', nextExpenses\]/.test(store), '清账缺少原子耐久化 API');
+  assert.ok(/await Store\.deleteSessionsDurable\(ids\)/.test(calendar), '日历删除未等待耐久化结果');
+  assert.ok(/await Store\.clearBillingDataDurable\(\)/.test(billing), '清账界面未等待耐久化结果');
+});
+
+test('v4.2.1-11 Agent 与聊天撤销账务必须批量等待耐久删除结果', function () {
+  const sources = ['agent-shell.js', 'chat-home.js', 'xinjing-chat.js'].map(function (name) {
+    return fs.readFileSync(path.join(APP_DIR, 'js', name), 'utf8');
+  });
+  sources.forEach(function (source, index) {
+    assert.ok(/async function undoLastWrite\(\)/.test(source), '撤销入口 ' + index + ' 未异步化');
+    assert.ok(/await Store\.deleteSessionsDurable\(w\.result\.sessionIds\)/.test(source), '撤销入口 ' + index + ' 未等待批量耐久删除');
+    assert.ok(!/Store\.deleteSession\(/.test(source), '撤销入口 ' + index + ' 仍调用旧的 fire-and-forget 删除');
+    assert.ok(/undoPending/.test(source), '撤销入口 ' + index + ' 缺少重复提交防护');
+  });
+});
+
+test('v4.2.1-12 手工账务在严格持久化成功前不得更新权威缓存或关闭录入界面', function () {
+  const store = fs.readFileSync(path.join(APP_DIR, 'js', 'store.js'), 'utf8');
+  const billing = fs.readFileSync(path.join(APP_DIR, 'billing-shell.html'), 'utf8');
+  assert.ok(/async function saveSessionsDurable/.test(store) && /await idbPutMany\(\[\['sessions', nextSessions\]\], \{ allowFallback: false \}\)/.test(store), '缺少严格原子批量收入 API');
+  ['createExpenseDurable', 'updateExpenseDurable', 'deleteExpenseDurable'].forEach(function (name) {
+    assert.ok(new RegExp('async function ' + name).test(store), '缺少严格支出 API: ' + name);
+  });
+  assert.ok((store.match(/await idbPut\('expenses', nextExpenses, \{ allowFallback: false \}\)/g) || []).length === 3, '三种支出操作未全部等待严格落盘');
+  assert.ok(/await Store\.saveSessionsDurable\(entries\)/.test(billing) && /收入未保存，已保留当前填写内容/.test(billing), '手工收入未等待批量 durable 结果或失败时关闭表单');
+  assert.ok((billing.match(/await Store\.createExpenseDurable\(/g) || []).length >= 2 && /支出未保存，已保留当前填写内容/.test(billing), '手工支出未等待 durable 结果或失败时关闭表单');
+});
+
+test('v4.2.1-13 AI 网络与密钥必须收口到安全 typed IPC', function () {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+  const preload = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
+  const ai = fs.readFileSync(path.join(APP_DIR, 'js', 'ai.js'), 'utf8');
+  const settings = fs.readFileSync(path.join(APP_DIR, 'js', 'settings.js'), 'utf8');
+  assert.ok(/ipcMain\.handle\('xj:aiRequest',\s*handleAiRequest\)/.test(main), '主进程缺 typed AI request handler');
+  assert.ok(/validateAiDestination/.test(main) && /dns\.lookup/.test(main) && /redirect:\s*'manual'/.test(main), '主进程缺 HTTPS/DNS/重定向校验');
+  assert.ok((main.match(/sandbox:\s*true/g) || []).length === 3 && (main.match(/webSecurity:\s*true/g) || []).length === 3, 'BrowserWindow 未全部启用 sandbox/webSecurity');
+  assert.ok(/aiRequest:.*ipcRenderer\.invoke\('xj:aiRequest'/.test(preload), 'preload 缺 AI typed bridge');
+  assert.ok(!/decryptSecret|appProxyKey/.test(preload), 'preload 仍暴露明文密钥能力');
+  assert.ok(!/\bfetch\s*\(|decryptSecret|appProxyKey|getProxyKey/.test(ai), 'AI 渲染层仍可直连网络或读取密钥');
+  assert.ok(!/\bfetch\s*\(|decryptSecret|appProxyKey/.test(settings), '设置渲染层仍可直连网络或读取密钥');
+  assert.ok(/密钥已保存；输入新密钥可替换/.test(settings) && /AI\.testConnection\(cfg\)/.test(settings), '设置页未实现不回显密钥的 broker 测试流程');
+});
+
+test('v4.2.1-14 License v2 必须通过 Ed25519、撤销与迁移总契约', function () {
+  const childProcess = require('child_process');
+  const contractPath = path.join(__dirname, 'v4.2.1-tests', 'license-v2.contract.js');
+  const result = childProcess.spawnSync(process.execPath, [contractPath], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  assert.strictEqual(result.status, 0, 'License v2 契约失败：\n' + String(result.stdout || '') + String(result.stderr || ''));
+  assert.ok(/Passed 15 \/ Failed 0/.test(result.stdout), 'License v2 契约未完整执行 15 个场景');
+});
+
+test('v4.2.1-15 UI 关键交互与六套主题令牌必须通过总契约', function () {
+  const childProcess = require('child_process');
+  const contractPath = path.join(__dirname, 'v4.2.1-tests', 'ui-critical.contract.js');
+  const result = childProcess.spawnSync(process.execPath, [contractPath], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  assert.strictEqual(result.status, 0, 'UI 关键契约失败：\n' + String(result.stdout || '') + String(result.stderr || ''));
+  assert.ok(/UI_CRITICAL: 14 passed \/ 0 failed/.test(result.stdout), 'UI 关键契约未完整执行 14 个场景');
 });
 
 // ============================================================

@@ -91,10 +91,35 @@
     catch (e) { return null; }
   }
 
+  // 试用期模板权益与 FEATURE_REGISTRY 的 trialEligible allowlist 保持一致，
+  // 避免「模板显示需会员、对应功能实际已解锁」的双体系分歧。
+  //
+  // 权益判定与传给 createSelection 的 licenseState 同源：App.canUse(kind) 读全局
+  // licenseStateCache，若与本次传入的状态不是同一份，会出现「列表可选、保存报错」。
+  // 故统一用同一份状态裁决。
+  function templateFeatureAllows(key) {
+    try {
+      var state = templateLicenseState();
+      if (typeof XJEntitlements !== 'undefined' && XJEntitlements.canUse) {
+        return XJEntitlements.canUse(key, state) === true;
+      }
+      return !!(App && typeof App.canUse === 'function' && App.canUse(key));
+    } catch (e) { return false; }
+  }
+
+  function templateListOptions() {
+    return {
+      licenseState: templateLicenseState(),
+      context: 'individual',
+      includeLocked: true,
+      featureAllows: templateFeatureAllows,
+    };
+  }
+
   function defaultTemplateSelection() {
     var vm = templateViewModel();
     if (vm && typeof vm.createSelection === 'function') {
-      var result = vm.createSelection('manual-session-v1', { licenseState: templateLicenseState(), context: 'individual' });
+      var result = vm.createSelection('manual-session-v1', { licenseState: templateLicenseState(), context: 'individual', featureAllows: templateFeatureAllows });
       if (result && result.ok) return result.selection;
     }
     return { version: 'session-template-selection-v1', templateId: 'manual-session-v1', tierAtSelection: 'Free', context: 'individual', appliedAt: new Date().toISOString(), customTemplateId: '' };
@@ -128,7 +153,7 @@
       if (plans) plans.hidden = true;
       return;
     }
-    var result = vm.list({ licenseState: templateLicenseState(), context: 'individual', includeLocked: true });
+    var result = vm.list(templateListOptions());
     if (!result || !result.ok) {
       select.innerHTML = '<option value="manual-session-v1">基础手动记录</option>';
       select.value = 'manual-session-v1';
@@ -183,6 +208,7 @@
       licenseState: templateLicenseState(),
       context: 'individual',
       customTemplateId: selectedId === 'flagship-session-v1' && customInput ? customInput.value : '',
+      featureAllows: templateFeatureAllows,
     });
     if (!result || !result.ok) {
       templateSelectionFailure = { code: result && result.code ? result.code : 'template-selection-invalid' };

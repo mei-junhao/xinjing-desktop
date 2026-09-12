@@ -11,7 +11,7 @@ App.initPage({
 
     // sandbox preload 通过主进程读取真实应用版本，避免本地 require 在沙箱中失效。
     async function getAppVersion() {
-      var ver = '5.1.11';
+      var ver = '5.1.9';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
           ver = await window.__XJ_API__.getVersion() || ver;
@@ -530,8 +530,12 @@ App.initPage({
     const row = document.getElementById('rag-index-row');
     const progRow = document.getElementById('rag-progress-row');
     const st = document.getElementById('rag-index-status');
-    const tier = (window.__XJ__ && window.__XJ__.tier) ? window.__XJ__.tier : 'free';
-    const ragAvailable = (tier !== 'free') && window.__XJ_API__ && window.__XJ_API__.ragIndexStatus;
+    // 权益判定统一走权威路径（App.canUse → XJEntitlements）。
+    // 不用 window.__XJ__ 引导快照：它是 preload 初始化快照，激活后不会自动同步，
+    // 会导致「本会话内已激活但 RAG 索引行仍隐藏、需重启才出现」。
+    const ragAvailable = (!App || typeof App.canUse !== 'function')
+      ? false
+      : App.canUse('rag-vector') && !!(window.__XJ_API__ && window.__XJ_API__.ragIndexStatus);
     if (row) row.style.display = ragAvailable ? '' : 'none';
     if (progRow) progRow.style.display = 'none';
     if (!st) return;

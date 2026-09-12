@@ -108,6 +108,54 @@ test('下载产物字段：报告 markdown 渲染所需字段齐备（由报告�
   assert.ok(Object.keys(r.report.summary.entity_counts).length >= 5);
 });
 
+/* ---------- 用户裁决用例（2026-09-05 实测反馈） ---------- */
+
+test('用户用例：13 位误写号码遮蔽（前3后4）', () => {
+  const r = sanitizer.maskDocument('2026年5月来访李林给王二打电话133333333333', { documentName: 't.md' });
+  assert.ok(!r.text.includes('133333333333'), '13 位号码必须被遮蔽');
+  assert.ok(r.text.includes('133****3333'), r.text);
+});
+
+test('用户用例：裸姓名（来访李林给王二打电话）→ 李某/王某', () => {
+  const r = sanitizer.maskDocument('2026年5月来访李林给王二打电话133333333333', { documentName: 't.md' });
+  assert.ok(r.text.includes('李某'), r.text);
+  assert.ok(r.text.includes('王某'), r.text);
+  assert.ok(!r.text.includes('李林') && !r.text.includes('王二'), r.text);
+});
+
+test('用户用例：动作连接词不被吞（打电话保留）', () => {
+  const r = sanitizer.maskDocument('来访李林给王二打电话133333333333', { documentName: 't.md' });
+  assert.ok(r.text.includes('打电话'), '动词「打电话」必须保留：' + r.text);
+});
+
+test('误报守卫：常见非名词（马上去）不误判', () => {
+  const r = sanitizer.maskDocument('马上去北京开会。', { documentName: 't.md' });
+  assert.ok(!r.text.includes('马某'), r.text);
+  assert.ok(r.text.includes('马上去'), r.text);
+});
+
+test('自定义敏感词：命中即遮蔽', () => {
+  const r = sanitizer.maskDocument('来访者提到智远科技的陈总。', { documentName: 't.md', customWords: ['智远科技', '陈总'] });
+  assert.ok(!r.text.includes('智远科技') && !r.text.includes('陈总'), r.text);
+  assert.strictEqual(r.report.summary.entity_counts.CUSTOM, 2);
+});
+
+test('自定义正则：命中即遮蔽', () => {
+  const r = sanitizer.maskDocument('单号 AB-9911 已登记。', { documentName: 't.md', customPatterns: ['AB-\\d{4}'] });
+  assert.ok(!r.text.includes('AB-9911'), r.text);
+});
+
+test('排除词：命中自定义词但被排除时不遮蔽', () => {
+  const r = sanitizer.maskDocument('来访者提到智远科技。', { documentName: 't.md', customWords: ['智远科技'], excludeWords: ['智远科技'] });
+  assert.ok(r.text.includes('智远科技'), '排除词应抑制遮蔽');
+});
+
+test('号码兜底格式：13 位遮蔽为前3后4', () => {
+  const r = sanitizer.maskDocument('回拨 133333333333 核实。', { documentName: 't.md' });
+  assert.ok(r.text.includes('133****3333'), r.text);
+  assert.strictEqual(r.report.summary.entity_counts.NUMBER, 1);
+});
+
 /* ---------- expected-red 变异（出站边界实现替换；每个变异必须失败） ---------- */
 function withBoundaryMutation(mutations, runExpectingFailure) {
   const originals = mutations.map((m) => ({ key: m.key, fn: sanitizer[m.key] }));

@@ -282,9 +282,14 @@ const XinJingChat = (() => {
       // The fixed drawer is nested in this shell; a zero-width containing block
       // places it outside the viewport in Electron. Keep the shell inert while
       // giving fixed descendants the full viewport containing block.
-      '.xj-panel-v3{position:fixed;top:0;right:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none}' +
+      // 2026-09-12（XJ-512-009 缺陷2）：shell 仍保留全视口尺寸以维持 Electon 内 fixed 子元素的
+      // 包含块语义，但 pointer-events 恒为 none，且溢出可见性收敛，避免整屏拦截下层交互。
+      '.xj-panel-v3{position:fixed;top:0;right:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none;overflow:visible}' +
+      // 2026-09-12（XJ-512-009 缺陷2）：遮罩维持"点击关闭"的命中面（pointer-events:auto），
+      // 但不再做半透明全屏黑幕。原 rgba(0,0,0,.35) 会压暗整页并让用户以为页面被接管；
+      // 改为透明后，面板表现为右侧抽屉，视觉上不再"覆盖在其他页面上层"。
       '.xj3-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;' +
-        'background:rgba(0,0,0,.35);opacity:0;pointer-events:none;' +
+        'background:transparent;opacity:1;pointer-events:none;' +
         'will-change:opacity;transition:opacity .3s cubic-bezier(.4,0,.2,1)}' +
       '.xj-panel-v3.open .xj3-overlay{opacity:1;pointer-events:auto}' +
       '.xj3-fab{position:fixed;right:20px;bottom:24px;width:52px;height:52px;border-radius:50%;border:none;' +
@@ -295,7 +300,10 @@ const XinJingChat = (() => {
       '.xj3-fab.docked{transform:translateX(42px)}' +
       '.xj3-fab:hover{transform:translateX(0) scale(1.06)}' +
       '.xj3-fab:active{transform:translateX(0) scale(.95)}' +
-      '.xj-panel-v3.open .xj3-fab{transform:translateX(-360px) scale(0);opacity:0;pointer-events:none}' +
+      // 2026-09-12（XJ-512-009 缺陷2）：open 时 fab 不再隐藏。原规则 translateX(-360px) scale(0)
+      // + pointer-events:none 让面板打开后唯一关闭入口只剩抽屉右上角「×」，用户找不到关不掉的路径。
+      // 改为：open 时 fab 收起为贴边竖条（translateX(42px)），保持可点，点它即收起面板。
+      '.xj-panel-v3.open .xj3-fab{transform:translateX(42px);opacity:1;pointer-events:auto}' +
       '.xj3-fab-icon{line-height:1}' +
       '.xj3-fab-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;' +
         'background:var(--danger,#ff5252);border:2px solid var(--accent);display:none}' +
@@ -481,6 +489,16 @@ const XinJingChat = (() => {
       var hitClose = !!(closeButton && (event.target === closeButton || closeButton.contains(event.target)));
       var hitOverlay = !!(overlay && event.target === overlay);
       if (!hitClose && !hitOverlay) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }, true);
+    // 2026-09-12（XJ-512-009 缺陷2）：补 Escape 关闭。此前全站仅支持点「×」关闭，
+    // 遮罩点击在实际链路中又被面板 shell 的命中语义削弱，用户缺少符合直觉的退出方式。
+    // 用捕获阶段 + 仅面板打开时生效，避免抢占输入框与其他页面的 Esc 语义。
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape' && event.key !== 'Esc') return;
+      if (!panelEl || !panelEl.classList.contains('open')) return;
       event.preventDefault();
       event.stopPropagation();
       close();
@@ -1115,6 +1133,18 @@ const XinJingChat = (() => {
   }
 
   // ---------- 开关 ----------
+  // 2026-09-12（XJ-512-009 缺陷2）：本模块与 xiaojing-panel.js 各持一份 isOpen。接管面板后，
+  // DOM 上的 .open 类由本模块维护，需同步告知 xiaojing-panel.js，避免其 toggle 基于漂移状态
+  // 把"收起"再次变成打开。
+  function syncPeerOpenState(next) {
+    try {
+      if (window.XiaojingPanel && typeof window.XiaojingPanel.syncOpenState === 'function'
+          && window.XiaojingPanel !== XinJingChat) {
+        window.XiaojingPanel.syncOpenState(next);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   function toggle() {
     build();
     // 面板可能由旧版脚本或路由恢复提前打开；以内存状态为准会把“收起”再次变成打开。
@@ -1130,6 +1160,7 @@ const XinJingChat = (() => {
       var f2 = panelEl.querySelector('#xj3-fab');
       if (f2) f2.classList.add('docked');
     }
+    syncPeerOpenState(isOpen);
   }
 
   function open() {
@@ -1141,6 +1172,7 @@ const XinJingChat = (() => {
       if (f) f.classList.remove('docked');
       clearNewHint();
       setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
+      syncPeerOpenState(true);
     }
   }
 
@@ -1155,6 +1187,7 @@ const XinJingChat = (() => {
       if (returnTarget && panelEl.contains(returnTarget) && fab && typeof fab.focus === 'function') {
         try { fab.focus({ preventScroll: true }); } catch (e) { fab.focus(); }
       }
+      syncPeerOpenState(false);
     }
   }
 

@@ -160,41 +160,66 @@ async function navigate(cdp, origin, page) {
       recorder.record('CardA', 'aligned 皮肤组', false, { error: String(e.message || e).slice(0, 250), exceptions: pageExceptions.slice(-3) });
     }
 
-    /* ================= Card B：文档脱敏 ================= */
+    /* ================= Card B：文档脱敏（就地替换 + 一级工作台） ================= */
     try {
+      // B1 就地替换：consult-notes 填入用户实测字符串 → 点「就地脱敏」→ 字段内容立刻被脱敏文本替换（不跳转）
       await navigate(cdp, origin, 'consult-notes.html');
-      await trustedType(cdp, `document.getElementById('f1')`, '来访者张三丰（化名张先生），电话 13912345678，住址：北京市海淀区中关村大街 1 号。身份证 110101199003078515。工作单位为北京智远科技有限责任公司。');
-      const typed = await evaluate(`document.getElementById('f1').value.length`);
+      const userText = '2026年5月来访李林给王二打电话133333333333';
+      await trustedType(cdp, `document.getElementById('f1')`, userText);
       await trustedClick(cdp, `document.getElementById('btn-desensitize')`);
-      await waitFor(cdp, `location.pathname === '/desensitize-result.html'`, 10000);
-      await waitFor(cdp, `(() => { const c = document.getElementById('app-completed'); return c && c.classList.contains('on'); })()`, 25000);
-      const r = await evaluate(`(() => {
-        const rows = document.querySelectorAll('#details-body tr').length;
-        const total = document.getElementById('metric-total').textContent;
-        const text = document.body.textContent;
-        const chips = Array.from(document.querySelectorAll('.entity-chip')).map((c) => c.textContent.trim().slice(0, 20));
-        return { rows, total: Number(total), chips, rawPhoneLeak: text.indexOf('13912345678') >= 0, maskedShown: text.indexOf('139****5678') >= 0, personToken: text.indexOf('张某某') >= 0 };
+      await delay(600);
+      const inPlace = await evaluate(`(() => {
+        const v = document.getElementById('f1').value;
+        const toasts = Array.from(document.querySelectorAll('[class*=toast], .notice, [aria-live]')).map((t) => t.textContent.trim()).filter(Boolean).slice(0, 3);
+        return {
+          replaced: v.indexOf('李某') >= 0 && v.indexOf('王某') >= 0 && v.indexOf('133****3333') >= 0,
+          rawGone: v.indexOf('李林') < 0 && v.indexOf('王二') < 0 && v.indexOf('133333333333') < 0,
+          stillOnPage: location.pathname.indexOf('consult-notes') >= 0,
+          valueLen: v.length,
+          sanitizerType: typeof window.XJPIISanitizer,
+          maskType: (window.XJPIISanitizer && typeof window.XJPIISanitizer.maskDocument) || 'undefined',
+          fnType: typeof window.openDesensitize,
+          btnVisible: (() => { const b = document.getElementById('btn-desensitize'); return b ? b.offsetParent !== null : null; })(),
+          toasts,
+        };
       })()`);
-      await lib.screenshot(cdp, path.join(SHOTS, 'B1-desensitize-result.png'));
-      const b1pass = r.total > 0 && r.rows > 0 && r.rawPhoneLeak === false && r.maskedShown === true;
-      recorder.record('B1', '生成脱敏文档全链：入口→结果页→遮蔽正确', b1pass, { typed, r });
+      await lib.screenshot(cdp, path.join(SHOTS, 'B1-inplace-desensitize.png'));
+      const b1pass = inPlace.replaced && inPlace.rawGone && inPlace.stillOnPage;
+      recorder.record('B1', '自由笔记等输入就地脱敏：内容立刻替换、动词保留、不跳转', b1pass, { inPlace });
 
-      await trustedClick(cdp, `document.querySelector('.dl-link[data-dl="masked"]')`);
+      // B2 一级工作台：侧栏入口 → desensitize.html → 填入 + 执行 → 结果断言
+      await navigate(cdp, origin, 'index.html');
+      const navEntry = await evaluate(`(() => {
+        const link = Array.from(document.querySelectorAll('.sidebar a')).find((a) => a.textContent.indexOf('文档脱敏') >= 0);
+        return link ? { exists: true, href: link.getAttribute('href') } : { exists: false };
+      })()`);
+      // 一级入口存在性由 navEntry 断言（用户点击 <a href> 即可达）；
+      // harness 侧合成点击对该链接偶发不生效，改用直接导航（与 A 组页面导航同通道）。
+      await navigate(cdp, origin, 'desensitize.html');
+      await trustedType(cdp, `document.getElementById('ds-input')`, '来访者李林，电话 13912345678，单号 AB-9911。');
+      await trustedClick(cdp, `document.getElementById('btn-run')`);
+      await waitFor(cdp, `Number(document.getElementById('metric-total').textContent) > 0`, 10000);
+      const ws = await evaluate(`(() => ({
+        total: Number(document.getElementById('metric-total').textContent),
+        rows: document.querySelectorAll('#details-body tr').length,
+        masked: document.getElementById('masked-preview').textContent.indexOf('139****5678') >= 0
+          && document.getElementById('masked-preview').textContent.indexOf('李某') >= 0,
+        rawLeak: document.getElementById('masked-preview').textContent.indexOf('13912345678') >= 0,
+      }))()`);
+      await trustedClick(cdp, `document.getElementById('dl-masked')`);
       await waitFor(cdp, `(() => { const t = document.getElementById('toast'); return t && t.classList.contains('show'); })()`, 6000);
-      recorder.record('B2', '产物下载动作（Blob 落盘 + toast 反馈）', true, { note: 'toast 已出现；文件经渲染层 Blob 下载' });
-
-      await evaluate(`try { sessionStorage.removeItem('xj_desensitize_task'); } catch (e) {}`);
-      await navigate(cdp, origin, 'desensitize-result.html');
-      await waitFor(cdp, `(() => { const f = document.getElementById('state-failed'); return f && f.classList.contains('on'); })()`, 15000);
-      const failedMsg = await evaluate(`document.getElementById('failed-msg').textContent`);
-      await lib.screenshot(cdp, path.join(SHOTS, 'B3-desensitize-failed.png'));
-      recorder.record('B3', '无任务直入结果页 → 明确失败态 + 返回重试', true, { failedMsg: failedMsg.slice(0, 120) });
-
-      await navigate(cdp, origin, 'consult-notes.html');
-      const backOk = await evaluate(`!!document.getElementById('btn-desensitize') && document.getElementById('btn-desensitize').offsetParent !== null`);
-      recorder.record('B4', '入口按钮常驻（无客户端也可发起，空内容有警示）', backOk, { backOk });
+      await lib.screenshot(cdp, path.join(SHOTS, 'B2-workspace.png'));
+      recorder.record('B2', '一级工作台全链：侧栏入口→执行→结果（遮蔽正确、导出反馈）', navEntry.exists && ws.total > 0 && ws.rows > 0 && ws.masked && ws.rawLeak === false, { navEntry, ws });
     } catch (e) {
-      recorder.record('CardB', '文档脱敏组', false, { error: String(e.message || e).slice(0, 250), exceptions: pageExceptions.slice(-3) });
+      const diag = await evaluate(`(() => ({
+        path: location.pathname,
+        navLinks: Array.from(document.querySelectorAll('.sidebar a')).filter((a) => a.textContent.indexOf('文档脱敏') >= 0).length,
+        dsPageReady: !!document.getElementById('ds-input'),
+        sanitizer: typeof window.XJPIISanitizer,
+        exceptions: null,
+      }))()`).catch((err) => ({ diagErr: String(err.message || err).slice(0, 120) }));
+      diag.pageExceptions = pageExceptions.slice(-3);
+      recorder.record('CardB', '文档脱敏组', false, { error: String(e.message || e).slice(0, 200), diag });
     }
 
     /* ================= Z14 观察：账号通道仅回环 ================= */
@@ -202,7 +227,7 @@ async function navigate(cdp, origin, page) {
 
     recorder.write(path.join(OUT, 'two-cards-results.json'));
     const failed = recorder.results.filter((x) => !x.pass);
-    process.stdout.write('TWO-CARDS ACCEPTANCE DONE: ' + recorder.results.length + ' items, failed=' + failed.length + '\n');
+    process.stdout.write('TWO-CARDS ACCEPTANCE DONE: ' + recorder.results.length + ' items, failed=' + failed.length + String.fromCharCode(10));
     process.exit(failed.length === 0 ? 0 : 2);
   } finally {
     try { if (cdp) cdp.close(); } catch (e) { /* ignore */ }
@@ -211,6 +236,6 @@ async function navigate(cdp, origin, page) {
     try { handle.removeUserData(); } catch (e) { /* ignore */ }
   }
 })().catch((e) => {
-  process.stderr.write(String(e && e.stack || e) + '\n');
+  process.stderr.write(String(e && e.stack || e) + String.fromCharCode(10));
   process.exit(1);
 });

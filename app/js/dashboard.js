@@ -494,7 +494,12 @@
   // ---- QuickRecord 接入：首页快捷入口 + 工作台客户端动作 ----
   // 不修改 QuickRecord 模块本身，仅提供 UI 入口和 DOM 交互。
   function getActiveClientId() {
-    if (typeof selectedWorkbenchClientId !== 'undefined' && selectedWorkbenchClientId) return selectedWorkbenchClientId;
+    // 工作台工作副本只是缓存，权威状态在 App/Store。缓存指向的来访者若已被删除
+    // （换库、清理、另一窗口删除），缓存即失效，必须回退到权威状态，否则快速记录、
+    // 模板选择等入口会拿到一个不存在的 id，表现为点击后静默无响应。
+    if (typeof selectedWorkbenchClientId !== 'undefined' && selectedWorkbenchClientId && Store.getClient(selectedWorkbenchClientId)) {
+      return selectedWorkbenchClientId;
+    }
     if (App.getActiveClientId) return App.getActiveClientId() || '';
     return '';
   }
@@ -507,7 +512,14 @@
     var plans = overlay && overlay.querySelector('#qr-template-plans');
     if (!select || typeof SessionTemplateViewModel === 'undefined' || typeof SessionTemplateViewModel.list !== 'function') return;
     var licenseState = (App && typeof App.getLicenseState === 'function') ? App.getLicenseState() : null;
-    var result = SessionTemplateViewModel.list({ licenseState: licenseState, context: 'individual', includeLocked: true });
+    var result = SessionTemplateViewModel.list({
+      licenseState: licenseState,
+      context: 'individual',
+      includeLocked: true,
+      // 试用期模板权益与 FEATURE_REGISTRY 的 trialEligible allowlist 保持一致，
+      // 避免「模板显示需会员、对应功能实际已解锁」的双体系分歧。
+      featureAllows: (App && typeof App.canUse === 'function') ? function (key) { return App.canUse(key); } : null,
+    });
     if (!result || !result.ok) {
       select.innerHTML = '<option value="manual-session-v1">基础手动记录</option>';
       select.value = 'manual-session-v1';
@@ -746,7 +758,11 @@
   }
 
   // 暴露 openQuickRecord 供首页入口和集成测试调用（不依赖 onReady 执行）
-  if (typeof window !== 'undefined') window.openQuickRecord = openQuickRecord;
+  if (typeof window !== 'undefined') {
+    window.openQuickRecord = openQuickRecord;
+    // 同上：供验收/集成测试以真实产品函数驱动模板控件渲染
+    window.renderQuickTemplateControl = renderQuickTemplateControl;
+  }
 
   App.initPage({ title: '今日工作台', subtitle: '', actions: '', onReady: function () {
     renderStats();

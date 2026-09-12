@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 同步记账</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/components.css">
+<style>
+  /* ── 同步记账页（复用 billing-shell 导入区样式契约）── */
+  .sync-wrap { max-width: 860px; padding: 20px 28px 48px; }
+  .sync-card { background: var(--surface, var(--bg-alt, #fff)); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-top: 8px; }
+  .sync-card h3 { margin: 0 0 8px; font-size: 15px; color: var(--text, var(--ink)); }
+  .file-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .import-hint { font-size: 12.5px; line-height: 1.7; color: var(--muted); font-family: var(--sans); background: var(--bg-alt); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .import-hint code { background: var(--bg); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  #billing-input { width: 100%; min-height: 140px; font-family: 'Menlo', 'Consolas', monospace; font-size: 12px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; resize: vertical; background: var(--bg); box-sizing: border-box; }
+  .import-result { font-size: 12.5px; color: var(--text-soft, var(--muted)); margin-top: 8px; min-height: 18px; }
+  /* 预览表（与 billing-import.js 渲染契约对应） */
+  .preview-card { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+  .preview-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .preview-pills .pill { padding: 4px 10px; border-radius: 999px; font-size: 11.5px; background: var(--bg); border: 1px solid var(--border); color: var(--muted); }
+  .preview-pills .pill b { color: var(--text); margin-right: 3px; }
+  .preview-pills .pill.add b { color: #6E7E62; }
+  .preview-pills .pill.skip b { color: #9A8F82; }
+  .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; max-height: 200px; overflow-y: auto; display: block; }
+  .preview-table th, .preview-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .preview-table th { font-size: 11px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0; }
+  .preview-table td.new { color: #6E7E62; font-weight: 600; }
+  .preview-table td.skip { color: #9A8F82; }
+  .preview-table .tag { padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 600; }
+  .preview-table .tag.new { background: #ECEFE6; color: #6E7E62; }
+  .preview-table .tag.skip { background: var(--bg-soft); color: #9A8F82; }
+</style>
+</head>
+<body data-xj-pattern="browser-list">
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+  <header id="page-header"></header>
+  <div class="sync-wrap">
+    <div class="sync-card">
+      <h3>从「心理咨询记账系统」导入</h3>
+      <div class="import-hint">
+        支持两种数据源：记账系统导出的 JSON（结构 <code>{ "clients":[...], "records":[...] }</code>）或 CSV（首行含「来访者、日期、次数、单价、缴费状态、结算方式」）。<br>
+        来访者按姓名自动匹配/新建；每条记录按「次数」拆为多节会谈写入。<b>去重按导入批次键在全库比对，重复导入不会重复写入。</b>
+      </div>
+      <div class="file-row">
+        <input type="file" id="billing-file" accept=".json,.csv,.txt" />
+        <button class="btn btn-outline btn-sm" onclick="BillingImport.parseFile()">解析文件</button>
+        <button class="btn btn-outline btn-sm" onclick="BillingImport.parseText()">解析文本</button>
+      </div>
+      <textarea id="billing-input" placeholder="或在此粘贴 JSON / CSV 内容…" style="margin-top:10px"></textarea>
+      <div id="billing-preview"></div>
+      <div class="import-result" id="billing-result"></div>
+      <div class="file-row" style="margin-top:12px">
+        <button class="btn btn-primary" id="sync-import-btn" onclick="SyncPage.doImport()">确认导入</button>
+        <button class="btn btn-ghost" onclick="SyncPage.reset()">重置</button>
+        <a href="billing-shell.html" style="font-size:12.5px;color:var(--muted);align-self:center">前往记账工作台 →</a>
+      </div>
+    </div>
+  </div>
+</main></div>
+<script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
+<script src="js/billing-import.js"></script>
+<script>
+/* 同步记账页（薄壳）：导入实现统一复用 js/billing-import.js（与 billing-shell.html
+   「导入数据」弹窗共用单一实现）。本页恢复自 v2.1.0 前的 sync.html；
+   旧同步记账实现已于 2026-09-12 删除（导入实现统一为上述单一模块）。 */
+var SyncPage = {
+  doImport: async function () {
+    var btn = document.getElementById('sync-import-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '导入中…'; }
+    try {
+      var ok = await BillingImport.doImport();
+      if (ok) App.showToast('导入完成 · 已写入心镜本地数据库', 'success');
+      else App.showToast('导入未完成，请检查数据格式或稍后重试', 'warning');
+    } catch (e) {
+      App.showToast('导入失败: ' + (e && e.message || e), 'error');
+      if (typeof console !== 'undefined') console.error('[SyncPage.doImport]', e);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '确认导入'; }
+    }
+  },
+  reset: function () {
+    BillingImport.reset();
+    document.getElementById('billing-input').value = '';
+    var bf = document.getElementById('billing-file'); if (bf) bf.value = '';
+    document.getElementById('billing-preview').innerHTML = '';
+    document.getElementById('billing-result').textContent = '';
+  }
+};
+App.initPage({
+  title: '同步记账',
+  subtitle: '从记账系统导入来访者与咨询时间',
+  onReady: function () { if (window.IconSystem) window.IconSystem.render(document); }
+});
+</script>
+</body>
+</html>

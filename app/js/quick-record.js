@@ -58,6 +58,27 @@
     return null;
   }
 
+  // 试用期模板权益与 FEATURE_REGISTRY 的 trialEligible allowlist 保持一致，
+  // 避免「保存时说需会员、对应功能实际已解锁」的双体系分歧。
+  //
+  // 注意：权益判定必须与 resolveTemplateSelection 传入 createSelection 的
+  // licenseState 同源。App.canUse(kind) 读的是全局 licenseStateCache，而本模块
+  // 允许调用方经 input.licenseState 显式传入状态；两者不一致时会出现
+  // 「列表显示可选、保存却报 template-selection-invalid」。故此处直接用
+  // 同一份状态调 XJEntitlements.canUse，App.canUse 仅作降级兜底。
+  function featureAllowsFor(state) {
+    return function (key) {
+      try {
+        if (typeof XJEntitlements !== 'undefined' && XJEntitlements.canUse) {
+          return XJEntitlements.canUse(key, state) === true;
+        }
+        return !!(App && typeof App.canUse === 'function' && App.canUse(key));
+      } catch (e) {
+        return false;
+      }
+    };
+  }
+
   function resolveTemplateSelection(input) {
     var templateId = input && input.templateId ? String(input.templateId) : 'manual-session-v1';
     var context = input && input.context === 'supervision' ? 'supervision' : 'individual';
@@ -75,10 +96,13 @@
         customTemplateId: '',
       } };
     }
+    var licenseState = currentLicenseState(input);
     var result = vm.createSelection(templateId, {
-      licenseState: currentLicenseState(input),
+      licenseState: licenseState,
       context: context,
       customTemplateId: input && input.customTemplateId,
+      // 与上面 licenseState 同源，避免两处裁决依据不一致
+      featureAllows: featureAllowsFor(licenseState),
     });
     if (!result || !result.ok || !result.selection) {
       return { ok: false, code: 'template-selection-invalid', cause: result && result.code ? result.code : 'unknown' };
