@@ -458,7 +458,7 @@ const App = (() => {
       options.innerHTML = catalog.models.map(function (entry) {
         const active = entry.modelId === selected;
         return '<button class="xj-model-option' + (active ? ' is-selected' : '') + '" type="button" role="option" aria-selected="' + String(active) + '" data-model-id="' + escapeHtml(entry.modelId) + '">' +
-          '<span class="xj-model-option-main"><strong>' + escapeHtml(entry.displayName) + '</strong><small>' + escapeHtml(entry.provider) + ' · ' + escapeHtml(modelPriceLabel(entry, catalog)) + '</small></span>' +
+          '<span class="xj-model-option-main"><strong>' + escapeHtml(entry.displayName) + '</strong><small>' + escapeHtml(modelPriceLabel(entry, catalog)) + '</small></span>' +
           '<span class="xj-model-option-check" aria-hidden="true">' + (active ? '当前' : '选择') + '</span></button>';
       }).join('');
       options.querySelectorAll('[data-model-id]').forEach(function (button) {
@@ -1351,6 +1351,22 @@ const App = (() => {
 
   function openModalElement(overlay, options) {
     if (!overlay) return null;
+    // 2026-09-13（反馈 #2 补充）：同一弹窗若已有「文字」关闭键（如 关闭/取消），
+    // 则隐藏符号 × 按钮（视觉去重），文字键保留可点击（document 级关闭委托仍然生效）。
+    try {
+      var textCancels = overlay.querySelectorAll('[data-modal-cancel]');
+      var hasTextCancel = false;
+      Array.prototype.forEach.call(textCancels, function (b) {
+        var t = String(b.textContent || '').trim();
+        if (t && t !== '×' && t !== '✕' && t !== '✖') hasTextCancel = true;
+      });
+      if (hasTextCancel) {
+        Array.prototype.forEach.call(overlay.querySelectorAll('.close, [aria-label="关闭"], [aria-label*="关闭"]'), function (x) {
+          var xt = String(x.textContent || '').trim();
+          if (xt === '×' || xt === '✕' || xt === '✖') x.style.display = 'none';
+        });
+      }
+    } catch (_) { /* 去重是视觉优化，不影响功能 */ }
     options = options || {};
     let entry = modalEntry(overlay);
     if (!entry) {
@@ -1894,68 +1910,80 @@ if (typeof window !== 'undefined') {
   window.App = App;
 }
 
-// v3.4.0：顶栏剩余次数（未激活用户可见）
-// v3.7.2：修复已激活用户仍显示"激活会员"——build 前先拉权威授权状态，
-//         并订阅授权变化，激活后自动移除配额条。
-(function injectQuotaBar() {
+// 2026-09-13（用户指令）：移除「未激活条幅」（原 v3.4.0 顶栏剩余次数），
+// 改为用户启动时弹一次引导弹窗：剩余试用时间 + 服务器余额 + 购买/充值邮箱，
+// 引导用户发邮件购买会员。条幅不再注入任何页面，不再占用顶部空间。
+(function injectTrialDialog() {
   function isUnlocked() {
     try {
       if (typeof App === 'undefined') return false;
-      // aiUnlocked 覆盖已激活会员 + 试用期解锁；tier 为付费档同样隐藏
       if (App.aiUnlocked && App.aiUnlocked()) return true;
       var tier = (App.getLicenseState && App.getLicenseState().tier) || '';
       return tier === 'pro' || tier === 'full' || tier === 'custom';
     } catch (e) { return false; }
   }
 
-  function removeBar() {
-    var old = document.getElementById('xj-quota-bar');
-    if (old) old.remove();
-    document.body.style.paddingTop = '';
-    document.documentElement.style.removeProperty('--xj-top-offset');
+  function remainingTrialDays() {
+    try {
+      var st = (typeof App !== 'undefined' && App.getLicenseState) ? App.getLicenseState() : null;
+      return (st && typeof st.aiTrialDaysLeft === 'number') ? Math.max(0, st.aiTrialDaysLeft) : null;
+    } catch (e) { return null; }
   }
 
-  function render() {
-    if (location.pathname.includes('activation.html')) return;
-    // 2026-09-13（XJ-513 反馈 #1）：未激活条幅只显示在首页，避免其它界面被顶部横幅遮挡影响使用
-    var isHome = /(^|\/)(index\.html)?$/.test(location.pathname) || location.pathname.endsWith('index.html');
-    if (!isHome) {
-      removeBar();
-      document.documentElement.classList.remove('xj-quota-reserved');
-      return;
-    }
-    var showQuota = !isUnlocked();
-    removeBar();
-    document.documentElement.classList.toggle('xj-quota-reserved', showQuota);
-    if (!showQuota) return; // 已激活/已解锁：不显示
-    var bar = document.createElement('div');
-    bar.id = 'xj-quota-bar';
-    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;height:24px;background:var(--accent-soft,#ECEEF9);display:flex;align-items:center;justify-content:center;font:11px var(--sans);color:var(--accent);gap:12px;border-bottom:1px solid var(--accent-line,#B5BDE0)';
+  function balanceText() {
     try {
       var q = (typeof AI !== 'undefined' && AI.getQuota) ? AI.getQuota() : null;
-      if (q && q.percent != null) {
-        bar.innerHTML = '今日剩余 <b>' + q.percent + '%</b> 额度 · <a href="activation.html" style="color:var(--accent);text-decoration:underline">激活后解锁全部</a>';
-      } else {
-        bar.innerHTML = '试用中 · <a href="activation.html" style="color:var(--accent);text-decoration:underline">激活会员</a>';
-      }
-    } catch (e) {
-      bar.innerHTML = '试用中 · <a href="activation.html" style="color:var(--accent);text-decoration:underline">激活会员</a>';
+      if (q && q.remainingYuan != null) return '¥' + q.remainingYuan.toFixed(2);
+      if (q && q.percent != null) return q.percent + '%';
+      return null;
+    } catch (e) { return null; }
+  }
+
+  function openDialog() {
+    if (typeof sessionStorage !== 'undefined') {
+      try { if (sessionStorage.getItem('xj-trial-dialog-shown')) return; } catch (e) {}
+      try { sessionStorage.setItem('xj-trial-dialog-shown', '1'); } catch (e) {}
     }
-    document.body.insertBefore(bar, document.body.firstChild);
-    document.body.style.paddingTop = '24px';
-    document.documentElement.style.setProperty('--xj-top-offset', '24px');
+    var days = remainingTrialDays();
+    var bal = balanceText();
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'xj-trial-dialog';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML =
+      '<div class="modal" style="max-width:440px" aria-labelledby="xj-trial-title">' +
+        '<div class="modal-header"><h2 id="xj-trial-title" style="font-size:16px">心镜 · 试用中</h2>' +
+        '<button class="close" type="button" aria-label="关闭" data-modal-cancel style="background:none;border:none;font-size:20px;cursor:pointer;line-height:1">×</button></div>' +
+        '<div class="modal-body" style="line-height:1.9">' +
+          '<p>您当前处于免费试用阶段：</p>' +
+          '<ul style="margin:6px 0 10px 18px;padding:0">' +
+            (days != null ? '<li>剩余试用时间：<b>' + days + '</b> 天</li>' : '') +
+            (bal != null ? '<li>账号余额：<b>' + bal + '</b>（服务器权威）</li>' : '') +
+          '</ul>' +
+          '<p style="color:var(--muted);font-size:13px">试用结束后如需继续使用全部功能，请发送邮件至 <a href="mailto:98579106@qq.com?subject=' + encodeURIComponent('心镜会员购买/充值咨询') + '" style="color:var(--accent);text-decoration:underline">98579106@qq.com</a> 购买会员或充值（邮件中请附上您的登录账号，方便我们为您处理）。</p>' +
+        '</div>' +
+        '<div class="modal-footer">' +
+          '<button class="btn btn-ghost" type="button" data-modal-cancel>我知道了</button>' +
+          '<a class="btn btn-primary" href="mailto:98579106@qq.com?subject=' + encodeURIComponent('心镜会员购买/充值咨询') + '" style="color:#fff;text-decoration:none">发邮件咨询</a>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    try {
+      if (typeof App !== 'undefined' && App.openModalElement) App.openModalElement(overlay, { removeOnClose: true });
+      else overlay.classList.add('show');
+    } catch (e) { overlay.classList.add('show'); }
   }
 
   function build() {
-    // The quota bar changes document geometry. Render its cached state while this
-    // parser-blocking script still owns first paint, then reconcile asynchronously.
-    render();
-    try {
-      if (typeof App !== 'undefined' && App.onLicenseStateChange) App.onLicenseStateChange(render);
-      if (typeof App !== 'undefined' && App.refreshLicenseState) {
-        Promise.resolve(App.refreshLicenseState()).then(render).catch(function () {});
-      }
-    } catch (e) {}
+    // 不再注入任何条幅；未激活用户启动时弹一次引导弹窗（首帧后 800ms，避免弹得太突兀）。
+    setTimeout(function () {
+      try {
+        if (location.pathname.includes('activation.html')) return;
+        if (isUnlocked()) return;
+        openDialog();
+      } catch (e) { /* 弹窗失败不阻塞启动 */ }
+    }, 800);
   }
 
   if (document.body) build();
