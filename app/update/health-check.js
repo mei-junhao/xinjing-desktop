@@ -48,8 +48,14 @@ function runFirstLaunchHealth(options) {
   });
   delete env.ELECTRON_RUN_AS_NODE;
   const timeoutMs = options.timeoutMs || HEALTH_TIMEOUT_MS;
+  // 2026-09-13（更新失败根因修复）：spawn 的 cwd 必须是可执行文件所在目录。
+  // 打包版里 options.probeDir 指向 resources/app.asar（单文件），Windows 上
+  // 以文件为 cwd 启动子进程会直接 spawn 失败（WinError 267）→ 每次健康探针
+  // 都报 health-check-failed → 更新永远「失败回滚」。probeDir 仍作为加载参数
+  // 传给 exe（Electron 支持直接加载 asar 路径）。
+  const spawnCwd = options.cwd || path.dirname(options.electronExe) || process.cwd();
   const child = spawn(options.electronExe, [options.probeDir, '--user-data-dir=' + dir], {
-    cwd: options.probeDir, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']
+    cwd: spawnCwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe']
   });
   let stdout = '';
   let stderr = '';

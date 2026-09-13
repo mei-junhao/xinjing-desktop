@@ -93,16 +93,23 @@ function buildAdapters(options) {
     },
     // 3) Artifact: exact bytes; assertArtifactMatches in the coordinator still
     //    enforces fileName/size/SHA-512. Task/operation-specific temp names.
+    // 2026-09-13（下载无进度反馈修复）：下载期间广播 downloading + progress%，
+    // 让设置页进度条有真实反馈（不再「点了没反应」）。
     artifact: async (metadata) => {
       if (options.lockHeld && options.lockHeld()) {
         const error = new Error('network-during-file-lock'); error.code = 'network-during-file-lock'; throw error;
       }
-      const response = await transport.fetchBytes(metadata.url, { size: metadata.size, sha512: metadata.sha512 });
+      const onProgress = (p) => {
+        try {
+          const pct = p && typeof p.percent === 'number' ? Math.max(0, Math.min(100, p.percent)) : 0;
+          broadcastStatus(options.mainWindow, typedStatus({ state: 'downloading', version: metadata.version, channel: options.channel, strategy: options.strategy, progress: pct }));
+        } catch (_) { /* progress is best-effort */ }
+      };
+      const response = await transport.fetchBytes(metadata.url, { size: metadata.size, sha512: metadata.sha512, onProgress });
       if (!response || response.error) { const e = new Error('artifact-download-failed'); e.code = 'artifact-download-failed'; throw e; }
       if (!Buffer.isBuffer(response.bytes) || response.bytes.length !== metadata.size) { const e = new Error('artifact-size-mismatch'); e.code = 'artifact-size-mismatch'; throw e; }
       return { fileName: metadata.fileName, bytes: response.bytes };
-    },
-    // 4) Durable store: encrypted snapshot through the backup boundary; the
+    },    // 4) Durable store: encrypted snapshot through the backup boundary; the
     //    renderer export/import is the ONLY IndexedDB touch point.
     durableSnapshot: async (meta) => createSnapshot({
       win: options.mainWindow, ipc: rendererIpc,

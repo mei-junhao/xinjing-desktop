@@ -43,14 +43,52 @@
     if (!state || !Object.prototype.hasOwnProperty.call(STATE_TEXT, state)) {
       info.textContent = UNKNOWN; // never claim success on unknown input
       info.classList.remove('update-ok', 'update-warn');
+      setBar(info, null);
       return;
     }
-    info.textContent = STATE_TEXT[state];
+    // 2026-09-13（下载进度条）：downloading 状态带 progress 时显示百分比与进度条，
+    // 让用户看到下载真实进展（此前只有文字「正在下载」，看起来像没反应）。
+    var pct = status && typeof status.progress === 'number' ? Math.max(0, Math.min(100, status.progress)) : null;
+    if (state === 'downloading') {
+      info.textContent = '正在下载更新…' + (pct != null ? ' ' + pct + '%' : '') + (pct != null && pct >= 100 ? '（校验中…）' : '');
+      setBar(info, pct == null ? 0 : pct);
+    } else {
+      info.textContent = STATE_TEXT[state];
+      setBar(info, null);
+    }
     info.classList.toggle('update-ok', status.committed === true);
     info.classList.toggle('update-warn', state === 'failed' || state === 'rolled-back' || state === 'rollback-pending' || state === 'rolling-back');
     // Long Chinese text must wrap in narrow windows.
     info.style.whiteSpace = 'normal';
     info.style.wordBreak = 'break-all';
+  }
+
+  // 进度条元素：惰性创建在 #update-info 之后（不改变既有 DOM 约定）。
+  function setBar(info, pct) {
+    var doc = info.ownerDocument || document;
+    var bar = doc.getElementById('update-progress-bar');
+    if (pct == null) {
+      if (bar) bar.style.display = 'none';
+      return;
+    }
+    if (!bar) {
+      bar = doc.createElement('div');
+      bar.id = 'update-progress-bar';
+      bar.setAttribute('role', 'progressbar');
+      bar.setAttribute('aria-label', '更新下载进度');
+      var inner = doc.createElement('div');
+      inner.className = 'update-progress-inner';
+      inner.style.cssText = 'height:100%;width:0%;background:var(--accent,#5B6478);border-radius:3px;transition:width .25s ease';
+      bar.style.cssText = 'height:6px;width:100%;max-width:320px;margin-top:6px;background:rgba(127,127,127,.22);border-radius:3px;overflow:hidden';
+      bar.appendChild(inner);
+      if (info.parentNode) info.parentNode.insertBefore(bar, info.nextSibling);
+    }
+    bar.style.display = 'block';
+    bar.setAttribute('aria-valuenow', String(pct));
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', '100');
+    var fill = bar.firstChild;
+    if (fill) fill.style.width = pct + '%';
   }
 
   function install(windowRef) {

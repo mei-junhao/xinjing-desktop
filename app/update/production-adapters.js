@@ -51,8 +51,29 @@ function createNetTransport(net, options) {
       if (!response || typeof response.status !== 'number') return { error: 'download-failed' };
       if (response.status !== 200) return { status: response.status };
       if (expectBytes) {
-        const buf = Buffer.from(await response.arrayBuffer());
-        return { status: 200, bytes: buf };
+        // 2026-09-13（下载无进度反馈修复）：流式读取 response.body 并累计字节，
+        // 通过 onProgress 回调上报百分比（content-length 未知时上报已接收字节）。
+        const total = Number(response.headers.get('content-length')) || 0;
+        const reader = response.body && typeof response.body.getReader === 'function' ? response.body.getReader() : null;
+        if (reader) {
+          const chunks = [];
+          let received = 0;
+          for (;;) {
+            const step = await reader.read();
+            if (step.done) break;
+            chunks.push(Buffer.from(step.value));
+            received += step.value.length;
+            if (typeof options.onProgress === 'function') {
+              const pct = total > 0 ? Math.min(99, Math.round((received / total) * 100)) : 0;
+              options.onProgress({ received, total, percent: pct });
+            }
+          }
+          const buf = Buffer.concat(chunks);
+          if (typeof options.onProgress === 'function') options.onProgress({ received: buf.length, total: total || buf.length, percent: 100 });
+          return { status: 200, bytes: buf };
+        }
+        const buf2 = Buffer.from(await response.arrayBuffer());
+        return { status: 200, bytes: buf2 };
       }
       return { status: 200, bodyText: await response.text() };
     } catch (error) {
@@ -63,7 +84,7 @@ function createNetTransport(net, options) {
 
   return {
     fetchText: (url) => fetchUrl(url, false),
-    fetchBytes: (url) => fetchUrl(url, true)
+    fetchBytes: (url, opts) => fetchUrl(url, true, opts || {})
   };
 }
 
