@@ -1,0 +1,32 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.5-electron-platform-runtime-refresh-38",
+  "status": "confirmed",
+  "observed_at": "2026-07-28T10:09:17.546Z",
+  "synthetic_profile_only": true,
+  "file_picker_cancelled": true,
+  "print_dialog_cancelled": true,
+  "window_usable_after_cancel": true,
+  "tray_visible": true,
+  "tray_evidence": {
+    "production_main_loaded": true,
+    "tray_constructed": true,
+    "tray_tooltip": "心镜 XinJing",
+    "tray_menu_opened": true,
+    "login_item_call_intercepted": true,
+    "temporary_profile_removed": true,
+    "runtime_record": "artifacts/tray-runtime-session.json",
+    "runtime_record_sha256": "10573075B2F667B1EFF2C4F09310CD37129B419956E45ED7C0896DEDDBDE7AF6",
+    "menu_screenshot": "artifacts/tray-menu-visual.png",
+    "menu_screenshot_sha256": "8CED3B6343482972784A1D8AC499C0A9850EDCBBEAD46A344934656B03FCC235",
+    "desktop_screenshot": "artifacts/tray-desktop-visual.png",
+    "desktop_screenshot_sha256": "F04BA28D38B6189C66227713129C19738398AFDFA4F81C24C465191FFD30313A",
+    "native_dialog_record": "artifacts/native-dialog-session.json",
+    "native_dialog_record_sha256": "F2CF8CBE63F9ADC51C06A29D3CF29481CF3424C32EF41F8EC393FEBADAF4AFB3"
+  },
+  "limits": [
+    "No file was selected or read.",
+    "No print, save, upload, package, signing, push, or publish action occurred.",
+    "The tray-only wrapper redirected appData to a system temporary directory and intercepted setLoginItemSettings before loading the real main.js.",
+    "The controlled tray evidence does not prove packaged updater, installer, upgrade, rollback, or production startup behavior."
+  ]
+}

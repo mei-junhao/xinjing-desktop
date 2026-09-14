@@ -1,0 +1,1 @@
+{"suite":"electron-update-runtime","passed":13,"failed":0,"realElectronProcess":"not-launched-by-contract-no-complete-frozen-app","candidateIpcRuntime":"confirmed","realSourceEntryObserved":"xj:check-updates"}

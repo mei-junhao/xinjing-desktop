@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-v4.3-pro-flagship-template-production-33",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "contract_id": "v4.3-pro-flagship-template-production-v1",
+  "write_lock_id": "lock-XJ-5.0.0-codex-v4.3-pro-flagship-template-production-33",
+  "checks": [
+    {
+      "id": "VM-LICENSE",
+      "label": "activated license states normalize to Free/Pro/Flagship and invalid states fail closed",
+      "pass": true
+    },
+    {
+      "id": "VM-TRIAL",
+      "label": "trial exposes paid preview but never grants paid selection",
+      "pass": true
+    },
+    {
+      "id": "VM-OPTIONS",
+      "label": "Pro and Flagship list eligible templates while retaining locked discoverability",
+      "pass": true
+    },
+    {
+      "id": "VM-HISTORY",
+      "label": "historical paid selection is readable but locked after downgrade",
+      "pass": true
+    },
+    {
+      "id": "QR-PRO-FLAGSHIP",
+      "label": "handler accepts eligible Pro/Flagship selections and saves bounded metadata",
+      "pass": true
+    },
+    {
+      "id": "QR-FAIL-CLOSED",
+      "label": "handler rejects paid selection under Free/trial/unknown before session write",
+      "pass": true
+    },
+    {
+      "id": "QR-RETRY",
+      "label": "selection failure preserves the same session and retries without duplicate IDs",
+      "pass": true
+    },
+    {
+      "id": "UI-INTEGRATION",
+      "label": "dashboard and consultation route expose the same guarded selector contract",
+      "pass": true
+    }
+  ],
+  "passed": 8,
+  "failed": 0,
+  "module_hashes": {
+    "session-template-view-model.js": "19F22E90F7359B6529D27570FCFDCFB9895AA07CA3234C04BEF1CEB6641B55EC",
+    "quick-record.js": "6F5F3CE48F18260984BF041FC9D3723F7BE5058FB592238291AF45995A50312D",
+    "consult-notes.js": "438B3DD27125B9D800E8BB304D0612AD48080445E4A5FBA2C999C3F2ECA98FCA",
+    "dashboard.js": "8B57214B94E64049AA5B87474EB01D584FCA382FD0E0C466AD58932CBEEB96E7"
+  },
+  "invariants": {
+    "zeroFailed": true,
+    "paidCannotBypassHandler": true,
+    "historicalSelectionNotRewritten": true
+  }
+}

@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-skin="goldentime">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个案空间 · 来源图谱 -- XinJing 4.3.0 Golden Time</title>
+<style>
+/* ============================================================
+   Golden Time 皮肤令牌（隔离原型，独立于生产 tokens.css）
+   方向 D 黄金时刻：暖金 #3B352B 主 / 琥珀 #9B965F 次 / 近白暖底
+   ============================================================ */
+
+/* ---------- 字体：本机回退栈，不请求外部字体 ---------- */
+
+/* ---------- 浅色 ---------- */
+[data-skin="goldentime"] {
+  --bg: #FBFAF9;
+  --bg-elevated: #FBFAF9;
+  --bg-sunken: #F5F1EB;
+  --bg-glass: rgba(251, 250, 249, 0.72);
+  --border-c: #E1DDCF;
+  --border-strong-c: #E1DDCF;
+  --text-c: #3B352B;
+  --text-secondary-c: #978365;
+  --text-muted-c: #978365;
+  --accent: #3B352B;
+  --accent-hover: #2E2920;
+  --accent-soft: #EAE6DB;
+  --accent-2: #9B965F;
+  --success-c: #6FAE8F;
+  --warning-c: #D6A85C;
+  --danger-c: #EF4444;
+
+  --paper: #FBFAF9;
+  --paper-2: #FBFAF9;
+  --sidebar: #F5F1EB;
+  --shell: #FBFAF9;
+  --ink: #3B352B;
+  --ink-2: #978365;
+  --ink-3: #978365;
+  --hair: #E1DDCF;
+  --hair-strong: #E1DDCF;
+  --accent-line: #9B965F;
+
+  --green: #6FAE8F;   --green-soft: #E6F2EC;
+  --orange: #D6A85C;  --orange-soft: #F7EFE0;
+  --blue: #7C93A0;    --blue-soft: #E9EFF2;
+  --purple: #8A7A93;  --purple-soft: #F0EBF3;
+  --red: #EF4444;     --red-soft: #FDE8E8;
+
+  --shadow-sm: 0px 2px 4px 0px hsl(35 15% 50% / 0.00);
+  --shadow: 0px 2px 4px 0px hsl(35 15% 50% / 0.00), 0px 1px 2px -1px hsl(35 15% 50% / 0.00);
+  --shadow-lg: 0px 2px 4px 0px hsl(35 15% 50% / 0.00), 0px 4px 6px -1px hsl(35 15% 50% / 0.00);
+  --shadow-bezel: 0px 2px 4px 0px hsl(35 15% 50% / 0.05);
+  --shadow-md: var(--shadow);
+  --hover-tint: rgba(59, 53, 43, 0.04);
+  --scrim: rgba(59, 53, 43, 0.4);
+
+  --radius: 32px;
+  --r-card: 32px;
+  --r-ctl: 32px;
+  --r-btn: 32px;
+  --r-sm: 16px;
+  --border: var(--hair-strong);
+  --muted: #EAE6DB;
+  --text: var(--ink);
+  --transition: .2s cubic-bezier(.22, 1, .36, 1);
+  --card: var(--paper-2);
+  --bg-soft: var(--sidebar);
+  --text-soft: var(--ink-3);
+  --text-faint: #C4BAB0;
+  --bg-alt: #F5F1EB;
+  --input: #EAE6DB;
+  --ring: #3B352B;
+
+  /* 图表色 */
+  --chart-1: #D6D5C2;
+  --chart-2: #5E4545;
+  --chart-3: #B0B3A2;
+  --chart-4: #9B965F;
+  --chart-5: #F79B45;
+
+  /* 来源 pin 色 */
+  --pin-quot: #D6A85C;
+  --pin-record: #7C93A0;
+  --pin-superv: #6FAE8F;
+  --pin-plan: #9B965F;
+  --pin-assess: #8A7A93;
+  --pin-note: #B0B3A2;
+
+  /* 档位色（原型默认用 pro） */
+  --tier-gradient: linear-gradient(135deg, #D6C99A 0%, #9B965F 100%);
+  --tier-text: #3B352B;
+}
+
+/* ---------- 暗色 ---------- */
+[data-skin="goldentime"].dark {
+  --bg: #060201;
+  --bg-elevated: #060201;
+  --bg-sunken: #0D0907;
+  --bg-glass: rgba(6, 2, 1, 0.66);
+  --border-c: #2D2B26;
+  --border-strong-c: #2D2B26;
+  --text-c: #E3DFD6;
+  --text-secondary-c: #A89C8A;
+  --text-muted-c: #A89C8A;
+  --accent: #E3DFD6;
+  --accent-hover: #F0EDE6;
+  --accent-soft: #3B342B;
+  --accent-2: #605039;
+  --success-c: #7BB89A;
+  --warning-c: #E0B86E;
+  --danger-c: #EF4444;
+
+  --paper: #060201;
+  --paper-2: #060201;
+  --sidebar: #0D0907;
+  --shell: #060201;
+  --ink: #E3DFD6;
+  --ink-2: #A89C8A;
+  --ink-3: #A89C8A;
+  --hair: #2D2B26;
+  --hair-strong: #2D2B26;
+  --accent-line: #605039;
+
+  --green: #7BB89A;   --green-soft: #1E2D26;
+  --orange: #E0B86E;  --orange-soft: #2D2618;
+  --blue: #9AAEBB;    --blue-soft: #1C242A;
+  --purple: #B29CBB;  --purple-soft: #281F2E;
+  --red: #EF4444;     --red-soft: #2E1E1E;
+
+  --shadow-sm: 0px 2px 4px 0px hsl(35 15% 5% / 0.00);
+  --shadow: 0px 2px 4px 0px hsl(35 15% 5% / 0.00), 0px 1px 2px -1px hsl(35 15% 5% / 0.00);
+  --shadow-lg: 0px 2px 4px 0px hsl(35 15% 5% / 0.00), 0px 4px 6px -1px hsl(35 15% 5% / 0.00);
+  --shadow-bezel: 0px 2px 4px 0px hsl(35 15% 5% / 0.05);
+  --shadow-md: var(--shadow);
+  --hover-tint: rgba(227, 223, 214, 0.04);
+  --scrim: rgba(0, 0, 0, 0.5);
+
+  --radius: 32px;
+  --r-card: 32px;
+  --r-ctl: 32px;
+  --r-btn: 32px;
+  --r-sm: 16px;
+  --border: var(--hair-strong);
+  --muted: #3B342B;
+  --text: var(--ink);
+  --card: var(--paper-2);
+  --bg-soft: var(--sidebar);
+  --text-soft: var(--ink-3);
+  --text-faint: #6E6356;
+  --bg-alt: #0D0907;
+  --input: #3B342B;
+  --ring: #CBB99F;
+
+  --chart-1: #B39D80;
+  --chart-2: #7A5F52;
+  --chart-3: #F2E1CA;
+  --chart-4: #8C7773;
+  --chart-5: #E65C33;
+
+  --pin-quot: #E0B86E;
+  --pin-record: #9AAEBB;
+  --pin-superv: #7BB89A;
+  --pin-plan: #605039;
+  --pin-assess: #B29CBB;
+  --pin-note: #F2E1CA;
+
+  --tier-gradient: linear-gradient(135deg, #3B352B 0%, #9B965F 50%, #D6C99A 100%);
+  --tier-text: #FBFAF9;
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Fraunces", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", ui-serif, serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--bg);
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 100vh;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+:focus:not(:focus-visible) { outline: none; }
+
+/* ============================================================
+   顶部栏 (Top Bar)
+   ============================================================ */
+.top-bar {
+  height: 56px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--hair);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.top-bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.top-bar__brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  background: var(--tier-gradient);
+  color: var(--tier-text);
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.4), 0 2px 8px rgba(155,150,95,.2);
+}
+
+.top-bar__brand-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.top-bar__client {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex-shrink: 1;
+  margin-left: 12px;
+  padding-left: 16px;
+  border-left: 1px solid var(--hair);
+}
+
+.top-bar__client-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.top-bar__client-info { min-width: 0; }
+
+.top-bar__client-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.top-bar__client-context {
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* ---- 视图切换标签页 ---- */
+.top-bar__view-tabs {
+  display: flex;
+  gap: 0;
+  margin-left: auto;
+  flex-shrink: 0;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.top-bar__view-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--ink-2);
+  background: var(--bg-elevated);
+  border: none;
+  border-right: 1px solid var(--hair);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+}
+
+.top-bar__view-tab:last-child { border-right: none; }
+
+.top-bar__view-tab[aria-selected="true"] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.top-bar__view-tab:hover:not([aria-selected="true"]) {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* ---- 右侧控制 ---- */
+.top-bar__controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.top-bar__ctrl-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  border: 1px solid var(--hair);
+  background: var(--bg-elevated);
+  color: var(--ink-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.top-bar__ctrl-btn:hover {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* ============================================================
+   主工作区布局
+   ============================================================ */
+.workspace {
+  display: flex;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+/* ============================================================
+   视图容器
+   ============================================================ */
+.view-panel {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: none;
+  flex-direction: column;
+}
+
+.view-panel--active {
+  display: flex;
+}
+
+/* ============================================================
+   会谈时间线视图 (Timeline)
+   ============================================================ */
+.timeline-view {
+  padding: 28px 32px;
+  gap: 0;
+}
+
+.timeline-view__header {
+  margin-bottom: 24px;
+}
+
+.timeline-view__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.timeline-view__subtitle {
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.timeline-view__stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.timeline-stat {
+  flex: 1;
+  padding: 16px 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-stat__value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-stat__label {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hair);
+  cursor: pointer;
+  transition: background var(--transition);
+  align-items: flex-start;
+}
+
+.timeline-item:last-child { border-bottom: none; }
+
+.timeline-item:hover { background: var(--hover-tint); margin: 0 -32px; padding-left: 48px; padding-right: 48px; }
+
+.timeline-item__date-col {
+  width: 72px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.timeline-item__day {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.timeline-item__month {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.timeline-item__track {
+  width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.timeline-item__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.timeline-item__dot--completed { background: var(--pin-superv); }
+.timeline-item__dot--pending { background: var(--pin-quot); }
+.timeline-item__dot--cancelled { background: var(--red); opacity: 0.5; }
+.timeline-item__dot--crisis { background: var(--danger-c); }
+
+.timeline-item__line {
+  width: 2px;
+  flex: 1;
+  min-height: 20px;
+  background: var(--hair);
+  margin-top: 4px;
+}
+
+.timeline-item__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-item__type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+.timeline-item__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-item__excerpt {
+  font-size: 13px;
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.timeline-item__meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.timeline-item__sources-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ============================================================
+   来源材料列表视图 (Materials)
+   ============================================================ */
+.materials-view {
+  padding: 28px 32px;
+  gap: 0;
+}
+
+.materials-view__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.materials-view__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.materials-view__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.materials-view__search-input {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--input);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-ctl);
+  color: var(--ink);
+  width: 240px;
+  transition: border-color var(--transition);
+}
+
+.materials-view__search-input::placeholder { color: var(--ink-3); }
+.materials-view__search-input:focus { border-color: var(--ring); outline: none; }
+
+.materials-view__filters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+  background: var(--bg-elevated);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  white-space: nowrap;
+}
+
+.filter-chip:hover { background: var(--accent-soft); color: var(--ink); }
+.filter-chip[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.material-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-card);
+  padding: 20px;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.material-card:hover {
+  background: var(--hover-tint);
+  border-color: var(--ink-2);
+}
+
+.material-card:focus-visible {
+  background: var(--hover-tint);
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.material-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.material-card__pin {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.material-card__pin--quot { background: var(--pin-quot); }
+.material-card__pin--record { background: var(--pin-record); }
+.material-card__pin--superv { background: var(--pin-superv); }
+.material-card__pin--plan { background: var(--pin-plan); }
+.material-card__pin--assess { background: var(--pin-assess); }
+.material-card__pin--note { background: var(--pin-note); }
+
+.material-card__type {
+  font-size: 11px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.material-card__session-tag {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ink-2);
+}
+
+.material-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.material-card__excerpt {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.material-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.material-card__date {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.material-card__status {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.material-card__status--active { background: var(--green-soft); color: var(--green); }
+.material-card__status--stale { background: var(--orange-soft); color: var(--orange); }
+.material-card__status--invalid { background: var(--red-soft); color: var(--red); }
+.material-card__status--quarantine { background: var(--purple-soft); color: var(--purple); border: 1px solid var(--purple); }
+
+/* 空态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+.empty-state__icon { color: var(--ink-3); margin-bottom: 16px; opacity: 0.5; }
+.empty-state__text { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+.empty-state__hint { font-size: 13px; color: var(--ink-3); }
+
+/* 图谱空态 */
+.graph-canvas__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  font-size: 14px;
+  gap: 8px;
+  background: var(--bg-elevated);
+}
+.graph-canvas__empty svg { opacity: 0.4; margin-bottom: 8px; }
+
+/* ============================================================
+   只读关系图谱视图 (Graph)
+   ============================================================ */
+.graph-view {
+  padding: 28px 32px;
+  gap: 0;
+  flex-direction: column;
+}
+
+.graph-view__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.graph-view__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.graph-view__legend {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.graph-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.graph-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.graph-canvas {
+  flex: 1;
+  background: var(--bg-elevated);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-card);
+  position: relative;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.graph-canvas__svg {
+  width: 100%;
+  height: 100%;
+}
+
+.graph-canvas__hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--ink-3);
+  background: var(--bg-glass);
+  backdrop-filter: blur(14px);
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--hair);
+}
+
+/* ============================================================
+   来源详情抽屉 (Source Drawer)
+   ============================================================ */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition);
+}
+
+.drawer-overlay--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.source-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 90vw;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--hair);
+  z-index: 210;
+  transform: translateX(100%);
+  transition: transform var(--transition);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.source-drawer--open {
+  transform: translateX(0);
+}
+
+.source-drawer__header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--hair);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-elevated);
+  z-index: 1;
+}
+
+.source-drawer__title-group { min-width: 0; flex: 1; }
+
+.source-drawer__type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--ink-2);
+  margin-bottom: 8px;
+}
+
+.source-drawer__type-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.source-drawer__title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.source-drawer__session {
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+
+.source-drawer__close {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid var(--hair);
+  border-radius: var(--r-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+}
+
+.source-drawer__close:hover {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.source-drawer__body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+/* 抽屉内部区块 */
+.drawer-section { display: flex; flex-direction: column; gap: 8px; }
+
+.drawer-section__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.drawer-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drawer-field__key {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.drawer-field__value {
+  font-size: 13px;
+  color: var(--ink);
+  font-family: monospace;
+  word-break: break-all;
+  background: var(--bg-alt);
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--hair);
+}
+
+.drawer-field__value--truncated {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drawer-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.drawer-status-badge--active { background: var(--green-soft); color: var(--green); }
+.drawer-status-badge--stale { background: var(--orange-soft); color: var(--orange); }
+.drawer-status-badge--invalid { background: var(--red-soft); color: var(--red); }
+.drawer-status-badge--quarantine { background: var(--purple-soft); color: var(--purple); }
+
+.drawer-excerpt {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+
+.drawer-connections {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawer-connection-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-alt);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--hair);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink);
+  transition: background var(--transition);
+}
+
+.drawer-connection-item:hover { background: var(--accent-soft); }
+
+.drawer-connection-item__arrow {
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Toast 通知
+   ============================================================ */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.toast {
+  background: var(--ink);
+  color: var(--bg);
+  padding: 10px 20px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-family: inherit;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity .3s, transform .3s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+   Skeleton
+   ============================================================ */
+@keyframes gt-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.skeleton-bar {
+  background: var(--accent-soft);
+  border-radius: var(--r-sm);
+  animation: gt-skeleton-pulse 1.6s ease-in-out infinite;
+  background-image: linear-gradient(90deg, var(--accent-soft) 25%, var(--bg-alt) 50%, var(--accent-soft) 75%);
+  background-size: 200% 100%;
+  animation: gt-skeleton-pulse 1.6s ease-in-out infinite, gt-shimmer 2s linear infinite;
+}
+
+@keyframes gt-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================================
+   Visually Hidden
+   ============================================================ */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================
+   窄窗适配
+   ============================================================ */
+@media (max-width: 900px) {
+  .top-bar__client { display: none; }
+  .top-bar__view-tabs { gap: 0; }
+  .top-bar__view-tab { padding: 7px 12px; font-size: 12px; }
+  .materials-grid { grid-template-columns: 1fr; }
+  .source-drawer { width: 100vw; max-width: 100vw; }
+}
+
+@media (max-width: 600px) {
+  .top-bar__brand-label { display: none; }
+  .top-bar__view-tab { padding: 7px 10px; font-size: 0; min-width: 36px; text-align: center; }
+  .top-bar__view-tab[data-view="timeline"]::after { content: '时间线'; font-size: 11px; }
+  .top-bar__view-tab[data-view="materials"]::after { content: '材料'; font-size: 11px; }
+  .top-bar__view-tab[data-view="graph"]::after { content: '图谱'; font-size: 11px; }
+  .timeline-view__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     顶部栏
+     ============================================================ -->
+<header class="top-bar" role="banner">
+  <div class="top-bar__brand">
+    <div class="top-bar__brand-mark" aria-hidden="true">XJ</div>
+    <span class="top-bar__brand-label">个案空间</span>
+  </div>
+
+  <div class="top-bar__client">
+    <div class="top-bar__client-avatar" aria-hidden="true">林</div>
+    <div class="top-bar__client-info">
+      <span class="top-bar__client-name">林若溪</span>
+      <span class="top-bar__client-context">个案编号 C-2026-0412 · 第15次会谈</span>
+    </div>
+  </div>
+
+  <nav class="top-bar__view-tabs" role="tablist" aria-label="视图模式">
+    <button class="top-bar__view-tab" role="tab" aria-selected="false" data-view="timeline" aria-controls="viewTimeline">会谈时间线</button>
+    <button class="top-bar__view-tab" role="tab" aria-selected="true" data-view="materials" aria-controls="viewMaterials">来源材料</button>
+    <button class="top-bar__view-tab" role="tab" aria-selected="false" data-view="graph" aria-controls="viewGraph">关系图谱</button>
+  </nav>
+
+  <div class="top-bar__controls">
+    <button class="top-bar__ctrl-btn" id="darkToggle" aria-label="切换深色模式">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <span id="darkToggleLabel">深色</span>
+    </button>
+  </div>
+</header>
+
+<!-- ============================================================
+     主工作区
+     ============================================================ -->
+<div class="workspace" id="workspace">
+
+  <!-- ============================
+       视图 1: 会谈时间线
+       ============================ -->
+  <section class="view-panel timeline-view" id="viewTimeline" role="tabpanel" aria-label="会谈时间线">
+    <div class="timeline-view__header">
+      <div class="timeline-view__title">会谈时间线</div>
+      <div class="timeline-view__subtitle">林若溪的全周期会谈记录与来源追踪</div>
+    </div>
+
+    <div class="timeline-view__stats">
+      <div class="timeline-stat">
+        <span class="timeline-stat__value">15</span>
+        <span class="timeline-stat__label">已完成会谈</span>
+      </div>
+      <div class="timeline-stat">
+        <span class="timeline-stat__value">31</span>
+        <span class="timeline-stat__label">关联来源材料</span>
+      </div>
+      <div class="timeline-stat">
+        <span class="timeline-stat__value">4</span>
+        <span class="timeline-stat__label">督导反馈</span>
+      </div>
+      <div class="timeline-stat">
+        <span class="timeline-stat__value">2</span>
+        <span class="timeline-stat__label">需关注状态</span>
+      </div>
+    </div>
+
+    <div class="timeline-list" id="timelineList" role="list" aria-label="会谈列表">
+      <!-- 由 JS 渲染 -->
+    </div>
+  </section>
+
+  <!-- ============================
+       视图 2: 来源材料列表
+       ============================ -->
+  <section class="view-panel materials-view view-panel--active" id="viewMaterials" role="tabpanel" aria-label="来源材料列表">
+    <div class="materials-view__header">
+      <div class="materials-view__title">来源材料</div>
+      <div class="materials-view__search">
+        <input class="materials-view__search-input" type="search" placeholder="搜索材料标题或内容..." id="materialSearch" aria-label="搜索材料">
+      </div>
+    </div>
+
+    <div class="materials-view__filters" id="materialFilters" role="tablist" aria-label="材料类型筛选">
+      <button class="filter-chip" role="tab" aria-selected="true" data-filter="all">全部 (31)</button>
+      <button class="filter-chip" role="tab" aria-selected="false" data-filter="record">会谈记录 (15)</button>
+      <button class="filter-chip" role="tab" aria-selected="false" data-filter="quot">来访者自述 (5)</button>
+      <button class="filter-chip" role="tab" aria-selected="false" data-filter="assess">评估报告 (3)</button>
+      <button class="filter-chip" role="tab" aria-selected="false" data-filter="superv">督导反馈 (4)</button>
+      <button class="filter-chip" role="tab" aria-selected="false" data-filter="plan">治疗计划 (2)</button>
+      <button class="filter-chip" role="tab" aria-selected="false" data-filter="note">咨询师笔记 (1)</button>
+    </div>
+
+    <div class="materials-grid" id="materialsGrid" role="list" aria-label="材料卡片列表">
+      <!-- 由 JS 渲染 -->
+    </div>
+    <div class="empty-state" id="emptyState" hidden>
+      <svg class="empty-state__icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <div class="empty-state__text">暂无匹配的来源材料</div>
+      <div class="empty-state__hint">尝试调整筛选条件或搜索关键词</div>
+    </div>
+  </section>
+
+  <!-- ============================
+       视图 3: 只读关系图谱
+       ============================ -->
+  <section class="view-panel graph-view" id="viewGraph" role="tabpanel" aria-label="只读关系图谱">
+    <div class="graph-view__header">
+      <div class="graph-view__title">来源关系图谱</div>
+      <div class="graph-view__legend">
+        <span class="graph-legend__item"><span class="graph-legend__dot" style="background:var(--pin-record)"></span>会谈记录</span>
+        <span class="graph-legend__item"><span class="graph-legend__dot" style="background:var(--pin-quot)"></span>自述</span>
+        <span class="graph-legend__item"><span class="graph-legend__dot" style="background:var(--pin-assess)"></span>评估</span>
+        <span class="graph-legend__item"><span class="graph-legend__dot" style="background:var(--pin-superv)"></span>督导</span>
+        <span class="graph-legend__item"><span class="graph-legend__dot" style="background:var(--pin-plan)"></span>计划</span>
+      </div>
+    </div>
+
+    <div class="graph-canvas" id="graphCanvas">
+      <svg class="graph-canvas__svg" id="graphSvg" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet" role="img" aria-label="来源材料关系图谱">
+        <!-- 由 JS 渲染 -->
+      </svg>
+      <div class="graph-canvas__hint">只读模式 · 点击节点查看来源详情 · 关系连线表示临床关联，不表示因果关系</div>
+      <div class="graph-canvas__empty" id="graphEmpty" hidden>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+        <span>暂无来源数据，无法生成关系图谱</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============================================================
+     来源详情抽屉
+     ============================================================ -->
+<div class="drawer-overlay" id="drawerOverlay" aria-hidden="true"></div>
+<aside class="source-drawer" id="sourceDrawer" role="complementary" aria-label="来源详情抽屉" aria-hidden="true">
+  <div class="source-drawer__header">
+    <div class="source-drawer__title-group">
+      <div class="source-drawer__type-badge" id="drawerTypeBadge">
+        <span class="source-drawer__type-dot" id="drawerTypeDot"></span>
+        <span id="drawerTypeLabel">会谈记录</span>
+      </div>
+      <div class="source-drawer__title" id="drawerTitle">--</div>
+      <div class="source-drawer__session" id="drawerSession">--</div>
+    </div>
+    <button class="source-drawer__close" id="drawerClose" aria-label="关闭来源详情">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="source-drawer__body" id="drawerBody">
+    <!-- 来源摘要 -->
+    <div class="drawer-section">
+      <div class="drawer-section__label">来源摘要</div>
+      <div class="drawer-excerpt" id="drawerExcerpt">--</div>
+    </div>
+
+    <!-- 失效状态 -->
+    <div class="drawer-section">
+      <div class="drawer-section__label">失效状态</div>
+      <div id="drawerStatusBadge">
+        <span class="drawer-status-badge drawer-status-badge--active">有效</span>
+      </div>
+    </div>
+
+    <!-- Stable ID -->
+    <div class="drawer-section">
+      <div class="drawer-section__label">SourceRef 标识</div>
+      <div class="drawer-field">
+        <span class="drawer-field__key">Stable ID</span>
+        <span class="drawer-field__value drawer-field__value--truncated" id="drawerStableId" title="">--</span>
+      </div>
+    </div>
+
+    <!-- 版本信息 -->
+    <div class="drawer-section">
+      <div class="drawer-section__label">版本与哈希</div>
+      <div class="drawer-field">
+        <span class="drawer-field__key">normalizationVersion</span>
+        <span class="drawer-field__value" id="drawerNormVer">--</span>
+      </div>
+      <div class="drawer-field">
+        <span class="drawer-field__key">sourceVersion</span>
+        <span class="drawer-field__value" id="drawerSrcVer">--</span>
+      </div>
+      <div class="drawer-field">
+        <span class="drawer-field__key">sourceContentHash</span>
+        <span class="drawer-field__value drawer-field__value--truncated" id="drawerSrcHash" title="">--</span>
+      </div>
+      <div class="drawer-field">
+        <span class="drawer-field__key">anchorContentHash</span>
+        <span class="drawer-field__value drawer-field__value--truncated" id="drawerAnchorHash" title="">--</span>
+      </div>
+    </div>
+
+    <!-- 关联来源 -->
+    <div class="drawer-section">
+      <div class="drawer-section__label">关联来源</div>
+      <div style="font-size:11px;color:var(--ink-3);margin-bottom:4px">关联仅表示临床参考关系，非因果关系推断</div>
+      <div class="drawer-connections" id="drawerConnections">
+        <!-- 由 JS 填充 -->
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ============================================================
+     Toast 容器
+     ============================================================ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ============================================================
+     JavaScript: 合成个案数据 + 交互逻辑
+     ============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ===== 工具函数 ===== */
+  function $(sel, ctx) { return (ctx || document).querySelector(sel); }
+  function $$(sel, ctx) { return Array.from((ctx || document).querySelectorAll(sel)); }
+
+  /* 简单确定性哈希（原型用，非安全用途） */
+  function simpleHash(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) {
+      h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+    }
+    return 'h' + Math.abs(h).toString(16).padStart(8, '0');
+  }
+
+  /* 模拟 SHA-256 前缀（原型用，固定长度64位hex） */
+  function fakeSha256(seed) {
+    var base = simpleHash(seed);
+    var result = base;
+    while (result.length < 64) { result = result + simpleHash(result + seed); }
+    return 'sha256:' + result.substring(0, 64);
+  }
+
+  /* ===== 类型配置 ===== */
+  var TYPE_CONFIG = {
+    record: { label: '会谈记录', pin: '--pin-record' },
+    quot:   { label: '来访者自述', pin: '--pin-quot' },
+    assess: { label: '评估报告', pin: '--pin-assess' },
+    superv: { label: '督导反馈', pin: '--pin-superv' },
+    plan:   { label: '治疗计划', pin: '--pin-plan' },
+    note:   { label: '咨询师笔记', pin: '--pin-note' }
+  };
+
+  /* ===== 31 条合成来源数据 ===== */
+  var clientId = 'C-2026-0412';
+  var clientName = '林若溪';
+
+  var sources = [
+    // 会谈记录 (15)
+    { id: 1,  type: 'record', session: 1,  date: '2025-12-08', title: '首次会谈记录：建立治疗关系与初始信息收集', excerpt: '来访者因工作压力和人际关系困扰寻求咨询。介绍了近期出现的焦虑症状，包括睡眠障碍和注意力不集中。来访者表现出良好的治疗动机和内省能力。建立了每周一次的固定会谈时间。', status: 'active' },
+    { id: 2,  type: 'record', session: 2,  date: '2025-12-15', title: '会谈记录：家庭背景与成长经历探索', excerpt: '来访者讲述了童年时期与父母的互动模式。父亲为严厉型教育者，母亲情感表达较少。来访者是家中长女，承担了较多家庭责任。早期形成了对权威人物的矛盾情感。', status: 'active' },
+    { id: 3,  type: 'record', session: 3,  date: '2025-12-22', title: '会谈记录：情绪调节模式初步评估', excerpt: '来访者在会谈中展示了典型的情绪压抑模式。当触及与父亲相关的记忆时，出现明显的躯体反应（手心出汗、声音颤抖）。来访者对自身情绪识别能力较弱。', status: 'active' },
+    { id: 4,  type: 'record', session: 4,  date: '2025-12-29', title: '会谈记录：工作场景中的压力反应分析', excerpt: '来访者在描述与上级领导互动时表现出明显的焦虑。回忆了最近一次绩效评估中的负面体验。来访者倾向于回避冲突，在权威面前表现顺从。', status: 'active' },
+    { id: 5,  type: 'record', session: 5,  date: '2026-01-05', title: '会谈记录：依恋风格与亲密关系模式', excerpt: '讨论了来访者与伴侣的关系动态。来访者倾向于过度付出、忽视自身需求。与伴侣的冲突模式呈现追逃循环。来访者意识到这与早期家庭互动模式的相似性。', status: 'active' },
+    { id: 6,  type: 'record', session: 6,  date: '2026-01-12', title: '会谈记录：认知行为模式与核心信念识别', excerpt: '识别出来访者的核心信念："我必须完美才能被接纳"和"表达需求是不安全的"。这些信念与早年家庭环境中对表现的强调和情感需求的忽视密切相关。', status: 'active' },
+    { id: 7,  type: 'record', session: 7,  date: '2026-01-19', title: '会谈记录：躯体化症状与情绪关联', excerpt: '来访者报告了近期的头痛和胃部不适加重。通过正念练习，来访者开始注意到躯体症状与焦虑情绪之间的关联。引入了身体扫描技术。', status: 'active' },
+    { id: 8,  type: 'record', session: 8,  date: '2026-01-26', title: '会谈记录：社交焦虑情境分析与暴露练习', excerpt: '来访者描述了在团队会议中发言的焦虑体验。设计了渐进式暴露练习计划。第一次练习：在小组中提出一个简短的问题。来访者表示愿意尝试。', status: 'active' },
+    { id: 9,  type: 'record', session: 9,  date: '2026-02-02', title: '会谈记录：自我关怀练习引入与初期反馈', excerpt: '引入了自我关怀的概念和实践方法。来访者对此概念感到陌生但表现出兴趣。完成了第一次自我关怀冥想练习，来访者报告有轻微的放松感受。', status: 'active' },
+    { id: 10, type: 'record', session: 10, date: '2026-02-09', title: '会谈记录：暴露练习复盘与认知重构', excerpt: '来访者成功完成了在小组中提问的暴露练习。事后焦虑水平低于预期。对"别人会评判我"的自动思维进行了认知重构，识别了证据支持和反对。', status: 'active' },
+    { id: 11, type: 'record', session: 11, date: '2026-02-16', title: '会谈记录：梦境工作与无意识内容探索', excerpt: '来访者报告了一个反复出现的梦境：在考试中发现自己完全没有准备。探讨了梦境中"未准备好"和"被评判"的主题。联系到来访者的表现焦虑核心信念。', status: 'active' },
+    { id: 12, type: 'record', session: 12, date: '2026-02-23', title: '会谈记录：边界设定练习与家庭互动', excerpt: '来访者报告了与母亲的一次电话互动。成功地在一定程度上拒绝了不合理的要求。来访者描述了事后的愧疚感和成就感并存的矛盾体验。', status: 'stale' },
+    { id: 13, type: 'record', session: 13, date: '2026-03-02', title: '会谈记录：情绪标记训练深化', excerpt: '继续情绪标记训练。来访者现在能够更准确地识别和命名基本情绪。开始探索次级情绪（如愤怒背后的悲伤、焦虑背后的脆弱）。来访者表现出进步。', status: 'active' },
+    { id: 14, type: 'record', session: 14, date: '2026-03-09', title: '会谈记录：中期治疗进展评估', excerpt: '回顾了过去14次会谈的进展。来访者在情绪识别、认知重构和暴露练习方面取得了可观的进步。与伴侣的沟通模式有所改善。确定了下一阶段的治疗重点。', status: 'active' },
+    { id: 15, type: 'record', session: 15, date: '2026-03-16', title: '会谈记录：创伤记忆初步探索', excerpt: '来访者首次提到了高中时期的一次校园欺凌经历。会谈中保持稳定，能够区分过去与当下。同意在后续会谈中进一步探索这段记忆及其对当前功能的影响。', status: 'active' },
+
+    // 来访者自述 (5)
+    { id: 16, type: 'quot', session: 3,  date: '2025-12-20', title: '来访者手写日记：关于完美主义与自我批评', excerpt: '来访者提供的手写日记片段。记录了一次未能达到自我期望后的自我批评过程。来访者写道："我总是觉得不够好，无论做多少都不够。"', status: 'active' },
+    { id: 17, type: 'quot', session: 5,  date: '2026-01-07', title: '来访者手写信件草稿（未发出）：对父亲的感受', excerpt: '来访者写了一封给父亲的信但选择不寄出。信中表达了对父亲严厉教育方式的理解和未解决的委屈。来访者表示写信的过程本身就具有疗愈作用。', status: 'active' },
+    { id: 18, type: 'quot', session: 8,  date: '2026-01-28', title: '来访者社交媒体节选：团队会议后的心理活动', excerpt: '来访者分享了一条社交媒体草稿（未发布），描述了在团队会议上提出问题后的心理过程。来访者注意到自己高估了负面评价的可能性。', status: 'active' },
+    { id: 19, type: 'quot', session: 11, date: '2026-02-18', title: '来访者绘画作品：梦境视觉化呈现', excerpt: '来访者根据反复出现的梦境绘制了一幅画。画面中央是一个空白的考卷，周围是模糊的注视者。探讨了画面中"被观看"和"准备不足"的象征意义。', status: 'active' },
+    { id: 20, type: 'quot', session: 14, date: '2026-03-10', title: '来访者自我关怀日志：两周练习反思', excerpt: '来访者记录了两周自我关怀练习的感受和变化。来访者写道："我开始注意到，当我对自己温柔一些时，我的焦虑感会自然减轻。"', status: 'active' },
+
+    // 评估报告 (3)
+    { id: 21, type: 'assess', session: 1, date: '2025-12-08', title: '初始临床评估报告', excerpt: '基于首次会谈和初始问卷的综合评估。来访者呈现中度焦虑症状（GAD-7 评分 12），轻度抑郁症状（PHQ-9 评分 8）。建议认知行为治疗与心理动力学探索相结合的整合方案。', status: 'active' },
+    { id: 22, type: 'assess', session: 6, date: '2026-01-12', title: '阶段性评估：认知模式与自动化思维', excerpt: '第六次会谈后的专项评估。使用自动思维问卷（ATQ）和功能障碍性态度量表（DAS）。识别出核心认知扭曲：全或无思维、过度概括和心理过滤。', status: 'active' },
+    { id: 23, type: 'assess', session: 14, date: '2026-03-09', title: '中期治疗评估报告', excerpt: '第14次会谈后的全面中期评估。GAD-7 降至 8，PHQ-9 降至 4。依恋风格呈现安全型倾向增加。建议继续当前治疗方案，增加创伤相关工作的比重。', status: 'active' },
+
+    // 督导反馈 (4)
+    { id: 24, type: 'superv', session: 4, date: '2025-12-30', title: '督导反馈：治疗关系建立与阻抗处理', excerpt: '督导师建议注意来访者在讨论家庭话题时出现的轻微阻抗。建议使用温和的探索方式，避免过早深入创伤内容。同时关注治疗师的共情疲劳风险。', status: 'active' },
+    { id: 25, type: 'superv', session: 8, date: '2026-01-27', title: '督导反馈：暴露疗法实施要点', excerpt: '督导师审阅了暴露练习计划，建议增加层级细化。强调暴露练习后需要进行充分的认知加工。提醒注意来访者可能出现的回避行为。', status: 'active' },
+    { id: 26, type: 'superv', session: 11, date: '2026-02-17', title: '督导反馈：梦境工作的临床应用', excerpt: '督导师肯定了梦境工作的方向，建议关注梦境中的情绪而非仅仅是象征解释。提醒保持对来访者潜在创伤激活的敏感性。建议准备稳定化技术。', status: 'active' },
+    { id: 27, type: 'superv', session: 14, date: '2026-03-10', title: '督导反馈：中期进展与方案调整', excerpt: '督导师认为治疗进展符合预期。同意增加创伤工作的比重，但建议保持渐进节奏。讨论了治疗师在创伤工作中的自我关怀和反移情觉察。', status: 'active' },
+
+    // 治疗计划 (2)
+    { id: 28, type: 'plan', session: 1, date: '2025-12-08', title: '初始治疗计划：整合认知行为与心理动力学取向的系统性治疗方案——基于温尼科特过渡性客体理论与科胡特自体心理学视角的综合性干预策略，涵盖症状管理、情绪识别训练、认知重构、依恋模式探索、人际关系改善等多个维度的中长期治疗规划', excerpt: '基于初始评估制定的综合治疗计划。短期目标（1-8次）：症状管理、情绪识别训练、认知重构。中期目标（9-16次）：依恋模式探索、人际关系改善。长期目标：核心信念转化、自我整合。', status: 'active' },
+    { id: 29, type: 'plan', session: 14, date: '2026-03-09', title: '治疗计划调整：中期进展后的方向更新', excerpt: '基于中期评估的治疗计划更新。调整后重点：（1）创伤记忆的渐进探索与处理；（2）深化自我关怀能力；（3）巩固已习得的认知重构和情绪调节技能；（4）预备结束阶段的讨论。', status: 'active' },
+
+    // 咨询师笔记 (1)
+    { id: 30, type: 'note', session: 12, date: '2026-02-23', title: '咨询师观察笔记：来访者边界练习中的矛盾反应', excerpt: '观察到来访者在报告成功设定边界时，语气中同时包含成就感和隐约的愧疚。这种矛盾可能反映了其内在工作模型中"设定边界=不孝顺"的深层信念。需要在后续会谈中进一步探索。', status: 'invalid' },
+
+    // 隔离状态 (1)
+    { id: 31, type: 'assess', session: 10, date: '2026-02-10', title: '阶段性认知评估补充材料（已隔离）', excerpt: '因数据来源不明确，该材料已被标记为隔离状态，待进一步核实后方可解除。', status: 'quarantine' }
+  ];
+
+  /* 为每条来源生成 SourceRef 元数据 */
+  sources.forEach(function (src) {
+    var typeLabel = TYPE_CONFIG[src.type] ? TYPE_CONFIG[src.type].label : src.type;
+    var seed = clientId + '|' + src.type + '|' + src.session + '|' + src.id;
+    src.stableId = 'sr:' + fakeSha256(seed);
+    src.normalizationVersion = '1';
+    src.sourceVersion = String(Math.floor(src.id / 10) + 1);
+    src.sourceContentHash = fakeSha256('src:' + seed);
+    /* MUTATED: hash removed */
+  });
+
+  /* ===== 关联关系（图谱用） ===== */
+  var edges = [
+    { from: 21, to: 28 },  // 初始评估 -> 初始计划
+    { from: 28, to: 1 },   // 初始计划 -> 首次会谈
+    { from: 1, to: 2 },    // 首次会谈 -> 第二次会谈
+    { from: 2, to: 3 },    // 第二次 -> 第三次
+    { from: 2, to: 16 },   // 第二次 -> 日记
+    { from: 3, to: 4 },    // 第三次 -> 第四次
+    { from: 3, to: 24 },   // 第三次 -> 督导1
+    { from: 4, to: 5 },    // 第四次 -> 第五次
+    { from: 5, to: 6 },    // 第五次 -> 第六次
+    { from: 5, to: 17 },   // 第五次 -> 信件草稿
+    { from: 6, to: 22 },   // 第六次 -> 阶段评估
+    { from: 6, to: 25 },   // 第六次 -> 督导2
+    { from: 7, to: 8 },    // 第七次 -> 第八次
+    { from: 8, to: 9 },    // 第八次 -> 第九次
+    { from: 8, to: 18 },   // 第八次 -> 社媒节选
+    { from: 9, to: 10 },   // 第九次 -> 第十次
+    { from: 10, to: 11 },  // 第十次 -> 第十一次
+    { from: 11, to: 19 },  // 第十一次 -> 绘画
+    { from: 11, to: 26 },  // 第十一次 -> 督导3
+    { from: 12, to: 13 },  // 第十二次 -> 第十三次
+    { from: 12, to: 30 },  // 第十二次 -> 咨询师笔记
+    { from: 13, to: 14 },  // 第十三次 -> 第十四次
+    { from: 14, to: 23 },  // 第十四次 -> 中期评估
+    { from: 14, to: 27 },  // 第十四次 -> 督导4
+    { from: 14, to: 29 },  // 第十四次 -> 计划调整
+    { from: 14, to: 20 },  // 第十四次 -> 关怀日志
+    { from: 15, to: 29 },  // 第十五次 -> 计划调整
+    { from: 23, to: 29 },  // 中期评估 -> 计划调整
+    { from: 24, to: 25 },  // 督导1 -> 督导2
+    { from: 25, to: 26 },  // 督导2 -> 督导3
+    { from: 26, to: 27 },  // 督导3 -> 督导4
+    { from: 15, to: 23, aiDraft: true }  // AI草稿：第15次会谈 -> 中期评估（AI推论，草稿状态）
+  ];
+
+  /* 获取某来源的关联 */
+  function getConnections(srcId) {
+    var connected = [];
+    edges.forEach(function (e) {
+      if (e.from === srcId) connected.push(e.to);
+      if (e.to === srcId) connected.push(e.from);
+    });
+    return connected;
+  }
+
+  /* ===== 视图切换 ===== */
+  var tabs = $$('.top-bar__view-tab');
+  var panels = $$('.view-panel');
+  var lastFocusedEl = null;
+
+  function switchView(viewName) {
+    tabs.forEach(function (t) {
+      var isSelected = t.getAttribute('data-view') === viewName;
+      t.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    });
+    panels.forEach(function (p) {
+      var isActive = p.id === 'view' + viewName.charAt(0).toUpperCase() + viewName.slice(1);
+      p.classList.toggle('view-panel--active', isActive);
+    });
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      switchView(this.getAttribute('data-view'));
+    });
+  });
+
+  /* ===== 深色模式切换 ===== */
+  var darkToggle = $('#darkToggle');
+  var darkLabel = $('#darkToggleLabel');
+  darkToggle.addEventListener('click', function () {
+    document.documentElement.classList.toggle('dark');
+    var isDark = document.documentElement.classList.contains('dark');
+    darkLabel.textContent = isDark ? '浅色' : '深色';
+  });
+
+  /* ===== Toast ===== */
+  function showToast(msg, duration) {
+    duration = duration || 2000;
+    var container = $('#toastContainer');
+    var toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    container.appendChild(toast);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { toast.classList.add('toast--visible'); });
+    });
+    setTimeout(function () {
+      toast.classList.remove('toast--visible');
+      setTimeout(function () { container.removeChild(toast); }, 300);
+    }, duration);
+  }
+
+  /* ===== 来源详情抽屉 ===== */
+  var drawer = $('#sourceDrawer');
+  var drawerOverlay = $('#drawerOverlay');
+  var drawerClose = $('#drawerClose');
+
+  function openDrawer(src, triggerEl) {
+    lastFocusedEl = triggerEl || document.activeElement;
+    var cfg = TYPE_CONFIG[src.type] || { label: src.type, pin: '--pin-record' };
+
+    $('#drawerTypeLabel').textContent = cfg.label;
+    var dot = $('#drawerTypeDot');
+    dot.style.background = 'var(' + cfg.pin.replace('--', '--pin-') + ')';
+    // Fix: pin CSS vars use var(--pin-xxx) format
+    dot.style.background = 'var(--pin-' + src.type + ')';
+
+    $('#drawerTitle').textContent = src.title;
+    $('#drawerSession').textContent = '第' + src.session + '次会谈 · ' + src.date + ' · ' + clientName;
+    $('#drawerExcerpt').textContent = src.excerpt;
+
+    // 失效状态
+    var statusHtml = '';
+    if (src.status === 'active') {
+      statusHtml = '<span class="drawer-status-badge drawer-status-badge--active">有效</span>';
+    } else if (src.status === 'stale') {
+      statusHtml = '<span class="drawer-status-badge drawer-status-badge--stale">来源版本已过期（v' + src.sourceVersion + '），建议重新关联</span>';
+    } else if (src.status === 'invalid') {
+      statusHtml = '<span class="drawer-status-badge drawer-status-badge--invalid">来源文件不可用，已被移动或删除</span>';
+    } else if (src.status === 'quarantine') {
+      statusHtml = '<span class="drawer-status-badge drawer-status-badge--quarantine">已隔离</span>';
+    }
+    $('#drawerStatusBadge').innerHTML = statusHtml;
+
+    // SourceRef 元数据
+    var stableIdEl = $('#drawerStableId');
+    stableIdEl.textContent = src.stableId;
+    stableIdEl.setAttribute('title', src.stableId);
+
+    $('#drawerNormVer').textContent = src.normalizationVersion;
+    $('#drawerSrcVer').textContent = src.sourceVersion;
+
+    var srcHashEl = $('#drawerSrcHash');
+    srcHashEl.textContent = src.sourceContentHash;
+    srcHashEl.setAttribute('title', src.sourceContentHash);
+
+    var anchorHashEl = $('#drawerAnchorHash');
+    anchorHashEl.textContent = src.anchorContentHash;
+    anchorHashEl.setAttribute('title', src.anchorContentHash);
+
+    // 关联来源
+    var connIds = getConnections(src.id);
+    var connHtml = '';
+    connIds.forEach(function (cid) {
+      var connSrc = sources.find(function (s) { return s.id === cid; });
+      if (connSrc) {
+        var connCfg = TYPE_CONFIG[connSrc.type] || { label: connSrc.type };
+        connHtml += '<div class="drawer-connection-item" data-source-id="' + connSrc.id + '" tabindex="0" role="button" aria-label="查看关联来源：' + connSrc.title + '">'
+          + '<span class="drawer-connection-item__arrow">&#8594;</span>'
+          + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + connSrc.title + '</span>'
+          + '<span style="font-size:11px;color:var(--ink-3);flex-shrink:0">' + connCfg.label + '</span>'
+          + '</div>';
+      }
+    });
+    if (!connHtml) {
+      connHtml = '<div style="font-size:13px;color:var(--ink-3)">无关联来源</div>';
+    }
+    $('#drawerConnections').innerHTML = connHtml;
+
+    // 绑定关联来源点击
+    $$('.drawer-connection-item', $('#drawerConnections')).forEach(function (el) {
+      el.addEventListener('click', function () {
+        var sid = parseInt(this.getAttribute('data-source-id'));
+        var s = sources.find(function (x) { return x.id === sid; });
+        if (s) openDrawer(s, this);
+      });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.click();
+        }
+      });
+    });
+
+    // 打开抽屉
+    drawer.classList.add('source-drawer--open');
+    drawer.setAttribute('aria-hidden', 'false');
+    drawerOverlay.classList.add('drawer-overlay--visible');
+    drawerOverlay.setAttribute('aria-hidden', 'false');
+    drawerClose.focus();
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove('source-drawer--open');
+    drawer.setAttribute('aria-hidden', 'true');
+    drawerOverlay.classList.remove('drawer-overlay--visible');
+    drawerOverlay.setAttribute('aria-hidden', 'true');
+    if (lastFocusedEl) {
+      lastFocusedEl.focus();
+      lastFocusedEl = null;
+    }
+  }
+
+  drawerClose.addEventListener('click', closeDrawer);
+  drawerOverlay.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && drawer.classList.contains('source-drawer--open')) {
+      closeDrawer();
+    }
+  });
+
+  /* ===== 渲染会谈时间线 ===== */
+  function renderTimeline() {
+    var list = $('#timelineList');
+    var sessions = {};
+    sources.forEach(function (src) {
+      if (!sessions[src.session]) {
+        sessions[src.session] = { session: src.session, date: src.date, records: [], others: [] };
+      }
+      if (src.type === 'record') {
+        sessions[src.session].records.push(src);
+      } else {
+        sessions[src.session].others.push(src);
+      }
+    });
+
+    var sortedSessions = Object.values(sessions).sort(function (a, b) { return b.session - a.session; });
+    var html = '';
+
+    sortedSessions.forEach(function (s, idx) {
+      var dateParts = s.date.split('-');
+      var day = parseInt(dateParts[2]);
+      var monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+      var month = monthNames[parseInt(dateParts[1]) - 1];
+
+      var statusClass = 'completed';
+      var statusDot = '--pin-superv';
+      var mainRecord = s.records[0];
+      if (!mainRecord) return;
+
+      var sourcesCount = s.records.length + s.others.length;
+      var otherTypes = s.others.map(function (o) { return (TYPE_CONFIG[o.type] || {}).label || o.type; });
+
+      html += '<div class="timeline-item" role="listitem" tabindex="0" data-source-id="' + mainRecord.id + '" aria-label="第' + s.session + '次会谈 ' + s.date + '">'
+        + '<div class="timeline-item__date-col">'
+        + '<div class="timeline-item__day">' + day + '</div>'
+        + '<div class="timeline-item__month">' + month + '</div>'
+        + '</div>'
+        + '<div class="timeline-item__track">'
+        + '<div class="timeline-item__dot timeline-item__dot--' + statusClass + '"></div>'
+        + (idx < sortedSessions.length - 1 ? '<div class="timeline-item__line"></div>' : '')
+        + '</div>'
+        + '<div class="timeline-item__content">'
+        + '<div class="timeline-item__type-badge"><span style="width:6px;height:6px;border-radius:50%;background:var(--pin-record);display:inline-block"></span>第' + s.session + '次会谈</div>'
+        + '<div class="timeline-item__title">' + mainRecord.title + '</div>'
+        + '<div class="timeline-item__excerpt">' + mainRecord.excerpt.substring(0, 100) + '...</div>'
+        + '<div class="timeline-item__meta">'
+        + '<span>' + s.date + '</span>'
+        + '<span class="timeline-item__sources-count">'
+        + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'
+        + sourcesCount + ' 条来源'
+        + '</span>'
+        + (otherTypes.length > 0 ? '<span>含 ' + otherTypes.slice(0, 3).join('、') + '</span>' : '')
+        + '</div>'
+        + '</div>'
+        + '</div>';
+    });
+
+    list.innerHTML = html;
+
+    // 绑定点击
+    $$('.timeline-item', list).forEach(function (el) {
+      el.addEventListener('click', function () {
+        var sid = parseInt(this.getAttribute('data-source-id'));
+        var s = sources.find(function (x) { return x.id === sid; });
+        if (s) openDrawer(s, this);
+      });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+      });
+    });
+  }
+
+  /* ===== 渲染来源材料列表 ===== */
+  var activeFilter = 'all';
+  var searchQuery = '';
+
+  function renderMaterials() {
+    var grid = $('#materialsGrid');
+    var emptyState = $('#emptyState');
+    var filtered = sources.filter(function (src) {
+      if (activeFilter !== 'all' && src.type !== activeFilter) return false;
+      if (searchQuery) {
+        var q = searchQuery.toLowerCase();
+        return src.title.toLowerCase().indexOf(q) !== -1 || src.excerpt.toLowerCase().indexOf(q) !== -1;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      grid.hidden = true;
+      emptyState.hidden = false;
+      return;
+    } else {
+      grid.hidden = false;
+      emptyState.hidden = true;
+    }
+
+    var html = '';
+    filtered.forEach(function (src) {
+      var cfg = TYPE_CONFIG[src.type] || { label: src.type, pin: '--pin-record' };
+
+      var statusHtml = '';
+      if (src.status === 'stale') {
+        statusHtml = '<span class="material-card__status material-card__status--stale">版本过期</span>';
+      } else if (src.status === 'invalid') {
+        statusHtml = '<span class="material-card__status material-card__status--invalid">不可用</span>';
+      } else if (src.status === 'quarantine') {
+        statusHtml = '<span class="material-card__status material-card__status--quarantine">已隔离</span>';
+      }
+
+      html += '<div class="material-card" role="listitem" tabindex="0" data-source-id="' + src.id + '" aria-label="' + cfg.label + '：' + src.title + '">'
+        + '<div class="material-card__header">'
+        + '<span class="material-card__pin material-card__pin--' + src.type + '"></span>'
+        + '<span class="material-card__type">' + cfg.label + '</span>'
+        + '<span class="material-card__session-tag">第' + src.session + '次</span>'
+        + '</div>'
+        + '<div class="material-card__title">' + src.title + '</div>'
+        + '<div class="material-card__excerpt">' + src.excerpt + '</div>'
+        + '<div class="material-card__footer">'
+        + '<span class="material-card__date">' + src.date + '</span>'
+        + statusHtml
+        + '</div>'
+        + '</div>';
+    });
+
+    grid.innerHTML = html;
+
+    // 绑定点击打开抽屉
+    $$('.material-card', grid).forEach(function (el) {
+      el.addEventListener('click', function () {
+        var sid = parseInt(this.getAttribute('data-source-id'));
+        var s = sources.find(function (x) { return x.id === sid; });
+        if (s) openDrawer(s, this);
+      });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+      });
+    });
+  }
+
+  // 筛选按钮
+  $$('.filter-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      activeFilter = this.getAttribute('data-filter');
+      $$('.filter-chip').forEach(function (c) { c.setAttribute('aria-selected', 'false'); });
+      this.setAttribute('aria-selected', 'true');
+      renderMaterials();
+    });
+  });
+
+  // 搜索框
+  var searchInput = $('#materialSearch');
+  searchInput.addEventListener('input', function () {
+    searchQuery = this.value.trim();
+    renderMaterials();
+  });
+
+  /* ===== 渲染关系图谱 ===== */
+  function renderGraph() {
+    var svg = $('#graphSvg');
+    var graphEmpty = $('#graphEmpty');
+
+    if (sources.length === 0) {
+      svg.style.display = 'none';
+      graphEmpty.hidden = false;
+      return;
+    } else {
+      svg.style.display = '';
+      graphEmpty.hidden = true;
+    }
+
+    var w = 1200, h = 700;
+
+    // 力导向模拟布局（简化版）
+    var nodes = sources.map(function (src, i) {
+      return {
+        id: src.id,
+        type: src.type,
+        title: src.title,
+        x: 0, y: 0,
+        vx: 0, vy: 0
+      };
+    });
+
+    // 初始圆形布局
+    var cx = w / 2, cy = h / 2;
+    var radius = 250;
+    nodes.forEach(function (n, i) {
+      var angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+      n.x = cx + radius * Math.cos(angle);
+      n.y = cy + radius * Math.sin(angle);
+    });
+
+    // 分组偏移：按类型稍微调整位置
+    var typeGroups = { record: 0, quot: 1, assess: 2, superv: 3, plan: 4, note: 5 };
+    nodes.forEach(function (n) {
+      var group = typeGroups[n.type] || 0;
+      n.x += (group - 2.5) * 40;
+      n.y += (group % 2 === 0 ? -30 : 30);
+    });
+
+    // 简单力模拟（5轮迭代）
+    for (var iter = 0; iter < 5; iter++) {
+      // 斥力
+      for (var i = 0; i < nodes.length; i++) {
+        for (var j = i + 1; j < nodes.length; j++) {
+          var dx = nodes[j].x - nodes[i].x;
+          var dy = nodes[j].y - nodes[i].y;
+          var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          var force = 8000 / (dist * dist);
+          var fx = (dx / dist) * force;
+          var fy = (dy / dist) * force;
+          nodes[i].x -= fx; nodes[i].y -= fy;
+          nodes[j].x += fx; nodes[j].y += fy;
+        }
+      }
+      // 引力（边的弹簧力）
+      edges.forEach(function (e) {
+        var a = nodes.find(function (n) { return n.id === e.from; });
+        var b = nodes.find(function (n) { return n.id === e.to; });
+        if (!a || !b) return;
+        var dx = b.x - a.x;
+        var dy = b.y - a.y;
+        var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        var force = (dist - 120) * 0.01;
+        var fx = (dx / dist) * force;
+        var fy = (dy / dist) * force;
+        a.x += fx; a.y += fy;
+        b.x -= fx; b.y -= fy;
+      });
+      // 中心引力
+      nodes.forEach(function (n) {
+        n.x += (cx - n.x) * 0.02;
+        n.y += (cy - n.y) * 0.02;
+      });
+      // 边界约束
+      nodes.forEach(function (n) {
+        n.x = Math.max(60, Math.min(w - 60, n.x));
+        n.y = Math.max(60, Math.min(h - 60, n.y));
+      });
+    }
+
+    // 生成 SVG
+    var svgContent = '';
+
+    // Defs
+    svgContent += '<defs>';
+    svgContent += '<filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+    svgContent += '</defs>';
+
+    // 边
+    edges.forEach(function (e) {
+      var a = nodes.find(function (n) { return n.id === e.from; });
+      var b = nodes.find(function (n) { return n.id === e.to; });
+      if (!a || !b) return;
+      var strokeStyle = e.aiDraft ? 'stroke-dasharray="4,4" stroke="var(--accent-2)" opacity="0.7"' : 'stroke="var(--hair)" stroke-width="1" opacity="0.6"';
+      svgContent += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '" ' + strokeStyle + '/>';
+    });
+
+    // 节点
+    nodes.forEach(function (n) {
+      var cfg = TYPE_CONFIG[n.type] || { label: n.type };
+      var r = 16;
+      var shortTitle = n.title.length > 6 ? n.title.substring(0, 6) + '..' : n.title;
+
+      svgContent += '<g class="graph-node" tabindex="0" role="button" aria-label="' + cfg.label + '：' + n.title + '" data-source-id="' + n.id + '" style="cursor:pointer">'
+        + '<circle cx="' + n.x + '" cy="' + n.y + '" r="' + r + '" fill="var(--bg-alt)" stroke="var(--pin-' + n.type + ')" stroke-width="2"/>'
+        + '<text x="' + n.x + '" y="' + (n.y + 1) + '" text-anchor="middle" dominant-baseline="middle" fill="var(--ink)" font-size="9" font-family="inherit" pointer-events="none">' + shortTitle + '</text>'
+        + '</g>';
+    });
+
+    svg.innerHTML = svgContent;
+
+    // 绑定节点点击
+    $$('.graph-node', svg).forEach(function (el) {
+      el.addEventListener('click', function () {
+        var sid = parseInt(this.getAttribute('data-source-id'));
+        var s = sources.find(function (x) { return x.id === sid; });
+        if (s) openDrawer(s, this);
+      });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.click(); }
+      });
+    });
+  }
+
+  /* ===== 初始化 ===== */
+  renderTimeline();
+  renderMaterials();
+  renderGraph();
+
+  // 默认视图为 materials
+  switchView('materials');
+
+})();
+</script>
+</body>
+</html>

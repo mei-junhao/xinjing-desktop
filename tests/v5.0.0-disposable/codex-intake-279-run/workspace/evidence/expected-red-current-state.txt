@@ -1,0 +1,5 @@
+﻿main.js updater references: 33
+postbuild latest-portable refs: 15
+transaction module present: False
+tests present: 0
+expected-red classification: current source contains updater/metadata wiring, but no task-local typed validator, transaction journal, safety snapshot adapter, dual-channel rollback rehearsal, or candidate tests.

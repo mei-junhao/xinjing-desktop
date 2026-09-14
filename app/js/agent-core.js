@@ -363,7 +363,12 @@
           }, { tools: wireSchemas, tool_choice: 'auto', onDelta: onDelta, onReasoning: onReasoning });
         });
       } catch (e) {
-        return { error: '模型调用失败：' + (e.message || '未知错误') };
+        // 2026-09-14（真实生产测试 P2-E）：e.message 常已自带「模型调用失败」措辞——ai.js 的
+        // safeFailureResult 文案（'模型调用失败，请检查配置、网络或服务状态'）经 new Error(r.error)
+        // 传上来。无脑加前缀会得到「模型调用失败：模型调用失败，请检查…」，再被 chat-home.js 加
+        // 「错误：」→ 三段重复。仅在消息本身未自带该措辞时才补前缀。
+        var errMsg = (e && e.message) ? String(e.message) : '未知错误';
+        return { error: /^模型调用失败/.test(errMsg) ? errMsg : ('模型调用失败：' + errMsg) };
       }
       // 兼容 {choices:[{message}]} 与 {content, tool_calls, tier} 两种形态
       const msg = (resp && resp.choices && resp.choices[0] && resp.choices[0].message) || resp;

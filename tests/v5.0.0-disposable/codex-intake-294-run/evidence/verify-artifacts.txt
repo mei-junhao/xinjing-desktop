@@ -1,0 +1,7 @@
+{
+  "suite": "verify-artifacts",
+  "artifacts": 6,
+  "tests": 6,
+  "failed": 0,
+  "runtimeEvidence": "BLOCKED"
+}

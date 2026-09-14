@@ -22,12 +22,48 @@
     restarting: '正在重启以应用更新…',
     'health-check': '正在验证更新健康…',
     committed: '更新已完成',
-    failed: '更新失败，已回滚到原版本',
+    failed: '更新未完成',
     'rollback-pending': '回滚待处理…',
     'rolling-back': '正在回滚…',
     'rolled-back': '已回滚到原版本'
   };
   var UNKNOWN = '状态未知';
+
+  // 2026-09-14（真实生产测试 P2-D）：failed 曾硬编码为「更新失败，已回滚到原版本」且完全不看
+  // errorCode —— 于是「已是最新版本」与「健康探针失败」显示同一句话，并谎称发生了回滚。实测：
+  // 点「检查更新」时线上 feed 与已装版本相同，validateFeed 在任何 writeMarker 之前就以
+  // stale-or-downgrade-version 拒掉（无下载、无安装、无回滚）。现按 errorCode 给出准确文案。
+  var ERROR_TEXT = {
+    'stale-or-downgrade-version': '已是最新版本',
+    'check-failed': '无法完成检查，请稍后重试',
+    'single-flight': '已有检查更新正在进行中',
+    'acceptance-mode': '当前为验收模式，不执行真实更新',
+    'operation-conflict': '上一轮更新尚未结束，请稍后重试',
+    'update-net-timeout': '下载更新超时，请检查网络后重试',
+    'feed-channel-mismatch': '更新源通道不匹配，已停止更新',
+    'feed-body-mismatch': '更新源内容校验失败，已停止更新',
+    'invalid-signature': '更新包签名校验未通过，已停止更新',
+    'strategy-artifact-mismatch': '更新产物与策略不匹配，已停止更新',
+    'health-check-failed': '新版本健康检查未通过',
+    'health-check-false': '新版本健康检查未通过',
+    'health-timeout': '新版本健康检查超时',
+    'health-marker-missing': '缺少健康检查标记',
+    'health-version-mismatch': '健康检查版本不符',
+    'health-channel-mismatch': '健康检查通道不符',
+    'health-strategy-mismatch': '健康检查策略不符',
+    'no-health-probe': '未找到健康检查探针',
+    'rollback-previous-missing': '缺少可回滚的上一版本安装包',
+    'rollback-strategy-failed': '回滚动作未成功执行',
+    'update-failed': '更新未完成'
+  };
+  // 只有 failed 需要额外措辞；其余状态沿用 STATE_TEXT。
+  function failureText(status) {
+    var code = status && status.errorCode ? String(status.errorCode) : '';
+    if (!code) return STATE_TEXT.failed;
+    if (code === 'stale-or-downgrade-version') return ERROR_TEXT[code];
+    var known = ERROR_TEXT[code];
+    return known ? ('更新未完成：' + known) : ('更新未完成（' + code + '）');
+  }
 
   var winRef = null;
   function bridge() {
@@ -52,12 +88,17 @@
     if (state === 'downloading') {
       info.textContent = '正在下载更新…' + (pct != null ? ' ' + pct + '%' : '') + (pct != null && pct >= 100 ? '（校验中…）' : '');
       setBar(info, pct == null ? 0 : pct);
+    } else if (state === 'failed') {
+      info.textContent = failureText(status);
+      setBar(info, null);
     } else {
       info.textContent = STATE_TEXT[state];
       setBar(info, null);
     }
+    // 「已是最新版本」是健康结果，不是失败：不标警告样式、也不声称回滚。
+    var alreadyLatest = state === 'failed' && status && status.errorCode === 'stale-or-downgrade-version';
     info.classList.toggle('update-ok', status.committed === true);
-    info.classList.toggle('update-warn', state === 'failed' || state === 'rolled-back' || state === 'rollback-pending' || state === 'rolling-back');
+    info.classList.toggle('update-warn', !alreadyLatest && (state === 'failed' || state === 'rolled-back' || state === 'rollback-pending' || state === 'rolling-back'));
     // Long Chinese text must wrap in narrow windows.
     info.style.whiteSpace = 'normal';
     info.style.wordBreak = 'break-all';
@@ -112,8 +153,8 @@
         render(info, status || { state: 'checking' });
         return status || { state: 'checking' };
       }).catch(function () {
-        render(info, { state: 'failed', committed: false });
-        return { state: 'failed', committed: false };
+        render(info, { state: 'failed', committed: false, errorCode: 'check-failed' });
+        return { state: 'failed', committed: false, errorCode: 'check-failed' };
       });
     };
 

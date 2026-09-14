@@ -1,0 +1,298 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.3-deletion-tombstone-recovery-29",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "status": "PASS",
+  "determinism": "no volatile fields; hash-stable across healthy runs",
+  "confirmed": 41,
+  "expected_red": 0,
+  "failed": 0,
+  "checks": [
+    {
+      "id": "P1_MANIFEST",
+      "label": "protected manifest is readable",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "P1_docs_agent_coordination_v5_0_0_contracts_v",
+      "label": "protected hash: docs/agent-coordination/v5.0.0/contracts/v4.3-deletion-impact-tombstone-recovery-v1.md",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "P1_tests_v5_0_0_disposable_agent_a_v4_3_delet",
+      "label": "protected hash: tests/v5.0.0-disposable/agent-a-v4.3-deletion-safety-expected-red/run-contract.js",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "P1_tests_v5_0_0_disposable_agent_a_v4_3_delet",
+      "label": "protected hash: tests/v5.0.0-disposable/agent-a-v4.3-deletion-safety-expected-red/mutation-probes.js",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "P1_tests_v5_0_0_disposable_agent_a_v4_3_delet",
+      "label": "protected hash: tests/v5.0.0-disposable/agent-a-v4.3-deletion-safety-expected-red/verify-artifacts.js",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "P2_STORE_REAL",
+      "label": "real Store module loaded",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "P2_STORE_PATH",
+      "label": "Store resolved from the production path",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "API_previewDeletionImpact",
+      "label": "Store API present: previewDeletionImpact",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "API_createDeletionBatch",
+      "label": "Store API present: createDeletionBatch",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "API_restoreDeletionBatch",
+      "label": "Store API present: restoreDeletionBatch",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "API_getDeletionBatch",
+      "label": "Store API present: getDeletionBatch",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "API_getDeletionQuarantine",
+      "label": "Store API present: getDeletionQuarantine",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R0_INVALID_TARGET",
+      "label": "unsupported deletion targets fail closed without a write",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R0_TASK_SETUP",
+      "label": "synthetic clinical task setup uses the real durable Store",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R1_PREVIEW",
+      "label": "preview returns identifier/count metadata and previewHash",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R2_DETERMINISTIC",
+      "label": "repeated preview is deterministic without a write",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R3_SCOPE",
+      "label": "client preview includes owned identifier-only affected entries",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R4_NO_BODY",
+      "label": "preview excludes clinical bodies and secrets",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R5_REVISION",
+      "label": "relevant durable write changes the preview hash",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R6_STALE_REJECTED",
+      "label": "stale preview hash is rejected without applying deletion",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R7_APPLY",
+      "label": "deletion persists an applied tombstone batch",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R8_ACTIVE_OMIT",
+      "label": "active projections omit tombstoned client and sessions",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R9_TASK_PRESERVE",
+      "label": "clinical task identity and originSessionId remain unchanged",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R10_BATCH_NO_BODY",
+      "label": "tombstone batch contains identifier-only entries",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R11_APPLY_IDEMPOTENT",
+      "label": "duplicate apply is idempotent",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R12_RESTORE",
+      "label": "restore reactivates the tombstoned objects",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R13_RESTORE_IDEMPOTENT",
+      "label": "duplicate restore is idempotent",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R14_GET_BATCH",
+      "label": "getDeletionBatch retrieves the durable audit record",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R15_GET_QUARANTINE",
+      "label": "getDeletionQuarantine returns a durable list",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R16A_TASK_SETUP",
+      "label": "session deletion task uses the real durable Store",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R16_SESSION_BATCH",
+      "label": "session deletion uses the same durable batch contract",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R16B_SESSION_TASK_PRESERVE",
+      "label": "session deletion preserves the task clientId and originSessionId",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R17_EXPORT",
+      "label": "export preserves tombstone batches and quarantine",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R18_EXPORT_NO_BODY",
+      "label": "exported deletion audit data contains no clinical body",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R19_HYDRATE",
+      "label": "hydration preserves tombstone batches",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R20_HYDRATE_OMIT",
+      "label": "hydration keeps tombstoned session out of active lists",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R20A_MISMATCH_QUARANTINE",
+      "label": "restore quarantines a cross-client identity mismatch",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R21_IMPORT_PRESERVE",
+      "label": "import returns quarantine results and preserves deletion metadata",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R22_QUARANTINE",
+      "label": "identifier-only deletion quarantine survives import",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R23_FAILURE",
+      "label": "persistence failure returns ok:false",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    },
+    {
+      "id": "R24_FAILURE_NO_CACHE_MUTATION",
+      "label": "persistence failure leaves cache and batch state unchanged",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "evidence": null
+    }
+  ]
+}

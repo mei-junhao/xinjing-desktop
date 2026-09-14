@@ -1,0 +1,75 @@
+# =============================================================================
+# XinJing 5.0.0 正式生产构建配置（electron-builder 默认入口自动加载）
+#
+# 契约: XJ-5.0.0-G9-PRODUCTION-BUILD-FILES-POLICY-V1
+# 任务: XJ-5.0.0-g9-production-build-files-allowlist-hardening-001
+#
+# 安全约束（由 scripts/verify-build-files-policy.js 机器执行验证）:
+#   - files 为正向 allowlist，禁止 "先包含全部仓库再堆叠排除" 的 denylist 风格；
+#   - docs/**, qa/**, tests/**, scripts/**, .git/**, agent/CLI/worktree/run/
+#     scratch/candidate 副本无条件不得进入 app.asar / unpacked / portable；
+#   - .license-secret, .app-proxy-key, secret.generated.js,
+#     proxy-secret.generated.js, scripts/.cos-secret.ps1 以及任何能恢复对称
+#     授权/代理凭据的变体无条件禁止进入打包产物（即使内容被编码）；
+#   - 本文件不得配置自动发布；实际构建命令始终携带 --publish never。
+# =============================================================================
+
+appId: com.mei.xinjing
+productName: XinJing
+copyright: Copyright © 2026 Mei
+
+directories:
+  buildResources: build
+  # output 不在此固化：任务卡以 --config.directories.output=<validated-task-temp-output>
+  # 传入经验证的任务临时目录，避免污染仓库。
+
+asar: true
+npmRebuild: false
+
+# 正向 allowlist：当前 packaged runtime 真正需要的根生产文件 + build/icon.* + app/**/*。
+# 依赖（node_modules）由 electron-builder production dependency pruning 处理。
+files:
+  - package.json
+  - main.js
+  - preload.js
+  - version.generated.js
+  - cloud-verify.js
+  - confirm-close-preload.js
+  - doc-chunker.js
+  - license-core.js
+  - license-public-keys.js
+  - license-revocations.json
+  - rag-index.js
+  - supervision-package-core.js
+  - supervision-package-public-keys.json
+  - build/icon.png
+  - build/icon.ico
+  - app/**/*
+  - "!**/*.log"
+  - "!**/Thumbs.db"
+  - "!**/.DS_Store"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.ico
+
+nsis:
+  artifactName: xinjing-setup-${version}.${ext}
+  oneClick: false
+  perMachine: false
+
+portable:
+  artifactName: xinjing-portable-${version}.${ext}
+
+# 发布元数据仅作为 provider 标识固定；不设置自动发布。
+# 实际构建命令恒为 --publish never；任何 push/upload/sign/publish 需独立用户授权。
+publish:
+  provider: github
+  owner: mei-junhao
+  repo: xinjing-desktop

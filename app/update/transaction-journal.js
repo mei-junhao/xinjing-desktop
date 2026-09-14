@@ -32,6 +32,10 @@ const TRANSITIONS = Object.freeze({
 });
 
 const TERMINAL = new Set([STATES.committed, STATES.rolledBack]);
+// 2026-09-14：事务已结束（concluded）的状态集合。failed 是回滚流程的中间态，
+// 但 coordinator 已保证它必然被推进到 rolled-back；把 failed 一并视为「已结束」，
+// 可让历史遗留的 failed 标记被新事务正常超越（自愈），而不是永久锁死更新功能。
+const CONCLUDED = new Set([STATES.committed, STATES.rolledBack, STATES.failed]);
 const HEX512 = /^[0-9A-F]{128}$/;
 const SAFE_ID = /^[A-Za-z0-9-]{1,80}$/;
 
@@ -79,11 +83,20 @@ function writeMarker(filePath, next) {
   let previous = null;
   if (fs.existsSync(filePath)) previous = readMarker(filePath);
   if (previous) {
-    if (previous.operationId !== next.operationId) fail('operation-conflict');
-    if (previous.channel !== next.channel) fail('cross-channel');
-    if (next.sequence <= previous.sequence) fail(next.sequence === previous.sequence ? 'duplicate-operation' : 'stale-sequence');
-    if (TERMINAL.has(previous.state)) fail('terminal-retreat');
-    if (!TRANSITIONS[previous.state] || !TRANSITIONS[previous.state].has(next.state)) fail('illegal-transition');
+    // 2026-09-14（更新功能「一次失败/一次成功即永久失效」根因修复）：已结束的
+    // 事务不得阻断新事务。原实现只要磁盘残留任何标记，新 operationId 一律
+    // operation-conflict（committed 标记则 terminal-retreat），而 cleanupTransient
+    // 明确「保留 marker」、全代码库无任何删除路径 —— 结果是更新器每台机器只能
+    // 用一次，之后必须人工删文件。in-flight（崩溃中断）仍保持 fail-closed 语义。
+    const concluded = CONCLUDED.has(previous.state);
+    if (previous.operationId !== next.operationId) {
+      if (!concluded) fail('operation-conflict');
+    } else {
+      if (previous.channel !== next.channel) fail('cross-channel');
+      if (next.sequence <= previous.sequence) fail(next.sequence === previous.sequence ? 'duplicate-operation' : 'stale-sequence');
+      if (TERMINAL.has(previous.state)) fail('terminal-retreat');
+      if (!TRANSITIONS[previous.state] || !TRANSITIONS[previous.state].has(next.state)) fail('illegal-transition');
+    }
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const temporary = filePath + '.' + process.pid + '.tmp';
@@ -101,4 +114,4 @@ function recover(filePath, expectedChannel) {
   return marker;
 }
 
-module.exports = { STATES, TRANSITIONS, TERMINAL, makeMarker, validateMarker, readMarker, writeMarker, recover };
+module.exports = { STATES, TRANSITIONS, TERMINAL, CONCLUDED, makeMarker, validateMarker, readMarker, writeMarker, recover };

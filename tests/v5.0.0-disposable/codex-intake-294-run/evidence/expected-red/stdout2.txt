@@ -1,0 +1,61 @@
+{
+  "suite": "source-context-fail-closed-contract",
+  "phase": "observe",
+  "root": "D:\\xinjing-electron\\docs\\agent-coordination\\v5.0.0\\cli-coordination\\runs\\XJ-5.0.0-cli-reasonix-v4.4-trusted-ai-source-context-fail-closed-repair-294\\workspace\\candidate\\repo",
+  "observed": [
+    {
+      "entry": "ClinicalContext.validateSources/createActionRun",
+      "name": "transcript/all-sources-clientId-cleared",
+      "admitted": true,
+      "reason": null,
+      "runCreated": true
+    },
+    {
+      "entry": "ClinicalContext.validateSources/createActionRun",
+      "name": "transcript/all-sources-sessionId-cleared",
+      "admitted": true,
+      "reason": null,
+      "runCreated": true
+    },
+    {
+      "entry": "ClinicalContext.validateSources/createActionRun",
+      "name": "transcript/all-sources-clientId-and-sessionId-cleared",
+      "admitted": true,
+      "reason": null,
+      "runCreated": true
+    },
+    {
+      "entry": "ClinicalContext.validateSources",
+      "name": "transcript/all-sources-clientId-whitespace",
+      "admitted": true,
+      "reason": null,
+      "runCreated": false
+    },
+    {
+      "entry": "ClinicalContext.validateSources/LongitudinalSummary.createPreviewActionRun",
+      "name": "summary/all-sources-clientId-cleared",
+      "admitted": true,
+      "reason": null,
+      "runCreated": true
+    },
+    {
+      "entry": "ClinicalContext.validateSources/LongitudinalSummary.createPreviewActionRun",
+      "name": "summary/all-sources-sessionId-cleared",
+      "admitted": true,
+      "reason": null,
+      "runCreated": true
+    },
+    {
+      "entry": "ClinicalContext.validateSources/LongitudinalSummary.createPreviewActionRun",
+      "name": "summary/all-sources-clientId-and-sessionId-cleared",
+      "admitted": true,
+      "reason": null,
+      "runCreated": true
+    }
+  ]
+}
+AssertionError [ERR_ASSERTION]: transcript/all-sources-clientId-cleared must fail closed at the real entry (admission was ok=true)
+
+true !== false
+
+    at run (D:\xinjing-electron\docs\agent-coordination\v5.0.0\cli-coordination\runs\XJ-5.0.0-cli-reasonix-v4.4-trusted-ai-source-context-fail-closed-repair-294\workspace\tests\source-context-fail-closed-contract.js:165:12)

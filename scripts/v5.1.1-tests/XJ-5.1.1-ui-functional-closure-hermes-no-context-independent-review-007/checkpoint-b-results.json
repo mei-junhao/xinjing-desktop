@@ -1,0 +1,45 @@
+{
+  "at": "2026-08-29T19:19:50.018Z",
+  "results": [
+    {
+      "name": "masters:初始双展开",
+      "ok": true,
+      "detail": "{\"left\":\"true\",\"right\":\"true\",\"bodyCls\":\"\"}"
+    },
+    {
+      "name": "masters:左折叠 trusted click",
+      "ok": true,
+      "detail": "{\"left\":\"false\",\"cls\":true}"
+    },
+    {
+      "name": "masters:双折叠中央最大化",
+      "ok": true,
+      "detail": "{\"cls\":\"masters-left-collapsed masters-right-collapsed\",\"grid\":\"0px 1144px 0px\"}"
+    },
+    {
+      "name": "masters:Escape 恢复双折叠",
+      "ok": true,
+      "detail": "{\"left\":\"true\",\"right\":\"true\"}"
+    },
+    {
+      "name": "supervision:上传 idle→…→success 状态机",
+      "ok": true,
+      "detail": "{\"st1\":\"success\",\"st2\":\"success\",\"label\":\"已载入\"}"
+    },
+    {
+      "name": "billing-shell:页面加载",
+      "ok": true,
+      "detail": "{\"title\":\"心镜 · 记账\",\"hasIncome\":false,\"bodyLen\":438,\"hasLock\":false}"
+    },
+    {
+      "name": "calendar:授权复用生效",
+      "ok": true,
+      "detail": "{\"can\":true}"
+    },
+    {
+      "name": "calendar:月份切换 trusted 输入",
+      "ok": true,
+      "detail": "2026年8月 → 2026年7月"
+    }
+  ]
+}

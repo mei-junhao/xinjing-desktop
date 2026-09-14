@@ -1,0 +1,45 @@
+{
+  "ok": true,
+  "events": [
+    "check",
+    "confirm",
+    "download",
+    "backup",
+    "migration",
+    "stage",
+    "restart",
+    "health"
+  ],
+  "results": [
+    {
+      "type": "run",
+      "result": {
+        "ok": true,
+        "phase": "commit",
+        "operationId": "operation-nsis-electron",
+        "state": "committed",
+        "errorCode": null,
+        "version": "5.0.0",
+        "channel": "nsis"
+      }
+    },
+    {
+      "type": "recover",
+      "recovery": {
+        "ok": true,
+        "state": "committed",
+        "operationId": "operation-nsis-electron",
+        "version": "5.0.0",
+        "channel": "nsis"
+      }
+    }
+  ],
+  "stableObjectCounts": {
+    "clients": 1,
+    "sessions": 1
+  },
+  "rendererProcess": true,
+  "contextIsolation": true,
+  "sandbox": true,
+  "networkRequests": 0
+}

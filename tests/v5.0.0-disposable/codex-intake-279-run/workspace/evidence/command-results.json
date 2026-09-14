@@ -1,0 +1,62 @@
+﻿[
+  {
+    "command": "node workspace/tests/run-feed-integrity-contract.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/run-feed-integrity-contract.stdout.txt",
+    "stderr": "workspace/evidence/logs/run-feed-integrity-contract.stderr.txt"
+  },
+  {
+    "command": "node workspace/tests/run-update-state-machine.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/run-update-state-machine.stdout.txt",
+    "stderr": "workspace/evidence/logs/run-update-state-machine.stderr.txt"
+  },
+  {
+    "command": "node workspace/tests/run-backup-migration-protection.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/run-backup-migration-protection.stdout.txt",
+    "stderr": "workspace/evidence/logs/run-backup-migration-protection.stderr.txt"
+  },
+  {
+    "command": "node workspace/tests/run-nsis-portable-parity.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/run-nsis-portable-parity.stdout.txt",
+    "stderr": "workspace/evidence/logs/run-nsis-portable-parity.stderr.txt"
+  },
+  {
+    "command": "node workspace/tests/run-electron-update-runtime.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/run-electron-update-runtime.stdout.txt",
+    "stderr": "workspace/evidence/logs/run-electron-update-runtime.stderr.txt"
+  },
+  {
+    "command": "node workspace/tests/mutation-probes.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/mutation-probes.stdout.txt",
+    "stderr": "workspace/evidence/logs/mutation-probes.stderr.txt"
+  },
+  {
+    "command": "node workspace/tests/internal-adversarial-review.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/internal-adversarial-review.stdout.txt",
+    "stderr": "workspace/evidence/logs/internal-adversarial-review.stderr.txt"
+  },
+  {
+    "command": "node workspace/tests/verify-artifacts.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/verify-artifacts.stdout.txt",
+    "stderr": "workspace/evidence/logs/verify-artifacts.stderr.txt"
+  },
+  {
+    "command": "electron.exe --no-sandbox --disable-gpu workspace/tests/electron-runtime-main.js",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/real-electron-runtime.stdout.txt",
+    "stderr": "workspace/evidence/logs/real-electron-runtime.stderr.txt"
+  },
+  {
+    "command": "node --check candidate-and-test-javascript",
+    "exitCode": 0,
+    "stdout": "workspace/evidence/logs/node-check.stdout.txt",
+    "stderr": null
+  }
+]

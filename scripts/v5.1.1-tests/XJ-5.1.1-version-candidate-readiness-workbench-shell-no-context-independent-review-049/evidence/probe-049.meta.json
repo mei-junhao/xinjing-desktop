@@ -1,0 +1,9 @@
+{
+  "taskId": "XJ-5.1.1-version-candidate-readiness-workbench-shell-no-context-independent-review-049",
+  "runId": "run-049-20260829T061329-52cc1179",
+  "stage": "B0-probe",
+  "stdoutPath": "D:/xinjing-electron/scripts/v5.1.1-tests/XJ-5.1.1-version-candidate-readiness-workbench-shell-no-context-independent-review-049\\evidence\\probe-049.stdout.raw",
+  "stdoutSha256": "94FB9D72EDB724E66A85800C5FB03F964FE5F995B266A0282CE256CBEDFF416A",
+  "stdoutBytes": 435,
+  "utc": "2026-08-29T06:42:30Z"
+}

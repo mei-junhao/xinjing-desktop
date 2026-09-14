@@ -1,0 +1,231 @@
+{
+  "task_id": "XJ-5.0.0-pi-v4.4-controlled-supervision-package-expected-red-28",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "contract_id": "v4.4-controlled-supervision-package-v1",
+  "write_lock_id": "lock-XJ-5.0.0-pi-v4.4-controlled-supervision-package-expected-red-28",
+  "grant_id": "local-codex-20260727T192730Z-pi-v4.4-supervision-package-expected-red-28",
+  "protected_files_manifest_sha256": "5941356B7B24CB1D24A6B6A011C37E024F4763A13BBFB4E91263B28115A18033",
+  "module_hashes": {
+    "entitlements.js": "BD56F1106CD316402F82D9EA1629594F53B96A39B152F7DE4DA1C11DFEF3078B",
+    "commercial-state-machine.js": "919DA1DFE0F7F16C16E2532A4B0582091C802A68C10CEA5E3C07D63E33CCD282",
+    "license-core.js": "3D44B105727E53E4BEEFB8F230835A191491B610246EFCD54F39791968A08550",
+    "main.js": "4D6443C8B1461232242BA60427FAEA460D53BEFB4BD83DDF891CB8AF39A18439",
+    "preload.js": "4B8291991C1EC39B797268C3FDD69B8CF135737A7C910603554CA16BF8C6DE68"
+  },
+  "determinism": "no volatile fields; no timestamps/random/hashes inside artifact; hash-stable across healthy runs",
+  "confirmed": 16,
+  "expected_red": 11,
+  "unverified": 0,
+  "failed": 0,
+  "row_counts": {
+    "total": 27,
+    "positive": 1,
+    "fail_closed": 13,
+    "boundary": 1,
+    "trial_quota": 1,
+    "expected_red": 11
+  },
+  "invariants": {
+    "totalRowsAtLeast12": true,
+    "confirmedRealExecuted": true,
+    "expectedRedAtLeastOne": true,
+    "expectedRedAtLeast11": true,
+    "noExpectedRedPromoted": true,
+    "expectedRedAllGreen": true,
+    "noFalseConfirmedRuntime": true,
+    "zeroFailed": true,
+    "csmPureLogicNotWired": true
+  },
+  "overall": "EXPECTED_RED",
+  "checks": [
+    {
+      "id": "C-ENT-FC-TIER",
+      "label": "unknown/malformed/expired entitlement tier fails closed to free, never pro/custom",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-ENT-COMPUTE",
+      "label": "compute/provider permission is a separate gate (access.computeAvailable=false when aiUnlocked false)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-ENT-FREE-MANUAL",
+      "label": "Free manual workflow not paywalled (manual-core minimumTier=free, canUse=true under free)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "positive"
+    },
+    {
+      "id": "C-ENT-TRIAL-BOUNDED",
+      "label": "Trial is a bounded overlay: effectiveTier stays free, custom/Flagship not granted (only trialEligible pro features)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "trial-quota"
+    },
+    {
+      "id": "C-CSM-REVOKE-ROLLBACK",
+      "label": "revocation-epoch rollback rejected (event.revocationEpoch < current)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-DEVICE-MISMATCH",
+      "label": "device mismatch rejected (single-device binding; copying file does not copy authority)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-TRANSFER-ATOMIC",
+      "label": "transfer is atomic across the full chain: deviceBindingHash stays single-valued; at most one device has paid access at any state; after migration old is denied and new is enabled",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-TRANSFER-RECOVERY",
+      "label": "interrupted migration preserves one authoritative state (rollback keeps old; forward swaps; wrong target rejected)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-TRANSFER-FINALITY",
+      "label": "after transfer-completed the new device is bound and the old pending target is cleared (no stale envelope reuse)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-GRACE-CEILING",
+      "label": "offline grace ceiling = 7*24h enforced (over-7d rejected; within-7d accepted)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-GRACE-EXPIRY",
+      "label": "grace expiry disables paid run (paidAccessAllowed=false) while Free manual stays allowed",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-CLOCK-ANOMALY",
+      "label": "clock anomaly fails closed (transition rejected; access denied)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-SIGNATURE-INVALID",
+      "label": "invalid signature fails closed (signatureValid=false rejected)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-STALE-REVISION",
+      "label": "grant-sequence rollback/replay rejected (stale-revision; idempotent ok; operation-conflict)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-CSM-QUOTA-DEBIT",
+      "label": "quota limits enforced (debit over balance rejected; within-balance ok)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "C-LIC-REVOCATION-LIST",
+      "label": "license-CODE revocation-list verifier exists and fail-closes on malformed input (scoped: NOT XJSUP package revocation)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "boundary"
+    },
+    {
+      "id": "E-XJSUP-PARSER",
+      "label": "no XJSUP/1 package-byte parser in any production module",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-CANONICAL-MANIFEST",
+      "label": "no canonical package-manifest builder/verifier (csm.canonical is event-fingerprint only)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-SIGNATURE-BEFORE-DECRYPT",
+      "label": "no signature-before-decrypt path for packages (no XJSUP source; csm takes signatureValid as pre-validated input flag, not a package-byte signature verification)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-ENVELOPE-UNWRAP",
+      "label": "no recipient envelope unwrap function",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-INSTALL-RUN-API",
+      "label": "no install/run package API (main.js ipcMain.handle has no XJSUP/inspect/install/run channels)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-TYPED-IPC-INSPECT",
+      "label": "no typed IPC for inspect/install/run (preload __XJ_API__ has no supervision-package channels)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-CSM-WIRING",
+      "label": "commercial-state-machine is real pure logic but UNWIRED (no require/import in main/preload/renderer)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-AUTHOR-KEY-CUSTODY",
+      "label": "no offline author-key signing tool / package authorKeyId registry in repo",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-ONLINE-REVOCATION-FETCH",
+      "label": "no online package-revocation fetch (cloud-verify.verifyCloud is license-code cloud activation, not package revocation)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-PROVIDER-POLICY-PACKAGE",
+      "label": "no per-package provider-policy / trusted-provider / explicit-consent registry",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "E-PLAINTEXT-NONEXPOSURE",
+      "label": "no package plaintext path exists; runtime non-exposure enforcement absent (no runtime)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    }
+  ]
+}

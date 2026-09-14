@@ -1,0 +1,22 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.5-electron-platform-runtime-refresh-38",
+  "process_id": 83564,
+  "synthetic_profile_only": true,
+  "temp_root": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\xj-tray-acceptance-ioQFPG",
+  "production_main_loaded": true,
+  "tray_constructed": true,
+  "tray_constructor_count": 1,
+  "tray_bounds": {
+    "x": 1610,
+    "y": 1032,
+    "width": 32,
+    "height": 48
+  },
+  "tray_tooltip": "心镜 XinJing",
+  "tray_menu_opened": true,
+  "login_item_call_intercepted": true,
+  "login_item_call_count": 1,
+  "icon_sha256": "E95ACE937EEFB9BC0DB4A8E0A8F2382163E80E2AF0A3CD8ABBF1992D74D5CB86",
+  "ready_at": "2026-07-28T10:09:17.546Z",
+  "error": null
+}

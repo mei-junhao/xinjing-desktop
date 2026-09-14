@@ -1,0 +1,101 @@
+=== 4.3.0 CodeBuddy 契约运行结果（rework-02，真实入口调用） ===
+真实加载入口: D:\xinjing-electron\design-previews\4.3.0-opensquilla-case-atlas\case-atlas-view-model.js , D:\xinjing-electron\design-previews\4.3.0-opensquilla-case-atlas\source-ref-adapter.js
+用例总数=34  {"PASS":27,"EXPECTED_RED":0,"UNSUPPORTED_EXPECTED_RED":6,"DEGRADED":1,"BLOCKED":0,"FAIL":0}
+[PASS] FI-01 合成会谈数量 = 30
+    detail: sessions=30
+[PASS] FI-02 单一合成 client
+    detail: clientId=cli-synth-0001
+[PASS] FI-03 主数据集结构契约通过（每条 SourceRef 含 6 字段 + 合法 status）
+    detail: ok
+[PASS] FI-04 每条 material 具备完整 SourceRef
+    detail: materials=6
+[PASS] FI-05 督导记录具备完整 SourceRef
+    detail: supervision=2
+[PASS] FI-06 ClinicalActionRun 草稿：status=draft 且具 clinicalActionRunId
+    detail: drafts=2
+[PASS] FI-07 覆盖失效态：invalid/quarantine/expired 各一
+    detail: statuses=["valid","invalid","quarantine","expired"]
+[PASS] FI-08 覆盖来源版本变化（sourceHistory 输入存在）
+    detail: session 12 含 sourceHistory
+[PASS] FI-09 断链材料场景存在（供 verify 级检测）
+    detail: broken=["mat-synth-0006"]
+[PASS] GUARD-01 未创建 prototype 复制实现 / 假 ViewModel
+    detail: clean
+[PASS] NF-01 缺 sourceContentHash 的会谈被结构契约捕获
+    detail: 捕获: session ses-synth-0001-01: sourceRef.sourceContentHash 缺失
+[PASS] NF-02 错 client 的会谈被结构契约捕获
+    detail: 捕获: session ses-synth-0001-02: clientId=cli-synth-9999 与主 client 不一致
+[PASS] NF-03 会谈数量 < 30 被结构契约捕获
+    detail: 捕获: sessions 数量=29，期望 30
+[PASS] NF-04 跨个案污染（错 client 会谈混入）被捕获
+    detail: 捕获: 跨 client 会谈被拒绝
+[PASS] PI-00 真实加载 prototype 模块并记录导出 keys ran=true
+    call: require(case-atlas-view-model.js) / require(source-ref-adapter.js)
+    observed: atlas=createViewModel,filterNodes,validateViewModel,NODE_TYPES,EDGE_TYPES,FILTERS | adapter=SourceRef,NORMALIZATION_VERSION,SOURCE_VERSION,createAtlasSourceRef,verifyAtlasSourceRef,isStale,quarantineSourceRef,isAiEdge,rejectAiEdgePersistence,createInvalidSourceRef,needsCacheInvalidation,assert
+[PASS] PI-01 createViewModel 正常输入：只读派生、validate ok、snapshot 变化即失效 ran=true
+    call: atlas.createViewModel(toPrototypeInput()); atlas.validateViewModel(vm); adapter.needsCacheInvalidation(snap, cur)
+    observed: totalSessions=30 nodes=75 edges=11 validate.ok=true inputUntouched=true invalidateOnVersionChange=true keptWhenSame=true
+[PASS] PI-02 空 client 失败关闭：createViewModel({client:null}) 必须抛错 ran=true
+    call: atlas.createViewModel({...input, client:null})
+    observed: threw=true msg=fixtures.client required
+[UNSUPPORTED_EXPECTED_RED] PI-02b unknown client 查找拒绝：无 loadClient/registry API ran=true
+    call: atlas.createViewModel({...input, client:{id:'cli-unknown-9999'}}); typeof atlas.loadClient
+    observed: createViewModel 接受了 unknown client（vm.client.id=cli-unknown-9999，sessions 仍属 cli-synth-0001）; typeof loadClient=undefined
+    detail: 进入生产前需要契约：loadClient(clientId) 必须查 client 注册表，未知 client 返回失败关闭；当前 prototype 无该 API，属实测观察到的缺口，不伪造拒绝行为
+[PASS] PI-03 少于 30 节失败关闭：createViewModel 抛错 + validateViewModel 检出 timeline<30 ran=true
+    call: atlas.createViewModel({sessions:29}); atlas.validateViewModel(vm{timeline:5})
+    observed: threw=true msg=minimum 30 sessions required, got 29 | validate flagged=true
+[PASS] PI-04 坏 node 失败关闭：非法 type / 缺 hash 被 validateViewModel 检出 ran=true
+    call: vmBad.nodes[0].type='hacked'; delete vmBad.nodes[1].sourceRef.sourceContentHash; atlas.validateViewModel(vmBad)
+    observed: ok=false typeFlag=true hashFlag=true
+    detail: ["node[0].type invalid: hacked","node[1].sourceRef.sourceContentHash missing"]
+[PASS] PI-05 AI 生成边仅预览；rejectAiEdgePersistence 拒绝一切持久化 ran=true
+    call: adapter.rejectAiEdgePersistence(aiEdge); adapter.rejectAiEdgePersistence({id:'plain'}); adapter.isAiEdge(...)
+    observed: aiEdges=1 rejAi={"ok":false,"reason":"ai-edge-persistence-denied","message":"AI-generated edges are preview-only and must not be persisted"} rejPlain.reason=persistence-not-allowed-in-disposable-prototype validate.ok=true
+[PASS] PI-06 filterNodes：类型/confirmed/ai-draft/query 过滤且不变异输入 ran=true
+    call: atlas.filterNodes(nodes,'quote'|'confirmed'|'ai-draft'|'all','督导')
+    observed: quote=30 all=75 confirmed=75 ai-draft=0 query督导=2 crafted(confirmed=74,draft=1) inputLenUnchanged=true
+[PASS] PI-07 createAtlasSourceRef：正常输入含全部字段；缺 clientId / 绝对路径 locator 抛错 ran=true
+    call: adapter.createAtlasSourceRef({...}); ({sessionId 无 clientId}); ({locator:'C:\\evil'})
+    observed: fields=true id=sr:sha256:e8df88aa… threwNoClient=true threwAbsolutePath=true
+[PASS] PI-08 verifyAtlasSourceRef + isStale：内容不变/变化/锚点断链 三态 ran=true
+    call: adapter.verifyAtlasSourceRef(ref, sameText|changedText); adapter.isStale(...)
+    observed: same=unchanged/true changed=warning/false brokenAnchor=changed/false isStale(changed)=true isStale(same)=false
+[PASS] PI-09 错 client/session 失败关闭：SourceRef.verify 返回 ambiguous ran=true
+    call: adapter.SourceRef.verify(ref, {clientId:'cli-synth-9999',...}); (sessionId mismatch)
+    observed: wrongClient={"status":"ambiguous","reason":"client-mismatch","verified":false} wrongSession=ambiguous/session-mismatch
+[DEGRADED] PI-09b verifyAtlasSourceRef 包装无法表达 client 变化（已实测的局限） ran=true
+    call: adapter.verifyAtlasSourceRef({...ref, clientId:'cli-synth-9999'}, sameText)
+    observed: swappedClient verify={"status":"unchanged","reason":"source-and-anchor-matched","verified":true}
+    detail: 包装函数从 ref 自身复制 clientId/sessionId，无法检测 client/session 篡改；client/session 失配校验必须走 SourceRef.verify（PI-09 已真实覆盖）。进入生产前 verifyAtlasSourceRef 需改为接受独立的 current 上下文
+[PASS] PI-10 quarantineSourceRef：隔离态完整且不变异原 ref ran=true
+    call: adapter.quarantineSourceRef(ref, 'unknown-client')
+    observed: q=quarantined/unknown-client/verified=false originalUntouched=true
+[PASS] PI-11 needsCacheInvalidation：null/规范版本/来源版本/client/session 变化全失效，相同不失效 ran=true
+    call: adapter.needsCacheInvalidation(snapshot, current) ×6
+    observed: null=true normVer=true srcVer=true client=true session=true same->false=true
+[UNSUPPORTED_EXPECTED_RED] PI-12 unknown session 无注册表校验（实测观察） ran=true
+    call: input.supervisions[0].sessionId='ses-unknown-9999'; atlas.createViewModel(input)
+    observed: 未知 sessionId 的督导节点仍被构建（node=n_066），无 session 注册表校验
+    detail: 进入生产前需要契约：节点构建必须对照会谈注册表，未知 sessionId 失败关闭或进入 quarantine（quarantineSourceRef 已提供人工隔离入口，PI-10 已真实覆盖）
+[UNSUPPORTED_EXPECTED_RED] PI-13 失效态 material（expired/invalid/quarantine）未被管线过滤（实测观察） ran=true
+    call: input.materials 含 sourceStatus=expired/invalid/quarantine; atlas.createViewModel(input)
+    observed: 失效态材料 3 份全部被构建为节点（n_072,n_073,n_074），管线未读取失效状态
+    detail: 进入生产前需要契约：材料管线必须读取来源失效状态，expired/invalid 拒绝、quarantine 走隔离流；当前 prototype 输入形状无 status 通道，属实测缺口
+[UNSUPPORTED_EXPECTED_RED] PI-14 断链 material 管线级自动拒绝缺失（实测观察） ran=true
+    call: atlas.createViewModel(input) 对 mat-synth-0006 重算哈希而非校验原 anchorContentHash
+    observed: 断链材料节点仍被构建（n_075），管线重算哈希、不校验携带的 originalAnchorContentHash
+    detail: 进入生产前需要契约：材料导入必须先以 SourceRef.verify 校验既有 anchorContentHash（verify 级检测能力已在 PI-08 以真实调用证明），断链即失败关闭
+[PASS] PI-15 缺 hash 节点失败关闭：空来源文本产生 invalid ref 并被 validate 检出 ran=true
+    call: input.sessions[3].transcript=''; notes=''; atlas.validateViewModel(atlas.createViewModel(input))
+    observed: validate.ok=false issues=4 首条=node[6].sourceRef.sourceContentHash missing
+    detail: 空文本 → createAtlasSourceRef 抛错 → createInvalidSourceRef 空哈希 → validateViewModel 失败关闭（完整真实链路）
+[UNSUPPORTED_EXPECTED_RED] PI-16 缺失 API 证据：loadClient/refresh/persistAIEdge/saveDraft 均不存在 ran=true
+    call: typeof atlas.loadClient / atlas.refresh / adapter.persistAIEdge / atlas.saveDraft
+    observed: {"atlas.loadClient":"undefined","atlas.refresh":"undefined","adapter.persistAIEdge":"undefined","atlas.saveDraft":"undefined","adapter.saveDraft":"undefined"}
+    detail: 不创造包装假接口。进入生产前需要接口契约：loadClient(clientId)->Promise<失败关闭>、refresh(snapshot)->Promise<新快照或失效>、persistAIEdge 必须不存在或永久拒绝、draft 保存必须显式人工确认动作
+[UNSUPPORTED_EXPECTED_RED] PI-17 异步加载/缓存刷新语义缺失：全部入口同步返回（实测观察） ran=true
+    call: atlas.createViewModel(...) instanceof Promise === false; adapter.verifyAtlasSourceRef(...) instanceof Promise === false
+    observed: 全部返回值均非 Promise（createViewModel/verifyAtlasSourceRef/needsCacheInvalidation 实测）
+    detail: 异步加载、缓存刷新、失败恢复必须等待真实 Promise 的契约无法在本 prototype 施测；不伪造假 Promise 包装。进入生产前需要异步 API 契约与取消/恢复语义
+FAIL(非预期失败)=0  UNSUPPORTED_EXPECTED_RED(API 缺失，不计入 PASS)=6

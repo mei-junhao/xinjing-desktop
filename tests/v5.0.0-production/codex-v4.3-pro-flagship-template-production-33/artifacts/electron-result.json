@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-v4.3-pro-flagship-template-production-33",
+  "pass": true,
+  "synthetic_data_only": true,
+  "network_denied": true,
+  "viewports": [
+    "1024x700",
+    "1366x768",
+    "1920x1080"
+  ],
+  "trial_preview": {
+    "ok": true,
+    "aiLocked": true,
+    "flagshipLocked": true,
+    "help": "当前为 AI 试用：付费模板仅供预览，保存时必须使用可用模板。"
+  },
+  "custom_ready": {
+    "options": [
+      {
+        "id": "manual-session-v1",
+        "disabled": false,
+        "text": "基础手动记录"
+      },
+      {
+        "id": "ai-session-v1",
+        "disabled": false,
+        "text": "AI 辅助记录"
+      },
+      {
+        "id": "flagship-session-v1",
+        "disabled": false,
+        "text": "定制记录模板"
+      }
+    ],
+    "aiEligible": true,
+    "flagshipEligible": true,
+    "focusId": "qr-notes",
+    "focusStyle": {
+      "matchesFocus": true,
+      "outlineStyle": "none",
+      "outlineWidth": "3px",
+      "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "borderColor": "rgb(198, 209, 204)",
+      "accentSoft": "#dcefeb",
+      "sheets": 10
+    },
+    "focusVisible": true,
+    "noHorizontalOverflow": true
+  },
+  "custom_flow": {
+    "ok": true,
+    "sessionId": "qr-XJ-F2-ELECTRON-CLIENT-msl2eguj-g1xq96",
+    "selection": {
+      "version": "session-template-selection-v1",
+      "templateId": "flagship-session-v1",
+      "tierAtSelection": "Flagship",
+      "context": "individual",
+      "appliedAt": "2026-08-09T00:28:59.467Z",
+      "customTemplateId": "brand-acme-001"
+    },
+    "taskCount": 2,
+    "taskTitles": [
+      "合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务合成后续任务",
+      "第二条合成任务"
+    ],
+    "noBody": true,
+    "noHorizontalOverflow": true,
+    "canSwitchAway": {
+      "allowed": true
+    }
+  },
+  "quick_visual": [
+    {
+      "viewport": "1024x700",
+      "ok": true,
+      "visible": true,
+      "panelInViewport": true,
+      "customVisible": true,
+      "noHorizontalOverflow": true,
+      "longTaskWraps": true
+    },
+    {
+      "viewport": "1366x768",
+      "ok": true,
+      "visible": true,
+      "panelInViewport": true,
+      "customVisible": true,
+      "noHorizontalOverflow": true,
+      "longTaskWraps": true
+    },
+    {
+      "viewport": "1920x1080",
+      "ok": true,
+      "visible": true,
+      "panelInViewport": true,
+      "customVisible": true,
+      "noHorizontalOverflow": true,
+      "longTaskWraps": true
+    }
+  ],
+  "failure_retry": {
+    "ok": true,
+    "retained": "失败后保留的合成任务",
+    "draftTitles": [
+      "失败后保留的合成任务"
+    ],
+    "blockedEscape": true,
+    "sameSession": true,
+    "sameSessionCount": true,
+    "matchingTasks": 1
+  },
+  "persisted_after_reload": {
+    "session": true,
+    "selection": {
+      "version": "session-template-selection-v1",
+      "templateId": "flagship-session-v1",
+      "tierAtSelection": "Flagship",
+      "context": "individual",
+      "appliedAt": "2026-08-09T00:28:59.467Z",
+      "customTemplateId": "brand-acme-001"
+    },
+    "templateId": "flagship-session-v1",
+    "customTemplateId": "brand-acme-001"
+  },
+  "historical": {
+    "selected": "flagship-session-v1",
+    "label": "定制记录模板（历史锁定）",
+    "historical": true,
+    "optionDisabled": false,
+    "customDisabled": true,
+    "status": "历史模板当前不可用，已保留原选择，不会自动改写。可改用当前可用模板。",
+    "noHorizontalOverflow": true
+  },
+  "consultation_retry": {
+    "firstFailed": true,
+    "inputRetained": true,
+    "failureVisible": true,
+    "oldSelectionRetainedOnFailure": true,
+    "sameSessionCount": true,
+    "retrySucceeded": true,
+    "finalTemplateId": "manual-session-v1",
+    "selectedValueAfterChange": "manual-session-v1",
+    "selectDisabled": false,
+    "manualOptionDisabled": false,
+    "templateSaveCalls": 1,
+    "beforeSaveState": {
+      "value": "manual-session-v1",
+      "disabled": false,
+      "status": "当前为 AI 试用：付费模板仅供预览，不能写入会谈。",
+      "options": [
+        {
+          "id": "manual-session-v1",
+          "disabled": false
+        },
+        {
+          "id": "ai-session-v1",
+          "disabled": true
+        },
+        {
+          "id": "flagship-session-v1",
+          "disabled": true
+        }
+      ]
+    }
+  },
+  "skins": {
+    "clinical": {
+      "skin": "clinical",
+      "canvas": "#eef3f1",
+      "surface": "#ffffff",
+      "accent": "#147d70",
+      "text": "#17221f"
+    },
+    "theatre": {
+      "skin": "theatre",
+      "canvas": "#eceae6",
+      "surface": "#fbfaf6",
+      "accent": "#7a3945",
+      "text": "#292522"
+    },
+    "observatory": {
+      "skin": "observatory",
+      "canvas": "#f1f5f7",
+      "surface": "#ffffff",
+      "accent": "#1f6166",
+      "text": "#0f1e22"
+    }
+  },
+  "reduced_motion": {
+    "matches": true,
+    "durations": [
+      "1e-05s",
+      "1e-05s",
+      "1e-05s"
+    ],
+    "zeroTransitions": true
+  },
+  "consult_visual": [
+    {
+      "viewport": "1024x700",
+      "ok": true,
+      "visible": true,
+      "inViewport": true,
+      "focusStyle": {
+        "matchesFocus": true,
+        "outlineStyle": "none",
+        "outlineWidth": "3px",
+        "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "borderColor": "rgb(174, 191, 197)",
+        "accentSoft": "#c5dfe2",
+        "sheets": 8
+      },
+      "focusVisible": true,
+      "statusVisible": true,
+      "noHorizontalOverflow": true,
+      "longChineseWraps": true
+    },
+    {
+      "viewport": "1366x768",
+      "ok": true,
+      "visible": true,
+      "inViewport": true,
+      "focusStyle": {
+        "matchesFocus": true,
+        "outlineStyle": "none",
+        "outlineWidth": "3px",
+        "boxShadow": "rgb(197, 223, 226) 0px 0px 0px 3px",
+        "borderColor": "rgb(31, 97, 102)",
+        "accentSoft": "#c5dfe2",
+        "sheets": 8
+      },
+      "focusVisible": true,
+      "statusVisible": true,
+      "noHorizontalOverflow": true,
+      "longChineseWraps": true
+    },
+    {
+      "viewport": "1920x1080",
+      "ok": true,
+      "visible": true,
+      "inViewport": true,
+      "focusStyle": {
+        "matchesFocus": true,
+        "outlineStyle": "none",
+        "outlineWidth": "3px",
+        "boxShadow": "rgb(197, 223, 226) 0px 0px 0px 3px",
+        "borderColor": "rgb(31, 97, 102)",
+        "accentSoft": "#c5dfe2",
+        "sheets": 8
+      },
+      "focusVisible": true,
+      "statusVisible": true,
+      "noHorizontalOverflow": true,
+      "longChineseWraps": true
+    }
+  ],
+  "console_errors": [],
+  "renderer_exceptions": [],
+  "screenshots": [
+    {
+      "viewport": "1024x700",
+      "surface": "quick-record",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-pro-flagship-template-production-33\\artifacts\\quick-record-1024x700.png",
+      "bytes": 68219,
+      "sha256": "653BF5E635F3617B44EE4F457F8EEA77BABF59D16EC150571F377BD4D252B15B"
+    },
+    {
+      "viewport": "1366x768",
+      "surface": "quick-record",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-pro-flagship-template-production-33\\artifacts\\quick-record-1366x768.png",
+      "bytes": 84845,
+      "sha256": "5ECC74A4E92678514D5E40310A0E523FE7413D621F48075A3CFD926C52B18426"
+    },
+    {
+      "viewport": "1920x1080",
+      "surface": "quick-record",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-pro-flagship-template-production-33\\artifacts\\quick-record-1920x1080.png",
+      "bytes": 93744,
+      "sha256": "44ED867388C465A27F016F311C6BA9A225A481EFEE9CD3A47D53C04575F04123"
+    },
+    {
+      "viewport": "1024x700",
+      "surface": "consult-notes",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-pro-flagship-template-production-33\\artifacts\\consult-notes-1024x700.png",
+      "bytes": 69771,
+      "sha256": "04DCD80CDD28CA30B9E4AD967F146F921CA3493699A36125017676636E081BFD"
+    },
+    {
+      "viewport": "1366x768",
+      "surface": "consult-notes",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-pro-flagship-template-production-33\\artifacts\\consult-notes-1366x768.png",
+      "bytes": 77640,
+      "sha256": "1C4759AB5524C529542723AD691CE6B815B1DD49C6B38F5D84B6709149803115"
+    },
+    {
+      "viewport": "1920x1080",
+      "surface": "consult-notes",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-pro-flagship-template-production-33\\artifacts\\consult-notes-1920x1080.png",
+      "bytes": 94003,
+      "sha256": "7E055AE02F0725F2BDF37FD062939FE0EAFF5C1437DA69160CAF1103E3F050E8"
+    }
+  ],
+  "source_hashes": {
+    "app/js/session-template-view-model.js": "19F22E90F7359B6529D27570FCFDCFB9895AA07CA3234C04BEF1CEB6641B55EC",
+    "app/js/quick-record.js": "6F5F3CE48F18260984BF041FC9D3723F7BE5058FB592238291AF45995A50312D",
+    "app/js/dashboard.js": "8B57214B94E64049AA5B87474EB01D584FCA382FD0E0C466AD58932CBEEB96E7",
+    "app/css/workbench-home.css": "A022DBD9A477246FC7186AE26DC06727693DFD58DB6B9396FFB4DDBFE4B12EE2",
+    "app/consult-notes.html": "401A0537D8C0E3F03D4389AFD1FD9654FD5E2C08EF03D51C992BC623612A3C80",
+    "app/js/consult-notes.js": "438B3DD27125B9D800E8BB304D0612AD48080445E4A5FBA2C999C3F2ECA98FCA"
+  },
+  "child_logs_tail": [
+    "[46712:0809/082858.273:ERROR:net\\base\\network_change_notifier_win.cc:213] WSALookupServiceBegin failed with: 10108",
+    "DevTools listening on ws://127.0.0.1:12456/devtools/browser/41eb0ab4-61b6-4fee-8f34-c3ea42e94350"
+  ]
+}

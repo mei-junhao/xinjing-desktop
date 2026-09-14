@@ -38,20 +38,41 @@ async function runUpdate(inputFactory, env) {
     return marker;
   };
 
+  // 2026-09-14（更新功能「一次失败即永久失效」根因修复）：回滚必须总能走到终态。
+  // 原实现把「写 failed 标记」与「回滚动作」放进同一个 try：任何回滚动作抛错
+  // （生产 nsis 路径的 rollback.previous 恒为 null，见 main.js previousInstallerPath: null
+  //  -> rollback-previous-missing）都会让标记永远停在非终态 failed；而 writeMarker
+  // 对任何新 operationId 一律 operation-conflict，于是更新功能被永久锁死，
+  // 且全代码库没有任何删除该标记的路径（cleanupTransient 明确「保留 marker」）。
+  // 冻结契约本就要求「终态 rolled-back + 保留原始错误码」，见
+  // tests/v5.0.0-production/external-g7-update-integrity/coordinator-production.js
+  // 的 'health fail -> rolled back'；该用例只在自造了 previousInstaller 的情况下通过，
+  // 生产中 previousInstaller 为 null 故必然落回 failed —— 此处让生产接线回到契约。
   const rollback = async (code) => {
+    const recoveryErrors = [];
+    await transition(STATES.failed, code);
+    // 回滚动作改为 best-effort：只记录失败，绝不阻断终态写入。
     try {
-      await transition(STATES.failed, code);
       if (strategy) rollbackStrategy(strategy, env);
-      if (snapshot && input.durableStore) {
+    } catch (error) {
+      recoveryErrors.push(String((error && error.code) || (error && error.message) || 'rollback-strategy-failed'));
+    }
+    if (snapshot && input.durableStore) {
+      try {
         restoreVerifiedSnapshot(env.snapshotPath);
         const restored = verifyRestoredData(env.snapshotPath, input.durableStore);
-        if (!restored) throw Object.assign(new Error('restore verification failed'), { code: 'restore-verify-failed' });
+        if (!restored) recoveryErrors.push('restore-verify-failed');
+      } catch (error) {
+        recoveryErrors.push(String((error && error.code) || 'snapshot-restore-failed'));
       }
-      await transition(STATES.rolledBack, code);
-      return { ok: false, state: STATES.rolledBack, code, rolledBack: true, events };
-    } catch (error) {
-      return { ok: false, state: STATES.failed, code: error.code || 'rollback-failed', rolledBack: false, events };
     }
+    try {
+      await transition(STATES.rolledBack, code);
+    } catch (error) {
+      return { ok: false, state: STATES.failed, code, rolledBack: false, recoveryErrors, events };
+    }
+    // code 始终是原始失败原因（如 health-check-failed），不被次级回滚错误掩盖。
+    return { ok: false, state: STATES.rolledBack, code, rolledBack: recoveryErrors.length === 0, recoveryErrors, events };
   };
 
   try {

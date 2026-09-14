@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "active_version": "5.0.0",
+  "state": "implementation",
+  "previous_state": "preparation",
+  "transition_id": "rt-5.0.0-0001",
+  "rework_count": 0,
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "candidate": {
+    "status": "not-created",
+    "sha256": null,
+    "scope": "No 5.0.0 production candidate has been frozen."
+  },
+  "predecessor": {
+    "version": "4.3.0",
+    "state": "implementation",
+    "status": "Its unresolved version-level evidence remains independent and is not converted to released."
+  },
+  "activation": {
+    "reason": "User explicitly authorized the switch from 5.0 preparation to implementation.",
+    "at": "2026-07-26T17:46:49+08:00",
+    "preparation_evidence": [
+      "XJ-5.0.0-codex-contract-freeze-01 accepted",
+      "XJ-5.0.0-agent-a-commercial-domain-inventory-01 accepted",
+      "XJ-5.0.0-agent-a-capability-parity-risk-inventory-02 accepted after Codex takeover",
+      "XJ-5.0.0-grok-commercial-ui-prototype-01 accepted",
+      "XJ-5.0.0-grok-commercial-ui-runtime-a11y-02 accepted"
+    ]
+  },
+  "post_implementation_policy": {
+    "packaging": "suppressed-by-explicit-user-directive",
+    "sign_upload_push_publish": "prohibited",
+    "release_claim": "prohibited until independent version-level gates and separate user authorization are complete"
+  },
+  "channel": "local",
+  "verification_status": "pending",
+  "write_permissions": "granted-for-task-card-allowlists-only",
+  "changed_by": "codex",
+  "authorization_ref": "User explicitly replied: 允许切换.",
+  "evidence_refs": [
+    "XinJing-中远期发展计划-v4.1.1-v6.0.md",
+    "docs/agent-coordination/v5.0.0/target.json",
+    "docs/agent-coordination/v5.0.0/preparation-plan.md",
+    "docs/agent-coordination/v5.0.0/contracts/v5.0-development-boundary-v1.md"
+  ],
+  "transition_history": [
+    {
+      "from": "5.0.0/preparation",
+      "to": "5.0.0/implementation",
+      "actor": "codex under explicit user instruction",
+      "at": "2026-07-26T17:46:49+08:00",
+      "evidence": "The user authorized the switch after the preparation inventory and contract tasks were accepted."
+    }
+  ],
+  "remote_write_log": [],
+  "rollback_evidence": []
+}

@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "contract_id": "v4.5-privacy-observability-expected-red-v1",
+  "task_id": "XJ-5.0.0-grok-v4.5-privacy-observability-expected-red-25",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "write_lock_id": "lock-XJ-5.0.0-grok-v4.5-privacy-observability-expected-red-25",
+  "grant_id": "local-codex-20260728T010700Z-grok-observability-25",
+  "determinism": "hash-stable-no-volatile-fields",
+  "rows": [
+    {
+      "id": "P1_PROTECTED_HASHES",
+      "dimension": "integrity",
+      "sink": "n/a",
+      "claim": "All eleven protected production/input file SHA-256 values match the task manifest",
+      "classification": "CONFIRMED",
+      "evidence_mode": "hash-recompute"
+    },
+    {
+      "id": "C1_AI_SAFE_FAILURE_NO_RAW",
+      "dimension": "renderer_exposure",
+      "sink": "renderer",
+      "claim": "Real AI.safeFailureResult never returns raw error.message, stack, absolute path, API key or clinical markers to the caller",
+      "classification": "CONFIRMED",
+      "evidence_mode": "real-export-call"
+    },
+    {
+      "id": "C2_AI_CLASSIFY_STABLE_CODES",
+      "dimension": "fields",
+      "sink": "renderer",
+      "claim": "Real AI.classifyError returns only stable anonymous codes from a fixed allowlist",
+      "classification": "CONFIRMED",
+      "evidence_mode": "real-export-call"
+    },
+    {
+      "id": "C3_LOGERROR_CONSOLE_RAW",
+      "dimension": "sink",
+      "sink": "console-only",
+      "claim": "Real production logError from app/js/app.js emits raw msg to console.error without redaction",
+      "classification": "CONFIRMED",
+      "evidence_mode": "production-source-extract-exec"
+    },
+    {
+      "id": "C4_LOGERROR_MEMORY_RAW",
+      "dimension": "sink",
+      "sink": "crash_diagnostic_state",
+      "claim": "Real production logError stores raw msg and path-bearing stack in the in-memory ring buffer",
+      "classification": "CONFIRMED",
+      "evidence_mode": "production-source-extract-exec"
+    },
+    {
+      "id": "C5_CLOUD_VERIFY_DEFAULT_OFF",
+      "dimension": "default_state",
+      "sink": "external_network",
+      "claim": "Real cloud-verify.verifyCloud is default-off when host env is empty and returns offline without opening a network request",
+      "classification": "CONFIRMED",
+      "evidence_mode": "real-export-call"
+    },
+    {
+      "id": "C6_RING_BUFFER_BOUND",
+      "dimension": "retention",
+      "sink": "crash_diagnostic_state",
+      "claim": "Real production logError ring buffer is bounded at _ERROR_LOG_MAX=100 and drops oldest entries",
+      "classification": "CONFIRMED",
+      "evidence_mode": "production-source-extract-exec"
+    },
+    {
+      "id": "C7_MARKER_CLASSES_EIGHT",
+      "dimension": "fields",
+      "sink": "console-only+crash_diagnostic_state",
+      "claim": "All eight synthetic marker classes (clinical body, prompt, model output, absolute path, API key/token, provider payload, stack, account/device) are exercised through real logError and survive unredacted",
+      "classification": "CONFIRMED",
+      "evidence_mode": "production-source-extract-exec"
+    },
+    {
+      "id": "R1_CENTRAL_REDACTION_ABSENT",
+      "dimension": "redaction",
+      "sink": "console-only+crash_diagnostic_state",
+      "claim": "No centralized redaction boundary exists before the production logError diagnostic sink; synthetic markers remain plaintext",
+      "classification": "EXPECTED_RED",
+      "evidence_mode": "real-path-gap"
+    },
+    {
+      "id": "R2_DIAGNOSTICS_CONSENT_ABSENT",
+      "dimension": "consent",
+      "sink": "crash_diagnostic_state",
+      "claim": "logError activates and records diagnostics without any explicit user-consent parameter or gate",
+      "classification": "EXPECTED_RED",
+      "evidence_mode": "real-path-gap"
+    },
+    {
+      "id": "R3_REVOCATION_ABSENT",
+      "dimension": "consent_revocation",
+      "sink": "crash_diagnostic_state",
+      "claim": "No revokeDiagnosticsConsent / clear-with-revocation API is exported beside getErrorLog on the production log surface",
+      "classification": "EXPECTED_RED",
+      "evidence_mode": "real-path-gap"
+    },
+    {
+      "id": "R4_SUPPORT_EXPORT_REDACTED_ABSENT",
+      "dimension": "support_export",
+      "sink": "file_persistence",
+      "claim": "No user-visible support/diagnostic export that excludes clinical content and secrets; getErrorLog returns full raw entries",
+      "classification": "EXPECTED_RED",
+      "evidence_mode": "real-path-gap"
+    },
+    {
+      "id": "R5_CONSENT_BOUND_TTL_ABSENT",
+      "dimension": "retention",
+      "sink": "crash_diagnostic_state",
+      "claim": "Ring size bound is not a consent-bound TTL; no retention policy API expires diagnostics by user policy",
+      "classification": "EXPECTED_RED",
+      "evidence_mode": "real-path-gap"
+    },
+    {
+      "id": "R6_LOGERROR_ANON_CODES_ABSENT",
+      "dimension": "fields",
+      "sink": "console-only+renderer",
+      "claim": "logError path does not map failures to stable anonymous error codes; raw error.message is persisted and console-emitted",
+      "classification": "EXPECTED_RED",
+      "evidence_mode": "real-path-gap"
+    },
+    {
+      "id": "U1_MAIN_PRELOAD_STACK_SINK",
+      "dimension": "sink",
+      "sink": "console-only",
+      "claim": "main.js preload-error stack console paths cannot be safely executed outside Electron; runtime proof deferred",
+      "classification": "UNVERIFIED",
+      "evidence_mode": "unsafe-module"
+    },
+    {
+      "id": "U2_LOCAL_SERVER_AND_PROXY_BIND",
+      "dimension": "network",
+      "sink": "local_server",
+      "claim": "Local static server and trial proxy bind sites are not started in this harness; binding/network is negative-only and remains UNVERIFIED at runtime",
+      "classification": "UNVERIFIED",
+      "evidence_mode": "no-server-start"
+    },
+    {
+      "id": "S1_SINK_ENUMERATION",
+      "dimension": "sink",
+      "sink": "all",
+      "claim": "Every sink class is enumerated separately: console-only, file_persistence, crash/diagnostic state, renderer, local_server, external_network",
+      "classification": "CONFIRMED",
+      "evidence_mode": "matrix-coverage"
+    },
+    {
+      "id": "S2_FILE_PERSISTENCE_DIAG_SINK",
+      "dimension": "sink",
+      "sink": "file_persistence",
+      "claim": "No callable production diagnostic file-persistence sink was exercised; absence is not proof other sinks are safe and is recorded as EXPECTED_RED gap for consent-bound redacted file diagnostics",
+      "classification": "EXPECTED_RED",
+      "evidence_mode": "real-path-gap"
+    },
+    {
+      "id": "N1_NO_TELEMETRY_ENDPOINT_CALL",
+      "dimension": "network",
+      "sink": "external_network",
+      "claim": "Harness never calls trial proxy, telemetry endpoint or external provider; cloud-verify offline path is the only network-adjacent export exercised",
+      "classification": "CONFIRMED",
+      "evidence_mode": "harness-policy+real-export-call"
+    },
+    {
+      "id": "X1_AGENT_TOOLS_SANITIZE_NOT_REDACT",
+      "dimension": "redaction",
+      "sink": "renderer",
+      "claim": "Real agent-tools sanitizeResult/stripInjection only strips prompt-injection phrases; API key and absolute path markers are not redacted",
+      "classification": "CONFIRMED",
+      "evidence_mode": "production-source-extract-exec"
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "task_id": "XJ-4.3.0-grok-doc-center-case-atlas-reference-01",
+  "generatedAt": "2026-07-25T15:19:28.517Z",
+  "previewRoot": "D:\\xinjing-electron\\design-previews\\4.3.0-grok-doc-center-case-atlas",
+  "cellCountExpected": 18,
+  "cellCountPlanned": 18,
+  "cells": [
+    {
+      "id": "1024x700__clinical__light",
+      "viewport": {
+        "name": "1024x700",
+        "width": 1024,
+        "height": 700
+      },
+      "skin": "clinical",
+      "theme": "light"
+    },
+    {
+      "id": "1024x700__clinical__dark",
+      "viewport": {
+        "name": "1024x700",
+        "width": 1024,
+        "height": 700
+      },
+      "skin": "clinical",
+      "theme": "dark"
+    },
+    {
+      "id": "1024x700__theatre__light",
+      "viewport": {
+        "name": "1024x700",
+        "width": 1024,
+        "height": 700
+      },
+      "skin": "theatre",
+      "theme": "light"
+    },
+    {
+      "id": "1024x700__theatre__dark",
+      "viewport": {
+        "name": "1024x700",
+        "width": 1024,
+        "height": 700
+      },
+      "skin": "theatre",
+      "theme": "dark"
+    },
+    {
+      "id": "1024x700__observatory__light",
+      "viewport": {
+        "name": "1024x700",
+        "width": 1024,
+        "height": 700
+      },
+      "skin": "observatory",
+      "theme": "light"
+    },
+    {
+      "id": "1024x700__observatory__dark",
+      "viewport": {
+        "name": "1024x700",
+        "width": 1024,
+        "height": 700
+      },
+      "skin": "observatory",
+      "theme": "dark"
+    },
+    {
+      "id": "1366x768__clinical__light",
+      "viewport": {
+        "name": "1366x768",
+        "width": 1366,
+        "height": 768
+      },
+      "skin": "clinical",
+      "theme": "light"
+    },
+    {
+      "id": "1366x768__clinical__dark",
+      "viewport": {
+        "name": "1366x768",
+        "width": 1366,
+        "height": 768
+      },
+      "skin": "clinical",
+      "theme": "dark"
+    },
+    {
+      "id": "1366x768__theatre__light",
+      "viewport": {
+        "name": "1366x768",
+        "width": 1366,
+        "height": 768
+      },
+      "skin": "theatre",
+      "theme": "light"
+    },
+    {
+      "id": "1366x768__theatre__dark",
+      "viewport": {
+        "name": "1366x768",
+        "width": 1366,
+        "height": 768
+      },
+      "skin": "theatre",
+      "theme": "dark"
+    },
+    {
+      "id": "1366x768__observatory__light",
+      "viewport": {
+        "name": "1366x768",
+        "width": 1366,
+        "height": 768
+      },
+      "skin": "observatory",
+      "theme": "light"
+    },
+    {
+      "id": "1366x768__observatory__dark",
+      "viewport": {
+        "name": "1366x768",
+        "width": 1366,
+        "height": 768
+      },
+      "skin": "observatory",
+      "theme": "dark"
+    },
+    {
+      "id": "1920x1080__clinical__light",
+      "viewport": {
+        "name": "1920x1080",
+        "width": 1920,
+        "height": 1080
+      },
+      "skin": "clinical",
+      "theme": "light"
+    },
+    {
+      "id": "1920x1080__clinical__dark",
+      "viewport": {
+        "name": "1920x1080",
+        "width": 1920,
+        "height": 1080
+      },
+      "skin": "clinical",
+      "theme": "dark"
+    },
+    {
+      "id": "1920x1080__theatre__light",
+      "viewport": {
+        "name": "1920x1080",
+        "width": 1920,
+        "height": 1080
+      },
+      "skin": "theatre",
+      "theme": "light"
+    },
+    {
+      "id": "1920x1080__theatre__dark",
+      "viewport": {
+        "name": "1920x1080",
+        "width": 1920,
+        "height": 1080
+      },
+      "skin": "theatre",
+      "theme": "dark"
+    },
+    {
+      "id": "1920x1080__observatory__light",
+      "viewport": {
+        "name": "1920x1080",
+        "width": 1920,
+        "height": 1080
+      },
+      "skin": "observatory",
+      "theme": "light"
+    },
+    {
+      "id": "1920x1080__observatory__dark",
+      "viewport": {
+        "name": "1920x1080",
+        "width": 1920,
+        "height": 1080
+      },
+      "skin": "observatory",
+      "theme": "dark"
+    }
+  ],
+  "artifactHashes": [
+    {
+      "file": "app.js",
+      "path": "D:\\xinjing-electron\\design-previews\\4.3.0-grok-doc-center-case-atlas\\app.js",
+      "sha256": "503c397d1f8262edc4af8be7648f83ece2e399af3f2227c857b00872426f1727",
+      "bytes": 24052
+    },
+    {
+      "file": "fixtures.js",
+      "path": "D:\\xinjing-electron\\design-previews\\4.3.0-grok-doc-center-case-atlas\\fixtures.js",
+      "sha256": "60df8d9f5192d8709844a4cd4ed88f66aa58976d211df21fb7f38b530bfcb606",
+      "bytes": 9722
+    },
+    {
+      "file": "index.html",
+      "path": "D:\\xinjing-electron\\design-previews\\4.3.0-grok-doc-center-case-atlas\\index.html",
+      "sha256": "ff2a9e1d98e3858365c5d18fcf95d38a90fb65809478710488dcbbf6b3dc78de",
+      "bytes": 4263
+    },
+    {
+      "file": "styles.css",
+      "path": "D:\\xinjing-electron\\design-previews\\4.3.0-grok-doc-center-case-atlas\\styles.css",
+      "sha256": "bbdd5d0d6879ea079642025b5e63d9abca5b4697d832d598794d1083c9da4809",
+      "bytes": 13925
+    }
+  ],
+  "sourceObservations": {
+    "overflowXHidden": true,
+    "longChineseClamp": true,
+    "focusVisible": true,
+    "reducedMotion": true,
+    "narrowBreakpoints": true,
+    "threeSkins": true,
+    "lightDark": true,
+    "segmentFocusRestore": true,
+    "nonCausationCopy": true
+  },
+  "browserAutomation": {
+    "status": "BLOCKED",
+    "reason": "No local playwright/puppeteer package found; browser viewport capture unavailable.",
+    "captures": []
+  },
+  "notes": [
+    "Source-level observations are deterministic evidence.",
+    "Browser pixel capture is BLOCKED when automation is unavailable or unwired.",
+    "Do not treat this manifest as 18-cell screenshot proof when browserAutomation.status=BLOCKED."
+  ]
+}

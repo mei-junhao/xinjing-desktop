@@ -1,0 +1,342 @@
+{
+  "generatedAt": "2026-08-03T05:30:31.969Z",
+  "selfExcluded": true,
+  "fileCount": 67,
+  "files": [
+    {
+      "path": "workspace/candidate/repo/app/js/backup-crypto.js",
+      "bytes": 13324,
+      "sha256": "772666906A2A1B184CA11A7EEB9259453F435839A13A0B1673D86C8448E7CA82"
+    },
+    {
+      "path": "workspace/candidate/repo/main.js",
+      "bytes": 136164,
+      "sha256": "F7DF0A51FA42CCEE90CAB999AD32FA549C5DE87062370309048B53BC1DE42169"
+    },
+    {
+      "path": "workspace/candidate/repo/preload.js",
+      "bytes": 17382,
+      "sha256": "BB64115B0A7A106C72F1483963EA4CBFDA71545F2C47A0B27DE335644B13FB4A"
+    },
+    {
+      "path": "workspace/candidate/repo/scripts/postbuild.js",
+      "bytes": 9295,
+      "sha256": "AA7D378554E08220035C967B9EE1BF93E98654ABBA5A83B69F13C9130BDB1288"
+    },
+    {
+      "path": "workspace/candidate/repo/update/coordinator.js",
+      "bytes": 5478,
+      "sha256": "CE6C0AEBCE01CBBF4162CD909FE02508095543AD28ADEF518C947EC13A0824AF"
+    },
+    {
+      "path": "workspace/candidate/repo/update/feed-validator.js",
+      "bytes": 6508,
+      "sha256": "422957A73B29A8797385EC3ACDC2F77B603A68FCA74CA8147BF492D45A6531AB"
+    },
+    {
+      "path": "workspace/candidate/repo/update/runtime-entry.js",
+      "bytes": 1196,
+      "sha256": "A2CF130AE716266C28F95883353DC76588100A15BF2A36462FDA8BC6540C552C"
+    },
+    {
+      "path": "workspace/candidate/repo/update/safety-snapshot.js",
+      "bytes": 3414,
+      "sha256": "3F95A875831A989321CBB4B7DEF66DFA30521BF7F22FD68DD95086255B2BFCC9"
+    },
+    {
+      "path": "workspace/candidate/repo/update/strategies.js",
+      "bytes": 2828,
+      "sha256": "D3DB4B55DBD7371390198DFEC7236D52E5E96307EF76D90616D4BCC1AFEA5BDD"
+    },
+    {
+      "path": "workspace/candidate/repo/update/transaction-journal.js",
+      "bytes": 6331,
+      "sha256": "F1E8872B478BA1C8142A7FD4885AF0FA5573FA01E92B566B913EB0479878E356"
+    },
+    {
+      "path": "workspace/delivery/DELIVERY_REPORT.md",
+      "bytes": 12362,
+      "sha256": "1AD2BA2CF5A6D2E9BA59BA520D1221D51E29F9C188C100A8B593DE919D71DCD6"
+    },
+    {
+      "path": "workspace/delivery/REPORT_SKELETON.md",
+      "bytes": 2024,
+      "sha256": "112FE0C9A8A633035091B7C154B6636721391DADA306FC7D8FE88340261A5DB3"
+    },
+    {
+      "path": "workspace/evidence/artifact-hashes.json",
+      "bytes": 2894,
+      "sha256": "28DA6795EDC2003EDB8D2A4EEC8F9B34F3354639797BC52293CBFA78FAF17620"
+    },
+    {
+      "path": "workspace/evidence/command-results.json",
+      "bytes": 2494,
+      "sha256": "8C653578433D463EF63CC17D41DE5C836D6454749BBB3D81C530C46CD8A13356"
+    },
+    {
+      "path": "workspace/evidence/electron-runtime.json",
+      "bytes": 824,
+      "sha256": "1713B08CB5C59C667D23E0A0A0467B12A657958188A04F13703F35A177AA745E"
+    },
+    {
+      "path": "workspace/evidence/expected-red-current-state.txt",
+      "bytes": 337,
+      "sha256": "D8B2B6FF482D5223B5BCB83B80D8787D30D2858FB1A7989035D687DD77597596"
+    },
+    {
+      "path": "workspace/evidence/final-verification.json",
+      "bytes": 288,
+      "sha256": "28D75F4D074ABA56E3513E6F34D84D579C8F252B61261FC56B95EB2F70AE5AB7"
+    },
+    {
+      "path": "workspace/evidence/independent-adversarial-review.txt",
+      "bytes": 1437,
+      "sha256": "CCC65460E5F158C19FF02B672BC795E6B244B4A0E6B282B7850D9E853B93EA88"
+    },
+    {
+      "path": "workspace/evidence/independent-review-input.txt",
+      "bytes": 67866,
+      "sha256": "7F60F10490DEBABFE791D5CA3C6DB94FC187D807D82A692CFE4D3F3C3C2E3CE5"
+    },
+    {
+      "path": "workspace/evidence/logs/internal-adversarial-review.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/internal-adversarial-review.js.stdout.txt",
+      "bytes": 940,
+      "sha256": "33F780C9FED59F6CC3C3BA037234242E75C540C075158710F7C77D30062D5228"
+    },
+    {
+      "path": "workspace/evidence/logs/internal-adversarial-review.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/internal-adversarial-review.stdout.txt",
+      "bytes": 977,
+      "sha256": "DB228AC36A1BF29B99C05FCDB23C0E6EA73AA49FF00364FE9BA7FAFA95EAD7CF"
+    },
+    {
+      "path": "workspace/evidence/logs/mutation-probes.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/mutation-probes.js.stdout.txt",
+      "bytes": 1714,
+      "sha256": "C5FBC07BA038EADDD8808957ABC8FFC4323B80834C6348AC76A990EECA0ACBC7"
+    },
+    {
+      "path": "workspace/evidence/logs/mutation-probes.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/mutation-probes.stdout.txt",
+      "bytes": 4880,
+      "sha256": "E50D79833D6EE2586B2DC325971E8412B370CD60B1B9A7BC249A16765E142C3A"
+    },
+    {
+      "path": "workspace/evidence/logs/node-check.stdout.txt",
+      "bytes": 55,
+      "sha256": "7BF21F5CA6566F8506D78B417BC0B7523FE6CD50CD51A3E046F78E61D9BA290E"
+    },
+    {
+      "path": "workspace/evidence/logs/real-electron-runtime.stderr.txt",
+      "bytes": 116,
+      "sha256": "285F3E78A6FC4EAD82873C92008628B76410006C45161F46E9EB2965C60424DD"
+    },
+    {
+      "path": "workspace/evidence/logs/real-electron-runtime.stdout.txt",
+      "bytes": 2,
+      "sha256": "7EB70257593DA06F682A3DDDA54A9D260D4FC514F645237F5CA74B08F8DA61A6"
+    },
+    {
+      "path": "workspace/evidence/logs/run-backup-migration-protection.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-backup-migration-protection.js.stdout.txt",
+      "bytes": 63,
+      "sha256": "0A1C354E65A27C6289F4E4ABAC7A1CCEC57E4808649D71DAEC6E46E5F143B5D5"
+    },
+    {
+      "path": "workspace/evidence/logs/run-backup-migration-protection.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-backup-migration-protection.stdout.txt",
+      "bytes": 63,
+      "sha256": "0A1C354E65A27C6289F4E4ABAC7A1CCEC57E4808649D71DAEC6E46E5F143B5D5"
+    },
+    {
+      "path": "workspace/evidence/logs/run-electron-update-runtime.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-electron-update-runtime.js.stdout.txt",
+      "bytes": 210,
+      "sha256": "FBFEBF1E4995A231EAF55087EF49A1F6DFD6774550F330E7DF93DC2D95E7D032"
+    },
+    {
+      "path": "workspace/evidence/logs/run-electron-update-runtime.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-electron-update-runtime.stdout.txt",
+      "bytes": 210,
+      "sha256": "FBFEBF1E4995A231EAF55087EF49A1F6DFD6774550F330E7DF93DC2D95E7D032"
+    },
+    {
+      "path": "workspace/evidence/logs/run-feed-integrity-contract.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-feed-integrity-contract.js.stdout.txt",
+      "bytes": 59,
+      "sha256": "69E9AC40B34F545EBF784018E870E149E9A56F0031FE4A7B0DFFAA93AF348F93"
+    },
+    {
+      "path": "workspace/evidence/logs/run-feed-integrity-contract.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-feed-integrity-contract.stdout.txt",
+      "bytes": 59,
+      "sha256": "69E9AC40B34F545EBF784018E870E149E9A56F0031FE4A7B0DFFAA93AF348F93"
+    },
+    {
+      "path": "workspace/evidence/logs/run-nsis-portable-parity.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-nsis-portable-parity.js.stdout.txt",
+      "bytes": 56,
+      "sha256": "CFBEBFBCC8C6F69C0C061EC88ACFC11F2C5798142D803D698896F87F4EBF93A1"
+    },
+    {
+      "path": "workspace/evidence/logs/run-nsis-portable-parity.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-nsis-portable-parity.stdout.txt",
+      "bytes": 56,
+      "sha256": "CFBEBFBCC8C6F69C0C061EC88ACFC11F2C5798142D803D698896F87F4EBF93A1"
+    },
+    {
+      "path": "workspace/evidence/logs/run-update-state-machine.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-update-state-machine.js.stdout.txt",
+      "bytes": 81,
+      "sha256": "DB6E69F744E2220289FA9AF0E1807001746359831AD6696ED56B6BFB81DAE5A4"
+    },
+    {
+      "path": "workspace/evidence/logs/run-update-state-machine.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/run-update-state-machine.stdout.txt",
+      "bytes": 81,
+      "sha256": "DB6E69F744E2220289FA9AF0E1807001746359831AD6696ED56B6BFB81DAE5A4"
+    },
+    {
+      "path": "workspace/evidence/logs/verify-artifacts.js.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/verify-artifacts.js.stdout.txt",
+      "bytes": 2630,
+      "sha256": "8B6671A599C432D193AD574C5F244C2736C0A3B094B698375A5ABB503FD79F7B"
+    },
+    {
+      "path": "workspace/evidence/logs/verify-artifacts.stderr.txt",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "workspace/evidence/logs/verify-artifacts.stdout.txt",
+      "bytes": 2630,
+      "sha256": "8B6671A599C432D193AD574C5F244C2736C0A3B094B698375A5ABB503FD79F7B"
+    },
+    {
+      "path": "workspace/tests/_helpers.js",
+      "bytes": 3997,
+      "sha256": "D62E44197D8EB4D588A28A1E5B9CB0212513E640185F620A0DA0161D959B86DD"
+    },
+    {
+      "path": "workspace/tests/electron-runtime-main.js",
+      "bytes": 4517,
+      "sha256": "3A354174CFB183C503DF2877B17058C3B8B581C2BE2E2152FBB4A25336CD048D"
+    },
+    {
+      "path": "workspace/tests/electron-runtime-preload.js",
+      "bytes": 380,
+      "sha256": "E951F42D7CB20DC4D6A088C6568CFE4C7681434A79988E7F25BDD0504D855285"
+    },
+    {
+      "path": "workspace/tests/electron-runtime-renderer.html",
+      "bytes": 686,
+      "sha256": "CCDFD958F7ED726657144DA4730BCF80367612A7B1A0D43516D708B4BAE5A8EB"
+    },
+    {
+      "path": "workspace/tests/internal-adversarial-review.js",
+      "bytes": 1813,
+      "sha256": "838C76519FA63DF3DA318CFAA3CB53829C90AFC8E1B3C5226601D3D701BA22AC"
+    },
+    {
+      "path": "workspace/tests/mutation-probes.js",
+      "bytes": 6161,
+      "sha256": "76BB6A7C14088D03E566E833FFBD300CDC5A207266D658A168AF4DC856544022"
+    },
+    {
+      "path": "workspace/tests/mutation-target.js",
+      "bytes": 8526,
+      "sha256": "3555D20A5F80E2D32A5467962F38EC899DE5EB109AB0935A2D6439C6F42FA63F"
+    },
+    {
+      "path": "workspace/tests/run-backup-migration-protection.js",
+      "bytes": 2141,
+      "sha256": "CB9EC9769200370E470A204A2714B1F5BBF4AA0BBA05F62D18000D1AEEFE2407"
+    },
+    {
+      "path": "workspace/tests/run-electron-update-runtime.js",
+      "bytes": 4148,
+      "sha256": "D0097170EEEFBB5A9527F5F28754F422B2809526DA73396217246E3185375D53"
+    },
+    {
+      "path": "workspace/tests/run-feed-integrity-contract.js",
+      "bytes": 2537,
+      "sha256": "A640947A5AA30A69E715EECACCBC53044CA112D8454D10361036AFA6AABE316D"
+    },
+    {
+      "path": "workspace/tests/run-nsis-portable-parity.js",
+      "bytes": 2084,
+      "sha256": "12656186B3215A09133B99F0E61630CA1CD848669D315AA2E18E94449A3DC365"
+    },
+    {
+      "path": "workspace/tests/run-update-state-machine.js",
+      "bytes": 2996,
+      "sha256": "55F353F1AE1FB7CF766758E67F7499E76A119B526CA9DD8B81A93E1049275B73"
+    },
+    {
+      "path": "workspace/tests/verify-artifacts.js",
+      "bytes": 2201,
+      "sha256": "DD3F88630DA0C2FE415D8A0B7F7ADD3D0B9C6DDC88C6C75D737A2B4372A961E6"
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Pi Bridge 测试 Harness（非生产 UI）</title>
+<style>
+  :root { --border:#e4dcd2; --ink:#3d332b; --ink3:#8a7c6e; --accent:#9E5A3C; --accent-soft:#f6efe4; --bg:#faf7f2; }
+  .dark { --border:#4a4038; --ink:#efe8df; --ink3:#b3a595; --accent:#d29a7a; --accent-soft:#3a322b; --bg:#241f1a; }
+  [data-skin="theatre"] { --accent:#7a6448; --accent-soft:#efe9dd; }
+  [data-skin="theatre"].dark { --accent:#c9b48e; --accent-soft:#332e26; }
+  [data-skin="observatory"] { --accent:#4f6d7a; --accent-soft:#e8eff1; }
+  [data-skin="observatory"].dark { --accent:#8fb3c0; --accent-soft:#253038; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:10px; padding:12px 18px; border-bottom:1px solid var(--border); }
+  header h1 { font-size:16px; margin:0; }
+  .chip { font-size:11px; font-weight:700; padding:2px 10px; border-radius:999px; background:var(--accent-soft); color:var(--accent); }
+  .wrap { display:grid; grid-template-columns: 260px 1fr; gap:14px; padding:14px 18px; }
+  .panel { border:1px solid var(--border); border-radius:12px; background:var(--bg); overflow:hidden; }
+  .panel h2 { font-size:13px; margin:0; padding:9px 14px; border-bottom:1px solid var(--border); color:var(--ink3); }
+  .list { padding:8px 14px; font-size:12.5px; max-height:300px; overflow:auto; }
+  .ev { padding:3px 0; border-bottom:1px dashed var(--border); color:var(--ink3); overflow-wrap:anywhere; }
+  .state { padding:14px; }
+  .state b { display:block; font-size:15px; margin-bottom:4px; }
+  .state small { color:var(--ink3); }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; padding:12px 14px; }
+  button { font:600 12.5px/1.4 inherit; padding:8px 14px; border-radius:9px; border:1px solid var(--border); background:var(--bg); color:var(--ink); cursor:pointer; }
+  button.pri { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .msg { padding:0 14px 12px; font-size:12.5px; color:var(--ink3); overflow-wrap:anywhere; white-space:pre-wrap; }
+  @media (prefers-reduced-motion: no-preference) { button { transition: background-color .12s ease; } }
+</style>
+</head>
+<body>
+<header><h1>Pi Bridge 测试 Harness</h1><span class="chip">003 隔离测试 · 非生产 UI</span><span class="chip" id="phase-chip">空闲</span></header>
+<div class="wrap">
+  <section class="panel"><h2>事件时间线</h2><div class="list" id="ev-list" role="log" aria-live="polite"><div class="ev">（空：尚未创建任务）</div></div></section>
+  <section class="panel">
+    <h2>任务状态</h2>
+    <div class="state"><b id="task-title">未创建任务</b><small id="task-sub">在此通过桥 API 驱动 Supervisor：观察 / 草稿 / 确认 / 保存 / 暂停 / 取消</small></div>
+    <div class="btns">
+      <button class="pri" id="b-start">创建观察任务</button>
+      <button id="b-read">读取来访者摘要</button>
+      <button id="b-commit">发起保存（需确认）</button>
+      <button id="b-approve">批准确认卡</button>
+      <button id="b-pause">暂停</button>
+      <button id="b-resume">继续</button>
+      <button id="b-cancel">取消</button>
+      <button id="b-error">触发错误路径</button>
+    </div>
+    <div class="msg" id="msg" role="status">桥就绪等待指令。长中文换行验证：心镜临床督导工作台通过结构化确认卡与服务器权威投影，保证任何写入都经过用户确认与回读验证。</div>
+  </section>
+</div>
+<script>
+(function () {
+  'use strict';
+  var pendingApprovalId = null;
+  var evBox = document.getElementById('ev-list');
+  var msg = document.getElementById('msg');
+  function log(t) {
+    if (evBox.firstChild && evBox.firstChild.className !== 'ev') evBox.innerHTML = '';
+    var d = document.createElement('div'); d.className = 'ev'; d.textContent = t; evBox.prepend(d);
+  }
+  function show(r) { msg.textContent = JSON.stringify(r); }
+  function phase(p) { document.getElementById('phase-chip').textContent = p; }
+  function bind(id, fn) { document.getElementById(id).addEventListener('click', function () { fn().then(show, show); }); }
+  bind('b-start', function () {
+    return window.__PITEST__.projection().then(function (proj) {
+      return window.__PI__.startTask({ taskId: 'xj_task_harness_1', mode: 'observe', projection: proj });
+    }).then(function (r) {
+      if (r.ok) { phase('INTAKE'); document.getElementById('task-title').textContent = '观察任务 · 合成来访者'; log('task.created xj_task_harness_1'); }
+      return r;
+    });
+  });
+  bind('b-read', function () { return window.__PI__.runToolStep('xj_task_harness_1', { tool: 'read.client.summary', args: { clientId: 'c_100' } }).then(function (r) { if (r.ok) { phase('TOOL_LOOP'); log('read.client.summary → ok'); } return r; }); });
+  bind('b-commit', function () {
+    return window.__PI__.commitStep('xj_task_harness_1', { kind: 'session', clientId: 'c_100', sessionId: 's_200' }, { note: 'harness 草稿正文' }).then(function (r) {
+      if (r.awaiting) { pendingApprovalId = r.pendingApprovalId; phase('AWAITING_CONFIRMATION'); log('approval.requested ' + pendingApprovalId); }
+      else if (r.ok) { phase('RESPOND'); log('task.committed ' + r.savedObjectId); }
+      return r;
+    });
+  });
+  bind('b-approve', function () { if (!pendingApprovalId) return Promise.resolve({ ok: false, code: 'no-pending' }); return window.__PI__.resolveApproval(pendingApprovalId, 'approved', 'local-user').then(function (r) { if (r.ok) { log('approval.resolved approved'); } return r; }); });
+  bind('b-pause', function () { return window.__PI__.pause('xj_task_harness_1', 'user').then(function (r) { if (r.ok) { phase('PAUSED'); log('task.paused'); } return r; }); });
+  bind('b-resume', function () { return window.__PI__.resume('xj_task_harness_1').then(function (r) { if (r.ok) { phase('TOOL_LOOP'); log('task.resumed'); } return r; }); });
+  bind('b-cancel', function () { return window.__PI__.cancel('xj_task_harness_1', 'user').then(function (r) { if (r.ok) { phase('CANCELLED'); log('task.cancelled'); } return r; }); });
+  bind('b-error', function () { return window.__PI__.runToolStep('xj_task_harness_1', { tool: 'shell.exec', args: {} }); });
+  // 皮肤/明暗由测试驱动（data-skin / .dark），键盘焦点原生可达。
+})();
+</script>
+</body>
+</html>

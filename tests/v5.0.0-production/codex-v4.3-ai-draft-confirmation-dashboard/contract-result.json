@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-v4.3-ai-draft-confirmation-dashboard-30",
+  "overall": "PASS",
+  "tests": 6,
+  "passed": 6,
+  "failed": 0,
+  "real_entry": "app/js/dashboard.js::renderTodo",
+  "synthetic_data_only": true
+}

@@ -1,0 +1,30 @@
+Independent reviewer: kilo/nvidia/nemotron-3-super-120b-a12b:free
+Review date: 2026-08-03
+Review basis: isolated candidate evidence summary; no production integration claim.
+
+Severity summary
+- P0: 0
+- P1: 0
+- Medium/P2: 1 (Windows network notifier WSALookupServiceBegin error 10108; non-fatal, no successful network request, Electron exit 0)
+- Low/P3: 0
+
+Score
+- Weakest-evidence score: 96/100
+- Threshold >=95: PASS
+- Blockers: none within isolated candidate scope
+
+Confirmed by reviewer
+- Strict feed/hash/size/path/channel checks.
+- Transaction journal and atomic marker behavior.
+- Verified synthetic snapshot before migration and rollback behavior.
+- Separate NSIS and portable strategies.
+- 20/20 executable mutations killed; 0 survived; 0 blocked.
+- Real Electron hidden BrowserWindow with contextIsolation=true, nodeIntegration=false, sandbox=true.
+- Preload IPC ran update and recovery; ordered events check, confirm, download, backup, migration, stage, restart, health.
+- Commit and recovery succeeded; synthetic data counts retained; network requests=0; process exit=0.
+
+Scope limitation
+- Production integration, real installers, build, signing, upload, release and real network were not reviewed and remain out of scope.
+
+Reviewer conclusion
+The isolated candidate reaches 96/100, has no P0/P1 blocker, and satisfies the >=95 threshold. The Windows notifier diagnostic is a non-blocking environment robustness observation.

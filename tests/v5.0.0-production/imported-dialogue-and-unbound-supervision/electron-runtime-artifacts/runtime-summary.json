@@ -1,0 +1,84 @@
+{
+  "task_id": "XJ-5.0.0-codex-imported-dialogue-and-unbound-supervision-01",
+  "checks": [
+    {
+      "id": "E1",
+      "label": "project main process served the initial page through loopback",
+      "pass": true,
+      "detail": "http://127.0.0.1:2693/index.html"
+    },
+    {
+      "id": "E2",
+      "label": "acceptance page observes reduced-motion preference",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E3",
+      "label": "synthetic DOCX history imports into the active Masters conversation",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E4",
+      "label": "unsupported Masters import preserves the imported conversation",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E5",
+      "label": "Masters route labels the current local context",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E6",
+      "label": "unbound supervision visibly remains independent",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E7",
+      "label": "unbound supervision can save a synthetic local record with empty identifiers",
+      "pass": true,
+      "detail": "{\"savedCount\":1,\"savedType\":\"ai\",\"clientId\":\"\",\"sessionId\":\"\",\"actionTask\":\"supervision-ai\",\"actionStatus\":\"succeeded\",\"actionSourceCount\":0,\"forgedRejected\":true,\"pageHasSuccess\":true}"
+    },
+    {
+      "id": "E8",
+      "label": "single-file transcript drop reaches the shared parser path",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E9",
+      "label": "multiple and unsupported transcript drops preserve the current draft",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E10",
+      "label": "transcript drop target is keyboard-focusable with reduced motion enabled",
+      "pass": true,
+      "detail": ""
+    }
+  ],
+  "failed": 0,
+  "screenshots": [
+    {
+      "name": "masters-docx-import-1024x700.png",
+      "sha256": "4AA7BDD4A3284AF38945391521E3AA0CF03FF1E0D852E1A7D7ADE38CD75D5113"
+    },
+    {
+      "name": "supervision-unbound-save-1366x768.png",
+      "sha256": "52AD4B9975B808C388708497F8A10387C7A99DBDB44D6D8E244FDC118E1CE8A8"
+    },
+    {
+      "name": "transcript-drop-1920x1080.png",
+      "sha256": "7584D2F71BB5ABA9F026EFFAC6F31A8D781DB1554E8BB2C076F618154888DAA0"
+    }
+  ],
+  "runtime_logs": [
+    "[19716:0809/083738.398:ERROR:net\\base\\network_change_notifier_win.cc:213] WSALookupServiceBegin failed with: 10108",
+    "DevTools listening on ws://127.0.0.1:2686/devtools/browser/2064d278-4347-4802-bbc4-f060c6c1cf16"
+  ]
+}

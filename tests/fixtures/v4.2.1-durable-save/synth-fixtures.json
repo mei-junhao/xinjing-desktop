@@ -1,0 +1,52 @@
+{
+  "description": "Synthetic fixture for XJ-4.2.1-durable-save contract tests. All data is fictional — no real client or session data.",
+  "generated_by": "XJ-4.2.1-opencode-calibration",
+  "timestamp": "2026-07-19T00:00:00.000Z",
+  "validClient": {
+    "id": "synth-c-001",
+    "name": "测试来访者A",
+    "status": "active",
+    "gender": "female",
+    "tags": ["焦虑", "测试标签"],
+    "notes": "合成测试数据——不可用于临床",
+    "billing": { "feePerSession": 300, "billingMode": "per-session" }
+  },
+  "validSession": {
+    "id": "synth-s-001",
+    "clientId": "synth-c-001",
+    "sessionNumber": 1,
+    "date": "2026-07-19",
+    "type": "individual",
+    "hasTranscript": false,
+    "hasSoap": false,
+    "billing": { "fee": 300, "paid": false }
+  },
+  "validClient2": {
+    "id": "synth-c-002",
+    "name": "测试来访者B",
+    "status": "active",
+    "billing": { "feePerSession": 400, "billingMode": "monthly" }
+  },
+  "invalidRefSession": {
+    "id": "synth-s-badref",
+    "clientId": "synth-c-non-existent",
+    "sessionNumber": 1,
+    "date": "2026-07-19"
+  },
+  "exportFixture": {
+    "version": "2.0.0",
+    "clients": [
+      { "id": "synth-c-import-01", "name": "导入测试来访者", "status": "active", "tags": ["导入测试"] }
+    ],
+    "sessions": [
+      { "id": "synth-s-import-01", "clientId": "synth-c-import-01", "sessionNumber": 1, "date": "2026-07-19", "billing": { "fee": 100, "paid": false } }
+    ],
+    "supervisions": [],
+    "masterConversations": [],
+    "expenses": [],
+    "supervisorIdentities": [],
+    "materialWorkspaces": [],
+    "clinicalActionRuns": [],
+    "settings": { "apiConfig": {}, "version": "1.0.0" }
+  }
+}

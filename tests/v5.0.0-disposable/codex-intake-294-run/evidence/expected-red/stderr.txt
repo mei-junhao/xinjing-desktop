@@ -1,0 +1,5 @@
+AssertionError [ERR_ASSERTION]: transcript/all-sources-clientId-cleared must fail closed at the real entry (admission was ok=true)
+
+true !== false
+
+    at run (D:\xinjing-electron\docs\agent-coordination\v5.0.0\cli-coordination\runs\XJ-5.0.0-cli-reasonix-v4.4-trusted-ai-source-context-fail-closed-repair-294\workspace\tests\source-context-fail-closed-contract.js:165:12)

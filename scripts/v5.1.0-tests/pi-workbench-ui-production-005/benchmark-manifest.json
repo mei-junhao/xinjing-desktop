@@ -1,0 +1,23 @@
+{
+  "taskId": "XJ-5.1.0-pi-workbench-ui-production-integration-005",
+  "version": "v1",
+  "cases": [
+    "account-gate-and-authenticated-workbench-boot",
+    "task-timeline-and-plan-projection",
+    "approval-card-and-approval-timeout",
+    "pause-resume-cancel",
+    "clinical-material-upload-entry",
+    "membership-unknown-fail-closed",
+    "empty-loading-error-states",
+    "restart-state-replay",
+    "visual-18-cell-with-focus-and-reduced-motion"
+  ],
+  "forbidden": [
+    "direct-store-write",
+    "raw-ipc",
+    "membership-fallback",
+    "absolute-material-path-leak",
+    "remote-network",
+    "real-clinical-data"
+  ]
+}

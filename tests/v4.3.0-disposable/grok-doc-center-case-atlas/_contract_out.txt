@@ -1,0 +1,27 @@
+Preview root: D:\xinjing-electron\design-previews\4.3.0-grok-doc-center-case-atlas
+HTML chars: 3784
+[CONFIRMED] C-01 preview is multi-file local bundle without CDN/network refs
+[CONFIRMED] C-02 no Goldentime global skin / Fraunces / 32px radius copy
+[CONFIRMED] C-03 Clinical / Theatre / Observatory skins defined distinctly
+[CONFIRMED] C-04 Light/Dark theme attributes supported without page duplication
+[CONFIRMED] C-10 Material / Timeline / Case Atlas segments present
+[CONFIRMED] C-11 segment switch handler and focus restoration exist
+[CONFIRMED] C-12 each segment has a real primary control handler
+[CONFIRMED] C-20 synthetic fixtures expose SourceRef-like fields
+[CONFIRMED] C-21 stale / invalid / quarantined fixtures exist and are non-usable
+[CONFIRMED] C-22 AI drafts remain drafts in fixtures and UI copy
+[CONFIRMED] C-23 scenario model covers loading / empty / error / no-client / ready
+[CONFIRMED] C-24 blocked statuses have explicit recovery UI hooks
+[CONFIRMED] C-30 reduced-motion and focus-visible rules present
+[CONFIRMED] C-31 narrow window breakpoints present
+[CONFIRMED] C-32 simplified Chinese clinical copy present
+[CONFIRMED] C-40 adaptation spec documents route, safety, accepted/rejected Goldentime items
+SHA256 index.html ff2a9e1d98e3858365c5d18fcf95d38a90fb65809478710488dcbbf6b3dc78de
+SHA256 styles.css bbdd5d0d6879ea079642025b5e63d9abca5b4697d832d598794d1083c9da4809
+SHA256 app.js 503c397d1f8262edc4af8be7648f83ece2e399af3f2227c857b00872426f1727
+SHA256 fixtures.js 60df8d9f5192d8709844a4cd4ed88f66aa58976d211df21fb7f38b530bfcb606
+SHA256 grok-doc-center-case-atlas-spec.md d683753a96103621ae152ab8fe84cc7329b46fbc9cfe78cc36f79217c051cb02
+[CONFIRMED] C-50 emit deterministic SHA-256 for allowlisted preview artifacts
+
+Contract summary: 17 passed, 0 failed
+CONTRACT_OK

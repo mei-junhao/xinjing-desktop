@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-pi-v4.3-pro-flagship-template-expected-red-24",
+  "probe_count": 12,
+  "killed": 12,
+  "survived": 0,
+  "harness_errors": 0,
+  "all_killed": true,
+  "runner_hash": "1F7E4B34C6E66902F6D97D64B6BF0E5498046F7F0C6F93EE9683754F3499AF50",
+  "store_hash": "2C4BA0F392AEAE91F0D8F6DF5D41B8117A01363AA74992E58885D529062D9A1E",
+  "entitlements_hash": "BD56F1106CD316402F82D9EA1629594F53B96A39B152F7DE4DA1C11DFEF3078B",
+  "stvm_hash": "CC72F514CF15F0830030B928C6A01D3E4FAE239B4F1CD2E25FC1EE3F4C6FEF8E",
+  "probes": [
+    {
+      "id": "M1-FAKE-MODULE",
+      "title": "fake module: bypass STVM tier filter (Free would list Pro/Flagship)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (Free ids=[\"manual-session-v1\"])",
+      "mutated_result": "true (Free ids=[\"ai-session-v1\",\"flagship-session-v1\",\"manual-session-v1\"])"
+    },
+    {
+      "id": "M2-PROMOTE-TIER",
+      "title": "unknown tier promoted to custom (normalizeTier(Flagship) must fail-closed to free)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (normalizeTier(Flagship)=free)",
+      "mutated_result": "true (normalizeTier(Flagship)=custom)"
+    },
+    {
+      "id": "M3-SWALLOW-FAILURE",
+      "title": "swallowed durable failure (must surface {ok:false} and preserve authoritative)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (res.ok=false auth=manual-session-v1)",
+      "mutated_result": "true (res=ok=true)"
+    },
+    {
+      "id": "M4-AWAIT-ORDER",
+      "title": "deleted await / cache-before-persist (failed save must NOT update authoritative cache)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (res.ok=false auth=manual-session-v1)",
+      "mutated_result": "true (res=ok=false auth=ai-session-v1)"
+    },
+    {
+      "id": "M5-BYPASS-ENTRY",
+      "title": "bypassed Store/template entry (unknown templateId must fail closed)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (fake-template ok=false)",
+      "mutated_result": "true (fake-template threw:Cannot read properties of undefined (reading 'minimumTier'))"
+    },
+    {
+      "id": "M6-TIER-MISMATCH",
+      "title": "tier/template mismatch removed (Free must not persist Pro template)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (Free+ai ok=false)",
+      "mutated_result": "true (Free+ai ok=true)"
+    },
+    {
+      "id": "M7-UNSAFE-CUSTOM",
+      "title": "unsafe customTemplateId allowed (../bad must fail closed)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (../bad ok=false)",
+      "mutated_result": "true (../bad ok=true)"
+    },
+    {
+      "id": "M8-BODY-FIELDS",
+      "title": "body-like clinical text allowed (body field must fail closed)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (body ok=false)",
+      "mutated_result": "true (body ok=true)"
+    },
+    {
+      "id": "M9-MISSING-ROW",
+      "title": "missing required expected-red row (runner invariant must fail)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (healthy runner exit 0)",
+      "mutated_result": "true (mutated exit=1)"
+    },
+    {
+      "id": "M10-FLIP-CLASSIFICATION",
+      "title": "altered expected-red classification (runner invariant must fail)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (healthy runner exit 0)",
+      "mutated_result": "true (mutated exit=1)"
+    },
+    {
+      "id": "M11-PROTECTED-FILE-DRIFT",
+      "title": "one-byte protected-input drift (capability-inventory.json, the Rework-1 drift target) forces nonzero exit before artifact writes (Gate #2 per-file hash)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (healthy-root exit=0 artifacts=true oneByte=true)",
+      "mutated_result": "true (drift-root exit=1 artifacts=false err=[BLOCKED] 1 protected-file hash mismatch(es); aborting before any task write.)"
+    },
+    {
+      "id": "M12-MANIFEST-BYTE-DRIFT",
+      "title": "one-byte manifest content drift (JSON-safe task_id X->Y) forces nonzero exit before artifact writes (Gate #1 manifest byte hash)",
+      "verdict": "killed",
+      "status": "PASS",
+      "real_result": "true (healthy-manifest exit=0 artifacts=true driftValid=true oneByte=true)",
+      "mutated_result": "true (drift-manifest exit=1 artifacts=false err=[BLOCKED] protected-files manifest byte hash mismatch: 2749960AD0A60ED8923FB378C4E4DED1698DE9545D62E5E0539BDDD)"
+    }
+  ]
+}

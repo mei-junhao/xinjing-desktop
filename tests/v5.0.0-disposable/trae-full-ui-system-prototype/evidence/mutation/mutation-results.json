@@ -1,0 +1,243 @@
+{
+  "total": 26,
+  "killed": 26,
+  "survived": 0,
+  "errors": 0,
+  "results": [
+    {
+      "id": "M01-default-skin-theatre",
+      "description": "默认皮肤被改为theatre",
+      "killed": true,
+      "survived": false,
+      "detail": "data-skin=theatre",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M02-escape-dialog-removed",
+      "description": "全局Escape关闭对话框逻辑被删除",
+      "killed": true,
+      "survived": false,
+      "detail": "before=true, after=true",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M03-ctrl-s-no-save",
+      "description": "Ctrl+S不再清除unsavedChanges",
+      "killed": true,
+      "survived": false,
+      "detail": "unsavedChanges=true",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M04-dialog-role-removed",
+      "description": "对话框role=dialog属性被删除",
+      "killed": true,
+      "survived": false,
+      "detail": "role=null",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M05-radius-32px",
+      "description": "圆角token被改为32px",
+      "killed": true,
+      "survived": false,
+      "detail": "r1=32px, r2=32px, r3=32px",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M06-dialog-no-focus-trap",
+      "description": "对话框打开后不移动焦点",
+      "killed": true,
+      "survived": false,
+      "detail": "focusInDialog=false",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M07-hashchange-no-nav",
+      "description": "hashchange不再触发路由切换",
+      "killed": true,
+      "survived": false,
+      "detail": "start=index, end=index",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M08-tier-gate-removed",
+      "description": "canUse()始终返回true（权益校验被移除）",
+      "killed": true,
+      "survived": false,
+      "detail": "lock=false, unknownDenied=false",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M09-toast-not-shown",
+      "description": "保存后不显示toast",
+      "killed": true,
+      "survived": false,
+      "detail": "no toast after Ctrl+S",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M10-main-content-missing",
+      "description": "#main-content元素被删除",
+      "killed": true,
+      "survived": false,
+      "detail": "#main-content not found",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M11-backdrop-click-no-close",
+      "description": "点击遮罩层不关闭对话框",
+      "killed": true,
+      "survived": false,
+      "detail": "before=true, after=true",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M12-reduced-motion-ignored",
+      "description": "prefers-reduced-motion被忽略（transition始终不为0）",
+      "killed": true,
+      "survived": false,
+      "detail": "transitionDuration=0.12s",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M13-default-mode-dark",
+      "description": "默认模式被改为dark",
+      "killed": true,
+      "survived": false,
+      "detail": "data-mode=dark",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M14-default-font-serif",
+      "description": "默认字体被改为serif（Fraunces）",
+      "killed": true,
+      "survived": false,
+      "detail": "font=ui-serif, Georgia, serif",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M15-sidebar-no-role-navigation",
+      "description": "侧边栏nav缺少role=navigation",
+      "killed": true,
+      "survived": false,
+      "detail": "nav[role=navigation] not found",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M16-main-not-focusable",
+      "description": "主内容区不可聚焦（移除tabindex）",
+      "killed": true,
+      "survived": false,
+      "detail": "main-content cannot receive focus",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M17-dialog-no-aria-modal",
+      "description": "对话框缺少aria-modal=true",
+      "killed": true,
+      "survived": false,
+      "detail": "aria-modal=null",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M18-ctrl-s-no-preventDefault",
+      "description": "Ctrl+S不调用preventDefault（会触发浏览器保存对话框）",
+      "killed": true,
+      "survived": false,
+      "detail": "Ctrl+S preventDefault not called",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M19-ctrl-o-no-file-open",
+      "description": "Ctrl+O不触发文件选择",
+      "killed": true,
+      "survived": false,
+      "detail": "Ctrl+O did not trigger file input click",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M20-debug-bar-visible-by-default",
+      "description": "调试栏默认可见",
+      "killed": true,
+      "survived": false,
+      "detail": "debug bar visible by default",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M21-dialog-destructive-not-styled",
+      "description": "危险操作按钮没有destructive样式",
+      "killed": true,
+      "survived": false,
+      "detail": "no btn-destructive found",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M22-route-pattern-broken",
+      "description": "路由pattern不匹配导致路由不渲染",
+      "killed": true,
+      "survived": false,
+      "detail": "no active nav item on index",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M23-toast-no-aria-live",
+      "description": "Toast容器缺少aria-live",
+      "killed": true,
+      "survived": false,
+      "detail": "aria-live=null",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M24-dialog-title-not-labelled",
+      "description": "对话框缺少aria-labelledby",
+      "killed": true,
+      "survived": false,
+      "detail": "aria-labelledby=null",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M25-closeDialog-no-remove",
+      "description": "closeDialog不从DOM移除对话框",
+      "killed": true,
+      "survived": false,
+      "detail": "before=true, after=true",
+      "pageErrors": [],
+      "setupError": false
+    },
+    {
+      "id": "M26-app-shell-class-missing",
+      "description": "#app缺少app-shell，固定侧栏网格未生效",
+      "killed": true,
+      "survived": false,
+      "detail": "{\"appShellApplied\":false,\"sidebarFixedWidth\":false,\"topbarRightOfSidebar\":false,\"mainRightOfSidebar\":false}",
+      "pageErrors": [],
+      "setupError": false
+    }
+  ],
+  "timestamp": "2026-07-27T15:22:30.852Z"
+}

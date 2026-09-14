@@ -1,0 +1,22 @@
+{
+  "suite": "internal-adversarial-review",
+  "pass": 15,
+  "fail": 0,
+  "checks": [
+    "A01-unknown-task",
+    "A02-unknown-source-kind",
+    "A03-missing-hash",
+    "A04-missing-version",
+    "A05-missing-client",
+    "A06-missing-session",
+    "A07-cross-client",
+    "A08-cross-session",
+    "A09-quarantined-source",
+    "A10-schema-smuggling",
+    "A11-automatic-persistence",
+    "A12-bounded-output",
+    "A13-source-label-conflict",
+    "A14-absent-await",
+    "A15-live-path-leakage"
+  ]
+}

@@ -1,0 +1,6 @@
+node --check workspace/candidate/repo/app/js/agent-core.js
+node --check workspace/candidate/repo/app/js/clinical-context.js
+node --check workspace/candidate/repo/app/js/clinical-task-validators.js
+node --check workspace/candidate/repo/app/js/longitudinal-summary.js
+node --check workspace/candidate/repo/app/js/prompt-governance.js
+node --check workspace/candidate/repo/app/js/source-ref.js

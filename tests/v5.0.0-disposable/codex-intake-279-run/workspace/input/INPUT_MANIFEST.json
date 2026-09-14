@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-03T12:29:22.5237731+08:00",
+  "source_root": "D:/xinjing-electron",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "candidate_scope": "fresh read-only snapshot for external Sol v4.5 update integrity and rollback isolated candidate",
+  "source_state": "dirty worktree snapshot; all evidence binds to this manifest, not to a clean commit",
+  "files": [
+    {
+      "path": "authority/AGENTS.md",
+      "sha256": "21C17BB643638554E20F0593094F652BA9AB76E714352D8AB936F2E39B1960CF",
+      "bytes": 25998
+    },
+    {
+      "path": "authority/development-plan.md",
+      "sha256": "2CB4E5FC5F2BEAE871BF2D6796B289F2B2681769E26C8F572FA762628CDA8729",
+      "bytes": 190002
+    },
+    {
+      "path": "authority/KNOWN_GAP.md",
+      "sha256": "161356117F794DE16003AC5473FCF52DB825B23180378D75DBA63C2B1AEB0F32",
+      "bytes": 2537
+    },
+    {
+      "path": "authority/release-train.yaml",
+      "sha256": "D7633D6353CDFAC42583DC29213B71282C555F4BB2508D38C7BF9BB12CD4C0C7",
+      "bytes": 2198
+    },
+    {
+      "path": "authority/v4.5-update-integrity-rollback-contract-v1.md",
+      "sha256": "3E0AF7FBFE0F0247467C894326971032377FF0EBB1F9E132453A4ECEC290F809",
+      "bytes": 3686
+    },
+    {
+      "path": "authority/v5.0-development-boundary-v1.md",
+      "sha256": "96A49B1373653763F599B21359F605DA6FA6D48E47B91CB321B9E5D7172137E9",
+      "bytes": 2566
+    },
+    {
+      "path": "source/app/js/backup-crypto.js",
+      "sha256": "772666906A2A1B184CA11A7EEB9259453F435839A13A0B1673D86C8448E7CA82",
+      "bytes": 13324
+    },
+    {
+      "path": "source/main.js",
+      "sha256": "F7DF0A51FA42CCEE90CAB999AD32FA549C5DE87062370309048B53BC1DE42169",
+      "bytes": 136164
+    },
+    {
+      "path": "source/package-lock.json",
+      "sha256": "60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07",
+      "bytes": 162045
+    },
+    {
+      "path": "source/package.json",
+      "sha256": "C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D",
+      "bytes": 801
+    },
+    {
+      "path": "source/preload.js",
+      "sha256": "BB64115B0A7A106C72F1483963EA4CBFDA71545F2C47A0B27DE335644B13FB4A",
+      "bytes": 17382
+    },
+    {
+      "path": "source/scripts/agent-electron-acceptance.ps1",
+      "sha256": "018AE1401D66890700460FC4639881B1DA92628457F2C9F41A4127BDDC4B1102",
+      "bytes": 2666
+    },
+    {
+      "path": "source/scripts/postbuild.js",
+      "sha256": "AA7D378554E08220035C967B9EE1BF93E98654ABBA5A83B69F13C9130BDB1288",
+      "bytes": 9295
+    },
+    {
+      "path": "source/scripts/self-test.js",
+      "sha256": "24722532AD76303922BBB3B431F4F53E5AD1D50D48F5448FB703BC2E882EB251",
+      "bytes": 197121
+    },
+    {
+      "path": "source/tests/v5.0.0-disposable/codex-v4.5-encrypted-backup-passphrase/restore-failure-and-main-contract.js",
+      "sha256": "8783880DEAAD45687713EEDFCBD5E8F57FEEB6DC23EDDF81314D33103A4A799B",
+      "bytes": 13828
+    },
+    {
+      "path": "source/version.generated.js",
+      "sha256": "AF3158524CF67EBE90A09DA9185744FED3E9EB29C0B5566308728BE5E604F4C8",
+      "bytes": 119
+    }
+  ]
+}
