@@ -78,3 +78,14 @@ XinJing-*.md
 # CodeGraph 本地索引库（本机代码知识图谱，体积大且与机器绑定，不入库）
 .codegraph/
 .codegraph-*/
+
+# 飞书/Lark 桥接脚本：含真实 App Secret 与 App ID，绝不入库（2026-09-14 GitHub Push Protection 拦截后补）
+scripts/feishu/
+
+# 本地构建产物与临时目录（体积大，不入库）
+xj*-build-out/
+dist.bak-*/
+.ss-test-tmp*/
+
+# 根目录临时调试脚本与抓取产物
+/_tmp*
