@@ -67,8 +67,10 @@ jobs:
       - name: Create DMG via hdiutil (real mountable DMG, bypass 7za)
         run: |
           set -e
-          APP=$(find dist -maxdepth 2 -name '心镜 XinJing.app' -type d | head -1)
-          [ -n "$APP" ] || { echo "未找到 心镜 XinJing.app"; ls -R dist | head -40; exit 1; }
+          # electron-builder 按 productName: XinJing 产出 dist/mac-arm64/XinJing.app；
+          # 旧写法按 '心镜 XinJing.app' 查找已匹配不到（产物名不含中文前缀），改为匹配顶层 .app。
+          APP=$(find dist -maxdepth 2 -name '*.app' -type d | head -1)
+          [ -n "$APP" ] || { echo "未找到 .app（期望 dist/mac-arm64/XinJing.app）"; ls -R dist | head -40; exit 1; }
           TMP=$(mktemp -d)
           cp -R "$APP" "$TMP/"
           ln -s /Applications "$TMP/Applications"
