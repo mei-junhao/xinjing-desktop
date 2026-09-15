@@ -213,7 +213,7 @@
     <div class="m-tabs">
       <div class="m-tab active" data-tab="impression" onclick="switchTab('impression')">整体印象</div>
       <div class="m-tab" data-tab="deepen" onclick="switchTab('deepen')">深化分析</div>
-      <div class="m-tab" data-tab="material" onclick="switchTab('material')">临床材料</div>
+      <div class="m-tab" data-tab="material" onclick="switchTab('material')">会谈记录</div>
     </div>
     <div class="m-content" id="m-content">
       <div class="analysis-block">
@@ -236,7 +236,7 @@
         </div>
       </div>
       <div class="analysis-block" id="material-block" style="display:none">
-        <div class="ab-head"><span class="ab-title"><i data-lucide="clipboard-pen-line"></i>临床材料</span></div>
+        <div class="ab-head"><span class="ab-title"><i data-lucide="clipboard-pen-line"></i>会谈记录</span></div>
         <div class="ab-body">
           <div id="mat-panel" class="mat-panel">
             <textarea class="material-input" id="sup-material" placeholder="粘贴逐字稿或书写案例材料……"></textarea>
@@ -257,7 +257,7 @@
               <div class="sup-upload-progress-wrap" id="sup-upload-progress-wrap" hidden>
                 <div class="sup-upload-progress" id="sup-upload-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="报告读取进度"><span id="sup-upload-progress-bar"></span></div>
               </div>
-              <p class="sup-upload-status-detail" id="sup-upload-status-detail">可选择 .txt 或 .docx 报告；读取结果只会写入临床材料草稿。</p>
+              <p class="sup-upload-status-detail" id="sup-upload-status-detail">可选择 .txt 或 .docx 报告；读取结果只会写入会谈记录草稿。</p>
               <div class="sup-upload-actions" id="sup-upload-actions">
                 <button id="sup-upload-retry" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="retryReportFileUpload()">重试</button>
                 <button id="sup-upload-cancel" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="cancelReportFileUpload()">取消读取</button>

@@ -252,8 +252,8 @@ const App = (() => {
     { key: 'calendar', label: '咨询日历', icon: 'bars', href: 'session-calendar.html', group: 'clinical' },
     { key: 'clients', label: '文档中心', icon: 'docCenter', href: 'doc-center.html', group: 'clinical' },
     { key: 'desensitize', label: '文档脱敏', icon: 'lock-keyhole', href: 'desensitize.html', group: 'clinical' },
-    { key: 'clinical', label: '临床材料', icon: 'calendar', href: 'consult-notes.html', group: 'clinical' },
-    { key: 'supervision', label: '督导空间', icon: 'cap', href: 'supervision.html', group: 'clinical', feature: 'ai-supervise' },
+    { key: 'clinical', label: '会谈记录', icon: 'calendar', href: 'consult-notes.html', group: 'clinical' },
+    { key: 'supervision', label: 'AI 督导', icon: 'cap', href: 'supervision.html', group: 'clinical', feature: 'ai-supervise' },
     { key: 'masters', label: '大师对话', icon: 'spark', href: 'masters.html', group: 'clinical', feature: 'ai-masters' },
     { key: 'knowledge', label: '资料库', icon: 'doc', href: 'knowledge.html', group: 'clinical' },
     { key: 'billing', label: '记账', icon: 'wallet', href: 'billing-shell.html', group: 'management' },
@@ -329,7 +329,7 @@ const App = (() => {
     box: 'archive', download: 'download', transcript: 'audio-lines', report: 'file-text',
     real: 'handshake', realAI: 'clipboard-check', guide: 'message-circle',
     mindmap: 'brain-circuit', growth: 'chart-no-axes-combined', docCenter: 'folder-kanban', 'chevron-left': 'chevron-left',
-    sun: 'sun', moon: 'moon', panel: 'message-square-text', userPlus: 'user-round-plus'
+    sun: 'sun', moon: 'moon', panel: 'message-square-text', userPlus: 'user-round-plus', more: 'layout-grid'
   };
 
   function svgIcon(name) {
@@ -492,13 +492,36 @@ const App = (() => {
     ensureServerModelCatalog(false).then(renderCatalog).catch(showError);
   }
 
+  // 2026-09-15 UX 审计（P1-C）：侧栏收录频率（仅用于「常用」置顶，不存储任何业务数据）。
+  const NAV_USAGE_KEY = 'xj_nav_usage';
+  function readNavUsage() {
+    try {
+      const raw = localStorage.getItem(NAV_USAGE_KEY);
+      const obj = raw ? JSON.parse(raw) : {};
+      return (obj && typeof obj === 'object') ? obj : {};
+    } catch (e) { return {}; }
+  }
+  function bumpNavUsage(key) {
+    if (!key) return;
+    try {
+      const usage = readNavUsage();
+      usage[key] = (Number(usage[key]) || 0) + 1;
+      localStorage.setItem(NAV_USAGE_KEY, JSON.stringify(usage));
+    } catch (e) { /* localStorage 不可用时忽略 */ }
+  }
+  function trackCurrentNavUsage() {
+    const path = location.pathname.split('/').pop() || 'index.html';
+    const direct = NAV_ITEMS.find(function (it) { return it.href === path; });
+    if (direct) bumpNavUsage(direct.key);
+  }
+
   function renderSidebar() {
     const currentPath = location.pathname.split('/').pop() || 'index.html';
     const renderItem = function (item) {
       const active = item.href === currentPath ? ' active' : '';
       const locked = item.feature && !canUse(item.feature);
       return `<div class="nav-entry${active}">
-        <a class="nav-item${active}" href="${item.href}" title="${item.label}">
+        <a class="nav-item${active}" href="${item.href}" title="${item.label}" data-nav-key="${item.key || ''}">
           <span class="icon">${svgIcon(item.icon)}</span>
           <span class="label-text">${item.label}</span>
         </a>
@@ -518,17 +541,27 @@ const App = (() => {
           '<span class="nav-group-chevron">' + svgIcon('chevron-down') + '</span>' +
         '</button><div class="nav-group-body">' + entries.map(renderItem).join('') + '</div></section>';
     };
-    const workspace = NAV_ITEMS.filter((item) => item.key === 'workbench' || item.key === 'calendar' || item.key === 'clients' || item.key === 'desensitize').map(renderItem).join('');
+    // 2026-09-15 UX 审计（P1-C）：侧栏信息架构收敛——
+    // 默认只展开高频 NAV_ITEMS（按使用频率动态置顶），其余收进「更多」折叠区，
+    // 所有入口仍可达（仅折叠、不删功能/路由）。会谈记录 / AI 督导 维持可展开二级分组。
+    const usage = readNavUsage();
+    const flatNav = NAV_ITEMS.filter(function (item) { return item.key !== 'clinical' && item.key !== 'supervision'; });
+    const sortedNav = flatNav.slice().sort(function (a, b) {
+      const ua = usage[a.key] || 0, ub = usage[b.key] || 0;
+      if (ub !== ua) return ub - ua;                          // 使用频率高者置顶
+      return NAV_ITEMS.indexOf(a) - NAV_ITEMS.indexOf(b);     // 同频保持原序（稳定排序）
+    });
+    const PRIMARY_COUNT = 5;
+    const primaryNav = sortedNav.slice(0, PRIMARY_COUNT);
+    const moreNav = sortedNav.slice(PRIMARY_COUNT);
+    const growthItem = { key: 'growth', label: '成长轨迹', icon: 'growth', href: 'doc-growth.html', feature: 'ai-growth' };
+    const moreEntries = moreNav.concat([growthItem]);
     const clinicalMaterials = CLINICAL_MATERIAL_ITEMS;
     const supervisionSpace = SUPERVISION_SPACE_ITEMS;
-    const resources = NAV_ITEMS.filter((item) => item.key === 'masters' || item.key === 'knowledge').map(renderItem).join('') +
-      renderItem({ label: '成长轨迹', icon: 'growth', href: 'doc-growth.html', feature: 'ai-growth' });
-    const management = NAV_ITEMS.filter((item) => item.group === 'management').map(renderItem).join('');
-    const items = '<div class="nav-group"><div class="nav-group-label">工作区</div>' + workspace + '</div>' +
-      renderDisclosure('clinical-materials', '临床材料', 'calendar', clinicalMaterials) +
-      renderDisclosure('supervision-space', '督导空间', 'cap', supervisionSpace) +
-      '<div class="nav-group"><div class="nav-group-label">专业资源</div>' + resources + '</div>' +
-      '<div class="nav-group"><div class="nav-group-label">执业管理</div>' + management + '</div>';
+    const items = '<div class="nav-group"><div class="nav-group-label">常用</div>' + primaryNav.map(renderItem).join('') + '</div>' +
+      renderDisclosure('clinical-materials', '会谈记录', 'calendar', clinicalMaterials) +
+      renderDisclosure('supervision-space', 'AI 督导', 'cap', supervisionSpace) +
+      (moreEntries.length ? renderDisclosure('more', '更多', 'more', moreEntries) : '');
     // 读取折叠状态（默认展开）
     var collapsed = '';
     try { if (localStorage.getItem('xj_sidebar_collapsed') === '1') collapsed = ' collapsed'; } catch(e) {}
@@ -622,6 +655,13 @@ const App = (() => {
         var collapsed = group.classList.toggle('is-collapsed');
         button.setAttribute('aria-expanded', String(!collapsed));
         try { localStorage.setItem('xj_sidebar_group_' + button.dataset.navGroup, collapsed ? '1' : '0'); } catch (e) {}
+      });
+    });
+    document.querySelectorAll('.nav-item[data-nav-key]').forEach(function (link) {
+      if (link.dataset.bound) return;
+      link.dataset.bound = '1';
+      link.addEventListener('click', function () {
+        try { bumpNavUsage(link.getAttribute('data-nav-key')); } catch (e) {}
       });
     });
     const ttBtn = document.getElementById('xj-theme-toggle');
@@ -1093,13 +1133,21 @@ const App = (() => {
     await refreshLicenseState();
 
     // 确保数据已从 IndexedDB 载入内存缓存（对外仍是同步读写）
+    // 2026-09-15 UX 审计（P1-B）：Store 载入后，selectedBuiltinModelId() 才返回用户真实选择
+    // （如 gpt-5.6）；而 build()/bindSidebarControls 在 Store 未就绪时已将兜底标签
+    // 「DeepSeek V4 Pro」写进 DOM，且其后无代码刷新，导致「页面打开显示错模型名、点开选择器才变对」。
+    // 仅在 hydrate 成功（Store 已就绪）后补一次刷新，避免未就绪时把标签误刷成兜底值。
+    let storeHydrated = false;
     if (window.Store && typeof Store.hydrate === 'function') {
       try {
         await Store.hydrate();
+        storeHydrated = true;
       } catch (e) {
         console.warn('[App] 数据加载失败，将使用空数据', e);
       }
     }
+    if (storeHydrated) updateModelSelectorChrome();
+    trackCurrentNavUsage();
     installPiRendererTransport();
     if (opts.piContext) {
       try {
@@ -1716,6 +1764,29 @@ const App = (() => {
 
   // ---------- 全局常驻：Ctrl+K 命令面板 ----------
   // Agent 呼吸球 (#6) 由 agent-shell.js 统一渲染（可拖动 + 全屏/小屏切换），app.js 不再注入 FAB
+  // 2026-09-15 UX 审计（P1-C）：命令面板覆盖 ROUTE_REGISTRY 全部页面（模糊搜索 + 回车跳转）。
+  const ROUTE_TITLE_MAP = {
+    'index.html': '工作台', 'chat-home.html': 'AI 对话', 'session-calendar.html': '咨询日历',
+    'doc-center.html': '文档中心', 'doc-growth.html': '成长轨迹', 'consult-notes.html': '咨询记录',
+    'transcript.html': '逐字稿整理', 'transcript-guide.html': '逐字稿引导', 'report-writing.html': '撰写报告',
+    'supervision.html': 'AI 督导', 'supervision-mindmap.html': '督导思维导图', 'real-supervision.html': '真人督导',
+    'real-supervision-ai.html': '人工督导分析', 'masters.html': '大师对话', 'knowledge.html': '资料库',
+    'billing-shell.html': '记账', 'billing-calendar.html': '记账日历', 'sync.html': '数据同步',
+    'settings.html': '设置', 'feedback.html': '意见反馈', 'activation.html': '激活会员',
+    'confirm-close.html': '确认关闭', 'migrate-helper.html': '迁移助手'
+  };
+  function titleForRoute(href) {
+    if (ROUTE_TITLE_MAP[href]) return ROUTE_TITLE_MAP[href];
+    return String(href).replace(/\.html$/, '');
+  }
+  const CMD_ROUTE_COMMANDS = Object.keys(ROUTE_REGISTRY).map(function (href) {
+    const entry = ROUTE_REGISTRY[href] || {};
+    return {
+      label: titleForRoute(href),
+      hint: entry.domain || href,
+      run: function () { location.href = href; },
+    };
+  });
   const CMD_COMMANDS = [
     { label: '新建来访者', hint: '创建一位新的咨询来访者', run: function () {
         if (document.getElementById('client-modal')) App.openModal('client-modal');
@@ -1726,7 +1797,7 @@ const App = (() => {
     { label: '大师对话', hint: '打开大师对话页面', run: function () { location.href = 'masters.html'; } },
     { label: '咨询记录', hint: '打开咨询记录工作区', run: function () { location.href = 'consult-notes.html'; } },
     { label: '设置', hint: '打开设置页面', run: function () { location.href = 'settings.html'; } },
-  ];
+  ].concat(CMD_ROUTE_COMMANDS);
 
   function ensureCmdPalette() {
     if (document.getElementById('xj-cmd-palette')) return;
@@ -1762,12 +1833,35 @@ const App = (() => {
           }).join('')
         : '<li class="xj-cmd-empty">无匹配命令</li>';
     }
+    var paletteKeydownHandler = null;
+    var paletteKeydownAttached = false;
     function open() {
       root.classList.remove('hidden');
       sel = 0; input.value = ''; render('');
       setTimeout(function () { try { input.focus(); } catch (e) {} }, 0);
+      // 面板打开期间挂 document 级 Esc：焦点离开输入框也能关面板。
+      // 用 attached 标记避免重复绑定（Cmd+K 在已打开时再次触发会重入 open）；
+      // close() 时移除监听，避免泄漏、不影响其它输入的 Esc。
+      if (!paletteKeydownHandler) {
+        paletteKeydownHandler = function (e) {
+          if (e.key !== 'Escape' && e.key !== 'Esc') return;
+          if (root.classList.contains('hidden')) return;
+          e.preventDefault();
+          close();
+        };
+      }
+      if (!paletteKeydownAttached) {
+        document.addEventListener('keydown', paletteKeydownHandler);
+        paletteKeydownAttached = true;
+      }
     }
-    function close() { root.classList.add('hidden'); }
+    function close() {
+      root.classList.add('hidden');
+      if (paletteKeydownAttached && paletteKeydownHandler) {
+        document.removeEventListener('keydown', paletteKeydownHandler);
+        paletteKeydownAttached = false;
+      }
+    }
     function exec() {
       const items = filterItems(input.value);
       if (!items.length) return;
@@ -1797,12 +1891,15 @@ const App = (() => {
   readCachedModelCatalog();
 
   function setupGlobalChrome() {
-    ensureCmdPalette();
     if (window.__xjCmdKeyBound) return;
     window.__xjCmdKeyBound = true;
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
+        // 2026-09-15 UX 审计（P1-C）：若已有其它 modal 打开，命令面板让位，避免叠加。
+        // 注意：confirm-modal 常驻 DOM（隐藏），故以 .show 判定「真正打开」，避免误判导致永远打不开。
+        if (document.querySelector('.modal-overlay.show')) return;
+        ensureCmdPalette();            // 惰性创建：首次唤起时才建 DOM，不影响首屏
         if (window.__xjOpenCmd) window.__xjOpenCmd();
       }
     });

@@ -159,6 +159,15 @@ const AI = (() => {
     return 'provider_http';
   }
 
+  // 2026-09-15 UX 审计：把内部分类映射为「带下一步动作」的用户文案。
+  // 原兜底「请检查配置、网络或服务状态」无法区分鉴权/网络/服务端故障，
+  // 零先验用户看到后不知道该检查什么，只能放弃。
+  function failureTextFor(errorCode) {
+    if (errorCode === 'auth') return 'AI 服务鉴权失败（密钥无效或未配置），请在「设置 → AI 接口」检查配置';
+    if (errorCode === 'network') return '网络连接失败，请检查网络后重试';
+    return 'AI 服务暂时不可用，请稍后重试；若持续出现，请把错误码 ' + errorCode + ' 发给客服';
+  }
+
   // 所有失败出口共用固定文案；错误详情只保留内部分类，不把服务端原文带到 UI。
   function safeFailureResult(error, options) {
     options = options || {};
@@ -181,7 +190,7 @@ const AI = (() => {
         transportState: transportState,
       };
     }
-    return { error: '模型调用失败，请检查配置、网络或服务状态', errorCode: errorCode, transportState: transportState };
+    return { error: failureTextFor(errorCode), errorCode: errorCode, transportState: transportState };
   }
 
   // ---------- 试用额度（代理侧记账，服务端硬限额 ¥5 / 30 天 / 机器码）----------
@@ -347,10 +356,13 @@ const AI = (() => {
       if (msg && typeof msg.content === 'string') return { ok: true };
       return { ok: false, error: '服务端返回空响应', errorCode: 'provider_http' };
     } catch (e) {
+      const pingCode = classifyError(e);
       return {
         ok: false,
-        error: '连接失败，请检查配置、网络或服务状态',
-        errorCode: classifyError(e),
+        // 2026-09-15 UX 审计：与 safeFailureResult 共用同一套可操作文案，
+        // 不再额外加「连接失败：」前缀（历史遗留的双重前缀问题）。
+        error: failureTextFor(pingCode),
+        errorCode: pingCode,
       };
     }
   }

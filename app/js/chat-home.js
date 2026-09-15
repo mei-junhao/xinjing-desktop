@@ -15,6 +15,9 @@
   let initialized = false;
   let hydrationFailed = false;
   let draftSeq = 0;
+  let sendUndoState = null;   // 方案 B：最近一次发送的待撤销状态 { userEl, userObj }
+  let sendUndoTimer = null;   // 方案 B：3 秒自动失效计时器
+  let undoToastEl = null;     // 方案 B：撤销提示条 DOM
 
   const MEM_KEY = 'xj_xinjing_chat_v1';
   const MEM_MAX = 50;
@@ -26,7 +29,9 @@
     { key: 'masters', label: '大师对话', href: 'masters.html', pattern: /大师对话|多大师|圆桌|温尼科特|弗洛伊德|荣格|拉康/ },
     { key: 'calendar', label: '咨询日历', href: 'session-calendar.html', pattern: /日历|排期|预约|安排下次|日程/ },
     { key: 'knowledge', label: '资料库', href: 'knowledge.html', pattern: /资料库|知识库|检索资料/ },
-    { key: 'documents', label: '文档中心', href: 'doc-center.html', pattern: /文档中心|个案档案|临床材料|时间线/ },
+    // 2026-09-15 UX 审计：侧栏标签已由「临床材料」改为「会谈记录」，搜索关键词同步；
+    // 旧词保留在匹配表内作向后兼容（老用户仍可能按旧名搜索），但界面不再展示行话。
+    { key: 'documents', label: '文档中心', href: 'doc-center.html', pattern: /文档中心|个案档案|会谈记录|临床材料|时间线/ },
     { key: 'settings', label: '设置', href: 'settings.html', pattern: /设置|API\s*密钥|接口配置|模型配置/ },
     { key: 'billing', label: '账务', href: 'billing-shell.html', pattern: /记账|账单|月结|收款|未收款|欠费|收入统计|查看.*收入/ },
     { key: 'consultations', label: '咨询记录', href: 'consult-notes.html', pattern: /咨询记录|会谈记录|记录.*咨询|记录.*会谈|补.*记录/ },
@@ -629,8 +634,10 @@
     if (workflowRoute) {
       inputEl.value = '';
       inputEl.style.height = '';
-      renderMsg('user', text);
-      messages.push({ role: 'user', content: text });
+      const userEl = renderMsg('user', text);
+      const userObj = { role: 'user', content: text };
+      messages.push(userObj);
+      setSendUndo(userEl, userObj);
       const reply = '这项工作需要完整表单和上下文，我带你去「' + workflowRoute.label + '」。';
       renderMsg('assistant', reply);
       messages.push({ role: 'assistant', content: reply });
@@ -655,8 +662,10 @@
       }
       inputEl.value = '';
       inputEl.style.height = '';
-      renderMsg('user', text);
-      messages.push({ role: 'user', content: text });
+      const userEl = renderMsg('user', text);
+      const userObj = { role: 'user', content: text };
+      messages.push(userObj);
+      setSendUndo(userEl, userObj);
       const typingEl = renderTyping();
       if (messages.length === 0 || messages[0].role !== 'system') {
         messages.unshift({ role: 'system', content: '' });
@@ -743,6 +752,75 @@
       if (sendBtn) sendBtn.disabled = false;
       saveMemory();
     }
+  }
+
+  // ---------- 方案 B：发送后 3 秒内可撤销 ----------
+  // 数据层即 localStorage 的「跨页对话记忆」（MEM_KEY）；本页没有把自由对话写入 Store 临床会谈，
+  // 故"真删除" = 从 messages 数组移除该轮 + saveMemory() 回写 localStorage，重载后不再出现。
+  function clearTurnFromData(userObj) {
+    const startIdx = messages.indexOf(userObj);
+    if (startIdx < 0) return;
+    let endIdx = messages.length;
+    for (let i = startIdx + 1; i < messages.length; i += 1) {
+      if (messages[i] && messages[i].role === 'user') { endIdx = i; break; }
+    }
+    messages.splice(startIdx, endIdx - startIdx);
+  }
+
+  function clearTurnFromDom(userEl) {
+    if (!userEl || !userEl.parentNode) return;
+    const toRemove = [userEl];
+    let sib = userEl.nextElementSibling;
+    while (sib) {
+      if (sib.classList && sib.classList.contains('chat-msg') && sib.classList.contains('user')) break;
+      toRemove.push(sib);
+      sib = sib.nextElementSibling;
+    }
+    toRemove.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+  }
+
+  function hideUndoToast() {
+    if (undoToastEl && undoToastEl.parentNode) undoToastEl.parentNode.removeChild(undoToastEl);
+    undoToastEl = null;
+  }
+
+  function undoSend() {
+    if (!sendUndoState) return;
+    const st = sendUndoState;
+    sendUndoState = null;
+    if (sendUndoTimer) { clearTimeout(sendUndoTimer); sendUndoTimer = null; }
+    hideUndoToast();
+    clearTurnFromData(st.userObj);
+    clearTurnFromDom(st.userEl);
+    saveMemory();
+  }
+
+  function showUndoToast() {
+    hideUndoToast();
+    const bar = el('div', 'xj-send-undo-toast', '消息已发送');
+    bar.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:2147483646;' +
+      'display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--paper-2,#fff);' +
+      'color:var(--ink,#222);border:1px solid var(--border,#e3e3e8);border-radius:999px;' +
+      'box-shadow:0 6px 20px rgba(0,0,0,.12);font-size:13px;font-family:var(--sans,system-ui);cursor:default';
+    const btn = el('button', 'xj-send-undo-btn', '撤销');
+    btn.type = 'button';
+    btn.style.cssText = 'border:none;background:var(--accent,#4f46e5);color:#fff;font-size:12px;' +
+      'padding:4px 12px;border-radius:999px;cursor:pointer';
+    btn.addEventListener('click', undoSend);
+    bar.appendChild(btn);
+    (document.body || msgsEl.parentNode).appendChild(bar);
+    undoToastEl = bar;
+  }
+
+  function setSendUndo(userEl, userObj) {
+    // 再次发送会令上一条可撤销提示失效
+    if (sendUndoTimer) { clearTimeout(sendUndoTimer); sendUndoTimer = null; }
+    sendUndoState = { userEl: userEl, userObj: userObj };
+    showUndoToast();
+    sendUndoTimer = setTimeout(function () {
+      sendUndoState = null;
+      hideUndoToast();
+    }, 3000);
   }
 
   window.sendQuick = function (text) {

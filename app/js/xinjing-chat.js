@@ -32,6 +32,10 @@ const XinJingChat = (() => {
   var lastWriteAction = null;
   var undoPending = false;
 
+  var sendUndoState = null;   // 方案 B：最近一次发送的待撤销状态 { userEl, userObj }
+  var sendUndoTimer = null;   // 方案 B：3 秒自动失效计时器
+  var undoToastEl = null;     // 方案 B：撤销提示条 DOM
+
   if (typeof window !== 'undefined') {
     window.addEventListener('xj:model-selection-changed', function () {
       try { refreshTierUI(); } catch (_) {}
@@ -547,7 +551,7 @@ const XinJingChat = (() => {
         var ov = panelEl.querySelector('#xj3-overlay');
         if (ov) ov.addEventListener('click', close);
         if (inputEl) inputEl.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') send();
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
         });
         var sendBtn = panelEl.querySelector('#xj3-send');
         if (sendBtn) sendBtn.addEventListener('click', send);
@@ -589,7 +593,7 @@ const XinJingChat = (() => {
     panelEl.querySelector('#xj3-overlay').addEventListener('click', close);
     panelEl.querySelector('.xj3-undo').addEventListener('click', undoLastWrite);
     inputEl.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') send();
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
     panelEl.querySelector('#xj3-send').addEventListener('click', send);
     panelEl.querySelector('#xj3-voice').addEventListener('click', toggleVoice);
@@ -693,8 +697,9 @@ const XinJingChat = (() => {
     return String(text || '').replace(/(?:模型调用失败\s*[:：]\s*){2,}/g, '模型调用失败：');
   }
   function appendUserMsg(text) {
-    appendUserMsgRaw(text);
+    var div = appendUserMsgRaw(text);
     messages.push({ role: 'user', content: text });
+    return div;
   }
   function appendUserMsgRaw(text) {
     if (!bodyEl) return;
@@ -945,8 +950,11 @@ const XinJingChat = (() => {
     var text = (inputEl.value || '').trim();
     if (!text) return;
     // Z5：先持久化（messages.push + DOM 挂载）再清空输入——首条发送必须可见，后续失败不再静默丢消息。
-    appendUserMsg(text);
+    var userEl = appendUserMsg(text);
     inputEl.value = '';
+    // 方案 B：记录刚发送的用户消息，供 3 秒内撤销（数据层即 localStorage 跨页记忆）
+    var userObj = messages[messages.length - 1];
+    setSendUndo(userEl, userObj);
 
     var local = queryLocal(text);
     if (local) {
@@ -1070,6 +1078,81 @@ const XinJingChat = (() => {
     }
     busy = false;
     saveMemory();
+  }
+
+  // ---------- 方案 B：发送后 3 秒内可撤销 ----------
+  // 数据层即 localStorage 的「跨页对话记忆」（MEM_KEY）；本页没有把自由对话写入 Store 临床会谈，
+  // 故"真删除" = 从 messages 数组移除该轮 + saveMemory() 回写 localStorage，重载后不再出现。
+  function clearTurnFromData(userObj) {
+    var startIdx = messages.indexOf(userObj);
+    if (startIdx < 0) return;
+    var endIdx = messages.length;
+    for (var i = startIdx + 1; i < messages.length; i += 1) {
+      if (messages[i] && messages[i].role === 'user') { endIdx = i; break; }
+    }
+    messages.splice(startIdx, endIdx - startIdx);
+  }
+
+  function clearTurnFromDom(userEl) {
+    if (!userEl || !userEl.parentNode) return;
+    var toRemove = [userEl];
+    var sib = userEl.nextElementSibling;
+    while (sib) {
+      if (sib.classList && sib.classList.contains('xj3-msg') && sib.classList.contains('user')) break;
+      toRemove.push(sib);
+      sib = sib.nextElementSibling;
+    }
+    toRemove.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+  }
+
+  function hideUndoToast() {
+    if (undoToastEl && undoToastEl.parentNode) undoToastEl.parentNode.removeChild(undoToastEl);
+    undoToastEl = null;
+  }
+
+  function undoSend() {
+    if (!sendUndoState) return;
+    var st = sendUndoState;
+    sendUndoState = null;
+    if (sendUndoTimer) { clearTimeout(sendUndoTimer); sendUndoTimer = null; }
+    hideUndoToast();
+    clearTurnFromData(st.userObj);
+    clearTurnFromDom(st.userEl);
+    saveMemory();
+  }
+
+  function showUndoToast() {
+    hideUndoToast();
+    var bar = document.createElement('div');
+    bar.className = 'xj3-send-undo-toast';
+    bar.style.cssText = 'position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:50;' +
+      'display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--paper-2,#fff);' +
+      'color:var(--ink,#222);border:1px solid var(--border,#e3e3e8);border-radius:999px;' +
+      'box-shadow:0 6px 20px rgba(0,0,0,.12);font-size:13px;cursor:default';
+    var label = document.createElement('span');
+    label.textContent = '消息已发送';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '撤销';
+    btn.style.cssText = 'border:none;background:var(--accent,#4f46e5);color:#fff;font-size:12px;' +
+      'padding:4px 12px;border-radius:999px;cursor:pointer';
+    btn.addEventListener('click', undoSend);
+    bar.appendChild(label);
+    bar.appendChild(btn);
+    var drawer = panelEl && panelEl.querySelector('.xj3-drawer');
+    (drawer || document.body).appendChild(bar);
+    undoToastEl = bar;
+  }
+
+  function setSendUndo(userEl, userObj) {
+    // 再次发送会令上一条可撤销提示失效
+    if (sendUndoTimer) { clearTimeout(sendUndoTimer); sendUndoTimer = null; }
+    sendUndoState = { userEl: userEl, userObj: userObj };
+    showUndoToast();
+    sendUndoTimer = setTimeout(function () {
+      sendUndoState = null;
+      hideUndoToast();
+    }, 3000);
   }
 
   function quickQuery(text) {

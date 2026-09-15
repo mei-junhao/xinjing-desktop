@@ -753,7 +753,7 @@ App.initPage({
       if (busy) return;
       if (!ensureSupervisionAccess()) return;
       var mat = materialTA.value.trim();
-      if (!mat) { App.showToast('请先在材料区填写临床材料', 'warning'); return; }
+      if (!mat) { App.showToast('请先在材料区填写会谈记录', 'warning'); return; }
       sendToAI('生成整体印象', true);
     };
 
@@ -782,7 +782,7 @@ App.initPage({
         var m = (window.getMasterByKey ? getMasterByKey(checked.value) : null);
         if (!m) return;
         var mat = materialTA.value.trim();
-        if (!mat) { App.showToast('请先填写临床材料', 'warning'); return; }
+        if (!mat) { App.showToast('请先填写会谈记录', 'warning'); return; }
         addMsg('me', '邀请 ' + m.name + ' 发表视角');
         addTyping();
         busy = true;
@@ -934,10 +934,10 @@ App.initPage({
         cancel: '已取消'
       };
       var defaults = {
-        idle: '可选择 .txt 或 .docx 报告；读取结果只会写入临床材料草稿。',
+        idle: '可选择 .txt 或 .docx 报告；读取结果只会写入会谈记录草稿。',
         uploading: '正在打开文件；尚未写入材料或草稿。',
         progress: '正在读取文件内容；尚未写入材料或草稿。',
-        success: '报告内容已写入临床材料区；尚未写入正式督导记录。',
+        success: '报告内容已写入会谈记录区；尚未写入正式督导记录。',
         failure: '读取失败，材料与草稿均未改变。请检查原因后重试。',
         retry: '正在使用同一个文件重试；当前材料与草稿保持不变。',
         cancel: '已取消读取；材料与草稿均未改变。'
@@ -1074,7 +1074,7 @@ App.initPage({
       uploadPendingFile = null;
       uploadLastFileName = operation.file.name;
       resetReportFileInput();
-      setUploadState('success', '报告「' + operation.file.name + '」已写入临床材料区；尚未写入正式督导记录。', 100);
+      setUploadState('success', '报告「' + operation.file.name + '」已写入会谈记录区；尚未写入正式督导记录。', 100);
       if (typeof App !== 'undefined' && App.showToast) App.showToast('案例报告已载入材料区', 'success');
       switchTab('material');
     }
