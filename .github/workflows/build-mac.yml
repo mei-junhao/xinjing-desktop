@@ -19,7 +19,12 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          # electron / electron-builder 不在 package.json 的 devDependencies（构建产物策略要求），
+          # 必须显式 --no-save 安装，否则 `npm run dist` 会失败：
+          #   sh: electron-builder: command not found  (exit 127)
+          npm install --no-save electron@43.2.0 electron-builder@24.13.3
 
       - name: Codegen (secret / version / builtin prompts)
         env:
