@@ -59,6 +59,21 @@ win:
         - x64
   icon: build/icon.ico
 
+# macOS：runner 为 arm64。图标必须 >= 512x512，故用 1024x1024 的 build/icon-mac.png；
+# build/icon.png 仅 256x256，electron-builder 会直接拒绝构建：
+#   ⨯ image build/icon.png must be at least 512x512
+mac:
+  icon: build/icon-mac.png
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  artifactName: xinjing-${version}.${ext}
+
 nsis:
   artifactName: xinjing-setup-${version}.${ext}
   oneClick: false
