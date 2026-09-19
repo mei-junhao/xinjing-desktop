@@ -11,29 +11,56 @@
 .sup-top h2{font-family:var(--sans);font-size:18px;margin:0}
 .sup-top .sp{flex:1}
 .sup-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper,#fff)}
-/* 三栏布局 */
-.sup-body{flex:1;display:grid;grid-template-columns:280px 1fr 360px;min-height:0;overflow:hidden}
-/* 左栏：来访者历史 */
-.col-left{background:var(--paper-2,#fff);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.col-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--sans);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
-.col-left .lh-list{flex:1;overflow-y:auto;padding:8px}
-.col-left .lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;line-height:1.5;margin-bottom:4px;transition:all .15s}
-.col-left .lh-item:hover{background:var(--bg)}
-.col-left .lh-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
-.col-left .lh-item .s-num{font-weight:600;color:var(--accent)}
-.col-left .lh-item .s-date{font-size:11px;color:var(--ink-3)}
-.col-left .lh-item .s-preview{font-size:11px;color:var(--ink-2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.col-left .lh-item .s-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
-.col-left .lh-item .s-tags .tag{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg-sunken);color:var(--ink-3)}
-.col-left .lh-item .s-tags .tag.done{background:rgba(111,174,143,.12);color:var(--success)}
-.col-left .lh-item .s-tags .tag.impression{background:var(--accent-soft);color:var(--accent)}
-/* 中栏：分析工作区 */
-.col-mid{display:flex;flex-direction:column;overflow:hidden}
-.col-mid .m-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--paper-2,#fff)}
-.col-mid .m-tab{flex:1;padding:10px 12px;text-align:center;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--ink-2);transition:all .2s;font-family:var(--sans)}
-.col-mid .m-tab:hover{color:var(--ink)}
-.col-mid .m-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
-.col-mid .m-content{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+/* 单列上下流：一条滚动流，不再分栏、不再切 tab */
+.sup-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;background:var(--paper)}
+.sup-scroll[hidden]{display:none}
+.sup-flow{width:100%;max-width:680px;margin:0 auto;padding:20px 20px 40px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.sup-sec{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sup-sec-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sup-sec-title{font:650 14px var(--sans);color:var(--ink)}
+.sup-sec-meta{font-size:11px;color:var(--ink-3);font-family:var(--sans)}
+.sup-sec .sp{flex:1}
+.sup-lead{font-size:12px;color:var(--ink-2);line-height:1.7}
+/* 材料折叠：生成成功后让位给结果（可见性由 hidden 属性驱动，workbench.css 有 [hidden] 兜底） */
+.sup-material-summary{border:1px solid var(--border);border-radius:8px;background:var(--paper-2,#fff);padding:10px 12px;font-size:12px;color:var(--ink-2);cursor:pointer;text-align:left;font-family:var(--sans);width:100%}
+.sup-material-summary:hover{border-color:var(--accent)}
+.sup-material-summary .s-preview{display:block;color:var(--ink-3);font-size:11px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sup-sec.min .mat-panel,.sup-sec.min .m-tools,.sup-sec.min .sup-upload-status-wrap,.sup-sec.min .sup-pii{display:none}
+/* 内联脱敏提示：只提示，不拦提交 */
+.sup-pii{display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--border);border-left:3px solid var(--success,#2f7a59);border-radius:6px;background:var(--bg-sunken);font:12px var(--sans);color:var(--ink-2);flex-wrap:wrap}
+.sup-pii[data-state="found"]{border-left-color:var(--warning,#a86a16);background:color-mix(in srgb,var(--warning,#a86a16) 7%,var(--paper-2,#fff))}
+.sup-pii[hidden]{display:none}
+.sup-pii a{color:var(--accent);font-weight:600}
+/* 历史抽屉：替代常驻左栏 */
+.sup-drawer-mask{position:fixed;inset:0;z-index:60;display:flex;justify-content:flex-end;background:rgba(45,41,37,.28)}
+.sup-drawer-mask[hidden]{display:none}
+.sup-drawer{width:min(320px,86vw);display:flex;flex-direction:column;background:var(--paper-2,#fff);border-left:1px solid var(--border);box-shadow:var(--xj-shadow,0 8px 40px rgba(45,41,37,.14))}
+.sup-drawer .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--sans);font-size:14px;font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.sup-drawer .lh-head .sp{flex:1}
+.sup-drawer .lh-close{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--border);border-radius:6px;background:var(--paper-2,#fff);color:var(--ink-2);cursor:pointer}
+.sup-drawer .lh-list{flex:1;overflow-y:auto;padding:8px}
+.lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;line-height:1.5;margin-bottom:4px;transition:all .15s}
+.lh-item:hover{background:var(--bg)}
+.lh-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
+.lh-item .s-num{font-weight:600;color:var(--accent)}
+.lh-item .s-date{font-size:11px;color:var(--ink-3)}
+.lh-item .s-preview{font-size:11px;color:var(--ink-2);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lh-item .s-tags{display:flex;gap:3px;margin-top:3px;flex-wrap:wrap}
+.lh-item .s-tags .tag{font-size:9px;padding:1px 5px;border-radius:3px;background:var(--bg-sunken);color:var(--ink-3)}
+.lh-item .s-tags .tag.done{background:rgba(111,174,143,.12);color:var(--success)}
+.lh-item .s-tags .tag.impression{background:var(--accent-soft);color:var(--accent)}
+/* 更多督导方式：默认收起，不打扰主路径 */
+.sup-more{border:1px solid var(--border);border-radius:8px;background:var(--paper-2,#fff);padding:0 14px;flex-shrink:0}
+.sup-more>summary{display:flex;align-items:center;gap:7px;min-height:38px;padding:6px 0;cursor:pointer;font:600 12px var(--sans);color:var(--ink-2);list-style:none}
+.sup-more>summary::-webkit-details-marker{display:none}
+.sup-more>summary:before{content:'\203A';display:inline-block;transition:transform .16s;color:var(--ink-3)}
+.sup-more[open]>summary:before{transform:rotate(90deg)}
+.sup-more[open]>summary{border-bottom:1px solid var(--border)}
+.sup-more-body{display:flex;flex-direction:column;gap:10px;padding:12px 0}
+.sup-more .sup-package-strip{border:1px solid var(--border);border-radius:7px;padding:10px 12px}
+/* 长度档位 */
+.sup-len{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2,#fff);padding:4px 8px;font:12px var(--sans);color:var(--ink-2)}
+.sup-len select{border:none;background:transparent;font:600 12px var(--sans);color:var(--accent);outline:none;cursor:pointer}
 /* 分析卡片 */
 .analysis-block{background:var(--paper-2,#fff);border:1px solid var(--border);border-radius:var(--r-card,14px);padding:18px}
 .analysis-block .ab-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -42,46 +69,53 @@
 .analysis-block .ab-body{font-size:13px;line-height:1.8;color:var(--ink)}
 .analysis-block .ab-quote{padding:8px 12px;margin:8px 0;background:var(--bg);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:12px;color:var(--ink-2);font-style:italic}
 .analysis-block .ab-quote .q-src{font-size:10px;color:var(--accent);font-style:normal;display:block;margin-top:2px}
-.analysis-block .ab-empty{text-align:center;padding:32px 0;color:var(--ink-3);font-size:13px;line-height:2}
-.analysis-block .ab-empty .big{font-size:36px;display:block;margin-bottom:8px}
 /* 快捷按钮 */
 .quick-strip{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;padding:0 0 8px}
 .quick-strip button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:6px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);transition:border-color .16s,color .16s}
 .quick-strip button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 .quick-strip button.primary{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}
 .quick-strip button.primary:hover{opacity:.9;background:var(--cta-bg-hover,var(--accent-hover));color:#fff;border-color:var(--cta-bg-hover,var(--accent-hover))}
-/* 右栏：AI 对话 */
-.col-right{background:var(--paper-2,#fff);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-.col-right .cr-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0}
-.col-right .cr-head .cr-name{font-family:var(--sans);font-size:14px;font-weight:600}
-.col-right .cr-head .cr-sp{flex:1}
-.col-right .cr-head button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
-.col-right .cr-chat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
-.col-right .cr-chat .msg{font-size:13px;line-height:1.8;max-width:95%}
-.col-right .cr-chat .msg.ai{background:var(--accent-soft);padding:12px 14px;border-radius:12px 12px 12px 4px;align-self:flex-start}
-.col-right .cr-chat .msg.me{background:var(--accent);color:#fff;padding:12px 14px;border-radius:12px 12px 4px 12px;align-self:flex-end;max-width:85%}
-.col-right .cr-chat .msg .src{font-size:10px;color:var(--ink-3);margin-bottom:4px;font-weight:600}
+/* 结果流：一次 AI 输出 = 一张卡片，按顺序垂直追加 */
+.sup-stream{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sup-stream .msg.me{align-self:flex-end;max-width:85%;background:var(--accent);color:#fff;padding:10px 14px;border-radius:12px 12px 4px 12px;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
+.sup-result .ab-head{margin-bottom:8px}
+.sup-result .ab-body{overflow-wrap:anywhere}
+.sup-result .ab-body p{margin:6px 0}
+.sup-result .ab-body .ab-heading{font:600 13.5px var(--sans);color:var(--accent);margin:13px 0 5px}
+.sup-result .ab-body:empty:before{content:'思考中…';color:var(--ink-3)}
+.sup-result .ab-body[data-streaming]{white-space:pre-wrap;line-height:1.8}
+.sup-result .ab-body[data-streaming]:after{content:'\258D';color:var(--accent)}
+.sup-collapse{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:999px;padding:2px 10px;font:11px var(--sans);color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.sup-collapse:hover{border-color:var(--accent);color:var(--accent)}
+.sup-result.min .ab-body{display:none}
+.sup-result.min .ab-head{margin-bottom:0}
+.sup-result.min .ab-title{font-size:13px;font-weight:500;color:var(--ink-2)}
+.sup-cursor:after{content:'\258D';color:var(--accent);margin-left:1px}
+/* 追问输入：首次生成成功后才出现 */
+.sup-ask{display:flex;flex-direction:column;gap:6px}
+.sup-ask[hidden]{display:none}
+.sup-ask-row{display:flex;gap:6px}
+.sup-ask-row input{flex:1;min-width:0;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font:13px var(--sans);outline:none;background:var(--paper-2,#fff);color:var(--ink)}
+.sup-ask-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sup-ask-row button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;padding:10px 16px;font:600 13px var(--sans);cursor:pointer}
+.sup-ask-row button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sup-empty{text-align:center;padding:26px 12px;color:var(--ink-3);font-size:12.5px;line-height:2;border:1px dashed var(--border);border-radius:var(--r-card,14px)}
+.sup-empty .big{font-size:32px;display:block;margin-bottom:6px}
 .sup-error-card{border:1px solid var(--danger,#b54747)!important;background:color-mix(in srgb,var(--danger,#b54747) 7%,var(--paper-2,#fff))!important}
 .sup-error-detail{line-height:1.6;overflow-wrap:anywhere}
 .sup-error-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
 .sup-error-actions button{min-height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2,#fff);color:var(--ink-2);font:12px var(--sans);cursor:pointer}
 .sup-error-actions button.primary{border-color:var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}
 .sup-error-actions button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.col-right .cr-input{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}
-.col-right .cr-input input{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px 14px;font:13px var(--sans);outline:none;background:var(--bg)}
-.col-right .cr-input input:focus{border-color:var(--accent)}
-.col-right .cr-input button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;padding:10px 16px;font:600 13px var(--sans);cursor:pointer}
 /* P0 REPAIR 02: emoji 伪元素已移除，会员锁由 tokens.css 统一管理 */
 /* 导出按钮等 */
 .m-tools{display:flex;gap:6px;margin-top:8px;flex-shrink:0}
 .m-tools button{border:1px solid var(--border);background:var(--paper-2,#fff);border-radius:7px;padding:6px 12px;font:12px var(--sans);cursor:pointer;color:var(--ink-2)}
 .m-tools button:hover{border-color:var(--accent);color:var(--accent)}
-/* 材料区 */
-.mat-panel{max-height:156px;overflow:hidden;transition:max-height .2s ease}
-.mat-panel.open{max-height:min(60vh,520px)}
-.material-input{width:100%;height:120px;min-height:120px;border:1px solid var(--border);border-radius:10px;padding:12px;font:13px/1.7 var(--sans);resize:vertical;outline:none;background:var(--bg)}
-.mat-panel.open .material-input{height:360px;max-height:min(55vh,480px)}
-.material-input:focus{border-color:var(--accent)}
+/* 材料区：折叠统一由 .sup-sec.min 控制，不再用 max-height 动画 */
+.mat-panel{min-width:0}
+.material-input{width:100%;height:min(46vh,340px);min-height:150px;border:1px solid var(--border);border-radius:10px;padding:12px;font:13px/1.7 var(--sans);resize:vertical;outline:none;background:var(--paper-2,#fff);color:var(--ink)}
+.material-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .supervisor-strip{display:flex;align-items:center;gap:10px;min-width:280px}
 .supervisor-current{display:flex;align-items:center;gap:9px;min-width:0}.supervisor-current-mark{width:34px;height:34px;display:grid;place-items:center;border-radius:7px;background:var(--accent-soft);color:var(--accent);font-weight:750}.supervisor-current-copy{display:grid;min-width:0}.supervisor-current-copy span{font-size:10px;color:var(--ink-3)}.supervisor-current-copy strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .supervisor-open{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2);color:var(--ink-2);font-size:12px;cursor:pointer}.supervisor-open:hover{border-color:var(--accent);color:var(--accent)}
@@ -123,11 +157,13 @@
 .sup-multi-result .result-body{padding:0 10px 10px;font:12px/1.7 var(--sans);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
 .sup-multi-result .result-body:empty:before{content:'等待结果…';color:var(--ink-3)}
 .sup-multi-synthesis{min-height:150px;padding:10px;border:1px dashed var(--border);border-radius:7px;background:var(--bg);font:13px/1.8 var(--sans);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.sup-multi-syn-label{font:650 12px var(--sans);color:var(--ink-3);margin:12px 0 6px}
 .sup-multi-synthesis[data-state="error"]{border-color:var(--danger,#a33);color:var(--danger,#a33)}
 .sup-multi-empty{padding:28px 10px;text-align:center;color:var(--ink-3);font-size:12px}
 @media(max-width:1000px){.sup-multi-grid{grid-template-columns:1fr}.sup-multi-schools{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.sup-mode-switch{order:4;width:100%}.sup-mode-switch button{flex:1}.sup-multi-schools{grid-template-columns:repeat(2,minmax(0,1fr))}.sup-multi-panel{padding:14px}.sup-multi-material{min-height:180px}}
-@media(max-width:1280px){.sup-body{grid-template-columns:220px minmax(0,1fr) 300px}.supervisor-option-grid{grid-template-columns:1fr}.sup-top{padding-inline:14px}}
+@media(max-width:1280px){.supervisor-option-grid{grid-template-columns:1fr}.sup-top{padding-inline:14px}}
+@media(max-width:720px){.sup-flow{padding:16px 14px 32px}.sup-multi-grid{grid-template-columns:1fr}}
 
 .sup-draft-note{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--bg-sunken);border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-wrap:wrap;flex-shrink:0}
 .sup-draft-note i{width:15px;height:15px;color:var(--accent)}
@@ -144,7 +180,8 @@
 <div class="sup-page">
 <div class="sup-top">
   <button class="back" onclick="location.href='index.html'"><i data-lucide="chevron-left"></i>返回工作台</button>
-  <h2>AI 督导</h2><span id="member-badge-slot"></span><button class="supervisor-open" id="sup-unlock-button" type="button" onclick="App.openPlans()"><i data-lucide="unlock-keyhole"></i>解锁会员</button><span class="sp"></span><div class="sup-mode-switch" id="sup-mode-switch" role="tablist" aria-label="督导模式"><button type="button" id="sup-mode-standard" role="tab" aria-selected="true" aria-controls="sup-standard-view"><i data-lucide="user-round"></i>标准督导</button><button type="button" id="sup-mode-multi" role="tab" aria-selected="false" aria-controls="sup-multi-panel" data-feature="ai-masters" title="多学派督导需要会员权益"><i data-lucide="users-round"></i>多学派督导<span id="sup-mode-multi-lock" class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>会员</span></button></div><span class="sp"></span><a href="supervision-mindmap.html" class="xj-premium-btn"><i data-lucide="git-fork"></i>思维导图</a>
+  <h2>AI 督导</h2><span id="member-badge-slot"></span><button class="supervisor-open" id="sup-unlock-button" type="button" onclick="App.openPlans()"><i data-lucide="unlock-keyhole"></i>解锁会员</button><span class="sp"></span><a href="supervision-mindmap.html" class="xj-premium-btn"><i data-lucide="git-fork"></i>思维导图</a>
+  <button class="supervisor-open" id="open-session-history" type="button" aria-controls="sup-history-mask" aria-expanded="false" onclick="toggleHistoryDrawer()"><i data-lucide="history"></i>历史</button>
   <span class="sp"></span>
   <select id="sup-client" onchange="onClientChange()" aria-label="可选：关联来访者"><option value="">不绑定来访者（独立督导）</option></select><span id="sup-context-state" class="badge">独立督导</span>
   <div class="supervisor-strip">
@@ -154,7 +191,6 @@
   </div>
   <button id="continue-supervision" type="button" class="back" style="display:none;border:1px solid var(--accent);color:var(--accent)" onclick="continueLastSupervision()">继续上次督导</button>
   <div id="sup-orient-desc" style="font-size:11px;color:var(--ink-3);max-width:200px;margin-left:8px;margin-top:4px;display:none"></div>
-  <span class="badge" id="sup-badge">AI 督导</span>
 </div>
 
 <section class="supervisor-picker" id="supervisor-picker" aria-label="选择督导师取向" hidden>
@@ -167,26 +203,31 @@
   <button class="supervisor-option custom" id="custom-supervisor-option" type="button"><span class="supervisor-option-mark">定</span><span><strong>新建定制督导师</strong><small>联系开发者定制理论框架、表达方式和材料边界。</small></span><span class="supervisor-flagship">旗舰 · 联系定制</span></button>
 </section>
 
-<section class="sup-package-strip" aria-label="受控督导技能包">
-  <div class="sup-package-copy">
-    <strong><i data-lucide="shield-check"></i>受控督导技能包 <span class="badge">旗舰</span><span class="sup-package-status" id="sup-package-status" data-state="locked">未安装</span></strong>
-    <p id="sup-package-detail">仅接受作者签发的加密 .xjsup 文件；检查、授权和解密均在本机主进程完成。</p>
+<details class="sup-more" id="sup-more" aria-label="更多督导方式">
+  <summary><i data-lucide="sliders-horizontal"></i>更多督导方式与受控技能包</summary>
+  <div class="sup-more-body">
+    <div class="sup-mode-switch" id="sup-mode-switch" role="tablist" aria-label="督导模式"><button type="button" id="sup-mode-standard" role="tab" aria-selected="true" aria-controls="sup-standard-view"><i data-lucide="user-round"></i>标准督导</button><button type="button" id="sup-mode-multi" role="tab" aria-selected="false" aria-controls="sup-multi-panel" data-feature="ai-masters" title="多学派督导需要会员权益"><i data-lucide="users-round"></i>多学派督导<span id="sup-mode-multi-lock" class="xj-lock-badge"><i data-lucide="lock-keyhole"></i>会员</span></button></div>
+    <section class="sup-package-strip" aria-label="受控督导技能包">
+      <div class="sup-package-copy">
+        <strong><i data-lucide="shield-check"></i>受控督导技能包 <span class="badge">旗舰</span><span class="sup-package-status" id="sup-package-status" data-state="locked">未安装</span></strong>
+        <p id="sup-package-detail">仅接受作者签发的加密 .xjsup 文件；检查、授权和解密均在本机主进程完成。</p>
+      </div>
+      <div class="sup-package-actions">
+        <input id="sup-package-file" type="file" accept=".xjsup" hidden>
+        <button id="sup-package-import" type="button"><i data-lucide="file-key-2"></i>检查专属包</button>
+        <button id="sup-package-install" type="button" disabled><i data-lucide="download"></i>确认安装</button>
+        <button id="sup-package-run" type="button" class="primary" disabled><i data-lucide="play"></i>运行已安装包</button>
+        <button id="sup-package-remove" type="button" disabled><i data-lucide="archive-x"></i>移除</button>
+      </div>
+    </section>
   </div>
-  <div class="sup-package-actions">
-    <input id="sup-package-file" type="file" accept=".xjsup" hidden>
-    <button id="sup-package-import" type="button"><i data-lucide="file-key-2"></i>检查专属包</button>
-    <button id="sup-package-install" type="button" disabled><i data-lucide="download"></i>确认安装</button>
-    <button id="sup-package-run" type="button" class="primary" disabled><i data-lucide="play"></i>运行已安装包</button>
-    <button id="sup-package-remove" type="button" disabled><i data-lucide="archive-x"></i>移除</button>
-  </div>
-</section>
-
+</details>
 
 <div class="sup-draft-note" id="sup-draft-note" role="note">
   <i data-lucide="shield-check"></i>
-  <span><b>分区</b>：案例材料 · 督导对话 · 工具确认</span>
+  <span>材料、生成与追问在同一条流里，往下滚即可读完。</span>
   <span class="sp"></span>
-  <span>AI 输出始终为草稿，仅在点击「保存」后写入督导记录。</span>
+  <span>AI 输出始终为草稿，仅在点击「保存督导记录」后写入督导记录。</span>
 </div>
 
 <section class="sup-multi-panel" id="sup-multi-panel" aria-labelledby="sup-multi-title" hidden>
@@ -195,104 +236,101 @@
     <div class="sup-multi-block"><h4><i data-lucide="clipboard-pen-line"></i>案例材料</h4><textarea id="sup-multi-material" class="sup-multi-material" placeholder="粘贴逐字稿或案例材料……"></textarea><div class="sup-multi-actions"><button type="button" id="sup-multi-use-material"><i data-lucide="copy"></i>使用标准材料</button><button type="button" class="primary" id="sup-multi-run"><i data-lucide="sparkles"></i>开始多学派督导</button></div></div>
     <div class="sup-multi-block"><h4><i data-lucide="layers-3"></i>参与学派 <span style="font-size:10px;color:var(--ink-3);font-weight:400">最多 3 个</span></h4><div class="sup-multi-schools" id="sup-multi-schools"></div><div class="sup-multi-actions"><button type="button" id="sup-multi-clear"><i data-lucide="rotate-ccw"></i>清空结果</button><button type="button" class="primary" id="sup-multi-save" disabled><i data-lucide="save"></i>归档综合结果</button></div></div>
   </div>
-  <div class="sup-multi-block"><h4><i data-lucide="messages-square"></i>逐派分析</h4><div class="sup-multi-results" id="sup-multi-results"><div class="sup-multi-empty">开始分析后，这里会按学派显示独立结果；失败学派会明确标记为缺席。</div></div></div>
-  <div class="sup-multi-block"><h4><i data-lucide="git-compare-arrows"></i>综合督导</h4><div class="sup-multi-synthesis" id="sup-multi-synthesis" data-state="idle">等待各学派结果。</div></div>
+  <div class="sup-multi-block"><h4><i data-lucide="git-compare-arrows"></i>综合督导</h4><div class="sup-multi-results" id="sup-multi-results"><div class="sup-multi-empty">开始分析后，这里会按学派显示独立结果；失败学派会明确标记为缺席。</div></div><div class="sup-multi-syn-label">综合结论</div><div class="sup-multi-synthesis" id="sup-multi-synthesis" data-state="idle">等待各学派结果。</div></div>
 </section>
 
-<div class="sup-body" id="sup-standard-view">
-  <!-- 左栏：来访者会话历史 -->
-  <div class="col-left">
-    <div class="lh-head"><i data-lucide="history"></i>会话历史</div>
+<!-- 单列上下流：材料 → 动作 → 结果 → 追问，一条滚到底 -->
+<div class="sup-scroll" id="sup-standard-view">
+ <div class="sup-flow">
+
+  <!-- ① 材料 -->
+  <section class="sup-sec" id="sup-material-sec" aria-labelledby="sup-material-title">
+    <div class="sup-sec-head">
+      <span class="sup-sec-title" id="sup-material-title"><i data-lucide="clipboard-pen-line"></i>会谈材料</span>
+      <span class="sup-sec-meta" id="sup-material-meta"></span>
+      <span class="sp"></span>
+      <button class="sup-collapse" id="sup-material-toggle" type="button" aria-controls="mat-panel" aria-expanded="true" onclick="toggleMaterialPanel()">收起材料</button>
+    </div>
+    <p class="sup-lead">粘贴或上传逐字稿、案例报告，或直接写下你的反移情困惑。生成结果和追问都会出现在这条流的下方，往下滚即可读完。</p>
+    <button class="sup-material-summary" id="sup-material-summary" type="button" onclick="toggleMaterialPanel()" hidden></button>
+    <div id="mat-panel" class="mat-panel open">
+      <textarea class="material-input" id="sup-material" placeholder="粘贴逐字稿或书写案例材料……&#10;&#10;逐字稿格式示例：&#10;T（治疗师）：你今天看起来不太开心。&#10;P（来访者）：是的，我一直在想上周你说的话……"></textarea>
+    </div>
+    <div class="m-tools">
+      <button onclick="loadTranscript()"><i data-lucide="audio-lines"></i>载入逐字稿</button>
+      <button id="sup-report-upload-trigger" type="button" aria-controls="sup-report-file" aria-describedby="sup-upload-status-detail" onclick="document.getElementById('sup-report-file').click()"><i data-lucide="upload"></i>上传报告</button>
+      <button onclick="clearMaterial()"><i data-lucide="eraser"></i>清空</button>
+      <input type="file" id="sup-report-file" accept=".doc,.docx,.html,.htm,.txt,.md" aria-label="选择案例报告文件" style="display:none" onchange="onReportFileUpload(event)">
+    </div>
+    <div class="sup-upload-status-wrap" id="sup-upload-status-wrap" aria-live="polite" aria-atomic="true">
+      <div class="sup-upload-status" id="sup-upload-status" data-upload-state="idle" role="group" aria-labelledby="sup-upload-status-label">
+        <div class="sup-upload-status-head">
+          <strong id="sup-upload-status-label">等待上传</strong>
+          <span id="sup-upload-status-file">未选择文件</span>
+        </div>
+        <div class="sup-upload-progress-wrap" id="sup-upload-progress-wrap" hidden>
+          <div class="sup-upload-progress" id="sup-upload-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="报告读取进度"><span id="sup-upload-progress-bar"></span></div>
+        </div>
+        <p class="sup-upload-status-detail" id="sup-upload-status-detail">可选择 .txt 或 .docx 报告；读取结果只会写入会谈记录草稿。</p>
+        <div class="sup-upload-actions" id="sup-upload-actions">
+          <button id="sup-upload-retry" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="retryReportFileUpload()">重试</button>
+          <button id="sup-upload-cancel" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="cancelReportFileUpload()">取消读取</button>
+        </div>
+      </div>
+    </div>
+    <div class="sup-pii" id="sup-pii-chip" role="status" aria-live="polite" hidden></div>
+    <div id="sup-context-host"></div>
+  </section>
+
+  <!-- ② 动作 -->
+  <section class="sup-sec" aria-label="督导动作">
+    <div class="quick-strip">
+      <button class="primary" onclick="generateImpression()"><i data-lucide="sparkles"></i>生成整体印象</button>
+      <button onclick="quickAction('transference')">移情 / 反移情</button>
+      <button onclick="quickAction('deepen')">深化</button>
+      <button onclick="quickAction('tech')">技术建议</button>
+      <button onclick="quickAction('polish')">润色</button>
+      <span class="sup-len"><i data-lucide="pen-line"></i><select id="sup-length" aria-label="回复长度" onchange="onLengthChange(this.value)"><option value="brief">简洁</option><option value="medium" selected>适中</option><option value="detailed">详细</option></select></span>
+    </div>
+    <div class="quick-strip" style="padding-bottom:0;align-items:center">
+      <span class="sup-draft-badge" id="sup-draft-badge">AI 草稿 · 未保存</span>
+      <button onclick="saveSup()"><i data-lucide="save"></i>保存督导记录</button>
+      <button onclick="exportSup()"><i data-lucide="download"></i>导出对话</button>
+    </div>
+  </section>
+
+  <!-- ③ 结果流 + 追问 -->
+  <section class="sup-sec" aria-label="督导结果">
+    <div class="sup-stream" id="sup-chat">
+      <div class="sup-empty" id="sup-stream-empty"><span class="big"><i data-lucide="brain-circuit"></i></span>还没有内容。生成整体印象后，结果和每一次追问的回答会按顺序出现在这里。</div>
+    </div>
+    <div class="sup-ask" id="sup-ask" hidden>
+      <div class="sup-ask-row">
+        <input id="sup-input" placeholder="就整体印象里的任何一点继续讨论…" onkeydown="if(event.key==='Enter'&&!event.isComposing)sendSupMsg()">
+        <button onclick="sendSupMsg()">发送</button>
+      </div>
+      <div class="sup-chat-draft-note">AI 回复为草稿，需点击「保存督导记录」才会写入督导记录。</div>
+    </div>
+  </section>
+
+ </div>
+</div>
+
+<!-- 历史抽屉：替代常驻左栏 -->
+<div class="sup-drawer-mask" id="sup-history-mask" hidden>
+  <aside class="sup-drawer" role="dialog" aria-modal="true" aria-labelledby="sup-history-title">
+    <div class="lh-head"><i data-lucide="history"></i><span id="sup-history-title">会话历史</span><span class="sp"></span><button class="lh-close" id="close-session-history" type="button" aria-label="关闭会话历史" onclick="toggleHistoryDrawer(false)"><i data-lucide="x"></i></button></div>
     <div class="lh-list" id="session-history">
       <div style="padding:24px;text-align:center;color:var(--ink-3);font-size:12px">未绑定来访者。可直接输入或上传材料开始独立督导。</div>
     </div>
-  </div>
-
-  <!-- 中栏：分析工作区 -->
-  <div class="col-mid">
-    <div class="m-tabs">
-      <div class="m-tab active" data-tab="impression" onclick="switchTab('impression')">整体印象</div>
-      <div class="m-tab" data-tab="deepen" onclick="switchTab('deepen')">深化分析</div>
-      <div class="m-tab" data-tab="material" onclick="switchTab('material')">会谈记录</div>
-    </div>
-    <div class="m-content" id="m-content">
-      <div class="analysis-block">
-        <div class="ab-head"><span class="ab-title"><i data-lucide="scan-search"></i>整体印象</span><span class="ab-badge">AI 分析</span></div>
-        <div class="ab-body" id="impression-body">
-          <div class="ab-empty"><span class="big"><i data-lucide="brain-circuit"></i></span>输入或上传材料后，生成整体印象开始督导</div>
-        </div>
-        <div class="quick-strip">
-          <button class="primary" onclick="generateImpression()"><i data-lucide="sparkles"></i>生成整体印象</button>
-          <button onclick="quickAction('deepen')">深化</button>
-          <button onclick="quickAction('polish')">润色</button>
-          <button onclick="quickAction('tech')">技术建议</button>
-          <button onclick="quickAction('transference')">移情分析</button>
-        </div>
-      </div>
-      <div class="analysis-block" id="deepen-block" style="display:none">
-        <div class="ab-head"><span class="ab-title"><i data-lucide="search-check"></i>深化分析</span><span class="ab-badge">AI 分析</span></div>
-        <div class="ab-body" id="deepen-body">
-          <div class="ab-empty">点击"深化"按钮或直接在右侧对话窗提问</div>
-        </div>
-      </div>
-      <div class="analysis-block" id="material-block" style="display:none">
-        <div class="ab-head"><span class="ab-title"><i data-lucide="clipboard-pen-line"></i>会谈记录</span></div>
-        <div class="ab-body">
-          <div id="mat-panel" class="mat-panel">
-            <textarea class="material-input" id="sup-material" placeholder="粘贴逐字稿或书写案例材料……"></textarea>
-          </div>
-          <div class="m-tools">
-            <button onclick="loadTranscript()"><i data-lucide="audio-lines"></i>载入逐字稿</button>
-            <button id="sup-report-upload-trigger" type="button" aria-controls="sup-report-file" aria-describedby="sup-upload-status-detail" onclick="document.getElementById('sup-report-file').click()"><i data-lucide="upload"></i>上传报告</button>
-            <button onclick="document.getElementById('sup-material').value=''">清空</button>
-            <button id="sup-material-toggle" type="button" aria-controls="mat-panel" aria-expanded="false" onclick="toggleMaterialPanel()">展开材料</button>
-            <input type="file" id="sup-report-file" accept=".doc,.docx,.html,.htm,.txt,.md" aria-label="选择案例报告文件" style="display:none" onchange="onReportFileUpload(event)">
-          </div>
-          <div class="sup-upload-status-wrap" id="sup-upload-status-wrap" aria-live="polite" aria-atomic="true">
-            <div class="sup-upload-status" id="sup-upload-status" data-upload-state="idle" role="group" aria-labelledby="sup-upload-status-label">
-              <div class="sup-upload-status-head">
-                <strong id="sup-upload-status-label">等待上传</strong>
-                <span id="sup-upload-status-file">未选择文件</span>
-              </div>
-              <div class="sup-upload-progress-wrap" id="sup-upload-progress-wrap" hidden>
-                <div class="sup-upload-progress" id="sup-upload-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="报告读取进度"><span id="sup-upload-progress-bar"></span></div>
-              </div>
-              <p class="sup-upload-status-detail" id="sup-upload-status-detail">可选择 .txt 或 .docx 报告；读取结果只会写入会谈记录草稿。</p>
-              <div class="sup-upload-actions" id="sup-upload-actions">
-                <button id="sup-upload-retry" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="retryReportFileUpload()">重试</button>
-                <button id="sup-upload-cancel" type="button" class="secondary" hidden disabled aria-describedby="sup-upload-status-detail" onclick="cancelReportFileUpload()">取消读取</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 右栏：AI 对话 -->
-  <div class="col-right">
-    <div class="cr-head">
-      <span class="cr-name"><i data-lucide="message-square-text"></i>小镜督导对话</span>
-      <span class="sup-draft-badge" id="sup-draft-badge">AI 草稿 · 未保存</span>
-      <span class="cr-sp"></span>
-      <button onclick="exportSup()">导出</button>
-      <button onclick="saveSup()">保存</button>
-    </div>
-    <div class="cr-chat" id="sup-chat">
-      <div class="msg ai"><div class="src">小镜</div>可先选择来访者，也可直接输入材料开始独立督导。之后可以自由对话深入督导。</div>
-    </div>
-    <div class="cr-input">
-      <input id="sup-input" placeholder="向小镜提问…" onkeydown="if(event.key==='Enter')sendSupMsg()">
-      <button onclick="sendSupMsg()">发送</button>
-    </div>
-    <div class="sup-chat-draft-note">AI 回复为草稿，需点击「保存」才会写入督导记录。</div>
-  </div>
+  </aside>
 </div>
 </div>
 </main></div>
 
 <script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/prompt-governance.js"></script><script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script>
 <script src="js/prompts.builtin.js"></script>
+<script src="js/pii-sanitizer.js"></script>
 <script src="js/supervisors.js"></script>
 <script src="js/supervision-core.js"></script>
 <script src="js/supervision-syndicate-data.js"></script>

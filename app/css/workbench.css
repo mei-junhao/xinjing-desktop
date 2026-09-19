@@ -161,6 +161,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
 .modal-overlay { background: var(--scrim); }
 .modal { border: 1px solid var(--hair-strong); border-radius: 8px; box-shadow: var(--shadow-lg); }
 .xj-model-selector-dialog { width: min(560px, calc(100vw - 32px)); }
+.xj-link-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #c9c2b6; margin-left: 8px; vertical-align: middle; }
+.xj-link-dot.ok { background: #3aa76d; }
+.xj-link-dot.bad { background: #c0392b; }
 .xj-model-options { display: grid; gap: 8px; margin-top: 14px; }
 .xj-model-option { width: 100%; min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 12px; border: 1px solid var(--hair); border-radius: 6px; background: var(--paper-2); color: var(--ink); text-align: left; cursor: pointer; }
 .xj-model-option:hover, .xj-model-option:focus-visible { border-color: var(--accent); background: var(--accent-soft); }

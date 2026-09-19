@@ -136,9 +136,10 @@ function loadSupervisionCore(opts) {
   const Store = {
     createSupervision: opts.createSupervision || function () { return { id: 'sv-shim' }; },
     saveAiSupervision: opts.saveAiSupervision || function () {},
+    saveAiSupervisionDurable: opts.saveAiSupervisionDurable || function () { return Promise.resolve({ ok: true, value: { id: 'sv-shim' } }); },
   };
   const sandbox = {
-    AI: AI, Store: Store, Supervisors: undefined,
+    AI: AI, Store: Store, Supervisors: opts.Supervisors || undefined,
     console: console, JSON: JSON, Date: Date, Object: Object, Array: Array, String: String,
   };
   sandbox.globalThis = sandbox;
@@ -978,15 +979,18 @@ test('P1 mammoth.browser.min.js 已下载到 app/vendor', function () {
 });
 
 // P2. supervision.html 含 mammoth script 且在 supervision.js 之前
-test('P2 supervision.html 三栏研究台：含 sup-chat / sup-input / sup-material', function () {
+test('P2 supervision.html 单列督导流：含 sup-chat / sup-input / sup-material', function () {
   assert.ok(/id="sup-chat"/.test(HTML_SUP), 'supervision.html 缺 sup-chat');
   assert.ok(/id="sup-input"/.test(HTML_SUP), 'supervision.html 缺 sup-input');
   assert.ok(/id="sup-material"/.test(HTML_SUP), 'supervision.html 缺 sup-material');
 });
 
 // P3. aiFile accept 含 .docx
-test('P3 supervision.html 三栏研究台：含历史侧栏', function () {
-  assert.ok(/session-history|sup-history|col-left/.test(HTML_SUP), 'supervision.html 缺历史侧栏');
+test('P3 supervision.html 单列督导流：历史为抽屉且已移除三栏与三 tab', function () {
+  assert.ok(/session-history|sup-history|col-left/.test(HTML_SUP), 'supervision.html 缺历史入口');
+  assert.ok(/id="sup-history-mask"/.test(HTML_SUP), 'supervision.html 缺历史抽屉容器');
+  assert.ok(!/class="m-tabs"/.test(HTML_SUP), 'supervision.html 不应再有整体印象/深化分析/会谈记录三 tab');
+  assert.ok(!/class="sup-body"/.test(HTML_SUP), 'supervision.html 不应再有三栏骨架 sup-body');
 });
 
 // P4. style.css 含 .xj-dragover
@@ -995,15 +999,17 @@ test('P4 style.css 含 .xj-dragover 拖拽高亮样式', function () {
 });
 
 // P5. supervision.js 含 generateAndSaveSupervision 与 realsup 分支
-test('P5 supervision.js 三栏研究台：含 generateImpression 与 sendSupMsg', function () {
+test('P5 supervision.js 单列督导流：含 generateImpression 与 sendSupMsg', function () {
   const src = fs.readFileSync(path.join(APP_DIR, 'js', 'supervision.js'), 'utf8');
   assert.ok(/generateImpression/.test(src), 'supervision.js 缺 generateImpression');
   assert.ok(/sendSupMsg/.test(src), 'supervision.js 缺 sendSupMsg');
 });
 
 // P6. supervision.html 含 aiOneClickBtn 与 realsup 选项
-test('P6 supervision.html 三栏研究台：含快捷按钮', function () {
+test('P6 supervision.html 单列督导流：含快捷按钮', function () {
   assert.ok(/整体印象|深化|润色|sup-btn|快捷/.test(HTML_SUP), 'supervision.html 缺快捷按钮');
+  assert.ok(/quickAction\('transference'\)/.test(HTML_SUP), 'supervision.html 缺移情 / 反移情快捷追问');
+  assert.ok(!/inviteMaster/.test(HTML_SUP), 'supervision.html 不应再有未接线的邀请大师入口');
 });
 
 // P7. supervision-core.js 导出三个新函数
@@ -2631,11 +2637,63 @@ test('v3.7-8 督导会记住流派、可恢复上次材料且不会自动调用 
   assert.ok(!/AI\.send/.test(V37_SUPERVISION.slice(continueStart, continueEnd)), '继续上次督导不应自动调用 AI');
 });
 
-test('v3.7-9 督导深链支持来访者和会谈上下文，并保存会谈关联', function () {
+test('v3.7-9 督导深链支持来访者和会谈上下文，并保存会谈关联', async function () {
   assert.ok(/qs\.get\('clientId'\) \|\| qs\.get\('client'\)/.test(V37_SUPERVISION), '督导未兼容 clientId');
   assert.ok(/qs\.get\('sessionId'\) \|\| qs\.get\('session'\)/.test(V37_SUPERVISION), '督导未兼容 sessionId');
-  assert.ok(/sessionIds:\s*currentSessionId \? \[currentSessionId\]/.test(V37_SUPERVISION), '保存督导未关联当前会谈');
+  // 保存已收口到纯核：必须真正执行纯核并检查交给 Store 的载荷，而不是匹配调用方源码字符串
+  assert.ok(/SupervisionCore\.saveSupervision\(/.test(V37_SUPERVISION), '页面保存未收口到 SupervisionCore');
+  let payload = null;
+  const SC = loadSupervisionCore({
+    Supervisors: { getDefinition: function () { return { displayName: '仓颉版温尼科特督导师' }; } },
+    saveAiSupervisionDurable: function (data) { payload = data; return Promise.resolve({ ok: true, value: { id: 'sv-x' } }); },
+  });
+  const saved = await SC.saveSupervision('cangjie', [
+    { role: 'system', content: 'SYS' },
+    { role: 'assistant', content: '印象正文' },
+    { role: 'user', content: '追问内容' },
+    { role: 'assistant', content: '回答内容' },
+  ], '临床材料', { id: 'ses-x', clientId: 'cli-x' });
+  assert.strictEqual(payload.sessionId, 'ses-x', '纯核保存未带上当前会谈 sessionId');
+  assert.strictEqual(payload.clientId, 'cli-x', '纯核保存未带上当前来访者 clientId');
+  assert.ok(saved && saved.id === 'sv-x', '纯核保存应回传记录 id 供材料工作区回写');
+  assert.ok(/^【整体印象】\n印象正文/.test(payload.content), '有印象时正文首段应为整体印象');
+  assert.ok(/【督导对话】[\s\S]*咨询师：追问内容/.test(payload.content), '督导对话轮次未落库');
+  assert.ok(/sessionIds: data\.sessionId \? \[data\.sessionId\]/.test(V37_STORE), '督导存储未按 sessionId 派生 sessionIds');
   assert.ok(/sessionId:\s*data\.sessionId/.test(V37_STORE), '督导存储未保留显式 sessionId');
+});
+
+test('v3.6.3-sup 无整体印象直接保存时不得丢第一轮提问、不得吐空标题', async function () {
+  let payload = null;
+  const SC = loadSupervisionCore({
+    Supervisors: { getDefinition: function () { return { displayName: '仓颉版温尼科特督导师' }; } },
+    saveAiSupervisionDurable: function (data) { payload = data; return Promise.resolve({ ok: true, value: { id: 'sv-y' } }); },
+  });
+  await SC.saveSupervision('cangjie', [
+    { role: 'system', content: 'SYS' },
+    { role: 'user', content: '请分析反移情' },
+    { role: 'assistant', content: '先说你的部分。' },
+  ], '临床材料', { id: '', clientId: 'cli-y' });
+  assert.ok(/咨询师：请分析反移情/.test(payload.content), '无印象时第一轮提问被丢弃');
+  assert.ok(!/【整体印象】/.test(payload.content), '无印象时不得输出空的【整体印象】标题');
+  assert.ok(/^【督导对话】/.test(payload.content), '无印象时应以【督导对话】开头');
+  assert.strictEqual(payload.clientId, 'cli-y', '未绑会谈时仍须保留 clientId 关联');
+  // 反向变异：system 不在首位时必须拒绝保存，不能静默写出半截记录
+  const rejected = await SC.saveSupervision('cangjie', [{ role: 'user', content: 'x' }], 'm', null);
+  assert.strictEqual(rejected, null, '首条非 system 时纯核必须拒绝保存');
+});
+
+test('v3.6.3-sup-cd confirmDialog 每轮打开必须复位确定与取消的 disabled（弹窗节点跨轮复用）', function () {
+  const start = S_APP.indexOf('function confirmDialog(');
+  assert.ok(start >= 0, 'app.js 缺 confirmDialog');
+  const end = S_APP.indexOf('\n  }', start);
+  const body = S_APP.slice(start, end > start ? end : start + 2000);
+  assert.ok(/cloneNode\(true\)/.test(body), 'confirmDialog 仍用 cloneNode 复用按钮：正因如此必须显式复位 disabled');
+  const bindAt = body.indexOf("addEventListener('click'");
+  assert.ok(bindAt > 0, 'confirmDialog 未绑定确定按钮点击');
+  const okReset = body.indexOf('button.disabled = false');
+  const cancelReset = body.indexOf('cancel.disabled = false');
+  assert.ok(okReset > 0 && okReset < bindAt, '确定按钮未在绑定前复位 disabled：上一轮遗留的 disabled 会被 cloneNode 带入本轮并吞掉点击');
+  assert.ok(cancelReset > 0 && cancelReset < bindAt, '取消按钮未在绑定前复位 disabled：cancel 跨轮是同一元素，第二轮起会永久失效');
 });
 
 test('v3.7-10 文档中心时间线从既有 Store 聚合，并使用账务判定口径', function () {

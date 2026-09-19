@@ -1,11 +1,15 @@
-/* 心镜 v3.1.0 — AI 督导（方案C：三栏研究台 + 历史 + 会员分层） */
+/* 心镜 — AI 督导（单列上下流：材料 → 生成 → 结果流 → 追问 + 会员分层） */
 App.initPage({
   title: 'AI 督导',
   onReady: function () {
     'use strict';
+    // chat 现在是单列结果流容器（一次 AI 输出 = 一张卡片，按顺序垂直追加）
     var chat = document.getElementById('sup-chat');
     var input = document.getElementById('sup-input');
     var materialTA = document.getElementById('sup-material');
+    var askEl = document.getElementById('sup-ask');
+    var materialSec = document.getElementById('sup-material-sec');
+    var scrollHost = document.getElementById('sup-standard-view');
     var curOrient = 'cangjie';
     var curOrientName = '仓颉版温尼科特督导师';
     var messages = [];
@@ -26,12 +30,27 @@ App.initPage({
     var uploadLastFileName = '';
     var lastFailedRequest = null;
     var activeSupervisionController = null;
+    var replyLength = 'medium';
     var multiSchoolMode = false;
     var multiSchoolResult = null;
     var multiSchoolProgressRows = [];
     var multiSchoolBusy = false;
     var multiSchoolBound = false;
     var multiSchoolContext = null;
+
+    // 回复长度档位 → 输出上限；「详细」只放宽上限，不额外加指令，避免稀释督导风格
+    var LENGTH_TOKENS = { brief: 1400, medium: 3200, detailed: 8192 };
+    function lengthOptions(extra) {
+      var opts = { maxTokens: LENGTH_TOKENS[replyLength] || LENGTH_TOKENS.medium };
+      if (extra && extra.signal) opts.signal = extra.signal;
+      if (extra && extra.onDelta) opts.onDelta = extra.onDelta;
+      return opts;
+    }
+
+    function scrollStreamToEnd() {
+      if (!scrollHost) return;
+      scrollHost.scrollTop = scrollHost.scrollHeight;
+    }
 
     // XJ519-Z4：AI 督导生成链路不得同步阻塞 renderer。
     // 原 ClinicalContextView.confirmSend 使用 window.confirm——原生模态会冻结渲染主线程
@@ -183,12 +202,9 @@ App.initPage({
 
     function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
     function showMaterialSource(material) {
-      var host = document.querySelector('.sup-main') || document.querySelector('.sup-page') || document.body;
-      if (!host || !material || document.getElementById('sup-material-source')) return;
-      var source = document.createElement('div');
-      source.id = 'sup-material-source'; source.style.cssText = 'margin:8px 0;padding:8px 10px;border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;font-size:12px;color:var(--ink-2)';
-      source.textContent = 'AI 上下文来源：当前材料「' + (material.source.name || material.title) + '」' + (material.clientId ? '、已关联来访者' : '；未绑定来访者，将作为独立督导保存');
-      host.insertBefore(source, host.firstChild);
+      var meta = document.getElementById('sup-material-meta');
+      if (!meta || !material) return;
+      meta.textContent = 'AI 上下文来源：当前材料「' + (material.source.name || material.title) + '」' + (material.clientId ? '、已关联来访者' : '；未绑定来访者，将作为独立督导保存');
     }
 
     function updateContextState() {
@@ -205,17 +221,15 @@ App.initPage({
       materialId = '';
       materialTA.value = '';
       input.value = '';
-      messages = [];
-      chat.innerHTML = '<div class="msg ai"><div class="src">小镜</div>' + resetMessage + '</div>';
-      var source = document.getElementById('sup-material-source');
-      if (source) source.remove();
-      var impression = document.getElementById('impression-body');
-      if (impression) impression.innerHTML = '<div class="ab-empty"><span class="big"><i data-lucide="brain-circuit"></i></span>输入或上传材料后，生成整体印象开始督导</div>';
-      var deepen = document.getElementById('deepen-body');
-      if (deepen) deepen.innerHTML = '<div class="ab-empty">尚未生成深化分析</div>';
+      clearStream();
+      addNote(resetMessage);
+      setMaterialCollapsed(false);
+      var host = document.getElementById('sup-context-host');
+      if (host) host.innerHTML = '';
+      updateMaterialMeta();
+      updatePiiChip();
       try { localStorage.removeItem(draftKey); localStorage.removeItem(chatKey); } catch (e) {}
       if (App.setActiveClientId) App.setActiveClientId('');
-      if (window.IconSystem) window.IconSystem.render(chat);
       App.showToast(toastMessage, 'info');
     }
 
@@ -229,9 +243,42 @@ App.initPage({
       }
     });
 
-    // 恢复草稿
+    // 恢复草稿与回复长度
     try { var d = localStorage.getItem(draftKey); if (d) materialTA.value = d; } catch(e){}
-    materialTA.addEventListener('input', function () { try { localStorage.setItem(draftKey, this.value); } catch(e){} });
+    try {
+      var savedLength = localStorage.getItem('xj_sup_reply_length');
+      var lengthSel = document.getElementById('sup-length');
+      if (savedLength && LENGTH_TOKENS[savedLength]) {
+        replyLength = savedLength;
+        if (lengthSel) lengthSel.value = savedLength;
+      }
+    } catch (e) {}
+
+    // 脱敏扫描比字数统计重，节流到输入停顿后再跑，避免长逐字稿每敲一个字全量正则
+    var piiTimer = null;
+    function schedulePiiScan() {
+      if (piiTimer) clearTimeout(piiTimer);
+      piiTimer = setTimeout(function () { piiTimer = null; updatePiiChip(); }, 400);
+    }
+    materialTA.addEventListener('input', function () {
+      try { localStorage.setItem(draftKey, this.value); } catch(e){}
+      updateMaterialMeta();
+      schedulePiiScan();
+    });
+    materialTA.addEventListener('blur', schedulePiiScan);
+    updateMaterialMeta();
+    updatePiiChip();
+
+    // 历史抽屉：点遮罩或按 Esc 关闭
+    var historyMask = document.getElementById('sup-history-mask');
+    if (historyMask) {
+      historyMask.addEventListener('click', function (event) {
+        if (event.target === historyMask) window.toggleHistoryDrawer(false);
+      });
+    }
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && historyMask && !historyMask.hidden) window.toggleHistoryDrawer(false);
+    });
 
     // 督导师注册表与批准后的取向选择器
     var orientSel = document.getElementById('sup-orient');
@@ -310,7 +357,6 @@ App.initPage({
       location.href = 'feedback.html?type=custom-supervisor';
     });
     function updateBadge() {
-      document.getElementById('sup-badge').textContent = curOrientName;
       var name = document.getElementById('supervisor-current-name');
       var mark = document.getElementById('supervisor-current-mark');
       var definition = Supervisors.getDefinition ? Supervisors.getDefinition(curOrient) : null;
@@ -529,22 +575,110 @@ App.initPage({
     }
     bindMultiSchoolMode();
 
-    // Tab 切换
-    window.switchTab = function (tab) {
-      document.querySelectorAll('.m-tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === tab); });
-      document.getElementById('impression-body').parentElement.style.display = tab === 'impression' ? '' : 'none';
-      document.getElementById('deepen-block').style.display = tab === 'deepen' ? '' : 'none';
-      document.getElementById('material-block').style.display = tab === 'material' ? '' : 'none';
-    };
+    /* ---------- 材料区折叠：生成成功后收成一行摘要 ---------- */
+    function setMaterialCollapsed(collapsed) {
+      if (!materialSec) return;
+      materialSec.classList.toggle('min', !!collapsed);
+      var toggle = document.getElementById('sup-material-toggle');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.textContent = collapsed ? '展开材料' : '收起材料';
+      }
+      var summary = document.getElementById('sup-material-summary');
+      if (summary) summary.hidden = !collapsed;
+      if (summary && collapsed) {
+        var text = materialTA.value.trim();
+        summary.innerHTML = '';
+        var head = document.createElement('strong');
+        head.textContent = '会谈材料 · ' + text.length + ' 字';
+        var preview = document.createElement('span');
+        preview.className = 's-preview';
+        preview.textContent = text.slice(0, 80) || '（空）';
+        summary.appendChild(head);
+        summary.appendChild(preview);
+      }
+      if (!collapsed) materialTA.focus();
+    }
 
     window.toggleMaterialPanel = function () {
-      var panel = document.getElementById('mat-panel');
-      var toggle = document.getElementById('sup-material-toggle');
-      if (!panel || !toggle) return false;
-      var open = !panel.classList.contains('open');
-      panel.classList.toggle('open', open);
-      toggle.setAttribute('aria-expanded', String(open));
-      toggle.textContent = open ? '收起材料' : '展开材料';
+      if (!materialSec) return false;
+      var collapsed = !materialSec.classList.contains('min');
+      setMaterialCollapsed(collapsed);
+      return !collapsed;
+    };
+
+    function updateMaterialMeta() {
+      var meta = document.getElementById('sup-material-meta');
+      if (!meta) return;
+      var chars = materialTA.value.trim().length;
+      var parts = [];
+      if (chars) parts.push(chars + ' 字' + (chars > 4000 ? '（建议控制在 4000 字以内，过长会明显降低分析质量）' : ''));
+      var material = currentMaterialWorkspace();
+      if (material) parts.push('AI 上下文来源：当前材料「' + (material.source.name || material.title) + '」');
+      else if (!currentClientId) parts.push('未绑定来访者，将作为独立督导保存');
+      meta.textContent = parts.join(' · ');
+    }
+
+    /* ---------- 内联脱敏提示：只提示，不拦提交、不加勾选 ---------- */
+    var PII_LABELS = {
+      PHONE: '电话号码', ID_CARD: '身份证号', EMAIL: '邮箱',
+      ACCOUNT: '账号 / 病历号', ADDRESS: '地址', PERSON_NAME: '姓名',
+    };
+    // DATE / IP_ADDRESS / URL 不纳入：逐字稿里日期极常见，纳入会让提示长期为红而失去意义
+    var PII_SHOWN = Object.keys(PII_LABELS);
+
+    function updatePiiChip() {
+      var chip = document.getElementById('sup-pii-chip');
+      if (!chip) return;
+      var text = materialTA.value;
+      if (!text.trim()) { chip.hidden = true; chip.textContent = ''; return; }
+      var found = [];
+      if (typeof XJPIISanitizer !== 'undefined' && XJPIISanitizer.sanitizeText) {
+        var scanned = XJPIISanitizer.sanitizeText(text);
+        var seen = Object.create(null);
+        (scanned.entities || []).forEach(function (item) {
+          if (PII_SHOWN.indexOf(item.type) === -1 || seen[item.type]) return;
+          seen[item.type] = true;
+          found.push(PII_LABELS[item.type]);
+        });
+      }
+      chip.innerHTML = '';
+      chip.hidden = false;
+      var icon = document.createElement('i');
+      icon.setAttribute('data-lucide', found.length ? 'shield-alert' : 'shield-check');
+      var label = document.createElement('span');
+      if (found.length) {
+        chip.dataset.state = 'found';
+        label.textContent = '本地脱敏检查：材料里可能还有' + found.join('、') + '。提交前建议先删除或改为代称。';
+      } else {
+        delete chip.dataset.state;
+        label.textContent = '本地脱敏检查：未发现电话号码、身份证号、邮箱、账号、地址或姓名。自动识别可能漏检，仍请人工确认。';
+      }
+      chip.appendChild(icon);
+      chip.appendChild(label);
+      if (found.length) {
+        var link = document.createElement('a');
+        link.href = 'desensitize.html';
+        link.textContent = '去文档脱敏 →';
+        chip.appendChild(link);
+      }
+      if (window.IconSystem) window.IconSystem.render(chip);
+    }
+
+    /* ---------- 历史抽屉：替代常驻左栏 ---------- */
+    window.toggleHistoryDrawer = function (show) {
+      var mask = document.getElementById('sup-history-mask');
+      var trigger = document.getElementById('open-session-history');
+      if (!mask) return false;
+      var open = show === undefined ? mask.hidden : !!show;
+      mask.hidden = !open;
+      if (trigger) trigger.setAttribute('aria-expanded', String(open));
+      if (open) {
+        var close = document.getElementById('close-session-history');
+        if (close) close.focus();
+      } else if (trigger) {
+        trigger.focus();
+      }
       return open;
     };
 
@@ -581,10 +715,12 @@ App.initPage({
       if (sessions.length && sessions[0].transcript) {
         materialTA.value = sessions[0].transcript;
         currentSessionId = sessions[0].id;
-        addMsg('ai', '已自动载入 ' + Store.getClient(cid).name + ' 第' + sessions[0].sessionNumber + '节的逐字稿。点「生成整体印象」开始督导。');
+        addNote('已自动载入 ' + Store.getClient(cid).name + ' 第' + sessions[0].sessionNumber + '节的逐字稿。点「生成整体印象」开始督导。');
       } else {
-        addMsg('ai', '已选择 ' + Store.getClient(cid).name + '。该来访者暂无逐字稿，请在材料区手动书写。');
+        addNote('已选择 ' + Store.getClient(cid).name + '。该来访者暂无逐字稿，请在材料区手动书写。');
       }
+      updateMaterialMeta();
+      updatePiiChip();
     };
 
     function renderSessionHistory(sessions) {
@@ -624,11 +760,16 @@ App.initPage({
           return '【' + (m.sourceName || m.title) + '】\n' + (m.text || '材料已关联，但暂无可预览文本');
         }).join('\n\n');
       }
-      addMsg('ai', '已载入第' + (s.sessionNumber || '?') + '节材料' + (linkedMaterials.length ? '，含 ' + linkedMaterials.length + ' 份关联材料。' : '。'));
+      addNote('已载入第' + (s.sessionNumber || '?') + '节材料' + (linkedMaterials.length ? '，含 ' + linkedMaterials.length + ' 份关联材料。' : '。'));
+      updateMaterialMeta();
+      updatePiiChip();
       // 高亮选中的会话
       document.querySelectorAll('.lh-item').forEach(function (el) { el.classList.remove('active'); });
       var active = document.querySelector('.lh-item[data-id="' + sessionId + '"]');
       if (active) active.classList.add('active');
+      // 载入后关掉抽屉，让材料区回到可见位置
+      window.toggleHistoryDrawer(false);
+      setMaterialCollapsed(false);
     };
 
     window.continueLastSupervision = function () {
@@ -639,8 +780,10 @@ App.initPage({
         try { localStorage.setItem(draftKey, context); } catch (e) {}
       }
       currentSessionId = latestSupervision.sessionId || ((latestSupervision.sessionIds || [])[0]) || currentSessionId;
-      addMsg('ai', '已恢复上次督导的材料和流派。你可以补充本次材料后再开始分析。');
-      switchTab('material');
+      addNote('已恢复上次督导的材料和流派。你可以补充本次材料后再开始分析。');
+      setMaterialCollapsed(false);
+      updateMaterialMeta();
+      updatePiiChip();
     };
 
     window.loadTranscript = function () {
@@ -658,52 +801,164 @@ App.initPage({
       });
     };
 
-    function addMsg(role, text) {
-      var div = document.createElement('div');
-      div.className = 'msg ' + (role === 'me' ? 'me' : 'ai');
-      if (role === 'ai') {
-        div.innerHTML = '<div class="src">小镜</div>' + App.escapeHtml(text).replace(/\n/g, '<br>');
-      } else {
-        div.textContent = text;
-      }
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-      messages.push({ role: role === 'me' ? 'user' : 'assistant', content: text });
+    /* ---------- 结果流：一次输出 = 一张卡片，按顺序垂直追加 ---------- */
+    var EMPTY_STREAM_HTML = '<div class="sup-empty"><span class="big"><i data-lucide="brain-circuit"></i></span>还没有内容。生成整体印象后，结果和每一次追问的回答会按顺序出现在这里。</div>';
+
+    function clearStream() {
+      messages = [];
+      chat.innerHTML = EMPTY_STREAM_HTML;
+      if (askEl) askEl.hidden = true;
+      if (window.IconSystem) window.IconSystem.render(chat);
     }
 
-    function addTyping() {
-      var div = document.createElement('div');
-      div.className = 'msg ai'; div.id = 'sup-typing';
-      div.innerHTML = '<div class="src">小镜</div><span data-sup-stream>思考中…</span>';
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+    function dropEmptyHint() {
+      var hint = chat.querySelector('.sup-empty');
+      if (hint) hint.remove();
     }
-    function removeTyping() { var t = document.getElementById('sup-typing'); if (t) t.remove(); }
 
-    function addErrorCard(message, request) {
+    // 把督导正文按【小标题】/ 引用行 / 普通段落分行渲染；全部经 escapeHtml，模型输出永不进 innerHTML
+    function renderRich(bodyEl, text) {
+      bodyEl.removeAttribute('data-streaming');
+      bodyEl.textContent = '';
+      String(text || '').split('\n').filter(function (line) { return line !== ''; }).forEach(function (line) {
+        var node = document.createElement('p');
+        if (line.startsWith('【') && line.endsWith('】')) {
+          node.className = 'ab-heading';
+        } else if (line.startsWith('"') || line.startsWith('“')) {
+          node.className = 'ab-quote';
+        }
+        node.textContent = line;
+        bodyEl.appendChild(node);
+      });
+      if (!bodyEl.childNodes.length) bodyEl.textContent = '（空）';
+    }
+
+    function resultCard(title, badge) {
+      dropEmptyHint();
+      var block = document.createElement('div');
+      block.className = 'analysis-block sup-result';
+      var head = document.createElement('div');
+      head.className = 'ab-head';
+      var titleEl = document.createElement('span');
+      titleEl.className = 'ab-title';
+      titleEl.textContent = title;
+      var badgeEl = document.createElement('span');
+      badgeEl.className = 'ab-badge';
+      badgeEl.textContent = badge;
+      var collapse = document.createElement('button');
+      collapse.type = 'button';
+      collapse.className = 'sup-collapse';
+      collapse.setAttribute('aria-expanded', 'true');
+      collapse.textContent = '收起';
+      collapse.addEventListener('click', function () {
+        var min = block.classList.toggle('min');
+        collapse.textContent = min ? '展开' : '收起';
+        collapse.setAttribute('aria-expanded', String(!min));
+      });
+      var body = document.createElement('div');
+      body.className = 'ab-body';
+      body.setAttribute('data-sup-stream', '');
+      head.appendChild(titleEl);
+      head.appendChild(badgeEl);
+      head.appendChild(collapse);
+      block.appendChild(head);
+      block.appendChild(body);
+      chat.appendChild(block);
+      scrollStreamToEnd();
+      return block;
+    }
+
+    function cardBody(block) { return block.querySelector('[data-sup-stream]'); }
+
+    // 系统提示卡：只说明状态，不进入 messages[]，因此不会污染保存和导出的督导记录
+    function addNote(text, title) {
+      var block = resultCard(title || '小镜', '提示');
+      renderRich(cardBody(block), text);
+      return block;
+    }
+
+    function addQuestion(text) {
+      dropEmptyHint();
+      var bubble = document.createElement('div');
+      bubble.className = 'msg me';
+      bubble.textContent = text;
+      chat.appendChild(bubble);
+      messages.push({ role: 'user', content: text });
+      scrollStreamToEnd();
+    }
+
+    function beginResult(title) {
+      var block = resultCard(title, 'AI 草稿');
+      var body = cardBody(block);
+      body.setAttribute('data-streaming', '');
+      body.textContent = '思考中…';
+      return block;
+    }
+
+    function streamInto(block, text) {
+      var body = cardBody(block);
+      body.setAttribute('data-streaming', '');
+      body.textContent = text || '';
+    }
+
+    // 卡片转错误态：保留重试与检查模型配置入口，不伪装成成功
+    function failResult(block, message, request) {
       lastFailedRequest = request || null;
-      var div = document.createElement('div');
-      div.className = 'msg ai sup-error-card';
-      div.innerHTML = '<div class="src">小镜</div>' +
-        '<div class="sup-error-detail">' + App.escapeHtml(message || '模型没有返回结果') + '</div>' +
-        '<div class="sup-error-actions">' +
-        '<button type="button" class="primary" data-sup-retry>重试</button>' +
-        '<button type="button" data-sup-settings>检查模型配置</button>' +
-        '</div>';
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
+      block.classList.add('sup-error-card');
+      block.classList.remove('min');
+      var badge = block.querySelector('.ab-badge');
+      if (badge) badge.textContent = '失败';
+      var collapse = block.querySelector('.sup-collapse');
+      if (collapse) collapse.hidden = true;
+      var body = cardBody(block);
+      body.removeAttribute('data-streaming');
+      body.textContent = '';
+      var detail = document.createElement('div');
+      detail.className = 'sup-error-detail';
+      detail.textContent = message || '模型没有返回结果';
+      var actions = document.createElement('div');
+      actions.className = 'sup-error-actions';
+      var retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'primary';
+      retry.setAttribute('data-sup-retry', '');
+      retry.textContent = '重试';
+      var settings = document.createElement('button');
+      settings.type = 'button';
+      settings.setAttribute('data-sup-settings', '');
+      settings.textContent = '检查模型配置';
+      actions.appendChild(retry);
+      actions.appendChild(settings);
+      body.appendChild(detail);
+      body.appendChild(actions);
+      scrollStreamToEnd();
+    }
+
+    function setCancelledResult(block, message) {
+      var body = cardBody(block);
+      body.removeAttribute('data-streaming');
+      body.textContent = message;
+      var badge = block.querySelector('.ab-badge');
+      if (badge) badge.textContent = '已取消';
+    }
+
+    function currentSystemPrompt() {
+      return (typeof Supervisors !== 'undefined' && Supervisors.buildSystemPrompt)
+        ? Supervisors.buildSystemPrompt(curOrient)
+        : '你是一位心理咨询督导，请用中文回应，语气专业而温暖。';
     }
 
     function buildMessages(userText, isImpression) {
-      var sys = (typeof Supervisors !== 'undefined' && Supervisors.buildSystemPrompt)
-        ? Supervisors.buildSystemPrompt(curOrient)
-        : '你是一位心理咨询督导，请用中文回应，语气专业而温暖。';
+      var sys = currentSystemPrompt();
       var material = materialTA.value.trim();
       var hist = messages.slice(-12).map(function (m) { return { role: m.role, content: m.content }; });
 
       var userContent = '';
       if (isImpression) {
-        userContent = '以下是临床材料，请基于' + curOrientName + '给出整体印象（个案概念化、核心议题、治疗师功能、值得注意的线索）：\n\n' + material;
+        // 完整督导管线（材料识别 → 针对性输出 → 风格 → 开放问题 + 澄清清单）收口到纯核
+        userContent = (typeof SupervisionCore !== 'undefined' && SupervisionCore.buildImpressionPrompt)
+          ? SupervisionCore.buildImpressionPrompt(material)
+          : '以下是临床材料，请基于' + curOrientName + '给出整体印象（个案概念化、核心议题、治疗师功能、值得注意的线索）：\n\n' + material;
       } else {
         userContent = userText;
         if (material) userContent += '\n\n--- 临床材料 ---\n' + material;
@@ -718,7 +973,7 @@ App.initPage({
         var finalMessage = msgs[msgs.length - 1] || {};
         var context = ClinicalContext.build('supervision-ai', { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId }, { system: (msgs[0] && msgs[0].content) || '', inputText: input, instruction: finalMessage.content || '', history: msgs.slice(1, -1) });
         if (!context.ok) { resolve({ error: '当前上下文无效，请检查材料或关联信息' }); return; }
-        if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.sup-main') || document.body, context);
+        if (ClinicalContextView) ClinicalContextView.renderSummary(document.getElementById('sup-context-host') || document.body, context);
         // XJ519-Z4：上下文确认改为异步 DOM 确认，不再使用 window.confirm 同步阻塞。
         confirmContextSendAsync(context).then(function (confirmed) {
           if (!confirmed) { resolve({ error: '用户已取消本次 AI 督导', cancelled: true }); return; }
@@ -729,24 +984,25 @@ App.initPage({
             if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentInput, { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); resolve({ error: '上下文已变更，旧结果未采用' }); return; }
             if (res && res.content && !res.error) { ClinicalContext.completeActionRun(run.id, { kind: 'supervision-preview', summary: res.content, citations: [] }); resolve({ content: res.content }); }
             else { ClinicalContext.failActionRun(run.id, (res && res.error) || '无响应'); resolve({ error: (res && res.error) || '无响应', code: res && res.code, errorCode: res && res.errorCode, interrupted: !!(res && res.interrupted) }); }
-          }, { signal: signal || undefined, onDelta: onDelta });
+          }, lengthOptions({ signal: signal, onDelta: onDelta }));
         });
       });
     }
 
-    function renderImpression(text) {
-      var body = document.getElementById('impression-body');
-      body.innerHTML = '';
-      var paras = text.split('\n').filter(Boolean);
-      paras.forEach(function (p) {
-        if (p.startsWith('【') && p.endsWith('】')) {
-          body.innerHTML += '<div style="font-weight:600;font-family:var(--serif);font-size:14px;margin:12px 0 6px;color:var(--accent)">' + App.escapeHtml(p) + '</div>';
-        } else if (p.startsWith('"') || p.startsWith('“')) {
-          body.innerHTML += '<div class="ab-quote">' + App.escapeHtml(p) + '</div>';
-        } else {
-          body.innerHTML += '<p style="margin:6px 0">' + App.escapeHtml(p) + '</p>';
-        }
-      });
+    // 快捷追问：卡片标题与提示词一一对应，结果直接追加在流里
+    var QUICK_ACTIONS = {
+      transference: { title: '移情 / 反移情分析', prompt: '请就材料中的移情/反移情议题进行分析。如果信息不足，请提出需要关注的移情线索。' },
+      deepen: { title: '深化分析', prompt: '请就材料中的核心议题深化讨论，提出进一步的思考角度与开放式提问。' },
+      tech: { title: '技术建议', prompt: '基于材料，请给出具体的技术建议：在接下来的咨询中我应该怎样回应？' },
+      polish: { title: '材料润色', prompt: '请在不改变原意的前提下润色以下临床材料的语言，使其更通顺、专业。' },
+    };
+    // 自由追问与重试时，卡片标题按本轮实际发出的指令反查，避免全部叫「督导回复」
+    function titleForPrompt(text) {
+      var keys = Object.keys(QUICK_ACTIONS);
+      for (var i = 0; i < keys.length; i += 1) {
+        if (QUICK_ACTIONS[keys[i]].prompt === text) return QUICK_ACTIONS[keys[i]].title;
+      }
+      return '督导回复';
     }
 
     window.generateImpression = function () {
@@ -760,46 +1016,9 @@ App.initPage({
     window.quickAction = function (kind) {
       if (busy) return;
       if (!ensureSupervisionAccess()) return;
-      var prompts = {
-        deepen: '请就材料中的核心议题深化讨论，提出进一步的思考角度与开放式提问。',
-        polish: '请在不改变原意的前提下润色以下临床材料的语言，使其更通顺、专业。',
-        tech: '基于材料，请给出具体的技术建议——在接下来的咨询中我应该怎样回应？',
-        transference: '请就材料中的移情/反移情议题进行分析。如果信息不足，请提出需要关注的移情线索。',
-      };
-      sendToAI(prompts[kind] || prompts.deepen, false);
-    };
-
-    window.inviteMaster = function () {
-      if (busy) return;
-      if (!ensureSupervisionAccess()) return;
-      var masters = (window.MASTERS || []);
-      var html = masters.map(function (m) {
-        return '<label style="display:inline-block;padding:6px 12px;cursor:pointer"><input type="radio" name="sup-master" value="' + m.key + '"' + (m.key === 'winnicott' ? ' checked' : '') + '> ' + m.name + '</label>';
-      }).join('');
-      App.confirmDialog(html, function () {
-        var checked = document.querySelector('input[name="sup-master"]:checked');
-        if (!checked) return;
-        var m = (window.getMasterByKey ? getMasterByKey(checked.value) : null);
-        if (!m) return;
-        var mat = materialTA.value.trim();
-        if (!mat) { App.showToast('请先填写会谈记录', 'warning'); return; }
-        addMsg('me', '邀请 ' + m.name + ' 发表视角');
-        addTyping();
-        busy = true;
-        var sys = m.systemPrompt + '\n\n以下是临床材料，请以你的理论视角给出对个案的分析和督导意见：\n\n' + mat;
-        callAI([{ role: 'system', content: sys }, { role: 'user', content: '请基于你的取向分析这个个案。' }]).then(function (r) {
-          removeTyping();
-          if (r && !r.error) {
-            addMsg('ai', '【' + m.name + '视角】\n' + r.content);
-            // 也渲染到中栏深化区
-            var deepenBody = document.getElementById('deepen-body');
-            deepenBody.innerHTML = '<div class="ab-head" style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-weight:600;color:var(--accent)">' + m.name + '视角</span></div>' +
-              '<div style="font-size:13px;line-height:1.8">' + App.escapeHtml(r.content).replace(/\n/g, '<br>') + '</div>';
-            switchTab('deepen');
-          } else addMsg('ai', '生成失败：' + ((r && r.error) || '未知'));
-          busy = false;
-        });
-      });
+      var action = QUICK_ACTIONS[kind] || QUICK_ACTIONS.deepen;
+      if (!materialTA.value.trim()) { App.showToast('请先在材料区填写会谈记录', 'warning'); return; }
+      sendToAI(action.prompt, false);
     };
 
     window.sendSupMsg = function () {
@@ -808,6 +1027,18 @@ App.initPage({
       if (!ensureSupervisionAccess()) return;
       input.value = '';
       sendToAI(text, false);
+    };
+
+    window.onLengthChange = function (value) {
+      replyLength = LENGTH_TOKENS[value] ? value : 'medium';
+      try { localStorage.setItem('xj_sup_reply_length', replyLength); } catch (e) {}
+    };
+
+    window.clearMaterial = function () {
+      materialTA.value = '';
+      try { localStorage.removeItem(draftKey); } catch (e) {}
+      updateMaterialMeta();
+      updatePiiChip();
     };
 
     chat.addEventListener('click', function (event) {
@@ -824,54 +1055,53 @@ App.initPage({
 
     async function sendToAI(text, isImpression, isRetry) {
       if (busy) return;
-      if (!isImpression && !isRetry) addMsg('me', text);
-      addTyping();
+      var title = isImpression ? '整体印象' : titleForPrompt(text);
+      // 印象轮和重试轮不重复插提问气泡
+      if (!isImpression && !isRetry) addQuestion(text);
+      var block = beginResult(title);
       busy = true;
       // XJ519-Z4：请求期间提供真实的取消动作（AbortController → ai.js 桥接取消），
       // 主线程保持可交互；取消、成功、失败三种终态分开显示。
       var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       activeSupervisionController = controller;
-      var typingEl = document.getElementById('sup-typing');
-      if (typingEl && controller) {
+      if (controller) {
         var cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
+        cancelBtn.className = 'sup-collapse';
+        cancelBtn.setAttribute('data-sup-cancel', '');
         cancelBtn.textContent = '取消生成';
-        cancelBtn.style.cssText = 'margin-left:10px;padding:2px 10px;font-size:11px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--ink-2);cursor:pointer';
         cancelBtn.addEventListener('click', function () {
           try { if (activeSupervisionController) activeSupervisionController.abort(); } catch (e) { /* 已取消 */ }
         });
-        typingEl.appendChild(cancelBtn);
+        block.querySelector('.ab-head').appendChild(cancelBtn);
       }
       try {
         var msgs = buildMessages(text, isImpression);
         var r = await callAI(msgs, controller ? controller.signal : null, function (piece, fullText) {
-          var stream = typingEl && typingEl.querySelector('[data-sup-stream]');
-          if (stream) stream.textContent = fullText || piece || '';
-          if (typingEl) chat.scrollTop = chat.scrollHeight;
+          streamInto(block, fullText || piece || '');
+          scrollStreamToEnd();
         });
-        removeTyping();
+        var cancelBtn2 = block.querySelector('[data-sup-cancel]');
+        if (cancelBtn2) cancelBtn2.remove();
         if (r && r.cancelled) {
-          addMsg('ai', '已取消本次 AI 督导（上下文未发送）。');
+          setCancelledResult(block, '已取消本次 AI 督导（上下文未发送）。');
         } else if (r && r.code === 'ABORT_ERR') {
-          addMsg('ai', '已取消生成。');
+          setCancelledResult(block, '已取消生成。');
         } else if (r && !r.error) {
-          addMsg('ai', r.content);
+          renderRich(cardBody(block), r.content);
+          messages.push({ role: 'assistant', content: r.content });
           if (isImpression) {
-            renderImpression(r.content);
-            switchTab('impression');
-          } else {
-            // 把深化分析渲染到中栏
-            var deepenBody = document.getElementById('deepen-body');
-            deepenBody.innerHTML = '<div style="font-size:13px;line-height:1.8">' + App.escapeHtml(r.content).replace(/\n/g, '<br>') + '</div>';
-            switchTab('deepen');
+            // 整体印象出来后，把材料收成一行摘要，将屏幕让给结果和追问
+            setMaterialCollapsed(true);
+            if (askEl) { askEl.hidden = false; input.focus(); }
           }
         } else {
-          var reason = (r && r.error) || '未知错误';
-          addErrorCard('生成失败：' + reason + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
+          failResult(block, '生成失败：' + ((r && r.error) || '未知错误') + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
         }
       } catch (e) {
-        removeTyping();
-        addErrorCard('执行异常：' + ((e && e.message) || '未知错误') + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
+        var cancelBtn3 = block.querySelector('[data-sup-cancel]');
+        if (cancelBtn3) cancelBtn3.remove();
+        failResult(block, '执行异常：' + ((e && e.message) || '未知错误') + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
       }
       activeSupervisionController = null;
       busy = false;
@@ -879,21 +1109,23 @@ App.initPage({
 
     window.saveSup = async function () {
       if (!messages.length) { App.showToast('无内容可保存', 'warning'); return; }
-      var full = messages.map(function (m) { return (m.role === 'user' ? '咨询师：' : '督导师：') + m.content; }).join('\n\n');
-      var modeName = curOrientName;
-      if (typeof Store !== 'undefined' && typeof Store.saveAiSupervision === 'function') {
-        var savedResult = await Store.saveAiSupervisionDurable({
-          supervisorName: modeName,
-          clientId: currentClientId || '',
-          sessionId: currentSessionId,
-          sessionIds: currentSessionId ? [currentSessionId] : [],
-          context: materialTA.value.trim(),
-          content: full,
-        });
-        if (!savedResult || !savedResult.ok) { App.showToast('保存失败：督导草稿已保留，请恢复存储后重试', 'error'); return; }
-        var saved = savedResult.value;
-        if (saved && materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { supervision: 'completed' }, artifacts: { supervisionId: saved.id } });
+      if (typeof SupervisionCore === 'undefined' || !SupervisionCore.saveSupervision) {
+        App.showToast('督导保存通道未就绪，草稿已保留', 'error');
+        return;
       }
+      // 纯核要求首条为 system；页面 messages[] 只存真实对话轮，此处按需补齐，不改变其形状
+      var transcript = [{ role: 'system', content: currentSystemPrompt() }].concat(messages);
+      // 绑了来访者但还没有会谈记录时仍要保住 clientId，故不能按 sessionId 有无来推断
+      var binding = { clientId: currentClientId || '', id: currentSessionId || '' };
+      var saved = null;
+      try {
+        saved = await SupervisionCore.saveSupervision(curOrient, transcript, materialTA.value.trim(), binding);
+      } catch (error) {
+        App.showToast('保存失败：督导草稿已保留，请恢复存储后重试', 'error');
+        return;
+      }
+      if (!saved) { App.showToast('保存失败：督导师配置无效，草稿已保留', 'error'); return; }
+      if (saved.id && materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { supervision: 'completed' }, artifacts: { supervisionId: saved.id } });
       App.showToast(currentClientId ? '已保存督导记录' : '已保存独立督导记录', 'success');
       if (typeof Memory !== 'undefined' && Memory.record) Memory.record('supervision_done', { summary: '完成了 AI 督导' });
     };
@@ -1076,7 +1308,9 @@ App.initPage({
       resetReportFileInput();
       setUploadState('success', '报告「' + operation.file.name + '」已写入会谈记录区；尚未写入正式督导记录。', 100);
       if (typeof App !== 'undefined' && App.showToast) App.showToast('案例报告已载入材料区', 'success');
-      switchTab('material');
+      setMaterialCollapsed(false);
+      updateMaterialMeta();
+      updatePiiChip();
     }
 
     function startReportUpload(file, isRetry) {
@@ -1158,16 +1392,18 @@ App.initPage({
             if (draft) {
               materialTA.value = draft;
               try { localStorage.setItem(draftKey, draft); } catch (e) {}
-              addMsg('ai', '已载入从「撰写报告」带过来的案例报告。点「生成整体印象」或直接在右侧对话窗深入督导。');
-              switchTab('material');
+              addNote('已载入从「撰写报告」带过来的案例报告。点「生成整体印象」，或在下方直接追问深入督导。');
+              setMaterialCollapsed(false);
             }
           }
         }
       }
       if (material && material.parseStatus === 'ready') {
         materialTA.value = material.extractedText || '';
-        switchTab('material');
+        setMaterialCollapsed(false);
       }
+      updateMaterialMeta();
+      updatePiiChip();
     } catch (e) {}
   },
 });

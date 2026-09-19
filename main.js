@@ -2659,6 +2659,8 @@ function updateIntegrationOptions() {
   const adapters = updateAdapters.buildProductionUpdateOptions({
     net: electronNet,
     dialog: dialog,
+    shell: shell,
+    updatePageUrl: 'https://mei-junhao.github.io/winnicott-chat/xinjing-landing.html#download',
     ipcMain: ipcMain,
     getMainWindow: () => mainWindow || null,
     appVersion: app.getVersion(),

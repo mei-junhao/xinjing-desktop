@@ -446,7 +446,7 @@ const App = (() => {
     overlay.id = 'xj-model-selector-modal';
     overlay.setAttribute('aria-hidden', 'true');
     overlay.innerHTML = '<div class="modal xj-model-selector-dialog" role="dialog" aria-modal="true" aria-labelledby="xj-model-selector-title">' +
-      '<div class="modal-header"><h2 id="xj-model-selector-title">选择主力模型</h2></div>' +
+      '<div class="modal-header"><h2 id="xj-model-selector-title">选择主力模型</h2><span class="xj-link-dot" id="xj-link-dot" title="服务器连接状态" aria-label="服务器连接状态"></span></div>' +
       '<div class="modal-body"><p class="hint" data-model-selector-status>正在读取服务器模型目录…</p><div class="xj-model-options" role="listbox" aria-label="服务器可用主力模型"></div><p class="hint xj-model-fallback-note">主力上游失败时由服务器自动切换 Qwen 免费兜底，兜底不扣费。</p></div>' +
       '<div class="modal-footer"><button class="btn btn-ghost" type="button" data-modal-cancel>关闭</button><button class="btn btn-secondary" type="button" data-model-selector-retry>重新读取</button></div></div>';
     document.body.appendChild(overlay);
@@ -455,6 +455,8 @@ const App = (() => {
     function renderCatalog(catalog) {
       const selected = selectedBuiltinModelId();
       status.textContent = '价格来自服务器目录 · 版本 ' + catalog.catalogRevision;
+      const dot = overlay.querySelector('#xj-link-dot');
+      if (dot) { dot.className = 'xj-link-dot ok'; dot.textContent = '●'; dot.title = '服务器连通'; }
       options.innerHTML = catalog.models.map(function (entry) {
         const active = entry.modelId === selected;
         return '<button class="xj-model-option' + (active ? ' is-selected' : '') + '" type="button" role="option" aria-selected="' + String(active) + '" data-model-id="' + escapeHtml(entry.modelId) + '">' +
@@ -481,6 +483,8 @@ const App = (() => {
     }
     function showError() {
       status.textContent = '无法读取服务器模型目录，请检查网络后重试。';
+      const dot = overlay.querySelector('#xj-link-dot');
+      if (dot) { dot.className = 'xj-link-dot bad'; dot.textContent = '●'; dot.title = '服务器断开'; }
       options.innerHTML = '';
     }
     overlay.querySelector('[data-model-selector-retry]').addEventListener('click', function () {
@@ -765,7 +769,7 @@ const App = (() => {
     'index.html': ['查今日安排', '查欠费明细', '查本月收入', '查看待办', '跳转到各页面'],
     'consult-notes.html': ['记录咨询笔记', '切换笔记模板', '小镜帮你润色', '查询来访者资料'],
     'session-calendar.html': ['查看本月会谈', '按来访者筛选', '点击日跳转会话'],
-    'supervision.html': ['生成整体印象', '深化分析', '技术建议', '移情分析', '邀请大师视角'],
+    'supervision.html': ['生成整体印象', '深化分析', '技术建议', '移情 / 反移情分析', '保存督导记录'],
     'real-supervision.html': ['整理真人督导记录', 'AI 分析逐字稿'],
     'billing-shell.html': ['查看收入统计', '月结', '预付费管理', '导出账单', '查欠费'],
     'sync.html': ['同步记账数据', '解析 JSON/CSV 账单'],
@@ -1551,7 +1555,12 @@ const App = (() => {
     oldButton.parentNode.replaceChild(button, oldButton);
     button.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
     button.textContent = danger ? '确认操作' : '确定';
+    // 确认弹窗节点跨轮复用且 closeModalElement 不销毁它：上一轮成功后 button.disabled 仍为 true，
+    // 而 cloneNode 会把 disabled 属性一起带过来，不显式复位就会被下面的 if (button.disabled) 吞掉点击。
+    button.disabled = false;
     const cancel = overlay.querySelector('[data-modal-cancel]');
+    // cancel 不参与克隆，跨轮是同一个元素，同样必须复位，否则第二轮起「取消」也失效。
+    if (cancel) cancel.disabled = false;
     button.addEventListener('click', async function () {
       if (button.disabled) return;
       const idleText = button.textContent;

@@ -92,22 +92,29 @@ function createNetTransport(net, options) {
 // Real confirmation adapter (dialog, decision 2.5). Only an explicit 'now'
 // proceeds; any other response, cancel, or window close declines (the flow
 // never enters downloading).
+// 2026-09-19（用户要求）：自动更新停用——发现新版本时改为打开网页下载页，
+// 不再自动下载安装。选择「前往网页更新」→ shell.openExternal(下载页)，返回
+// 'later' 从而完全不进入自动下载流程。
 // ---------------------------------------------------------------------------
-function createConfirmAdapter(dialog, getMainWindow) {
+function createConfirmAdapter(dialog, getMainWindow, shell, updatePageUrl) {
+  const pageUrl = updatePageUrl || 'https://mei-junhao.github.io/winnicott-chat/xinjing-landing.html#download';
   return async (metadata) => {
     if (!dialog || typeof dialog.showMessageBox !== 'function') return 'later';
     const win = typeof getMainWindow === 'function' ? getMainWindow() : null;
     try {
       const { response } = await dialog.showMessageBox(win || null, {
         type: 'question',
-        buttons: ['立即更新', '稍后'],
+        buttons: ['前往网页更新', '稍后'],
         defaultId: 1,
         cancelId: 1,
         title: '发现新版本',
-        message: '发现新版本 v' + String((metadata && metadata.version) || '') + '，是否立即更新？',
-        detail: '更新前会自动创建本地安全快照，失败可回滚到当前版本。'
+        message: '发现新版本 v' + String((metadata && metadata.version) || '') + '。',
+        detail: '自动更新已停用：点「前往网页更新」将在浏览器打开心镜下载页，下载后手动安装。（数据与设置保留，安装时选择同一安装目录即可。）'
       });
-      return response === 0 ? 'now' : 'later';
+      if (response === 0) {
+        try { if (shell && typeof shell.openExternal === 'function') shell.openExternal(pageUrl); } catch (_) {}
+      }
+      return 'later';
     } catch (_) {
       return 'later';
     }
@@ -249,7 +256,7 @@ function buildProductionUpdateOptions(deps) {
   const appVersion = deps.appVersion || '';
 
   const transport = createNetTransport(deps.net || null, { timeoutMs: deps.timeoutMs, denyNetwork: deps.denyNetwork });
-  const confirmDecision = createConfirmAdapter(deps.dialog || null, getMainWindow);
+  const confirmDecision = createConfirmAdapter(deps.dialog || null, getMainWindow, deps.shell || null, deps.updatePageUrl);
   const rendererIpc = deps.rendererIpc || createRendererIpc(deps.ipcMain || null, { replyTimeoutMs: deps.replyTimeoutMs, getMainWindow });
   const rendererDurable = deps.rendererDurable || createRendererDurable(rendererIpc, getMainWindow);
   const healthCheck = deps.healthCheck || createHealthAdapter({ electronExe: deps.electronExe, probeDir: deps.probeDir, appVersion, healthTimeoutMs: deps.healthTimeoutMs });

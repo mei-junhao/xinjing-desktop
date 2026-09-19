@@ -99,7 +99,7 @@
     { sel: null, title: '欢迎来到心镜', text: '这是为心理咨询师打造的一体化工作台。功能不少，先花 40 秒跟我认识几个最常用的入口，之后你随时能在「设置」里重看。' },
     { sel: '.xj-new-client', title: '录入你的第一位来访者', text: '点这里建立来访者档案。之后所有咨询记录、账单、报告都会挂在 TA 名下。' },
     { sel: 'a.mod[href="consult-notes.html"]', title: '记录每一次会谈', text: '每次咨询结束后来这里记录整理，支持 APA 结构化提示与 AI 辅助逐字稿。' },
-    { sel: 'a.mod[href="supervision.html"]', title: '遇到卡点问 AI 督导', text: '三栏研究台：整体印象 / 深化分析 / 临床材料，随时给你一份专业的督导视角。' },
+    { sel: 'a.mod[href="supervision.html"]', title: '遇到卡点问 AI 督导', text: '一条流走到底：贴材料、生成整体印象、往下追问，结果直接出现在下方。' },
     { sel: 'a.mod[href="masters.html"]', title: '与思想大师对话', text: '和 11 位心理学思想者一对一，或发起多人圆桌研讨，换个角度看个案。' },
     { sel: 'a.mod[href="knowledge.html"]', title: '把你的资料喂给 AI', text: '导入课程讲义与文献到「我的资料库」，AI 对话时会自动引用，也能随时检索。' },
     { sel: 'a.mod[href="settings.html"]', title: '第一步：配置 AI 模型', text: '在「设置」里填入你自己的 API 密钥，即可解锁高性能模型；未配置也能用内置免费额度。' },

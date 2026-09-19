@@ -78,18 +78,25 @@ const SupervisionCore = (() => {
     });
   }
 
-  // 保存督导记录（不操作 DOM）——与 supervision.js L366-392 字节同源
-  // 返回 full 文本（页面壳可用于 showToast），纯核内部已完成 Store 保存
+  // 保存督导记录（不操作 DOM）
+  // 成功返回 { id, content }（页面壳据此回写材料工作区），纯核内部已完成 Store 保存
+  // chatMessages[0] 必须是 system；[1] 仅在为 assistant 时视为整体印象，
+  // 否则整段都按对话轮输出——避免用户先点快捷追问时丢掉第一轮提问。
   async function saveSupervision(mode, chatMessages, material, loadedSession) {
     if (!chatMessages.length || chatMessages[0].role !== 'system') return null;
-    const impression = chatMessages[1] && chatMessages[1].role === 'assistant' ? chatMessages[1].content : '';
-    const chat = chatMessages.slice(2).map((m) =>
+    const hasImpression = chatMessages[1] && chatMessages[1].role === 'assistant';
+    const impression = hasImpression ? chatMessages[1].content : '';
+    const chat = (hasImpression ? chatMessages.slice(2) : chatMessages.slice(1)).map((m) =>
       (m.role === 'user' ? '咨询师：' : '督导师：') + m.content
     ).join('\n\n');
     const definition = (typeof Supervisors !== 'undefined' && Supervisors.getDefinition) ? Supervisors.getDefinition(mode) : null;
     if (!definition) return null;
     const modeName = definition.saveName || definition.displayName;
-    const full = '【整体印象】\n' + impression + (chat ? '\n\n【督导对话】\n' + chat : '');
+    // 没有整体印象时不吐空标题：用户可以先点快捷追问再保存
+    const parts = [];
+    if (impression) parts.push('【整体印象】\n' + impression);
+    if (chat) parts.push('【督导对话】\n' + chat);
+    const full = parts.join('\n\n');
     if (typeof Store === 'undefined' || typeof Store.saveAiSupervisionDurable !== 'function') {
       throw new Error('督导保存通道未就绪');
     }
@@ -103,7 +110,7 @@ const SupervisionCore = (() => {
     if (!result || !result.ok) {
       throw new Error((result && result.error && result.error.message) || '督导记录持久化失败');
     }
-    return full;
+    return { id: (result.value && result.value.id) || '', content: full };
   }
 
   // ===================== U1-C 真人督导整理模式 =====================

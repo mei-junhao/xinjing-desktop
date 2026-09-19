@@ -30,7 +30,11 @@
   var TASKS = Object.freeze({
     'transcript-ai-detect': taskSpec('transcript-ai-detect', 'ai-detect', '逐字稿 AI 检测', ['client', 'session', 'material'], ['session'], 18000, 4500, 'transcript-detection-preview', 'fixture-transcript-ai-detect-v1'),
     'report-ai-fill': taskSpec('report-ai-fill', 'ai-report', '报告 AI 填写', ['client', 'session', 'material'], ['session'], 20000, 5000, 'report-fill-preview', 'fixture-report-ai-fill-v1'),
-    'supervision-ai': taskSpec('supervision-ai', 'ai-supervise', 'AI 督导', ['client', 'session', 'material', 'supervision'], ['session'], 24000, 6000, 'supervision-preview', 'fixture-supervision-ai-v1'),
+    // 督导不强制锚定某一节会谈：允许「已绑来访者但该来访者还没有会谈记录」正常生成。
+    // 逐来源的 kind/哈希/版本/状态与来访者一致性校验全部保留，只是不再要求必须有 session 来源。
+    'supervision-ai': taskSpec('supervision-ai', 'ai-supervise', 'AI 督导', ['client', 'session', 'material', 'supervision'], [], 24000, 6000, 'supervision-preview', 'fixture-supervision-ai-v1'),
+    // 多学派督导：权益与页面门禁一致走 ai-masters；outputKind 必须与 supervision.js completeActionRun 传入的 kind 相同
+    'supervision-multi-school': taskSpec('supervision-multi-school', 'ai-masters', '多学派督导', ['client', 'session', 'material', 'supervision'], [], 24000, 6000, 'supervision-multi-school', 'fixture-supervision-multi-school-v1'),
     'growth-summary': taskSpec('growth-summary', 'ai-growth', 'AI 成长摘要', ['material'], ['material'], 26400, 6600, 'growth-summary-preview', 'fixture-growth-summary-v1'),
     'real-supervision-ai-organize': taskSpec('real-supervision-ai-organize', 'ai-analyze', '真人督导 AI 整理', ['client', 'session', 'material', 'supervision', 'userdocs'], ['supervision'], 26000, 6500, 'real-supervision-organize-preview', 'fixture-real-supervision-organize-v1'),
     'real-supervision-ai-record-analyze': taskSpec('real-supervision-ai-record-analyze', 'real-sup-ai', '督导记录 AI 分析', ['client', 'session', 'material', 'supervision'], ['supervision'], 26000, 6500, 'real-supervision-analysis-preview', 'fixture-real-supervision-analysis-v1')
@@ -105,7 +109,7 @@
   function validateSources(taskId, sources, origin) {
     var spec = getTaskSpec(taskId);
     if (!spec) return { ok: false, reason: 'unknown-task' };
-    if (taskId === 'supervision-ai' && (!sources || !sources.length) && origin && !text(origin.clientId) && !text(origin.sessionId) && !text(origin.materialId) && !text(origin.supervisionId)) return { ok: true };
+    if ((taskId === 'supervision-ai' || taskId === 'supervision-multi-school') && (!sources || !sources.length) && origin && !text(origin.clientId) && !text(origin.sessionId) && !text(origin.materialId) && !text(origin.supervisionId)) return { ok: true };
     if (!Array.isArray(sources) || !sources.length) return { ok: false, reason: 'source-required' };
     origin = origin || {};
     var counts = Object.create(null);

@@ -89,3 +89,7 @@ dist.bak-*/
 
 # 根目录临时调试脚本与抓取产物
 /_tmp*
+
+# 一次性协调脚手架与快照（多 agent 任务卡 fixture/证据，非回归测试，不入库）
+tests/*-disposable/
+scripts/v5.1.1-tests/
