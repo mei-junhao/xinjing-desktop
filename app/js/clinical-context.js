@@ -41,6 +41,13 @@
   });
 
   function text(value) { return String(value == null ? '' : value).trim(); }
+
+  // F5 §7.4：任何超限响应都必须含稳定 errorCode。
+  // 码表唯一事实来源是 ai.js 的统一预算闸门；AI 尚未加载时退到同一字面量，
+  // 绝不另造「任务预算超限」这类同义新码（复审已证明同义码会导致前端分流分叉）。
+  function taskBudgetErrorCode() {
+    return (typeof AI !== 'undefined' && AI && AI.budgetGuard && AI.budgetGuard.errorCode) || 'MATERIAL_TOO_LONG';
+  }
   function clip(value, limit) {
     var source = text(value);
     return { text: source.slice(0, limit), truncated: source.length > limit, chars: Math.min(source.length, limit) };
@@ -265,7 +272,21 @@
     var payload = blocks.join('\n\n') + (options.instruction ? '\n\n[本轮指令]\n' + text(options.instruction) : '');
     var estimatedChars = payload.length;
     var estimatedTokens = Math.ceil(estimatedChars / 4);
-    if (estimatedChars > spec.budget.maxChars || estimatedTokens > spec.budget.maxTokens) return { ok: false, reason: 'task-budget-exceeded' };
+    if (estimatedChars > spec.budget.maxChars || estimatedTokens > spec.budget.maxTokens) {
+      // 向后兼容：reason 保持不变（既有页面与测试按 reason 分流）；
+      // 新增稳定 errorCode + 结构化预算字段，供页面按 §7.4 分流文案。
+      return {
+        ok: false,
+        reason: 'task-budget-exceeded',
+        errorCode: taskBudgetErrorCode(),
+        task: task,
+        estimatedChars: estimatedChars,
+        estimatedTokens: estimatedTokens,
+        budget: { maxChars: spec.budget.maxChars, maxTokens: spec.budget.maxTokens },
+        limitChars: spec.budget.maxChars,
+        truncated: false
+      };
+    }
     var context = { ok: true, task: task, taskSpec: spec, taskLabel: spec.label, feature: spec.feature, outputMode: spec.outputMode, origin: origin, material: resolved.material, supervision: resolved.supervision, selectedSessionIds: selectedSessionIds, sources: sources, displaySources: displaySources, estimatedChars: estimatedChars, estimatedTokens: estimatedTokens, warnings: [] };
     var history = (Array.isArray(options.history) ? options.history : []).map(function (message) {
       var role = message && (message.role === 'assistant' || message.role === 'user') ? message.role : '';

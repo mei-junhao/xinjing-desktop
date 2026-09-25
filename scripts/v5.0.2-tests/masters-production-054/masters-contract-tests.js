@@ -6,7 +6,10 @@ const js = fs.readFileSync(ROOT + '/app/js/masters.js', 'utf8');
 const html = fs.readFileSync(ROOT + '/app/masters.html', 'utf8');
 const css = fs.readFileSync(ROOT + '/app/css/masters-clinical.css', 'utf8');
 const R = []; function t(name, fn) { try { fn(); R.push(true); console.log('PASS', name); } catch (e) { R.push(false); console.log('FAIL', name, '::', e.message); } }
-t('M1 renderMsg AI 错误分支闭合', () => { if (!/if \(msg\.status === 'error'\)[\s\S]{0,1200}renderErrorCard\(msg\.error \|\| msg\.content, msg\.errorCode\)/.test(js)) throw new Error('error branch missing'); });
+// 5.1.19 放行轮：DEC-02 让 renderErrorCard 多收一个 msg 以渲染降级提示，
+// 旧正则把形参列表写死到 msg.errorCode) 导致误报「分支缺失」。仍要求错误分支
+// 在 if (msg.status === 'error') 守卫内调用 renderErrorCard(error||content, errorCode[, msg])。
+t('M1 renderMsg AI 错误分支闭合', () => { if (!/if \(msg\.status === 'error'\)[\s\S]{0,1200}renderErrorCard\(msg\.error \|\| msg\.content, msg\.errorCode(?:, msg)?\)/.test(js)) throw new Error('error branch missing'); });
 t('M2 折叠按钮存在', () => { if (!html.includes('masters-collapse-left') || !html.includes('masters-collapse-right')) throw new Error('no collapse btns'); });
 t('M3 toggleMasterPanel 已接', () => { if (!js.includes('window.toggleMasterPanel') || !js.includes("classList.toggle('collapsed', collapsed)")) throw new Error('no toggle'); });
 t('M4 renderErrorCard + retry', () => { if (!js.includes('renderErrorCard') || !js.includes('data-masters-action=\"retry\"')) throw new Error('no error card'); });

@@ -13,6 +13,20 @@
    - emoji：每位大师独立标识 emoji，替代头像字母
    - intro：选择大师时显示欢迎语
    - knowledgeFile / perspectiveFile：指向本地知识库 .md 文件
+
+   ------------------------------------------------------------
+   提示词治理契约（5.1.19 F7-P0-1）
+   ------------------------------------------------------------
+   每张卡自己声明 `promptVersion`（+ 可选 `promptChangeLog`）。
+   app/js/prompt-governance.js 的 manifest version 直接取该声明值
+   （versionBasis='template-promptVersion'），并且「同版本 + 内容变了 + 版本没升」
+   会被 registerPrompt 真实拒绝。因此：
+   - 改动任何一张卡的 systemPrompt 文本，必须同时把 promptVersion 升一级，
+     并在 promptChangeLog 里写清改了什么；不升版就改文本会在登记时抛错，
+     调用点（MastersCore.callMaster / buildOneToOneSystemPrompt /
+     buildRoundSystemPrompt）不会把该文本发给模型。
+   - 5.1.19 只补声明、未改任何模板文本，所以 12 张卡都如实声明 4.4.0
+     （与既往 manifest 的版本核一致）。
    ============================================================ */
 (function () {
   'use strict';
@@ -20,8 +34,11 @@
   const MASTERS = [
     {
       key: 'winnicott',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 温尼科特卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '温尼科特',
       en: 'D. W. Winnicott',
+      aliases: ['donald-winnicott', 'dw-winnicott'],
       school: '独立学派 · 客体关系',
       accent: 'accent',
       initial: '温',
@@ -47,8 +64,11 @@
     },
     {
       key: 'lacan',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 拉康卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '拉康',
       en: 'Jacques Lacan',
+      aliases: ['jacques-lacan'],
       school: '结构主义精神分析',
       accent: 'purple',
       initial: '拉',
@@ -63,6 +83,7 @@
       font: '"Palatino Linotype","STSong",serif',
       chatAccent: '#5b3a8c', lightAccent: '#EEEDFE', bg: '#f5f0eb', border: '#d5c8e0',
       knowledgeFile: 'masters/knowledge/lacan-knowledge.md',
+      perspectiveFile: 'masters/knowledge/lacan-perspective.md',
       systemPrompt:
         '你是雅克·拉康（Jacques Lacan），法国精神分析家。请以其结构主义精神分析取向回应：' +
         '围绕想象界、象征界、实在界三界；能指与能指链、无意识像语言那样构成；' +
@@ -73,8 +94,11 @@
     },
     {
       key: 'freud',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 弗洛伊德卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '弗洛伊德',
       en: 'Sigmund Freud',
+      aliases: ['sigmund-freud'],
       school: '经典精神分析',
       accent: 'blue',
       initial: '弗',
@@ -99,8 +123,11 @@
     },
     {
       key: 'klein',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 克莱因卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '克莱因',
       en: 'Melanie Klein',
+      aliases: ['melanie-klein'],
       school: '客体关系',
       accent: 'green',
       initial: '克',
@@ -125,8 +152,11 @@
     },
     {
       key: 'jung',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 荣格卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '荣格',
       en: 'C. G. Jung',
+      aliases: ['carl-gustav-jung', 'carl-jung'],
       school: '分析心理学',
       accent: 'orange',
       initial: '荣',
@@ -151,8 +181,11 @@
     },
     {
       key: 'bion',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 比昂卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '比昂',
       en: 'Wilfred Bion',
+      aliases: ['wilfred-bion'],
       school: '后克莱因 · 容器与被容器',
       accent: 'indigo',
       initial: '比',
@@ -178,8 +211,11 @@
     },
     {
       key: 'rogers',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 罗杰斯卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '罗杰斯',
       en: 'Carl Rogers',
+      aliases: ['carl-rogers'],
       school: '人本主义 · 当事人中心',
       accent: 'green',
       initial: '罗',
@@ -204,8 +240,11 @@
     },
     {
       key: 'beck',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 贝克卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '贝克',
       en: 'Aaron Beck',
+      aliases: ['aaron-beck'],
       school: '认知行为（CBT）',
       accent: 'blue',
       initial: '贝',
@@ -230,8 +269,11 @@
     },
     {
       key: 'yalom',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 亚隆卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '亚隆',
       en: 'Irvin Yalom',
+      aliases: ['irvin-yalom'],
       school: '存在主义 · 团体',
       accent: 'purple',
       initial: '亚',
@@ -256,8 +298,11 @@
     },
     {
       key: 'adler',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 阿德勒卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '阿德勒',
       en: 'Alfred Adler',
+      aliases: ['alfred-adler'],
       school: '个体心理学',
       accent: 'orange',
       initial: '阿',
@@ -272,6 +317,7 @@
       font: '"Trebuchet MS","Noto Sans SC",sans-serif',
       chatAccent: '#C49A3C', lightAccent: '#F8F0D8', bg: '#FCF8E8', border: '#E8DDB0',
       knowledgeFile: 'masters/knowledge/adler-knowledge.md',
+      perspectiveFile: 'masters/knowledge/adler-perspective.md',
       systemPrompt:
         '你是阿尔弗雷德·阿德勒（Alfred Adler），个体心理学创始人。请以阿德勒取向回应：' +
         '自卑与补偿、追求优越、社会兴趣（Gemeinschaftsgefühl）、' +
@@ -281,8 +327,11 @@
     },
     {
       key: 'susan_johnson',
+      promptVersion: '4.4.0',
+      promptChangeLog: ['4.4.0: 苏珊·约翰逊卡模板原文（历史别名 sue-johnson 同卡）；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
       name: '苏珊·约翰逊',
       en: 'Sue Johnson',
+      aliases: ['sue-johnson', 'susan-johnson', '苏珊约翰逊'],
       school: '情绪聚焦（EFT）',
       accent: 'red',
       initial: '苏',
@@ -307,8 +356,11 @@
             },
             {
               key: 'horney',
+              promptVersion: '4.4.0',
+              promptChangeLog: ['4.4.0: 卡伦·霍妮卡模板原文；5.1.19 仅补 promptVersion 声明（F7-P0-1），模板文本未改。'],
               name: '卡伦·霍妮',
               en: 'Karen Horney',
+              aliases: ['karen-horney'],
               school: '新弗洛伊德主义 · 文化学派',
               accent: 'amber',
               initial: '霍',
@@ -335,9 +387,21 @@
             },
           ];
 
-  // 简易检索：按 key 取大师
+  // 简易检索：按 key 取大师。精确 key 优先；未命中时按规范化标签（name/en/aliases）兜底，
+  // 使历史别名写法（如 bundle 规范名 sue-johnson）也能寻址到 susan_johnson。
+  function normLabel(v) {
+    return String(v == null ? '' : v).trim().toLowerCase().replace(/[\s\u00a0]+/g, '');
+  }
   function getMasterByKey(key) {
-    return MASTERS.find((m) => m.key === key) || null;
+    if (!key) return null;
+    var exact = MASTERS.find((m) => m.key === key);
+    if (exact) return exact;
+    var target = normLabel(key);
+    if (!target) return null;
+    return MASTERS.find((m) => {
+      var aliases = Array.isArray(m.aliases) ? m.aliases : [];
+      return [m.key, m.name, m.en].concat(aliases).some((c) => normLabel(c) === target);
+    }) || null;
   }
 
   if (typeof window !== 'undefined') {

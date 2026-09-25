@@ -51,6 +51,29 @@
     return out;
   }
 
+  // ---------- 失败响应投影（F5-D2 / 卡片 §7.4） ----------
+  // 工具层过去把下层失败写成 { ok:false, error:'…' } 一句话，显式吞掉了 provider /
+  // 核心返回的 errorCode 与结构化字段（失败段号、超限字符数等），调用方无法分流。
+  // 这里原样携带 errorCode / code / stage / failedSegments / totalSegments / 预算字段，
+  // 只做补齐不做改写：error 文案保持下层原值。
+  function toolFailure(result, fallbackText) {
+    const src = (result && typeof result === 'object') ? result : {};
+    const out = { ok: false };
+    if (typeof src.error === 'string' && src.error) out.error = src.error;
+    else if (src.error && typeof src.error.message === 'string' && src.error.message) out.error = src.error.message;
+    else out.error = fallbackText || '调用失败';
+    if (src.errorCode) out.errorCode = src.errorCode;
+    if (src.code) out.code = src.code;
+    if (src.stage) out.stage = src.stage;
+    if (Array.isArray(src.failedSegments)) out.failedSegments = src.failedSegments.slice();
+    if (typeof src.totalSegments === 'number') out.totalSegments = src.totalSegments;
+    if (typeof src.totalChars === 'number') out.totalChars = src.totalChars;
+    if (typeof src.limitChars === 'number') out.limitChars = src.limitChars;
+    if (typeof src.truncated === 'boolean') out.truncated = src.truncated;
+    if (typeof src.transportState === 'string') out.transportState = src.transportState;
+    return out;
+  }
+
   // ---------- 工具：解析 clientId（优先 clientId 精确；fallback clientName 精确匹配；都不中则按 allowCreate 决定新建/报错） ----------
   // allowCreate=false（默认）：拼写错误时不再静默建幽灵客户，改为返回近似候选提示（AG-9 修复）
   function resolveClientId(clientId, clientName, allowCreate) {
@@ -933,7 +956,7 @@
     }
     try {
       var result = await SupervisionCore.runImpression(args.supervisorName, args.material);
-      if (result.error) return { ok: false, error: result.error };
+      if (result.error) return toolFailure(result, '督导启动失败');
       var chatMessages = result.chatMessages;
       if (!chatMessages || chatMessages.length < 2) {
         return { ok: false, error: '整体印象生成失败：返回消息不完整' };
@@ -1005,7 +1028,7 @@
     }
     try {
       var result = await SupervisionCore.runRound(chatMessages, args.question);
-      if (result.error) return { ok: false, error: result.error };
+      if (result.error) return toolFailure(result, '督导追问失败');
       var updatedCMs = result.chatMessages;
       supervisionSessions.set(args.sessionId, updatedCMs);
       var fullUpdatedText = '\u3010\u6574\u4f53\u5370\u8c61\u3011\n' + updatedCMs[1].content + '\n\n' +
@@ -1029,6 +1052,28 @@
   // ============================================================
   // 工具 9：masters.open（开启大师对话，轻量写，不确认）
   // ============================================================
+  // F3-P1-1（DEC-03 同批修复）：masterId 枚举**从 MASTERS 派生**，不再手写常量。
+  //   旧实现是 11 项字面量数组、漏掉 horney → validateSchema 用 `spec.enum.indexOf(v)`
+  //   直接把霍妮判成「须为枚举值之一」，Agent 侧永远开不了霍妮会话，而页面上霍妮可选。
+  //   为什么用 getter 而不是在脚本顶部算一次：masters.html 里 agent-tools.js 先于
+  //   masters-data.js 加载（其余页面根本不加载 MASTERS），求值期取窗口常量必然拿到 undefined，
+  //   又会退化回「补一个字面量」。getter 把派生推迟到 schema 真正被读取/序列化的时刻
+  //   （agent-core 每轮组装工具、validateSchema 校验参数时），拿到的永远是当前真实卡表。
+  //   拿不到 MASTERS 时返回 undefined（该属性在 JSON 序列化时自然消失）——
+  //   宁可不加枚举约束，也绝不回落到一份会漂移的手写清单；handler 侧本来就用
+  //   getMasterByKey/MastersCore 做真实寻址，不靠这份枚举兜底。
+  function masterIdEnum() {
+    var list = (typeof MASTERS !== 'undefined' && Array.isArray(MASTERS)) ? MASTERS
+      : (typeof window !== 'undefined' && Array.isArray(window.MASTERS) ? window.MASTERS : null);
+    if (!list || !list.length) return undefined;
+    var ids = [];
+    for (var i = 0; i < list.length; i++) {
+      var k = list[i] && list[i].key;
+      if (typeof k === 'string' && k && ids.indexOf(k) < 0) ids.push(k);
+    }
+    return ids.length ? ids : undefined;
+  }
+
   const SCHEMA_MASTERS_OPEN = {
     type: 'function',
     function: {
@@ -1039,8 +1084,9 @@
         properties: {
           masterId: {
             type: 'string',
-            enum: ['winnicott', 'lacan', 'freud', 'klein', 'jung', 'bion', 'rogers', 'beck', 'yalom', 'adler', 'susan_johnson'],
-            description: '大师 ID'
+            // 派生自 MASTERS（app/js/masters-data.js 的 key 列表），勿在此手写 id
+            get enum() { return masterIdEnum(); },
+            description: '大师 ID（取值由 MASTERS 卡表派生，新增大师无需改本文件）'
           },
           mode: { type: 'string', enum: ['1v1', 'round'], default: '1v1', description: '1v1 或圆桌' },
           topic: { type: 'string', description: '可选，首条消息（会立即发送并获取回复）' }
@@ -1068,7 +1114,7 @@
         var master = (typeof getMasterByKey === 'function') ? getMasterByKey(args.masterId) : null;
         if (!master) return { ok: false, error: '\u672a\u627e\u5230\u5927\u5e08\uff1a' + args.masterId };
         var res = await MastersCore.callMaster(conv, master, args.topic);
-        if (res && res.error) return { ok: false, error: res.error };
+        if (res && res.error) return toolFailure(res, '大师对话请求失败');
         conv.messages.push({ role: 'user', content: args.topic });
         conv.messages.push({ role: 'assistant', content: res.content, masterKey: args.masterId });
         firstReply = res.content;
@@ -1124,7 +1170,7 @@
       if (!master) master = (typeof getMasterByKey === 'function') ? getMasterByKey(conv.masterKeys[0]) : null;
       if (!master) return { ok: false, error: '\u672a\u627e\u5230\u5927\u5e08\uff1a' + masterKey };
       var res = await MastersCore.callMaster(conv, master, args.message);
-      if (res && res.error) return { ok: false, error: res.error };
+      if (res && res.error) return toolFailure(res, '大师消息发送失败');
       conv.messages.push({ role: 'user', content: args.message });
       conv.messages.push({ role: 'assistant', content: res.content, masterKey: masterKey });
       MastersCore.maybeSummarize(conv);

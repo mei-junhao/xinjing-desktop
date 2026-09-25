@@ -79,6 +79,17 @@ const AI_REQUEST_MAX_BYTES = 2 * 1024 * 1024;
 const AI_RESPONSE_MAX_BYTES = 4 * 1024 * 1024;
 const AI_REDIRECT_LIMIT = 3;
 const AI_REQUEST_TIMEOUT_MS = 120000;
+// ---- 主进程边界的长度闸门（F5-D2 移交项；DEC-02 之外的前一流程遗留）----
+// 渲染进程的 app/js/ai.js 是唯一的 provider 出口并已 fail-closed，但两条路径能绕过它：
+//   1) 直接 invoke('xj:aiRequest', …) 的调用方（不经 AI.send）；
+//   2) 多学派核心注入式 options.provider 的替身/自定义 provider。
+// 因此在 main 对**即将发往供应商的最终载荷**再判一次同样的上限（纵深防御，与 ai.js 同口径：
+// 度量的是 messages 正文长度，而不是 JSON 包装后的字节数，避免同一载荷两边判定不一致）。
+// 错误码复用 ai.js 的同一张码表（源头是 app/js/supervision-syndicate.js 的 MATERIAL_TOO_LONG
+// 与 app/js/ai.js 的 XJ_AI_INPUT_BUDGET_EXCEEDED），**不新造同义码**，也不放宽既有断言。
+const AI_INPUT_BUDGET_MAX_CHARS = 240000;
+const AI_INPUT_BUDGET_ERROR_CODE = 'MATERIAL_TOO_LONG';
+const AI_INPUT_BUDGET_TRANSPORT_CODE = 'XJ_AI_INPUT_BUDGET_EXCEEDED';
 const activeAiRequests = new Map();
 let commercialFacadePromise = null;
 let recipientGrantBoundaryPromise = null;
@@ -532,12 +543,63 @@ function builtInServiceHeaders(baseHeaders) {
   return headers;
 }
 
+// 与 app/js/ai.js :: measureInputChars 同口径：只统计 messages 正文（含多模态 text 分段），
+// 不统计 JSON 包装、tools 与采样参数 —— 否则同一份载荷会在渲染进程放行、在主进程误拒，
+// 对临床产品等于功能不可用。
+function measureAiInputChars(messages) {
+  if (!Array.isArray(messages)) return 0;
+  let total = 0;
+  for (let i = 0; i < messages.length; i++) {
+    const content = messages[i] && messages[i].content;
+    if (typeof content === 'string') total += content.length;
+    else if (Array.isArray(content)) {
+      for (let p = 0; p < content.length; p++) {
+        const part = content[p];
+        if (typeof part === 'string') total += part.length;
+        else if (part && typeof part.text === 'string') total += part.text.length;
+      }
+    }
+  }
+  return total;
+}
+
+// 恰达上限必须放行（<= 为含），上限 +1 拒绝：与 ai.js 的闸门同一判定，不做收紧。
+// messages 取自 normalizeAiRequestPayload 已校验过的同一份 body.messages 引用，
+// 即 bodyText 序列化前的最终载荷，判定对象与「实际发出的内容」严格一致。
+// F5-A（2026-09-24 裁决①）：量纲在这里写明 —— 本闸量的就是**真正出站的那份载荷**
+// （渲染进程已本地脱敏），与 app/js/ai.js 公布的 MAX_TOTAL_INPUT_CHARS=240000 同一个
+// 口径同一个数；两处文案都不再宣称「原始材料可以送 240,000 字符」。码表沿用 ai.js 的
+// MATERIAL_TOO_LONG / XJ_AI_INPUT_BUDGET_EXCEEDED，不新造同义码。
+function aiInputBudgetRejection(kind, messages) {
+  if (kind !== 'chat') return null;
+  const totalChars = measureAiInputChars(messages);
+  if (totalChars <= AI_INPUT_BUDGET_MAX_CHARS) return null;
+  return {
+    ok: false,
+    error: {
+      code: AI_INPUT_BUDGET_TRANSPORT_CODE,
+      message: '出站载荷超过总输入上限（本次最终出站载荷 ' + totalChars
+        + ' 字符 > 上限 ' + AI_INPUT_BUDGET_MAX_CHARS + ' 字符；量纲=真正发往供应商的'
+        + ' messages 字符数，即本地脱敏之后的口径），主进程已拒绝发送且未截断任何内容',
+    },
+    errorCode: AI_INPUT_BUDGET_ERROR_CODE,
+    totalChars: totalChars,
+    limitChars: AI_INPUT_BUDGET_MAX_CHARS,
+    metric: 'sanitised-outbound-chars',
+    truncated: false,
+  };
+}
+
 async function handleAiRequest(event, payload) {
   if (!isTrustedRendererEvent(event)) return { ok: false, error: { code: 'XJ_IPC_SENDER_DENIED', message: 'AI request sender was rejected' } };
   let request;
   try { request = normalizeAiRequestPayload(payload); } catch (e) {
     return { ok: false, error: { code: 'XJ_AI_REQUEST_INVALID', message: e.message } };
   }
+  // 长度闸门（fail-closed，先于任何网络与账号副作用）：绕过 app/js/ai.js 直接打本通道
+  // 或注入自定义 provider 的调用方，同样不能把超限载荷送出进程。
+  const overBudget = aiInputBudgetRejection(request.kind, payload && payload.body && payload.body.messages);
+  if (overBudget) return overBudget;
   if (request.isTrial && !APP_PROXY_KEY && !authenticatedAccountSessionToken()) {
     return { ok: false, error: { code: 'XJ_AI_ACCOUNT_SESSION_REQUIRED', message: '账号会话已失效或未登录，请重新登录后重试' } };
   }

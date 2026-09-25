@@ -35,8 +35,119 @@ App.initPage({
     var multiSchoolResult = null;
     var multiSchoolProgressRows = [];
     var multiSchoolBusy = false;
+    var multiSchoolBusyOwner = 0;
+    var multiSchoolSaving = false;
+    var multiSchoolController = null;
+    var multiSchoolGeneration = 0;
     var multiSchoolBound = false;
     var multiSchoolContext = null;
+    // DEC-02 ②③：本次运行区间内发生的「内置模型兜底」事实（降级提示 DOM + 归档溯源用）
+    var multiSchoolFallbackEvents = [];
+    var multiSchoolNoticeEl = null;
+
+    // ---------- DEC-02：兜底可见化（页面层只消费 ai.js 的同一套字段与文案）----------
+    function aiFallbackApi() {
+      return (typeof AI !== 'undefined' && AI && AI.fallbackVisibility) ? AI.fallbackVisibility : null;
+    }
+    function aiFallbackWatermark() {
+      var api = aiFallbackApi();
+      return api ? api.count() : 0;
+    }
+    function aiFallbackEventsSince(watermark) {
+      var api = aiFallbackApi();
+      if (!api) return [];
+      var list = api.since(watermark);
+      return Array.isArray(list) ? list : [];
+    }
+    // 单次返回对象的降级投影（AI.send / AI.stream 出口形状同源，页面不再自造字段名）
+    function degradationOf(res) {
+      var api = aiFallbackApi();
+      if (api && api.fields) return api.fields(res);
+      return {
+        fallback: !!(res && res.fallback === true),
+        warning: res && res.warning,
+        tier: res && res.tier,
+        transportState: res && res.transportState,
+      };
+    }
+    function degradationNoticeText(info) {
+      var api = aiFallbackApi();
+      if (api && api.noticeText) return api.noticeText(info || {});
+      return '本次由内置模型代答，不是你选择的模型；原始失败码未知，请谨慎用于临床判断。';
+    }
+    // 把「实际使用的模型/档位」接进归档**已有**的 usage 字段（不改 store.js，
+    // 不改 supervision-syndicate.js 的归档字段表）；督导记录与用户所选不一致时可追溯。
+    function attachFallbackProvenance(result, events) {
+      var api = aiFallbackApi();
+      if (!result || !api || !events || !events.length) return result;
+      var provenance = api.provenance(events);
+      if (!provenance) return result;
+      result.usage = Object.assign({}, result.usage || {}, { fallback: provenance });
+      result.degraded = true;
+      result.warning = provenance.warning;
+      return result;
+    }
+    function ensureModelNoticeHost() {
+      var results = document.getElementById('sup-multi-results');
+      var parent = results && results.parentNode ? results.parentNode : document.getElementById('sup-multi-panel');
+      if (!parent || !results || typeof parent.insertBefore !== 'function') return null;
+      if (multiSchoolNoticeEl && multiSchoolNoticeEl.parentNode === parent) return multiSchoolNoticeEl;
+      var notice = document.createElement('div');
+      notice.className = 'sup-model-notice';
+      notice.setAttribute('role', 'status');
+      notice.dataset.state = 'hidden';
+      notice.hidden = true;
+      notice.textContent = '';
+      parent.insertBefore(notice, results);
+      multiSchoolNoticeEl = notice;
+      return notice;
+    }
+    // 兜底提示只在真正降级时出现；措辞由 ai.js 统一给出，绝不写成「成功」。
+    function renderModelNotice(events) {
+      multiSchoolFallbackEvents = Array.isArray(events) ? events : [];
+      var notice = ensureModelNoticeHost();
+      if (!notice) return;
+      if (!multiSchoolFallbackEvents.length) {
+        notice.dataset.state = 'hidden';
+        notice.hidden = true;
+        notice.textContent = '';
+        return;
+      }
+      var api = aiFallbackApi();
+      var provenance = api ? api.provenance(multiSchoolFallbackEvents) : null;
+      notice.dataset.state = 'degraded';
+      notice.dataset.warning = (provenance && provenance.warning) || 'BUILTIN_FALLBACK_USED';
+      // 节点创建时是 hidden=true，而 workbench.css 有 `[hidden]{display:none!important}`：
+      // 只改 data-state 不会让它出现在屏幕上，必须显式解除 hidden。
+      notice.hidden = false;
+      notice.textContent = (provenance && provenance.notice)
+        || '本次由内置模型代答，不是你选择的模型；原始失败码未知，请谨慎用于临床判断。';
+    }
+
+    // 中止在跑的多学派任务并交还视图所有权。切来访者/切会谈/切独立督导都必须走这里：
+    // 只递增 generation 不 abort 会让旧任务的流式 delta 继续写进新上下文的 DOM。
+    function abortMultiSchoolRun(reason) {
+      if (multiSchoolSaving) return false;
+      multiSchoolGeneration += 1;
+      if (multiSchoolController) { try { multiSchoolController.abort(); } catch (e) { /* 已中止 */ } }
+      multiSchoolController = null;
+      multiSchoolResult = null;
+      multiSchoolContext = null;
+      multiSchoolProgressRows = [];
+      renderMultiSchoolResults(null);
+      renderModelNotice(null);
+      setMultiSchoolStatus('等待材料', 'idle');
+      var saveButton = document.getElementById('sup-multi-save');
+      if (saveButton) saveButton.disabled = true;
+      return true;
+    }
+
+    // 页面自产的失败必须与核心同规格携带 errorCode（卡片 §7.4「任何超限响应都必须含稳定 errorCode」）。
+    function multiSchoolError(message, errorCode) {
+      var error = new Error(message);
+      error.errorCode = errorCode || 'MULTI_SCHOOL_RUN_FAILED';
+      return error;
+    }
 
     // 回复长度档位 → 输出上限；「详细」只放宽上限，不额外加指令，避免稀释督导风格
     var LENGTH_TOKENS = { brief: 1400, medium: 3200, detailed: 8192 };
@@ -427,13 +538,21 @@ App.initPage({
     }
 
     async function runMultiSchool() {
-      if (multiSchoolBusy) return;
+      if (multiSchoolBusy || multiSchoolSaving) return;
       if (!multiSchoolFeatureAllowed()) { if (App.openMembershipGate) App.openMembershipGate('ai-masters'); return; }
       var material = (document.getElementById('sup-multi-material') || {}).value || '';
       material = material.trim();
       if (!material) { App.showToast('请先填写多学派督导材料', 'warning'); return; }
       if (typeof SupervisionSyndicate === 'undefined' || !SupervisionSyndicate.run) { App.showToast('多学派督导模块未就绪', 'error'); return; }
+      // 重跑也要先中止上一次：只递增 generation 拦得住终态写回，但旧任务的流式 delta
+      // 仍会往综合框里写（放行轮实测：#sup-multi-synthesis 保留上一次综合文本 252–330ms），
+      // 且旧请求不会中止、继续消耗额度。
+      abortMultiSchoolRun('rerun');
       multiSchoolBusy = true;
+      var generation = ++multiSchoolGeneration;
+      multiSchoolBusyOwner = generation;
+      var controller = new AbortController();
+      multiSchoolController = controller;
       multiSchoolResult = null;
       multiSchoolProgressRows = [];
       var runButton = document.getElementById('sup-multi-run');
@@ -442,26 +561,33 @@ App.initPage({
       if (saveButton) saveButton.disabled = true;
       var host = document.getElementById('sup-multi-results');
       if (host) host.innerHTML = '<div class="sup-multi-empty">正在预处理材料并安排学派分析…</div>';
+      renderModelNotice(null);
+      // DEC-02：记录进入时的降级水位，运行区间内新增的兜底事件才属于本次督导。
+      var fallbackWatermark = aiFallbackWatermark();
       setMultiSchoolStatus('分析进行中', 'running');
       var multiContext = null;
       var multiActionRun = null;
       try {
-        if (typeof ClinicalContext === 'undefined' || !ClinicalContext.build) throw new Error('临床上下文模块未就绪');
+        if (typeof ClinicalContext === 'undefined' || !ClinicalContext.build) throw multiSchoolError('临床上下文模块未就绪', 'XJ_CLINICAL_CONTEXT_UNAVAILABLE');
         multiContext = ClinicalContext.build('supervision-multi-school', { clientId: currentClientId, sessionId: currentSessionId }, { system: '多学派临床督导编排；输出仅为草稿。', inputText: material, instruction: '运行多学派督导并生成对比、分歧与整合建议' });
-        if (!multiContext || !multiContext.ok) throw new Error('当前上下文无效，请重新选择来访者或材料');
-        if (!(await confirmContextSendAsync(multiContext))) throw new Error('用户已取消本次多学派督导');
+        if (!multiContext || !multiContext.ok) {
+          var admissionCode = (multiContext && multiContext.errorCode) ||
+            (multiContext && multiContext.reason === 'task-budget-exceeded' ? 'XJ_TASK_BUDGET_EXCEEDED' : 'XJ_CLINICAL_CONTEXT_INVALID');
+          throw multiSchoolError(multiContext && multiContext.reason === 'task-budget-exceeded' ? '材料与已选来源超过当前督导预算，请缩短至允许范围后重试' : '当前上下文无效，请重新选择来访者或材料', admissionCode);
+        }
+        if (!(await confirmContextSendAsync(multiContext)) || controller.signal.aborted || generation !== multiSchoolGeneration) throw multiSchoolError('用户已取消本次多学派督导', 'ABORTED');
         multiActionRun = ClinicalContext.createActionRun(multiContext);
-        if (!multiActionRun) throw new Error('无法确认材料归属，已取消分析');
+        if (!multiActionRun) throw multiSchoolError('无法确认材料归属，已取消分析', 'XJ_CLINICAL_SOURCE_NOT_ADMITTED');
         multiSchoolContext = multiContext;
         var result = await SupervisionSyndicate.run({
           material: material,
           schoolKeys: (function () { var selected = selectedMultiSchools(); return selected.length ? selected : null; }()),
           clientId: currentClientId || '',
           sessionId: currentSessionId || '',
-          options: { autoSave: false },
+          options: { autoSave: false, signal: controller.signal },
           onProgress: function (event) {
-            if (!event) return;
-            if (event.type === 'summary') setMultiSchoolStatus('已完成材料摘要', 'running');
+            if (!event || controller.signal.aborted || generation !== multiSchoolGeneration) return;
+            if (event.type === 'summary') setMultiSchoolStatus((event.failedSegments || []).length ? '材料摘要不完整：第 ' + event.failedSegments.join('、') + ' 段未成功，后续仅供核对' : '已完成材料摘要', (event.failedSegments || []).length ? 'warning' : 'running');
             else if (event.type === 'route') setMultiSchoolStatus('已路由 ' + ((event.schoolKeys || []).length) + ' 个学派', 'running');
             else if (event.type === 'school-start') setMultiSchoolStatus('正在分析：' + (event.name || event.schoolKey || '学派'), 'running');
             else if (event.type === 'school-result') {
@@ -473,6 +599,7 @@ App.initPage({
             }
           },
           onDelta: function (piece, fullText, stage) {
+            if (controller.signal.aborted || generation !== multiSchoolGeneration) return;
             var text = fullText || piece || '';
             if (stage === 'synthesis') {
               var synthesis = document.getElementById('sup-multi-synthesis');
@@ -488,17 +615,29 @@ App.initPage({
             }
           },
         });
+        if (controller.signal.aborted || generation !== multiSchoolGeneration) throw multiSchoolError('本次多学派督导已取消', 'ABORTED');
         var latestMaterial = (document.getElementById('sup-multi-material') || {}).value || '';
         if (!ClinicalContext.isSnapshotCurrent(multiContext.snapshot, latestMaterial.trim(), { clientId: currentClientId, sessionId: currentSessionId })) {
           ClinicalContext.failActionRun(multiActionRun.id, '上下文已变更', 'stale');
           multiActionRun = null;
-          throw new Error('上下文已变更，旧分析未采用');
+          throw multiSchoolError('上下文已变更，旧分析未采用', 'XJ_STALE_CONTEXT');
         }
         multiSchoolResult = result;
+        // DEC-02 ②③：本次运行区间内的兜底事实 → 归档溯源字段 + 用户可见提示。
+        // 放在写回 DOM 之前，保证「结果对象 / 归档草稿 / 页面」三处同源。
+        var runFallbackEvents = aiFallbackEventsSince(fallbackWatermark);
+        if (controller.signal.aborted || generation !== multiSchoolGeneration) {
+          renderModelNotice(null);
+        } else {
+          attachFallbackProvenance(multiSchoolResult, runFallbackEvents);
+          renderModelNotice(runFallbackEvents);
+        }
         renderMultiSchoolResults(result);
         if (result && result.ok) {
           ClinicalContext.completeActionRun(multiActionRun.id, { kind: 'supervision-multi-school', summary: result.synthesis || '', citations: [] });
-          setMultiSchoolStatus('综合完成，可归档', 'ready');
+          setMultiSchoolStatus(runFallbackEvents.length
+            ? '综合完成，可归档（本次含内置模型代答，非所选模型结果）'
+            : '综合完成，可归档', 'ready');
           if (saveButton) saveButton.disabled = false;
         } else {
           ClinicalContext.failActionRun(multiActionRun.id, (result && result.error) || '多学派督导失败');
@@ -506,27 +645,46 @@ App.initPage({
         }
       } catch (error) {
         if (multiActionRun) ClinicalContext.failActionRun(multiActionRun.id, error && error.message ? error.message : '多学派督导失败');
-        multiSchoolResult = { ok: false, error: error && error.message ? error.message : '多学派督导失败' };
-        renderMultiSchoolResults(multiSchoolResult);
-        setMultiSchoolStatus('本次督导失败', 'error');
+        if (generation === multiSchoolGeneration && !controller.signal.aborted) {
+          multiSchoolResult = { ok: false, error: error && error.message ? error.message : '多学派督导失败', errorCode: (error && error.errorCode) || (result && result.errorCode) || 'MULTI_SCHOOL_RUN_FAILED' };
+          renderMultiSchoolResults(multiSchoolResult);
+          setMultiSchoolStatus('本次督导失败', 'error');
+        }
       } finally {
-        multiSchoolBusy = false;
+        if (multiSchoolController === controller) multiSchoolController = null;
+        // 只有仍持有互斥属主的那次运行才允许解除 busy：否则旧任务收尾会把新任务的
+        // 互斥解除掉（放行轮发现的缺陷），重跑期间用户能再点第三次。
+        if (multiSchoolBusyOwner === generation) {
+          multiSchoolBusy = false;
+          multiSchoolBusyOwner = null;
+        }
         if (runButton) runButton.disabled = false;
       }
     }
 
     async function archiveMultiSchool() {
+      if (multiSchoolSaving || multiSchoolBusy) return;
       if (!multiSchoolResult || !multiSchoolResult.ok) { App.showToast('请先完成一次多学派督导', 'warning'); return; }
       var currentMaterial = (document.getElementById('sup-multi-material') || {}).value || '';
       if (multiSchoolContext && !ClinicalContext.isSnapshotCurrent(multiSchoolContext.snapshot, currentMaterial.trim(), { clientId: currentClientId, sessionId: currentSessionId })) { App.showToast('材料或来访者已变化，请重新运行多学派督导', 'warning'); return; }
+      var saveButton = document.getElementById('sup-multi-save');
+      var runButton = document.getElementById('sup-multi-run');
+      var draft = multiSchoolResult;
+      multiSchoolSaving = true;
+      if (saveButton) saveButton.disabled = true;
+      if (runButton) runButton.disabled = true;
       var saved = null;
       try {
-        if (SupervisionSyndicate.archive) saved = await SupervisionSyndicate.archive(multiSchoolResult, { clientId: currentClientId || '', sessionId: currentSessionId || '', material: (document.getElementById('sup-multi-material') || {}).value || '' });
-        else saved = multiSchoolResult.saved;
+        if (SupervisionSyndicate.archive) saved = await SupervisionSyndicate.archive(draft, { clientId: currentClientId || '', sessionId: currentSessionId || '', material: currentMaterial });
+        else saved = draft.saved;
       } catch (error) { saved = { ok: false, error: error && error.message }; }
+      finally { multiSchoolSaving = false; if (saveButton) saveButton.disabled = false; if (runButton) runButton.disabled = false; }
       if (!saved || saved.ok === false) { App.showToast('归档失败：督导草稿已保留，请恢复存储后重试', 'error'); return; }
-      setMultiSchoolStatus('已归档多学派督导', 'saved');
-      App.showToast('多学派督导已归档', 'success');
+      draft.archive = saved;
+      if (saveButton) saveButton.disabled = true;
+      var archivedDegraded = !!(draft.usage && draft.usage.fallback && draft.usage.fallback.usedBuiltinFallback);
+      setMultiSchoolStatus(archivedDegraded ? '已归档多学派督导（含内置模型代答标记）' : '已归档多学派督导', 'saved');
+      App.showToast(archivedDegraded ? '多学派督导已归档；本次含内置模型代答，实际模型已写入记录' : '多学派督导已归档', 'success');
     }
 
     function setSupervisionMode(mode) {
@@ -569,7 +727,10 @@ App.initPage({
       if (multiButton) multiButton.addEventListener('click', function () { setSupervisionMode('multi'); });
       var runButton = document.getElementById('sup-multi-run'); if (runButton) runButton.addEventListener('click', runMultiSchool);
       var saveButton = document.getElementById('sup-multi-save'); if (saveButton) saveButton.addEventListener('click', archiveMultiSchool);
-      var clearButton = document.getElementById('sup-multi-clear'); if (clearButton) clearButton.addEventListener('click', function () { multiSchoolResult = null; multiSchoolContext = null; renderMultiSchoolResults(null); setMultiSchoolStatus('等待材料', 'idle'); if (saveButton) saveButton.disabled = true; });
+      var clearButton = document.getElementById('sup-multi-clear'); if (clearButton) clearButton.addEventListener('click', function () {
+        if (multiSchoolSaving) { App.showToast('归档进行中，请等待保存结果', 'warning'); return; }
+        abortMultiSchoolRun('clear');
+      });
       var copyButton = document.getElementById('sup-multi-use-material'); if (copyButton) copyButton.addEventListener('click', function () { var source = document.getElementById('sup-material'); var target = document.getElementById('sup-multi-material'); if (source && target) target.value = source.value; });
       syncAccessUI();
     }
@@ -684,6 +845,7 @@ App.initPage({
 
     // 来访者选择 → 加载会话历史
     window.onClientChange = function () {
+      abortMultiSchoolRun('client-switch');
       var cid = selClient.value;
       var continueButton = document.getElementById('continue-supervision');
       if (!cid) {
@@ -751,6 +913,7 @@ App.initPage({
     window.loadSessionTranscript = function (sessionId) {
       var s = Store.getSession(sessionId);
       if (!s) return;
+      abortMultiSchoolRun('session-switch');
       currentSessionId = s.id;
       materialTA.value = s.transcript || '';
       if (s.soap) materialTA.value += '\n\n--- SOAP ---\nS: ' + (s.soap.subjective||'') + '\nO: ' + (s.soap.objective||'') + '\nA: ' + (s.soap.assessment||'') + '\nP: ' + (s.soap.plan||'');
@@ -982,7 +1145,11 @@ App.initPage({
           AI.send(context.messages, function (res) {
             var currentInput = materialTA ? materialTA.value.trim() : '';
             if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentInput, { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); resolve({ error: '上下文已变更，旧结果未采用' }); return; }
-            if (res && res.content && !res.error) { ClinicalContext.completeActionRun(run.id, { kind: 'supervision-preview', summary: res.content, citations: [] }); resolve({ content: res.content }); }
+            if (res && res.content && !res.error) {
+              ClinicalContext.completeActionRun(run.id, { kind: 'supervision-preview', summary: res.content, citations: [] });
+              // DEC-02 ①②：兜底成功也要把降级事实与实际档位带到页面与后续归档。
+              resolve(Object.assign({ content: res.content }, degradationOf(res)));
+            }
             else { ClinicalContext.failActionRun(run.id, (res && res.error) || '无响应'); resolve({ error: (res && res.error) || '无响应', code: res && res.code, errorCode: res && res.errorCode, interrupted: !!(res && res.interrupted) }); }
           }, lengthOptions({ signal: signal, onDelta: onDelta }));
         });
@@ -1089,7 +1256,19 @@ App.initPage({
           setCancelledResult(block, '已取消生成。');
         } else if (r && !r.error) {
           renderRich(cardBody(block), r.content);
-          messages.push({ role: 'assistant', content: r.content });
+          messages.push({
+            role: 'assistant',
+            content: r.content,
+            // DEC-02 ②：实际使用档位随对话轮一起留痕（页面记录与导出可追溯）
+            tier: r.tier || '',
+            transportState: r.transportState || '',
+            fallback: r.fallback === true,
+            warning: r.warning || '',
+            requestedTier: r.requestedTier || '',
+            originalErrorCode: r.originalErrorCode || '',
+          });
+          // DEC-02 ③：兜底发生时必须可见（addNote 不进 messages[]，不污染临床记录正文）
+          if (r.fallback === true) addNote(degradationNoticeText(r), '内置模型代答提示');
           if (isImpression) {
             // 整体印象出来后，把材料收成一行摘要，将屏幕让给结果和追问
             setMaterialCollapsed(true);

@@ -9,6 +9,24 @@
 const SupervisionCore = (() => {
   'use strict';
 
+  // 下层（AI.send / provider）失败对象的结构化转发：
+  // 既往写作 resolve({ error: res.error }) 会吞掉 errorCode 与预算/分段字段，
+  // 使工具层与页面层无法按 §7.4 分流。这里只补字段，不改文案与既有键。
+  function forwardFailure(res) {
+    const src = (res && typeof res === 'object') ? res : {};
+    const out = { error: typeof src.error === 'string' ? src.error : String(src.error || 'AI 请求失败') };
+    if (src.errorCode) out.errorCode = src.errorCode;
+    if (src.code) out.code = src.code;
+    if (src.stage) out.stage = src.stage;
+    if (Array.isArray(src.failedSegments)) out.failedSegments = src.failedSegments.slice();
+    if (typeof src.totalSegments === 'number') out.totalSegments = src.totalSegments;
+    if (typeof src.totalChars === 'number') out.totalChars = src.totalChars;
+    if (typeof src.limitChars === 'number') out.limitChars = src.limitChars;
+    if (typeof src.truncated === 'boolean') out.truncated = src.truncated;
+    if (typeof src.transportState === 'string') out.transportState = src.transportState;
+    return out;
+  }
+
   // 督导模式 → 系统提示合成（委托宿主全局 Supervisors）
   function buildSystemPrompt(mode) {
     return (typeof Supervisors !== 'undefined' && Supervisors.buildSystemPrompt) ? Supervisors.buildSystemPrompt(mode) : '';
@@ -48,7 +66,7 @@ const SupervisionCore = (() => {
     return new Promise((resolve) => {
       if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
       AI.send(messages, (res) => {
-        if (res && res.error) { resolve({ error: res.error }); return; }
+        if (res && res.error) { resolve(forwardFailure(res)); return; }
         const impression = (res && res.content) || '（未获得回复）';
         resolve({
           impression,
@@ -68,7 +86,7 @@ const SupervisionCore = (() => {
     return new Promise((resolve) => {
       if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
       AI.send(msgs.slice(), (res) => {
-        if (res && res.error) { resolve({ error: res.error }); return; }
+        if (res && res.error) { resolve(forwardFailure(res)); return; }
         const reply = (res && res.content) || '（未获得回复）';
         resolve({
           reply,
@@ -202,11 +220,19 @@ const SupervisionCore = (() => {
         resolve({ error: 'AI 通道未就绪' }); return;
       }
       AI.send(messages, function (res) {
-        if (res && res.error) { resolve({ error: String(res.error) }); return; }
+        if (res && res.error) { resolve(forwardFailure(res)); return; }
         resolve({ text: (res && res.content) || '' });
       });
     });
-    if (r.error) throw new Error(r.error);
+    if (r.error) {
+      const error = new Error(r.error);
+      // 结构化字段随异常一并上抛，避免调用方只拿到一句文案（F5-D2 同型缺陷）
+      if (r.errorCode) error.errorCode = r.errorCode;
+      if (r.code) error.code = r.code;
+      if (typeof r.totalChars === 'number') error.totalChars = r.totalChars;
+      if (typeof r.limitChars === 'number') error.limitChars = r.limitChars;
+      throw error;
+    }
     const json = parseRealSupJson(r.text);
     return pruneRealSupFields(json);
   }

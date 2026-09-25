@@ -61,6 +61,308 @@ const AI = (() => {
     };
   }
 
+  // ---------- 长文本预算闸门（F5 §7.1-1 + §7.4）----------
+  // 本模块是渲染进程唯一的 provider 出口（AI.send / AI.stream / AI.chat / AI.supervise /
+  // AI.generateSoapFromTranscript / AI.testConnection 全部汇聚到 callDirect），
+  // 因此「超过总输入上限必须明确拒绝、不得静默截断」在这里 fail-closed：
+  // 超限时不发请求，返回带稳定 errorCode 的失败对象。
+  // 上限与多学派核心 SupervisionSyndicate.MAX_INPUT_CHARS 同口径，避免三入口预算漂移。
+  const MAX_TOTAL_INPUT_CHARS = 240000;
+  // errorCode 复用全仓既有码表（见 supervision-syndicate.js 的 MATERIAL_TOO_LONG /
+  // STAGE_BUDGET_EXCEEDED），不另造同义新码。
+  const BUDGET_ERROR_CODE = 'MATERIAL_TOO_LONG';
+  const BUDGET_TRANSPORT_CODE = 'XJ_AI_INPUT_BUDGET_EXCEEDED';
+  /* ---------- F5-A（2026-09-24 裁决①）：公布值与判定必须是同一个口径 ----------
+   * 本卡之前的形状：同一个 240,000 在**两个位置按两种量纲**判一次
+   *   （callDirect 脱敏前判一次 + 脱敏后再判一次），于是「你能送 240,000 字符」
+   *   这个对外口径对真实材料是假的 —— 中文会谈文本经本地脱敏会**扩写**
+   *   （reviews-r1c 实测 realistic 语料 ×1.3766，本卡 logs/f5-consistency/measure-01.json
+   *    复算 ×1.3745；高密度语料实测 ×1.43–1.57），真实可粘贴的原始字符远少于 240,000。
+   * 现在只有一个口径：**本地脱敏后的真实出站字符数**（measureInputChars →
+   * measureOutboundProjection）。公布值 240,000 说的就是它，判定也只比它；「可粘贴多少
+   * 原始字符」另按**实测最坏**扩写系数换算成 RAW_MATERIAL_BUDGET_CHARS 一并公布（当前 150,000），
+   * 不再与判定口径混用。
+   * 脱敏规则本身（PERSON_NAME 94% 假阳性 ⇒ 扩写主因）已转脱敏专项，本卡不动
+   * app/js/pii-sanitizer.js；它修好后 RAW_MATERIAL_BUDGET_CHARS 会随实测系数重新算出更高的值。
+   */
+  const BUDGET_METRIC = 'sanitised-outbound-chars';
+  /* 扩写系数按**实测最坏语料**取，不按单份 realistic 语料取。
+   * reviews-r1c / r1e 实测：realistic ×1.3766、高密度 ×1.43–1.57
+   * （拒绝文案里那句本批实测系数就是 1.5676）。旧值 1.3766 折算出的 174,342
+   * 高于行为学定位到的最大可放行原始量（152,851 / 153,059–153,108），
+   * 高密度真实临床材料粘到公布值会被拒 ⇒ 原来那句「一定能在判定里放行」不成立。
+   * 现在按 1.6（实测典型最坏 1.57 + ~2% 余量）折算 ⇒ 150,000。
+   * **这不是「任何输入都保证放行」**：reviews-r1g 实测极端重复文本（背靠背同句，×2.001）
+   * 的最大可放行原始量只有 119,941，仍低于该公布值 ⇒ 150,000 只对典型语料诚实。
+   * 判定本身永远只比实际出站字节，超限一律 fail-closed 且零出网；这个数只是
+   * 「典型临床材料可粘贴多少原始字符」的对外参考口径，不是保证额度。 */
+  const SANITISATION_EXPANSION_FACTOR = 1.6;
+  const RAW_MATERIAL_BUDGET_CHARS = Math.floor(MAX_TOTAL_INPUT_CHARS / SANITISATION_EXPANSION_FACTOR);
+
+  // 出站投影缓存：判定会在一次发送里对同一批文本发生多次（前置判定 + 最终载荷判定），
+  // 而脱敏是纯正则重活（240k 字符一次 ~2.6s）。键 = 原文字符串，值 = 脱敏后字符数。
+  // 依赖「脱敏幂等」这一事实（wire(wire(x)) === wire(x)）；本卡套件
+  // scripts/f5-budget-consistency.test.cjs 用四份语料把它钉成断言（C1-idempotent-*）。
+  const OUTBOUND_CACHE_LIMIT = 24;
+  const outboundCharCache = typeof Map === 'function' ? new Map() : null;
+  function cachedOutboundChars(text) {
+    if (!outboundCharCache) return undefined;
+    const hit = outboundCharCache.get(text);
+    return typeof hit === 'number' ? hit : undefined;
+  }
+  function rememberOutboundChars(text, chars) {
+    if (!outboundCharCache || typeof chars !== 'number') return;
+    outboundCharCache.set(text, chars);
+    while (outboundCharCache.size > OUTBOUND_CACHE_LIMIT) outboundCharCache.delete(outboundCharCache.keys().next().value);
+  }
+  // 把「已经是脱敏后形态」的正文按自身长度登记为出站长度（依据：脱敏幂等）。
+  function primeOutboundCache(messages) {
+    const parts = payloadParts(messages);
+    for (let i = 0; i < parts.length; i++) {
+      if (cachedOutboundChars(parts[i]) === undefined) rememberOutboundChars(parts[i], parts[i].length);
+    }
+  }
+  function syncSanitizer() {
+    try {
+      if (typeof window !== 'undefined' && window.XJPIISanitizer
+        && typeof window.XJPIISanitizer.sanitizeMessages === 'function') return window.XJPIISanitizer;
+    } catch (e) { /* 取不到就走降级视图 */ }
+    return null;
+  }
+  function payloadParts(messages) {
+    if (!Array.isArray(messages)) return [];
+    const out = [];
+    for (let i = 0; i < messages.length; i++) {
+      const content = messages[i] && messages[i].content;
+      if (typeof content === 'string') { if (content) out.push(content); }
+      else if (Array.isArray(content)) {
+        for (let p = 0; p < content.length; p++) {
+          const part = typeof content[p] === 'string' ? content[p] : (content[p] && typeof content[p].text === 'string' ? content[p].text : '');
+          if (part) out.push(part);
+        }
+      }
+    }
+    return out;
+  }
+  /* 唯一权威度量：这批 messages 交给本模块出口后**实际出站**的字符数。
+   * 与 callDirect 真正发送的载荷同配方（同一条 XJPIISanitizer.sanitizeMessages 路径）；
+   * 本地脱敏模块尚未加载时降级为「组装后字符数」视图，并在 basis 里如实标注 ——
+   * 降级只会少拒（不产生误拒），网络侧仍由 callDirect 的最终判定 fail-closed。 */
+  function measureOutboundProjection(messages) {
+    const rawChars = measureComposedChars(messages);
+    const sanitizer = syncSanitizer();
+    if (!sanitizer) return { chars: rawChars, rawChars: rawChars, basis: 'composed-chars-no-local-sanitiser' };
+    let total = 0;
+    const parts = payloadParts(messages);
+    for (let p = 0; p < parts.length; p++) {
+      const part = parts[p];
+      let chars = cachedOutboundChars(part);
+      if (chars === undefined) {
+        let projected = null;
+        try { projected = sanitizer.sanitizeMessages([{ role: 'user', content: part }]); } catch (e) { projected = null; }
+        chars = projected && projected.ok && Array.isArray(projected.messages)
+          ? measureComposedChars(projected.messages) : part.length;
+        rememberOutboundChars(part, chars);
+      }
+      total += chars;
+    }
+    return { chars: total, rawChars: rawChars, basis: BUDGET_METRIC };
+  }
+
+  // 「组装后」视图：只用于随响应回报（rawChars）与遥测，不参与任何判定。
+  function measureComposedChars(messages) {
+    if (!Array.isArray(messages)) return 0;
+    let total = 0;
+    for (let i = 0; i < messages.length; i++) {
+      const content = messages[i] && messages[i].content;
+      if (typeof content === 'string') total += content.length;
+      else if (Array.isArray(content)) {
+        for (let p = 0; p < content.length; p++) {
+          const part = content[p];
+          if (typeof part === 'string') total += part.length;
+          else if (part && typeof part.text === 'string') total += part.text.length;
+        }
+      }
+    }
+    return total;
+  }
+
+  // 判定用的**唯一**度量：真实出站字符数（见上面 F5-A 注释）。名字沿用
+  // measureInputChars，是为了让「input budget」的 input 指的是真正送进模型的那份载荷。
+  function measureInputChars(messages) {
+    return measureOutboundProjection(messages).chars;
+  }
+
+  // 返回 null 表示在预算内；否则返回统一的超限描述（不含任何被截断的正文）。
+  // 判定只发生在这里、只按一个口径（totalChars = 脱敏后出站字符数）。
+  function inputBudgetFailure(messages) {
+    const totalChars = measureInputChars(messages);
+    if (totalChars <= MAX_TOTAL_INPUT_CHARS) return null;
+    const outbound = measureOutboundProjection(messages);
+    return {
+      ok: false,
+      error: '本次载荷本地脱敏后实际出站 ' + totalChars + ' 字符 > 出站上限 ' + MAX_TOTAL_INPUT_CHARS
+        + ' 字符（同一批材料脱敏前 ' + outbound.rawChars + ' 字符，扩写系数 '
+        + (outbound.rawChars ? (totalChars / outbound.rawChars).toFixed(4) : '1') + '）。'
+        + '已拒绝发送且未截断任何内容；对外公布的 ' + MAX_TOTAL_INPUT_CHARS + ' 指的就是这个出站口径，'
+        + '而「可直接粘贴的原始材料」按已测最坏扩写系数 ' + SANITISATION_EXPANSION_FACTOR
+        + ' 折算，保守公布为约 ' + RAW_MATERIAL_BUDGET_CHARS
+        + ' 字符（本批系数只作诊断，不作为放行额度），请缩短材料，或改用带分段摘要的多学派督导入口',
+      errorCode: BUDGET_ERROR_CODE,
+      code: BUDGET_TRANSPORT_CODE,
+      totalChars: totalChars,
+      rawChars: outbound.rawChars,
+      measureBasis: outbound.basis,
+      metric: BUDGET_METRIC,
+      limitChars: MAX_TOTAL_INPUT_CHARS,
+      truncated: false,
+      transportState: 'manual-only',
+    };
+  }
+
+  function budgetError(failure) {
+    const error = new Error(failure.error);
+    error.code = failure.code;
+    error.errorCode = failure.errorCode;
+    error.inputBudget = failure;
+    return error;
+  }
+
+  // ---------- DEC-02（FIND-04）：内置模型兜底必须可见 ----------
+  // 产品裁决：供应商失败后由内置试用模型代答的行为**保留**，但不得伪装成正常成功。
+  // 本模块唯一的兜底出口是 callWithManualOnly 的 manual-fallback-builtin 分支，
+  // 因此降级事实在这里一次性挂齐，上层只消费、不再各自猜文案：
+  //   fallback / degraded / warning            —— 可见降级标记（显式布尔 + 稳定 warning 码）
+  //   originalErrorCode / originalCode /
+  //   originalStatus / originalError           —— 原始失败事实，一律不得丢失
+  //   requestedTier / requestedModel           —— 用户所选档位
+  //   tier / actualModel                       —— 实际使用档位（归档可追溯用）
+  // warning 是新概念（降级告警），不与 MATERIAL_TOO_LONG / STAGE_BUDGET_EXCEEDED 等
+  // 既有 errorCode 同义；transportState 沿用既有字面量 'manual-fallback-builtin'。
+  const FALLBACK_WARNING_CODE = 'BUILTIN_FALLBACK_USED';
+  const FALLBACK_TRANSPORT_STATE = 'manual-fallback-builtin';
+  // 「模型没答」沿用全仓既有码（app/js/supervision-syndicate.js :: callProvider 用的就是
+  // EMPTY_RESPONSE），不另造同义码。
+  const EMPTY_REPLY_CODE = 'EMPTY_RESPONSE';
+  // 兜底事件登记表：核心管线（多学派督导）不把 AI.send 的返回对象透传给页面，
+  // 页面与归档写入需要按「本次运行区间」取回降级事实与实际档位，故在此留痕。
+  // 语义：单调递增 seq + 有界环形数组；上层用 count()/since(seq) 做区间关联，
+  // 只会「多报一次降级」（并发请求），不会漏报——对临床可见性要求是安全方向。
+  const FALLBACK_LEDGER_LIMIT = 50;
+  const fallbackLedger = [];
+  let fallbackLedgerSeq = 0;
+
+  // 取消判定：用户主动取消 / 核心阶段超时（invokeCard 的 cancelTransport）都会让
+  // signal.aborted === true，且抛出的错误带 ABORT_ERR / AbortError。两条都要认。
+  function isAbortLike(error, options) {
+    if (error && (error.code === 'ABORT_ERR' || error.name === 'AbortError')) return true;
+    return !!(options && options.signal && options.signal.aborted === true);
+  }
+
+  function abortFailureResult() {
+    const error = new Error('已取消生成');
+    error.code = 'ABORT_ERR';
+    return safeFailureResult(error, { transportState: 'manual-only' });
+  }
+
+  function recordFallbackEvent(info) {
+    fallbackLedgerSeq += 1;
+    const event = {
+      seq: fallbackLedgerSeq,
+      at: new Date().toISOString(),
+      requestedTier: String(info.requestedTier || ''),
+      requestedModel: String(info.requestedModel || ''),
+      tier: String(info.tier || ''),
+      actualModel: String(info.actualModel || ''),
+      modelMismatch: info.modelMismatch === true,
+      warning: FALLBACK_WARNING_CODE,
+      transportState: FALLBACK_TRANSPORT_STATE,
+      originalErrorCode: String(info.originalErrorCode || ''),
+      originalCode: String(info.originalCode || ''),
+      originalStatus: typeof info.originalStatus === 'number' ? info.originalStatus : null,
+      outputChars: typeof info.outputChars === 'number' ? info.outputChars : 0,
+    };
+    fallbackLedger.push(event);
+    if (fallbackLedger.length > FALLBACK_LEDGER_LIMIT) fallbackLedger.shift();
+    return event;
+  }
+
+  function fallbackEventsSince(seq) {
+    const from = Number(seq) || 0;
+    return fallbackLedger.filter(function (item) { return item.seq > from; });
+  }
+
+  function uniqueValues(list, key) {
+    const out = [];
+    for (let i = 0; i < list.length; i++) {
+      const value = list[i] && list[i][key];
+      if (value != null && value !== '' && out.indexOf(value) < 0) out.push(value);
+    }
+    return out;
+  }
+
+  // 把兜底事件投影成可落库的溯源对象（写入督导归档既有的 usage 字段，
+  // 不改 store.js、不改 supervision-syndicate.js 的归档字段表）。
+  function fallbackProvenance(events) {
+    const list = Array.isArray(events) ? events.slice() : [];
+    if (!list.length) return null;
+    const last = list[list.length - 1];
+    return {
+      usedBuiltinFallback: true,
+      degraded: true,
+      warning: FALLBACK_WARNING_CODE,
+      transportState: FALLBACK_TRANSPORT_STATE,
+      eventCount: list.length,
+      firstSeq: list[0].seq,
+      lastSeq: last.seq,
+      requestedTiers: uniqueValues(list, 'requestedTier'),
+      actualTiers: uniqueValues(list, 'tier'),
+      actualModels: uniqueValues(list, 'actualModel'),
+      originalErrorCodes: uniqueValues(list, 'originalErrorCode'),
+      originalCodes: uniqueValues(list, 'originalCode'),
+      modelMismatch: list.some(function (item) { return item.modelMismatch === true; }),
+      notice: fallbackNoticeText(last),
+      at: last.at,
+    };
+  }
+
+  // 用户可见文案（页面共用，措辞说人话且绝不把降级说成成功）。
+  function fallbackNoticeText(source) {
+    const info = source && typeof source === 'object' ? source : {};
+    const requested = String(info.requestedTier || info.requestedModel || '').trim() || '你选择的模型';
+    const actual = String(info.tier || info.actualTier || info.actualModel || '').trim() || '内置模型';
+    const code = String(info.originalErrorCode || info.originalCode || '').trim() || '未知';
+    const reason = String(info.originalError || '').trim();
+    const head = info.modelMismatch === false
+      ? '本次回复是内置模型「' + actual + '」在原请求失败后重发得到的，不是你选择的那一次请求的输出'
+      : '本次由内置模型「' + actual + '」代答，不是你选择的「' + requested + '」';
+    return head + '（原始失败：' + code + (reason ? '；' + reason : '') + '）。'
+      + '这不属于所选模型的正常结果，请谨慎用于临床判断；可点重试，或在「设置 → AI 接口」配置自有模型。';
+  }
+
+  // 兜底可见字段在对外回调（send / chat / supervise / soap）中的统一投影。
+  const DEGRADATION_KEYS = [
+    'warning', 'degraded', 'requestedTier', 'requestedModel', 'actualModel', 'modelMismatch',
+    'originalErrorCode', 'originalCode', 'originalStatus', 'originalError', 'fallbackSeq',
+  ];
+  function degradationFields(res) {
+    if (!res || typeof res !== 'object') return { fallback: false };
+    const out = {};
+    // 未降级也显式表态（fallback:false），上层不必再靠「有没有 error 字段」反推；
+    // tier / transportState 始终随附，使「实际用了哪个模型」在每一次落库都可核对。
+    out.fallback = res.fallback === true;
+    if (res.tier !== undefined) out.tier = res.tier;
+    if (res.transportState !== undefined) out.transportState = res.transportState;
+    if (out.fallback !== true) return out;
+    for (let i = 0; i < DEGRADATION_KEYS.length; i++) {
+      const key = DEGRADATION_KEYS[i];
+      if (res[key] !== undefined) out[key] = res[key];
+    }
+    out.degraded = true;
+    out.notice = fallbackNoticeText(res);
+    return out;
+  }
+
   function getAiBridge() {
     const bridge = typeof window !== 'undefined' ? window.__XJ_API__ : null;
     if (!bridge || typeof bridge.aiRequest !== 'function' || typeof bridge.cancelAiRequest !== 'function' || typeof bridge.onAiChunk !== 'function') {
@@ -356,6 +658,7 @@ const AI = (() => {
       if (msg && typeof msg.content === 'string') return { ok: true };
       return { ok: false, error: '服务端返回空响应', errorCode: 'provider_http' };
     } catch (e) {
+      if (e && e.inputBudget) return { ok: false, error: e.inputBudget.error, errorCode: e.inputBudget.errorCode, totalChars: e.inputBudget.totalChars, limitChars: e.inputBudget.limitChars, truncated: false };
       const pingCode = classifyError(e);
       return {
         ok: false,
@@ -365,6 +668,25 @@ const AI = (() => {
         errorCode: pingCode,
       };
     }
+  }
+
+  // 失败对象向上投影：稳定 errorCode 与预算/分段结构化字段必须原样带给调用方。
+  // 修复前 chat / supervise / generateSoapFromTranscript 只回 {error, transportState}，
+  // 把闸门与 provider 的 errorCode 吞在模块内部（与 F5-D2 同型缺陷）。
+  function projectFailure(res) {
+    const src = (res && typeof res === 'object') ? res : {};
+    const out = {
+      error: src.error,
+      code: src.code,
+      errorCode: src.errorCode,
+      interrupted: src.interrupted,
+      partialContent: src.partialContent,
+      transportState: src.transportState,
+    };
+    if (typeof src.totalChars === 'number') out.totalChars = src.totalChars;
+    if (typeof src.limitChars === 'number') out.limitChars = src.limitChars;
+    if (typeof src.truncated === 'boolean') out.truncated = src.truncated;
+    return out;
   }
 
   // ---------- 发送前消息序列归一化（防御硅基流动 20015「messages 数组格式非法」）----------
@@ -536,6 +858,12 @@ const AI = (() => {
   // 单层调用：渲染层只组织模型请求，网络、重定向和凭据解密统一由主进程代理。
   async function callDirect(config, messages, options) {
     options = options || {};
+    // F5-A（2026-09-24 裁决①）：这里**不再**有「脱敏前用同一个公布值判一次」的闸门。
+    // 原先那一道量的是组装后字符数，与下面那道（量真实出站载荷）共用同一个 240,000，
+    // 于是同一个对外承诺对应两种量纲、两个判定位置：脱敏会把中文会谈文本扩写
+    // （实测 ×1.3766），第一道放行、第二道拒绝 ⇒「你能送 240,000」对真实材料是假的。
+    // 现在总输入预算只判一次，且判的就是最终要上网的那份载荷（0 出网语义不变：
+    // 判定仍在任何 bridge/网络动作之前）。
     const model = config.model || PRIMARY_TRIAL_MODEL;
     const sanitizer = await loadPiiSanitizer().catch(function () { return null; });
     if (!sanitizer || typeof sanitizer.sanitizeMessages !== 'function') {
@@ -552,6 +880,13 @@ const AI = (() => {
     }
     // 发送前归一化角色序列，防御硅基流动 20015
     const safeMessages = normalizeMessageSequence(sanitized.messages);
+    // 已脱敏的正文再投影一次会得到同一个数（脱敏幂等，本卡 C1-idempotent-* 断言钉住），
+    // 所以直接把这份最终载荷的字符数登记进缓存，避免 240k 级别的重复全量脱敏。
+    primeOutboundCache(safeMessages);
+    // 预算闸门（唯一判定）：对**即将上网的最终载荷**按权威口径判定，超限即抛，
+    // 绝不截断后继续。这是「超限载荷不可能到达 bridge」这条不变量的最后一道防线。
+    const finalBudget = inputBudgetFailure(safeMessages);
+    if (finalBudget) throw budgetError(finalBudget);
     const body = {
       model,
       messages: safeMessages,
@@ -643,11 +978,127 @@ const AI = (() => {
   }
 
   // 首版统一恢复策略：成功只报告 primary-ready；任何失败回到 manual-only，绝不跨服务重放临床请求。
+  // 「模型没答」也算失败：正文为空且没有 tool_calls / reasoning 时（EMPTY_RESPONSE，
+  // 复用 supervision-syndicate.js 的既有码，不新造同义码），主档不得静默返回空回复。
+  function emptyReplyFailure(message) {
+    if (message && (String(message.content || '').trim()
+      || String(message.reasoning || message.reasoning_content || '').trim()
+      || (Array.isArray(message.tool_calls) && message.tool_calls.length))) return null;
+    return {
+      errorCode: EMPTY_REPLY_CODE,
+      code: EMPTY_REPLY_CODE,
+      error: '模型未返回内容，请重试',
+      status: 0,
+    };
+  }
+
+  // 失败事实的可辨认投影：safeFailureResult 的安全文案 + 原始传输码（XJ_AI_RATE_LIMIT /
+  // XJ_AI_TIMEOUT / ECONNRESET …）与 HTTP 状态，兜底成功后必须原样带出去（DEC-02 ①）。
+  function normalizedFailure(error) {
+    const res = safeFailureResult(error, { transportState: 'manual-only' });
+    if (!res.code && error && error.code) res.code = String(error.code);
+    const status = Number(error && (error.status || error.httpStatus)) || 0;
+    if (status) res.status = status;
+    return res;
+  }
+
+  // DEC-02：内置试用模型兜底（保留的产品行为）+ 全部可见降级字段。
+  // original = normalizedFailure(...) / emptyReplyFailure(...)，即「原始失败」事实。
+  async function builtinFallbackResult(config, messages, options, original) {
+    const requestedTier = String((config && config.label) || '');
+    const requestedModel = String((config && config.model) || '');
+    try {
+      const builtinConfig = buildNonAgentTrialConfig();
+      const fbMsg = await callDirect(builtinConfig, messages, options);
+      // DEC-02 ⑤（对齐 F6 迟到结果）：兜底请求在途期间用户取消、或核心阶段已
+      // STAGE_TIMEOUT 并 abort 了传输，则这条迟到的兜底回复不得写回（不得交付内容）。
+      if (isAbortLike(null, options)) return abortFailureResult();
+      const actualTier = String((builtinConfig && builtinConfig.label) || 'builtin');
+      const actualModel = String((builtinConfig && builtinConfig.model) || '');
+      const empty = emptyReplyFailure(fbMsg);
+      if (empty) {
+        // 兜底也没内容：终态是失败，但「曾经降级代答过」与原始失败仍要让上层看见。
+        return {
+          error: empty.error,
+          errorCode: empty.errorCode,
+          code: empty.code,
+          transportState: 'manual-only',
+          fallback: false,
+          fallbackAttempted: true,
+          warning: FALLBACK_WARNING_CODE,
+          requestedTier: requestedTier,
+          requestedModel: requestedModel,
+          tier: actualTier,
+          actualModel: actualModel,
+          originalErrorCode: original.errorCode,
+          originalCode: original.code,
+          originalError: original.error,
+        };
+      }
+      const event = recordFallbackEvent({
+        requestedTier: requestedTier,
+        requestedModel: requestedModel,
+        tier: actualTier,
+        actualModel: actualModel,
+        modelMismatch: requestedTier !== actualTier,
+        originalErrorCode: original.errorCode,
+        originalCode: original.code,
+        originalStatus: typeof original.status === 'number' && original.status ? original.status : null,
+        outputChars: String(fbMsg.content || '').length,
+      });
+      return {
+        content: fbMsg.content || '',
+        reasoning: fbMsg.reasoning || fbMsg.reasoning_content || '',
+        tool_calls: fbMsg.tool_calls,
+        commercial: fbMsg.commercial,
+        tier: actualTier,
+        transportState: FALLBACK_TRANSPORT_STATE,
+        fallback: true,
+        degraded: true,
+        warning: FALLBACK_WARNING_CODE,
+        requestedTier: requestedTier,
+        requestedModel: requestedModel,
+        actualModel: actualModel,
+        modelMismatch: event.modelMismatch,
+        originalErrorCode: original.errorCode,
+        originalCode: original.code,
+        originalError: original.error,
+        originalStatus: event.originalStatus,
+        fallbackSeq: event.seq,
+      };
+    } catch (e2) {
+      // 兜底自身也失败：终态按「原始失败」的分类给出（既有行为），
+      // 同时显式声明「曾尝试内置代答」与原始失败码，不让上层误读成主档故障。
+      if (isAbortLike(e2, options)) return abortFailureResult();
+      return {
+        error: original.error || safeFailureResult(e2, { transportState: 'manual-only' }).error,
+        errorCode: original.errorCode,
+        code: original.code,
+        transportState: 'manual-only',
+        fallback: false,
+        fallbackAttempted: true,
+        warning: FALLBACK_WARNING_CODE,
+        requestedTier: requestedTier,
+        requestedModel: requestedModel,
+      };
+    }
+  }
+
   async function callWithManualOnly(messages, options) {
     options = options || {};
+    // 超限直接返回失败对象：既不发起主请求，也不进入「用户模型失败 → 内置模型重试」的
+    // 兜底支路（否则同一份超限载荷会被重复投递）。
+    const overBudget = inputBudgetFailure(messages);
+    if (overBudget) return overBudget;
     const config = getNonAgentConfig();
     try {
       const message = await callDirect(config, messages, options);
+      if (isAbortLike(null, options)) return abortFailureResult();
+      const empty = emptyReplyFailure(message);
+      // 产品裁决（DEC-02 追加，2026-09-24）：空正文**不触发**内置档重发。
+      // DEC-02 授权的范围只有「传输失败才换档」；把「模型没答话」也当成换档理由，
+      // 等于同一份临床材料多一次出网，且归档档位更不可追溯。
+      if (empty) return Object.assign({ transportState: 'primary-empty' }, empty);
       return {
         content: message.content || '',
         reasoning: message.reasoning || message.reasoning_content || '',
@@ -655,29 +1106,26 @@ const AI = (() => {
         commercial: message.commercial,
         tier: config.label,
         transportState: 'primary-ready',
+        // 未降级也要显式表态，避免上层靠「有没有 error 字段」猜是不是兜底。
+        fallback: false,
       };
     } catch (e) {
+      // 预算拒绝是终态：不得再打内置兜底模型（同一载荷必然再次超限，且属静默重试）。
+      if (e && e.inputBudget) return e.inputBudget;
+      // DEC-02 ④（对齐 F6「取消后不重试」）：用户主动取消一律直接失败，绝不触发兜底。
+      // 这里既认抛出的 ABORT_ERR / AbortError，也认 signal.aborted —— 主进程在
+      // abort 竞态下可能只回一个普通网络错误，此时同样不得补发第二次请求。
+      if (isAbortLike(e, options)) {
+        return safeFailureResult(e, { partial: e && e.partial, partialContent: e && e.partialContent, transportState: 'manual-only' });
+      }
       // 首 token 已经交给 UI 后不可重放，否则用户会看到重复回答。
-      if (e && (e.partial || e.code === 'ABORT_ERR' || e.name === 'AbortError')) {
-        return safeFailureResult(e, { partial: e.partial, partialContent: e.partialContent, transportState: 'manual-only' });
+      if (e && e.partial) {
+        return safeFailureResult(e, { partial: true, partialContent: e.partialContent, transportState: 'manual-only' });
       }
       // 2026-09-13（XJ-513 反馈 #5，审查修正）：用户自有 API 失败时自动回退服务器主力
       // 模型重试一次——必须用内置试用配置（buildNonAgentTrialConfig），不能用 getActiveConfig
       // （用户 verified 时它仍返回用户配置=重复打同一故障上游，兜底无效）。
-      try {
-        const builtinConfig = buildNonAgentTrialConfig();
-        const fbMsg = await callDirect(builtinConfig, messages, options);
-        return {
-          content: fbMsg.content || '',
-          reasoning: fbMsg.reasoning || fbMsg.reasoning_content || '',
-          tool_calls: fbMsg.tool_calls,
-          commercial: fbMsg.commercial,
-          tier: (builtinConfig && builtinConfig.label) || 'builtin',
-          transportState: 'manual-fallback-builtin',
-        };
-      } catch (e2) {
-        return safeFailureResult(e, { transportState: 'manual-only' });
-      }
+      return builtinFallbackResult(config, messages, options, normalizedFailure(e));
     }
   }
 
@@ -747,16 +1195,10 @@ ${transcript}
 
     callWithManualOnly(messages).then((res) => {
       if (res.error) {
-        callback({
-          error: res.error,
-          code: res.code,
-          interrupted: res.interrupted,
-          partialContent: res.partialContent,
-          transportState: res.transportState,
-        });
+        callback(projectFailure(res));
         return;
       }
-      callback(parseSoap(res.content));
+      callback(Object.assign(parseSoap(res.content), degradationFields(res)));
     });
   }
 
@@ -769,10 +1211,10 @@ ${transcript}
     ];
     callWithManualOnly(messages).then((res) => {
       if (res.error) {
-        callback({ error: res.error, transportState: res.transportState });
+        callback(projectFailure(res));
         return;
       }
-      callback({ content: res.content, commercial: res.commercial, transportState: res.transportState });
+      callback(Object.assign({ content: res.content, commercial: res.commercial, transportState: res.transportState }, degradationFields(res)));
     });
   }
 
@@ -793,17 +1235,10 @@ ${transcript}
     const pending = callWithManualOnly(messages, options);
     pending.then((res) => {
       if (res.error) {
-        callback({
-          error: res.error,
-          code: res.code,
-          errorCode: res.errorCode,
-          interrupted: res.interrupted,
-          partialContent: res.partialContent,
-          transportState: res.transportState,
-        });
+        callback(projectFailure(res));
         return;
       }
-        callback({
+        callback(Object.assign({
           content: res.content,
           tier: res.tier,
           tool_calls: res.tool_calls,
@@ -811,7 +1246,7 @@ ${transcript}
         interrupted: res.interrupted,
         partialContent: res.partialContent,
         transportState: res.transportState,
-      });
+        }, degradationFields(res)));
     });
     return pending;
   }
@@ -852,10 +1287,10 @@ ${transcript}
     ];
     callWithManualOnly(messages).then((res) => {
       if (res.error) {
-        callback({ error: res.error, transportState: res.transportState });
+        callback(projectFailure(res));
         return;
       }
-      callback({ content: res.content, transportState: res.transportState });
+      callback(Object.assign({ content: res.content, tier: res.tier, transportState: res.transportState }, degradationFields(res)));
     });
   }
 
@@ -886,6 +1321,41 @@ ${transcript}
     getTrialModel,
     classifyError,
     safeFailureResult,
+    // 长度闸门对上层可见：页面/工具层复用同一上限与同一 errorCode，
+    // 全仓不得再出现第二套「超限」同义码（F5 §7.4 / F5-D2）。
+    // F5-A/F5-D：这里同时是「唯一测量口径」的导出点 —— 三个入口（页面 ClinicalContext、
+    // 多学派核心 SupervisionSyndicate、统一出口 AI.send）判定与遥测都只能读这一份，
+    // 不得再各自抄一份长度算法。
+    budgetGuard: {
+      limitChars: MAX_TOTAL_INPUT_CHARS,
+      errorCode: BUDGET_ERROR_CODE,
+      transportCode: BUDGET_TRANSPORT_CODE,
+      metric: BUDGET_METRIC,
+      // 对外公布的「原始材料」等效上限（= 出站上限 / 实测扩写系数，向下取整）。
+      rawMaterialBudgetChars: RAW_MATERIAL_BUDGET_CHARS,
+      expansionFactor: SANITISATION_EXPANSION_FACTOR,
+      measure: measureInputChars,
+      // 两个视图：outboundChars 是判定用的权威口径；composedChars 只是「组装后」视图。
+      outboundChars: measureInputChars,
+      composedChars: measureComposedChars,
+      projection: measureOutboundProjection,
+      failure: inputBudgetFailure,
+    },
+    // DEC-02 对上层可见的降级面：页面与归档写入复用同一套字段名与同一句文案，
+    // 全仓不得再各写一份「内置模型兜底」的判断逻辑（同 budgetGuard 的口径）。
+    fallbackVisibility: {
+      warningCode: FALLBACK_WARNING_CODE,
+      transportState: FALLBACK_TRANSPORT_STATE,
+      noticeText: fallbackNoticeText,
+      provenance: fallbackProvenance,
+      fields: degradationFields,
+      // 兜底事件登记表（按 seq 区间关联）：count() 取当前水位，since(seq) 取增量事件。
+      count: function () { return fallbackLedgerSeq; },
+      list: function () { return fallbackLedger.slice(); },
+      since: fallbackEventsSince,
+      latest: function () { return fallbackLedger.length ? fallbackLedger[fallbackLedger.length - 1] : null; },
+      limit: FALLBACK_LEDGER_LIMIT,
+    },
   };
 })();
 

@@ -23,8 +23,28 @@
   // 温度滑块：每位大师独立存储，圆桌模式无滑块
   var talkTemp = 60;
   var talkDetail = 50;
+  // P3-3：单一实现——页面壳温度守卫委托内核 MastersCore.normalizeTemperature，二者同源。
+  // 无内核时安全回退 60（内核先于页面壳加载，正常发布形态不会触发该兜底）。
+  function normalizeTalkTemp(value) {
+    if (typeof MastersCore !== 'undefined' && MastersCore.normalizeTemperature) {
+      return MastersCore.normalizeTemperature(value);
+    }
+    return 60;
+  }
+  // 圆桌温度通道（P1-3）：读取该大师已存储的滑块温度（每位大师独立保存 mc_temp_<key>），
+  // 缺省 60；滑块=0 时返回 0，令圆桌按 0 档取知识。
+  function storedTalkTemp(key) {
+    try {
+      var v = localStorage.getItem('mc_temp_' + key);
+      return v == null ? 60 : normalizeTalkTemp(v);
+    } catch (e) { return 60; }
+  }
+  function getTalkTemp() {
+    talkTemp = normalizeTalkTemp(talkTemp);
+    return talkTemp;
+  }
   function loadTemp(key) {
-    try { var v = localStorage.getItem('mc_temp_' + key); if (v != null) talkTemp = parseInt(v, 10) || 60; } catch(e) {}
+    try { var v = localStorage.getItem('mc_temp_' + key); if (v != null) talkTemp = normalizeTalkTemp(v); } catch(e) {}
     try { var d = localStorage.getItem('mc_detail_' + key); if (d != null) talkDetail = parseInt(d, 10) || 50; } catch(e) {}
     var slider = document.getElementById('temp-slider');
     if (slider) { slider.value = talkTemp; slider.parentElement.style.display = key ? '' : 'none'; }
@@ -36,7 +56,7 @@
     try { localStorage.setItem('mc_detail_' + key, talkDetail); } catch(e) {}
   }
   window.onTempChange = function (val) {
-    talkTemp = parseInt(val, 10) || 60;
+    talkTemp = normalizeTalkTemp(val);
     if (currentConv && currentConv.mode === '1v1') saveTemp(currentConv.masterKeys[0]);
   };
   window.onDetailChange = function (val) {
@@ -524,17 +544,51 @@
     if (window.IconSystem && IconSystem.render) IconSystem.render(body);
   }
 
-  function renderErrorCard(errText, errorCode) {
+  function renderErrorCard(errText, errorCode, extra) {
     var accountSessionRequired = errorCode === 'account_session_required' || errorCode === 'XJ_AI_ACCOUNT_SESSION_REQUIRED';
+    var overBudget = errorCode === 'MATERIAL_TOO_LONG' || errorCode === 'XJ_TASK_BUDGET_EXCEEDED' || errorCode === 'XJ_AI_INPUT_BUDGET_EXCEEDED';
     var message = accountSessionRequired
       ? '账号会话已失效或未登录，请重新登录后重试。草稿和本轮输入已保留。'
       : (errText || '模型调用失败，请检查配置、网络或服务状态。');
-    var actionLabel = accountSessionRequired ? '登录 / 刷新会话' : '检查 AI 配置';
+    if (overBudget && extra && typeof extra.totalChars === 'number') {
+      message = '本次内容超过模型输入上限（' + extra.totalChars + ' 字符 > 上限 '
+        + (extra.limitChars || 0) + ' 字符），已停止发送'
+        + (extra.truncated ? '' : '且未截断任何内容') + '。请缩短材料或已选来源后重试。';
+    }
+    var actionLabel = accountSessionRequired ? '登录 / 刷新会话' : (overBudget ? '缩短材料后重试' : '检查 AI 配置');
     return '<div class="bubble"><div class="error-card" role="alert">'
       + App.escapeHtml(message)
+      + (overBudget ? '<div class="error-code">' + App.escapeHtml(String(errorCode || '')) + '</div>' : '')
       + '</div><div class="error-actions"><button class="retry-btn" type="button" data-masters-action="retry">重试</button>'
       + '<button class="retry-btn secondary" type="button" data-masters-action="account">' + App.escapeHtml(actionLabel) + '</button></div></div>';
   }
+  // ---------- DEC-02（FIND-04）：内置模型兜底必须可见，且实际档位可追溯 ----------
+  // 字段名与文案一律取自 app/js/ai.js 的 fallbackVisibility，页面不再各写一套判断。
+  function aiFallbackApi() {
+    return (typeof AI !== 'undefined' && AI && AI.fallbackVisibility) ? AI.fallbackVisibility : null;
+  }
+  function degradationOf(res) {
+    var api = aiFallbackApi();
+    if (api && api.fields) return api.fields(res);
+    return {
+      fallback: !!(res && res.fallback === true),
+      warning: res && res.warning,
+      tier: res && res.tier,
+      transportState: res && res.transportState,
+    };
+  }
+  function degradationNoticeText(info) {
+    var api = aiFallbackApi();
+    if (api && api.noticeText) return api.noticeText(info || {});
+    return '本次由内置模型代答，不是你选择的模型；请谨慎用于临床判断。';
+  }
+  // 降级提示只在兜底真的发生时出现；措辞明确「不是所选模型的输出」，不当成功播报。
+  function renderDegradationNotice(msg) {
+    if (!msg || msg.fallback !== true) return '';
+    return '<div class="model-degraded-note" role="status" data-warning="' + App.escapeHtml(String(msg.warning || 'BUILTIN_FALLBACK_USED')) + '">'
+      + App.escapeHtml(degradationNoticeText(msg)) + '</div>';
+  }
+
   function renderMsg(msg) {
     if (msg.role === 'sys') {
       return '<div class="msg" style="justify-content:center"><div class="bubble" style="background:transparent;border:1px dashed var(--border);color:var(--text-muted);font-size:12px;padding:6px 14px;border-radius:10px;max-width:88%">' + App.escapeHtml(msg.content) + '</div></div>';
@@ -547,14 +601,14 @@
       var errorColor = errorMaster ? accentOf(errorMaster) : 'var(--accent)';
       var errorInitial = errorMaster ? errorMaster.initial : '师';
       var errorName = errorMaster ? errorMaster.name : (msg.masterKey || '大师');
-      return '<div class="msg ai"><div class="av" style="background:' + errorColor + '">' + errorInitial + '</div><div class="body"><div class="sender">' + App.escapeHtml(errorName) + '</div>' + renderErrorCard(msg.error || msg.content, msg.errorCode) + '</div></div>';
+      return '<div class="msg ai"><div class="av" style="background:' + errorColor + '">' + errorInitial + '</div><div class="body"><div class="sender">' + App.escapeHtml(errorName) + '</div>' + renderErrorCard(msg.error || msg.content, msg.errorCode, msg) + '</div></div>';
     }
     var m = msg.masterKey ? getMasterByKey(msg.masterKey) : null;
     var name = m ? m.name : (msg.masterKey || '大师');
     var color = m ? accentOf(m) : 'var(--accent)';
     var initial = m ? m.initial : '师';
     var statusLabel = msg.status === 'interrupted' ? ' · 已中断' : '';
-    return '<div class="msg ai' + (msg.status === 'interrupted' ? ' interrupted' : '') + '"><div class="av" style="background:' + color + '">' + initial + '</div><div class="body"><div class="sender">' + name + statusLabel + '</div><div class="bubble">' + App.escapeHtml(msg.content) + '<div class="theory-scope-note">理论视角 · 仅本次输入 · 非临床事实</div></div></div></div></div>';
+    return '<div class="msg ai' + (msg.status === 'interrupted' ? ' interrupted' : '') + '"><div class="av" style="background:' + color + '">' + initial + '</div><div class="body"><div class="sender">' + name + statusLabel + '</div><div class="bubble">' + App.escapeHtml(msg.content) + '<div class="theory-scope-note">理论视角 · 仅本次输入 · 非临床事实</div>' + renderDegradationNotice(msg) + '</div></div></div></div></div>';
   }
 
   // ---------- 快捷提问（空态点击） ----------
@@ -612,13 +666,14 @@
 
   // ===== 圆桌 system prompt 规则（与 Chat roundtable.html 一致）=====
   // [我的资料库] 由 MastersCore 统一追加，页面只传递当前圆桌参数。
+  // P1-3：圆桌必须把该大师已存储的温度透传给内核，否则内核温度分桶在圆桌上永不可达。
   function buildRoundSysPrompt(m, activeNames, isReactMode) {
-    return MastersCore.buildRoundSystemPrompt(m, activeNames, isReactMode, { includeUserDocs: currentDocsSetting() });
+    return MastersCore.buildRoundSystemPrompt(m, activeNames, isReactMode, { temperature: storedTalkTemp(m.key), includeUserDocs: currentDocsSetting() });
   }
 
   // 1v1 system prompt（保持原逻辑 + style constraints）
   function build1v1SysPrompt(m) {
-    return MastersCore.buildOneToOneSystemPrompt(currentConv, m, { temperature: talkTemp, includeUserDocs: currentDocsSetting() });
+    return MastersCore.buildOneToOneSystemPrompt(currentConv, m, { temperature: getTalkTemp(), includeUserDocs: currentDocsSetting() });
   }
 
   // 核心：调用大师 API（并行第一轮 + 串行 reacting）
@@ -627,15 +682,20 @@
     var failedMessages = [];
     var failedKeys = [];
     var rememberFailure = function (key, result, fallback) {
+      var failure = degradationOf(result || {});
       var message = {
         role: 'assistant',
         content: fallback || (result && result.error) || '模型调用失败，请检查配置、网络或服务状态。',
         error: (result && result.error) || fallback || '模型调用失败，请检查配置、网络或服务状态。',
         errorCode: result && (result.errorCode || result.code),
+        totalChars: result && typeof result.totalChars === 'number' ? result.totalChars : undefined,
+        limitChars: result && typeof result.limitChars === 'number' ? result.limitChars : undefined,
+        truncated: result && typeof result.truncated === 'boolean' ? result.truncated : undefined,
         masterKey: key,
         status: 'error',
         ts: Date.now(),
       };
+      if (failure.fallback) Object.assign(message, failure);
       currentConv.messages.push(message);
       failedMessages.push(message);
       if (failedKeys.indexOf(key) < 0) failedKeys.push(key);
@@ -687,6 +747,8 @@
       if (singleResult && singleResult.content && singleResult.content.trim()) {
         streamMessage.content = singleResult.content;
         streamMessage.status = singleResult.interrupted ? 'interrupted' : 'complete';
+        // DEC-02 ①②③：实际档位随消息落库，降级在界面上显式提示（不当成功播报）
+        Object.assign(streamMessage, degradationOf(singleResult));
       } else if (singleResult && singleResult.error) {
         var partial = singleResult.partialContent || '';
         if (partial) {
@@ -729,7 +791,7 @@
     keys.forEach(function (k) {
       var r = round1Results[k];
       if (r && !r.error && r.content && r.content.trim() && r.content.trim() !== ' ') {
-        currentConv.messages.push({ role: 'assistant', content: r.content, masterKey: k, ts: Date.now() });
+        currentConv.messages.push(Object.assign({ role: 'assistant', content: r.content, masterKey: k, ts: Date.now() }, degradationOf(r)));
         repliedKeys.push(k);
       } else if (r && r.error) {
         rememberFailure(k, r);
@@ -763,7 +825,7 @@
           mentionResults.forEach(function (r, i) {
             var k = others[i];
             if (r.status === 'fulfilled' && r.value && r.value.content && r.value.content.trim() && r.value.content.trim() !== ' ') {
-              currentConv.messages.push({ role: 'assistant', content: r.value.content, masterKey: k, ts: Date.now() });
+              currentConv.messages.push(Object.assign({ role: 'assistant', content: r.value.content, masterKey: k, ts: Date.now() }, degradationOf(r.value)));
             } else if (r.status === 'fulfilled' && r.value && r.value.error) {
               rememberFailure(k, r.value);
             } else if (r.status === 'rejected') {
@@ -780,7 +842,7 @@
         });
         if (targetTyping) targetTyping.remove();
         if (summaryResult && summaryResult.content && summaryResult.content.trim()) {
-          currentConv.messages.push({ role: 'assistant', content: summaryResult.content, masterKey: targetKey, ts: Date.now() });
+          currentConv.messages.push(Object.assign({ role: 'assistant', content: summaryResult.content, masterKey: targetKey, ts: Date.now() }, degradationOf(summaryResult)));
         } else if (summaryResult && summaryResult.error) {
           rememberFailure(targetKey, summaryResult);
         }
@@ -860,7 +922,7 @@
       system = build1v1SysPrompt(m);
       // v3.4.2: 温度滑块控制 temperature，详细度滑块控制 maxTokens
       options = {
-        temperature: talkTemp / 100,
+        temperature: getTalkTemp() / 100,
         maxTokens: 256 + Math.round(talkDetail / 100 * 768)
       };
     }
@@ -868,13 +930,21 @@
     if (typeof MastersCore !== 'undefined' && MastersCore.callMaster) {
       return MastersCore.callMaster(currentConv, m, userText, Object.assign({}, options, streamOptions || {}, { systemPrompt: system }))
         .then(function (res) {
-          if (res && res.content && !res.error) return { content: res.content, interrupted: !!res.interrupted };
-          return {
+          if (res && res.content && !res.error) {
+            // DEC-02：成功也要把降级事实与实际档位带回页面（写入消息 → 落库可追溯）
+            return Object.assign({ content: res.content, interrupted: !!res.interrupted }, degradationOf(res));
+          }
+          var failure = {
             error: (res && res.error) || '无响应',
             errorCode: res && (res.errorCode || res.code),
             partialContent: (res && res.partialContent) || '',
             interrupted: !!(res && res.interrupted),
           };
+          // F5 §5.2 移交：超限等稳定 errorCode 连同结构化字段一并上抛，页面按码分流
+          if (res && typeof res.totalChars === 'number') failure.totalChars = res.totalChars;
+          if (res && typeof res.limitChars === 'number') failure.limitChars = res.limitChars;
+          if (res && typeof res.truncated === 'boolean') failure.truncated = res.truncated;
+          return failure;
         });
     }
     return Promise.resolve({ error: '大师对话核心未就绪' });
