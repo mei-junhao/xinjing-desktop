@@ -444,8 +444,23 @@
     var sessDetail = sessions ? (sessDate + (sessions.hasTranscript ? ' · 已有逐字稿' : ' · 可开始记录')) : '尚无会谈记录，可从日历创建。';
     document.getElementById('wb-client-body').innerHTML = '<div class="wb-kpis"><div class="wb-kpi"><b>' + (ctxMap ? ctxMap.sessionCount : 0) + '</b><span>累计会谈</span></div><div class="wb-kpi"><b>' + (ctxMap ? ctxMap.supervisionCount : 0) + '</b><span>督导记录</span></div><div class="wb-kpi"><b>' + sessReady + '</b><span>最近材料</span></div></div><div class="wb-focus"><div><strong>' + sessText + '</strong><p>' + App.escapeHtml(sessDetail) + '</p></div><button class="wb-primary" id="wb-continue"><i data-lucide="notebook-pen"></i>' + (sessions ? '继续记录' : '新建会谈') + '</button></div>';
     document.getElementById('wb-continue').addEventListener('click', function () { location.href = sessions ? routeFor('consult-notes.html', client.id, sessions.id) : 'session-calendar.html?action=new&clientId=' + encodeURIComponent(client.id); });
-    document.getElementById('wb-client-actions').innerHTML = '<span class="wb-muted">当前来访者：' + App.escapeHtml(client.name || '') + '</span><button class="wb-action" data-page="transcript.html"><i data-lucide="audio-lines"></i>整理逐字稿<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="report-writing.html"><i data-lucide="file-text"></i>撰写报告<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="supervision.html" data-feature="ai-supervise"><i data-lucide="brain-circuit"></i>进入 AI 督导<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="real-supervision.html"><i data-lucide="handshake"></i>记录真人督导<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="billing-shell.html"><i data-lucide="wallet-cards"></i>查看账务<i data-lucide="chevron-right"></i></button>';
-    document.querySelectorAll('#wb-client-actions [data-page]').forEach(function (button) { button.addEventListener('click', function () { if (button.dataset.feature && App.openMembershipGate && !App.openMembershipGate(button.dataset.feature)) return; location.href = routeFor(button.dataset.page, client.id, sessions && sessions.id); }); });
+    document.getElementById('wb-client-actions').innerHTML = '<span class="wb-muted">当前来访者：' + App.escapeHtml(client.name || '') + '</span><button class="wb-action" data-profile="1"><i data-lucide="badge-user"></i>来访者档案<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="transcript.html"><i data-lucide="audio-lines"></i>整理逐字稿<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="report-writing.html"><i data-lucide="file-text"></i>撰写报告<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="supervision.html" data-feature="ai-supervise"><i data-lucide="brain-circuit"></i>进入 AI 督导<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="real-supervision.html"><i data-lucide="handshake"></i>记录真人督导<i data-lucide="chevron-right"></i></button><button class="wb-action" data-page="billing-shell.html"><i data-lucide="wallet-cards"></i>查看账务<i data-lucide="chevron-right"></i></button>';
+    function handleProfileAction(button) {
+      if (button.dataset.profile) {
+        if (typeof ClientModal !== 'undefined' && ClientModal.show) {
+          ClientModal.show(function (saved, deleted) {
+            if (deleted && typeof App.setActiveClientId === 'function') App.setActiveClientId('');
+            renderClientWorkbench(host);
+          }, client);
+        } else if (typeof App !== 'undefined' && App.showToast) App.showToast('档案模块未加载，请刷新后重试', 'error');
+        return;
+      }
+      if (button.dataset.page && App.openMembershipGate && !App.openMembershipGate(button.dataset.feature)) return;
+      location.href = routeFor(button.dataset.page, client.id, sessions && sessions.id);
+    }
+    document.querySelectorAll('#wb-client-actions [data-page], #wb-client-actions [data-profile]').forEach(function (button) {
+      button.addEventListener('click', function () { handleProfileAction(button); });
+    });
     renderIcons(host);
   }
   function renderDocumentWorkbench(host) {

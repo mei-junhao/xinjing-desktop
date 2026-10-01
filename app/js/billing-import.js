@@ -84,10 +84,19 @@
       const rows = parseCSVrows(text);
       if (rows.length < 2) throw new Error('CSV 内容为空或缺少数据行');
       const header = rows[0].map(h => String(h || '').trim());
+      // 节次/次数列名兼容：次数、节次、节数、次（腾讯会议等导出表常用“节次”）
+      const sessionsIdx = (function () {
+        const candidates = ['次数', '节次', '节数', '次'];
+        for (let ci = 0; ci < candidates.length; ci++) {
+          const fi = header.indexOf(candidates[ci]);
+          if (fi >= 0) return fi;
+        }
+        return -1;
+      })();
       const idx = {
         name: header.indexOf('来访者'),
         date: header.indexOf('日期'),
-        sessions: header.indexOf('次数'),
+        sessions: sessionsIdx,
         fee: header.indexOf('单价'),
         paid: header.indexOf('缴费状态'),
         mode: header.indexOf('结算方式')

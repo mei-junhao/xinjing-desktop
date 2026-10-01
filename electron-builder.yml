@@ -84,7 +84,7 @@ portable:
 
 # 发布元数据仅作为 provider 标识固定；不设置自动发布。
 # 实际构建命令恒为 --publish never；任何 push/upload/sign/publish 需独立用户授权。
+# 自动更新通道（2026-10-01 起）：COS 直链 generic provider，应用内“检查更新”读 COS latest.yml。
 publish:
-  provider: github
-  owner: mei-junhao
-  repo: xinjing-desktop
+  provider: generic
+  url: https://xinjing-1439314927.cos.ap-guangzhou.myqcloud.com

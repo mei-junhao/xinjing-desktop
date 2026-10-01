@@ -539,7 +539,12 @@ App.initPage({
 
     async function runMultiSchool() {
       if (multiSchoolBusy || multiSchoolSaving) return;
-      if (!multiSchoolFeatureAllowed()) { if (App.openMembershipGate) App.openMembershipGate('ai-masters'); return; }
+      if (!multiSchoolFeatureAllowed()) {
+        setMultiSchoolStatus('当前账号无法使用多学派督导，请查看会员权限。', 'error');
+        if (App.showToast) App.showToast('当前账号无法使用多学派督导，请查看会员权限。', 'warning');
+        if (App.openMembershipGate) App.openMembershipGate('ai-masters');
+        return;
+      }
       var material = (document.getElementById('sup-multi-material') || {}).value || '';
       material = material.trim();
       if (!material) { App.showToast('请先填写多学派督导材料', 'warning'); return; }
@@ -733,6 +738,11 @@ App.initPage({
       });
       var copyButton = document.getElementById('sup-multi-use-material'); if (copyButton) copyButton.addEventListener('click', function () { var source = document.getElementById('sup-material'); var target = document.getElementById('sup-multi-material'); if (source && target) target.value = source.value; });
       syncAccessUI();
+      // 供真实页面验收与无障碍诊断确认：多学派控件及其动作监听器已完成绑定。
+      // 该标记不参与业务判定，也不改变按钮行为。
+      var multiPanel = document.getElementById('sup-multi-panel');
+      if (multiPanel) multiPanel.dataset.handlersBound = 'true';
+      document.documentElement.dataset.multiSchoolHandlersBound = 'true';
     }
     bindMultiSchoolMode();
 

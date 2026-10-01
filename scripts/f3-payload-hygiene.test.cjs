@@ -176,7 +176,11 @@ function regenerate(mutEnv, outFile, root = ROOT) {
     'versions', '3.13.12', 'python.exe');
   const python = process.env.XJ_PYTHON ||
     (process.platform === 'win32' && fs.existsSync(managedPython) ? managedPython : 'python');
-  const env = Object.assign({}, process.env, mutEnv || {}, { XJ_KB_OUT: outFile });
+  // 子进程文本编码必须钉成 UTF-8：Windows 上 Python 对管道 stderr 取 ANSI 代码页
+  // （本机 cp936），LANG/LC_ALL=C.UTF-8 不参与判断。不钉死时，下面按 utf8 解码的
+  // 中文断言（M-GUARD 的 `不得指向生产产物路径`）会稳定失配 ⇒ 保护明明生效也记成变异存活。
+  const env = Object.assign({}, process.env, mutEnv || {},
+    { XJ_KB_OUT: outFile, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' });
   return new Promise((resolve, reject) => {
     const child = spawn(python, [path.join(root, 'scripts', 'gen-knowledge-builtins.py')],
       { cwd: root, env, windowsHide: true });

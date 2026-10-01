@@ -756,6 +756,44 @@ test('sync: updateSupervision 目标已删除时不复活', async (env) => {
   assert.equal(env.putsOf('supervisions'), putsBefore, '同步更新目标已删时不得写盘');
 }, []);
 
+test('sync: updateSupervision 持久化失败必须回滚内存，不得内存领先磁盘（红-先行）', async (env) => {
+  const contentBefore = env.store.getSupervision('synthetic-sup').content;
+  const conclusionBefore = env.store.getSupervision('synthetic-sup').conclusion;
+  const diskBefore = env.diskOf('supervisions');
+  env.failNextPut();
+  env.store.updateSupervision('synthetic-sup', { content: '未落盘的本窗口正文' });
+  await env.flush();
+  assert.deepEqual(env.diskOf('supervisions'), diskBefore, '失败的写入不得改磁盘');
+  assert.equal(env.store.getSupervision('synthetic-sup').content, contentBefore,
+    '持久化失败后内存读数必须回到磁盘版本：不得把未保存的编辑显示成已保存');
+  assert.equal(env.store.getSupervision('synthetic-sup').conclusion, conclusionBefore,
+    '回滚只应撤销本次失败写入，不得顺手改掉其他字段');
+}, ['M8']);
+
+test('sync: updateSupervision 返回的活引用提交后必须与 cache 同视图（红-先行）', async (env) => {
+  const sameRecord = env.store.getSupervision('synthetic-sup');
+  const earlier = env.diskOf('supervisions')[0];
+  env.externalWrite('supervisions', [Object.assign({}, earlier, { conclusion: '他窗口提交的新结论' })]);
+  const returned = env.store.updateSupervision('synthetic-sup', { content: '本窗口正文' });
+  await env.flush();
+  const cached = env.store.getSupervision('synthetic-sup');
+  assert.equal(cached.conclusion, '他窗口提交的新结论', '他窗口字段必须已并入 cache');
+  assert.equal(returned.conclusion, cached.conclusion,
+    '调用方继续持有的返回引用不得在提交后停在脱钩旧视图（同一 id 只能有一个真相）');
+  assert.equal(returned.content, cached.content, '本次字段改动必须在两个视图上同时可见');
+}, ['M8']);
+
+test('sync: updateSupervision 同字段并发是后写覆盖、无版本冲突检测（显式钉住）', async (env) => {
+  const earlier = env.diskOf('supervisions')[0];
+  env.externalWrite('supervisions', [Object.assign({}, earlier, { content: '他窗口先写的正文' })]);
+  env.store.updateSupervision('synthetic-sup', { content: '本窗口后提交的正文' });
+  await env.flush();
+  assert.equal(env.diskOf('supervisions')[0].content, '本窗口后提交的正文',
+    '同字段并发＝后提交者覆盖（本卡显式接受该策略；改策略必须同时改这条）');
+  assert.equal(env.store.getSupervision('synthetic-sup').content, '本窗口后提交的正文',
+    '内存与磁盘对同字段的结论必须一致');
+}, []);
+
 test('sync: createSupervision 保留他窗口督导记录', async (env) => {
   const external = { id: 'external-sup-keep', clientId: OTHER_CLIENT_ID, sessionIds: [], conclusion: '他窗口督导' };
   env.externalWrite('supervisions', [...env.store.getSupervisions(), external]);
@@ -1004,6 +1042,13 @@ const MUTATIONS = [
     description: 'saveSettings 的空 patch 重新落盘（回到 !_dbAvailable || !keys.length 分支）→ 本窗口陈旧设置被灌回 DB',
     needle: '    } else if (keys.length) {',
     replacement: '    } else {',
+  },
+  {
+    id: 'M8-sync-supervision-memory-only',
+    key: 'M8',
+    description: '同步 updateSupervision 回到「只改内存、提交结果一概不回写」：失败不回滚、成功后不把磁盘版本并回活引用',
+    needle: 'persistSupervisionPatch(id, base, candidate).then((saved) => {',
+    replacement: 'persistSupervisionPatch(id, base, candidate).then((saved) => { void saved; return;',
   },
 ];
 

@@ -366,7 +366,8 @@
     var context = summary ? '【结构化摘要】\n' + summary + '\n\n【材料节选】\n' + clip(material, MAX_STAGE_MATERIAL_CHARS) : '【临床材料】\n' + clip(material, MAX_INPUT_CHARS);
     var prompt = {
       // F7-P1-2：路由阶段的 system 同样必须带事实与来源边界（此前只登记不拼 guard）。
-      system: appendFactAndSourceGuard(card ? card.systemPrompt : '请为临床督导材料选择最多三个学派，并以 JSON 返回。'),
+      // 卡片存在却缺失 systemPrompt 时必须拒发；事实边界尾段不能把空模板伪装成有效提示词。
+      system: card && clean(card.systemPrompt) ? appendFactAndSourceGuard(card.systemPrompt) : '',
       user: context + '\n\n请判断案例类型并输出路由 JSON。',
     };
     var rejected = registerStagePrompt({

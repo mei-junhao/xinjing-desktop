@@ -567,7 +567,7 @@
     </div>
   </div>
 
-  <script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/billing-import.js"></script>
+  <script src="js/clinical-task-validators.js"></script><script src="js/store.js"></script><script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/client-modal.js"></script><script src="js/billing-import.js"></script>
   <script>
   /* ============================================================
      心镜 · 记账 · v2.0 壳页（原生三栏，无 iframe）
@@ -719,7 +719,7 @@
     }
   }
   function buildClientCard(c) {
-    var mode = (c.billing && c.billing.billingMode) || 'per-session';
+    var mode = (c.billingMode || (c.billing && c.billing.billingMode)) || 'per-session';
     var agg = clientAgg(c);
     var ym = localYm();
     var monthSessions = billableSessionsFor(c.id).filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
@@ -739,11 +739,16 @@
         if (amt > 0) monthPaid += amt;  // P3-C: 统一 >0 过滤
       }
     });
-    return '<div class="ccard' + (bCurClient && bCurClient.id === c.id ? ' active' : '') + '" onclick="selectBClient(\'' + App.escapeHtml(c.id) + '\')">'
-      + '<div class="r1"><span class="nm">' + App.escapeHtml(c.name) + '</span><span class="mode">' + (MODE_TEXT[mode] || '次结') + '</span></div>'
+    var cardFee = (Number(c.fee) > 0 ? Number(c.fee) : (c.billing && Number(c.billing.feePerSession)) || 0);
+    return '<div class="ccard' + (bCurClient && bCurClient.id === c.id ? ' active' : '') + '" style="position:relative" onclick="selectBClient(\'' + App.escapeHtml(c.id) + '\')">'
+      + '<div class="r1"><span class="nm">' + App.escapeHtml(c.name) + '</span><span class="mode">' + (MODE_TEXT[mode] || '次结') + (c.status === 'ended' ? ' · 已结束' : '') + '</span></div>'
       + '<div class="meta"><span>应收 ¥' + agg.total.toLocaleString() + '</span><span>已收 ¥' + agg.received.toLocaleString() + '</span>'
       + (agg.owe > 0 ? '<span class="owe">欠 ¥' + agg.owe.toLocaleString() + '</span>' : '')
-      + '<span>本月 ¥' + monthPaid.toLocaleString() + '</span></div></div>';
+      + '<span>本月 ¥' + monthPaid.toLocaleString() + '</span></div>'
+      + '<div style="margin-top:6px;display:flex;align-items:center;gap:8px">'
+      + '<span style="font:11px var(--sans);color:var(--ink-3)">单价 ¥' + cardFee.toLocaleString() + '/次</span>'
+      + '<button type="button" class="ccard-profile" onclick="event.stopPropagation();openClientProfile(\'' + App.escapeHtml(c.id) + '\')" style="margin-left:auto;border:1px solid var(--border);border-radius:6px;padding:2px 10px;font:11px var(--sans);cursor:pointer;color:var(--accent);background:transparent">档案</button>'
+      + '</div></div>';
   }
   window.scrollToLetter = function (l) { var el = document.getElementById('lg-' + l); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   window.toggleLetterGroup = function (l) { var el = document.getElementById('lg-' + l); if (el) el.classList.toggle('collapsed'); };
@@ -761,6 +766,82 @@
   }
   window.selectBClient = selectBClient;
 
+  // 来访者档案（编辑模式）：收费/次结月结/状态/费用变更/删除
+  // ====== 2026-10-01：一键月结（月结用户当前月未结会谈批量结算+标记已收）======
+  // billing-shell 自带月结实现（showMonthlyBill），不依赖 billing-calendar.js
+  window.oneClickSettleMonth = async function () {
+    const c = (typeof bCurClient !== 'undefined') ? bCurClient : null;
+    if (!c) { if (typeof App !== 'undefined' && App.showToast) App.showToast('请先选择一位来访者', 'info'); return; }
+    const modes = [c.billingMode, (c.billing && c.billing.billingMode)];
+    if (modes.indexOf('monthly') < 0) { if (typeof App !== 'undefined' && App.showToast) App.showToast('该来访者不是月结用户（次结/预付费无需一键月结）', 'info'); return; }
+    const ym = localYm();
+    const un = billableSessionsFor(c.id).filter(function (s) {
+      return s.date && s.date.slice(0, 7) === ym && s.billing && !s.billing.paid;
+    });
+    if (!un.length) { if (typeof App !== 'undefined' && App.showToast) App.showToast('本月没有未结记录，无需结算', 'info'); return; }
+    const total = un.reduce(function (a, s) { return a + (Number(s.billing && s.billing.fee) || 0); }, 0);
+    if (typeof confirm !== 'undefined' && !confirm('一键月结：将把 ' + (un.length) + ' 节未结会谈（合计 ¥' + total.toLocaleString() + '）登记为' + ym.replace('-', '年') + '月结算并全部标记已收，确定吗？')) return;
+    try {
+      // 1) monthlyPayments 累加登记（与月结单“确认结算”同口径：在已有金额上累加）
+      const client = Store.getClient(c.id);
+      const billing = Object.assign({}, (client && client.billing) || {});
+      const oldMp = Array.isArray(billing.monthlyPayments) ? billing.monthlyPayments : [];
+      const prev = oldMp.filter(function (m) { return m.month === ym; }).reduce(function (s, m) { return s + (Number(m.amount) || 0); }, 0);
+      billing.monthlyPayments = oldMp.filter(function (m) { return m.month !== ym; });
+      billing.monthlyPayments.push({ month: ym, amount: prev + total });
+      const saved = await Store.updateClientDurable(c.id, { billing: billing });
+      if (!saved || !saved.ok) { if (typeof App !== 'undefined' && App.showToast) App.showToast('一键月结失败：本地账务数据未改变', 'error'); return; }
+      // 2) 该月所有未结会谈标记已收
+      let marked = 0;
+      for (const s of un) {
+        const w = await Store.saveSessionDurable(Object.assign({}, s, {
+          billing: Object.assign({}, s.billing, { paid: true, paidAt: new Date().toISOString(), paidAmount: Number(s.billing && s.billing.fee) || 0 })
+        }));
+        if (w && w.ok) marked++;
+      }
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('一键月结完成：' + ym.replace('-', '年') + '月合计 ¥' + total.toLocaleString() + '，' + marked + ' 节已标记已收', 'success');
+    } catch (e) {
+      if (typeof console !== 'undefined' && console.error) console.error('[billing-shell] oneClickSettleMonth exception', e);
+      if (typeof App !== 'undefined' && App.showToast) App.showToast('一键月结失败：发生异常，请重试', 'error');
+      return;
+    }
+    try { if (typeof renderBDetail === 'function') renderBDetail(); } catch (e) {}
+    try { if (typeof renderIncomeList === 'function') renderIncomeList(); } catch (e2) {}
+  };
+
+  // 档案保存（含自动补价写回）完成后，若当前正处于该来访者明细则重渲染
+  window.addEventListener('xinjing:client-saved', function (ev) {
+    var d = ev && ev.detail;
+    if (!d || !d.clientId) return;
+    if (typeof bCurClient !== 'undefined' && bCurClient && bCurClient.id === d.clientId) {
+      try { if (typeof renderBDetail === 'function') renderBDetail(); } catch (e) {}
+    }
+  });
+
+  window.openClientProfile = function (id) {
+    var c = Store.getClients().find(function (item) { return item.id === id; });
+    if (!c) { if (typeof App !== 'undefined' && App.showToast) App.showToast('来访者不存在', 'error'); return; }
+    if (typeof ClientModal !== 'undefined' && ClientModal.show) {
+      ClientModal.show(function (saved, deleted) {
+        if (deleted) {
+          if (bCurClient && id === bCurClient.id) { bCurClient = null; binCurClient = null; }
+          if (typeof App.setActiveClientId === 'function') App.setActiveClientId('');
+          renderIncomeList(); renderBRail();
+          var panel = document.getElementById('cpanel-detail');
+          if (panel) panel.innerHTML = '<div class="b-empty">从左侧选择一位来访者查看其明细<br>「趋势 / 账单」无需选择来访者也可使用</div>';
+          return;
+        }
+        renderIncomeList(); renderBRail();
+        if (bCurClient && id === bCurClient.id) { bCurClient = saved || c; binCurClient = bCurClient; }
+        if (typeof renderIncomeList === 'function') renderIncomeList();
+        if (typeof renderBRail === 'function') renderBRail();
+        if (typeof renderBDetail === 'function') renderBDetail();
+      }, c);
+    } else if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast('档案模块未加载，请刷新后重试', 'error');
+    }
+  };
+
   // ====== 中栏 · 明细 ======
   function renderBDetail() {
     const panel = document.getElementById('cpanel-detail');
@@ -769,11 +850,22 @@
       panel.innerHTML = '<div class="b-empty">从左侧选择一位来访者查看其明细<br>「趋势 / 账单」无需选择来访者也可使用</div>';
       return;
     }
-    const mode = (c.billing && c.billing.billingMode) || 'per-session';
-    const fee = (c.billing && Number(c.billing.feePerSession)) || 0;
+    const mode = (c.billingMode || (c.billing && c.billing.billingMode)) || 'per-session';
+    const fee = (Number(c.fee) > 0 ? Number(c.fee) : (c.billing && Number(c.billing.feePerSession))) || 0;
     const sessions = billableSessionsFor(c.id).slice().sort(function (a, b) {
       return (b.date || '').localeCompare(a.date || '');
     });
+    // 档案费率补价：明细列表 fee<=0 的会谈按档案费率显示，并自动写回收费价格
+    var effList = (typeof Store.sessionsWithEffectiveFee === 'function')
+      ? Store.sessionsWithEffectiveFee(sessions, c)
+      : sessions.map(function (s) { return { session: s, fee: Number(s.billing && s.billing.fee) || 0, appliedFromArchive: false }; });
+    if (typeof Store.fillZeroFeesDurable === 'function') {
+      Store.fillZeroFeesDurable(sessions.slice(), c).then(function (res) {
+        if (res && res.ok && res.written > 0 && typeof renderBDetail === 'function') {
+          renderBDetail();
+        }
+      }).catch(function () {});
+    }
     const agg = clientAgg(c);
     const ym = localYm();
     const monthSessions = sessions.filter(function (s) { return s.date && s.date.slice(0, 7) === ym; });
@@ -802,7 +894,9 @@
       + '<div class="stat"><b style="color:' + (agg.owe > 0 ? 'var(--danger,#B85450)' : 'inherit') + '">¥' + agg.owe.toLocaleString() + '</b><span>欠费</span></div>'
       + '<div class="stat"><b>¥' + monthPaid.toLocaleString() + '</b><span>本月</span></div>'
       + '</div></div>'
-      + '<div class="quick"><button class="primary" onclick="openIncomeModal()">+ 记收入</button><button onclick="toggleSettleForm()">月结</button><button onclick="showMonthlyBill()"><i data-lucide="file-text"></i> 生成账单</button></div>'
+      + '<div class="quick"><button class="primary" onclick="openIncomeModal()">+ 记收入</button><button onclick="toggleSettleForm()">月结</button>'
+      + (mode === 'monthly' ? '<button class="primary" onclick="oneClickSettleMonth()">⚡ 一键月结</button>' : '')
+      + '<button onclick="showMonthlyBill()"><i data-lucide="file-text"></i> 生成账单</button></div>'
       + '<div class="inout-tabs"><button class="active" onclick="inoutFilter=\'all\';renderBDetail()">全部</button><button class="in" onclick="inoutFilter=\'in\';renderBDetail()"><i data-lucide="circle-dollar-sign"></i> 收入</button><button class="out" onclick="inoutFilter=\'out\';renderBDetail()"><i data-lucide="clock-3"></i> 待收</button></div>'
       // P3 修复（第五轮压测）：删除 b-form-add / b-form-settle 内联表单死代码。
       // 这两个表单永远 display:none（CSS .inline-form 默认隐藏，需要 .show 类才显示），
@@ -811,13 +905,14 @@
       + '<div class="sectitle">会谈记录 <span class="ln"></span></div>'
       + '<table class="rec"><thead><tr><th>日期</th><th>节次</th><th>费用</th><th>已收</th><th>类型</th></tr></thead><tbody>'
       + (sessions.length ? sessions.filter(function(s){if(inoutFilter==='in') return !!(s.billing&&s.billing.paid);if(inoutFilter==='out') return !(s.billing&&s.billing.paid)&&(s.billing&&Number(s.billing.fee)>0);return true;}).map(function (s) {
-        const sf = (s.billing && Number(s.billing.fee)) || 0;
+        const eff = effList.find(function (e) { return e.session && e.session.id === s.id; }) || { fee: Number(s.billing && s.billing.fee) || 0, appliedFromArchive: false };
+        const sf = Number(eff.fee) || 0;
         const paid = !!(s.billing && s.billing.paid);
         const stype = billingTypeLabel(s.billing);
         return '<tr data-sid="' + App.escapeHtml(s.id) + '">'
           + '<td>' + App.escapeHtml(s.date || '') + '</td>'
           + '<td class="editable" data-field="sessionNumber" style="cursor:pointer;min-width:50px" title="点击编辑节次">第' + (s.sessionNumber || '?') + '节</td>'
-          + '<td class="editable" data-field="fee" style="cursor:pointer;min-width:60px" title="点击编辑费用">¥' + sf.toLocaleString() + '</td>'
+          + '<td class="editable" data-field="fee" style="cursor:pointer;min-width:60px" title="点击编辑费用">¥' + sf.toLocaleString() + (eff.appliedFromArchive ? ' <span style="color:var(--accent);font-size:10px" title="按来访者档案费率自动补价">档案价</span>' : '') + '</td>'
           + '<td class="editable-paid" style="cursor:pointer;font-weight:600;color:' + (paid ? 'var(--success,#6E7E62)' : 'var(--danger,#B85450)') + '" title="点击编辑已收金额（回车=按当前金额标记，清空=未收）">' + (paid ? '已收 ¥' + (s.billing.paidAmount != null ? Number(s.billing.paidAmount) : sf) : '未收') + '</td>'
           + '<td><span class="tag">' + stype + '</span></td></tr>';
       }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">暂无会谈记录</td></tr>')

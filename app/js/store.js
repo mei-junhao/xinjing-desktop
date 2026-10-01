@@ -534,6 +534,18 @@ const Store = (() => {
   function cloneRecord(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
+  // 把 source 的字段搬回 target 同一个对象身份（并删掉 source 里没有的键）。
+  // 同步写 API 返回 cache 里的活引用，而提交成功后 cache 会被整档替换成新对象；
+  // 不做这一步，调用方继续读自己手里那份就是脱钩视图（看不到他窗口并入的字段）。
+  function adoptRecordInPlace(target, source) {
+    if (!target || typeof target !== 'object' || !source || typeof source !== 'object') return target;
+    const copy = cloneRecord(source);
+    Object.keys(target).forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(copy, key)) delete target[key];
+    });
+    Object.assign(target, copy);
+    return target;
+  }
   function recordIdOf(value) {
     return value && value.id != null ? String(value.id) : '';
   }
@@ -1651,6 +1663,65 @@ const Store = (() => {
     persistRecordIntent('clients', client, base);
     return client;
   }
+  function effectiveFeeForDate(client, date) {
+    // 按费用变更历史匹配：取 startDate ≤ 会谈日期 的最近一条费率；无则回退当前 fee
+    if (!client) return 0;
+    let fee = Number(client.fee) || 0;
+    const changes = Array.isArray(client.feeChanges) ? client.feeChanges : [];
+    if (changes.length && date) {
+      const ds = String(date || '');
+      let best = null;
+      changes.forEach((ch) => {
+        if (!ch || !ch.startDate || !(Number(ch.fee) > 0)) return;
+        if (String(ch.startDate) <= ds && (!best || String(best.startDate) <= String(ch.startDate))) best = ch;
+      });
+      if (best) fee = Number(best.fee);
+    }
+    return fee;
+  }
+  // 供账单渲染：fee<=0 的会谈按来访者档案费率补价（不算“写回”，仅计算用）
+  function sessionsWithEffectiveFee(sessions, client) {
+    return (Array.isArray(sessions) ? sessions : []).map((s) => {
+      const raw = Number(s && s.billing && s.billing.fee) || 0;
+      const eff = raw > 0 ? raw : effectiveFeeForDate(client, s && s.date);
+      return { session: s, fee: eff, appliedFromArchive: raw <= 0 && eff > 0 };
+    });
+  }
+  // 「写上收费后账单中金额为零的部分自动填上收费价格」：把 fee<=0 的会谈持久化写入费率
+  async function fillZeroFeesDurable(sessions, client) {
+    if (!Array.isArray(sessions) || !client) return { ok: true, written: 0 };
+    const hits = [];
+    for (const s of sessions) {
+      const raw = Number(s && s.billing && s.billing.fee) || 0;
+      if (raw > 0) continue;
+      const eff = effectiveFeeForDate(client, s && s.date);
+      if (eff <= 0) continue;
+      hits.push({ session: s, eff: eff });
+    }
+    if (!hits.length) return { ok: true, written: 0 };
+    try {
+      // 逐条 durable 写回：不 mutate 原对象（否则 saveSessionDurable 的 base/next diff 变空，DB 不更新）
+      let writtenCount = 0;
+      for (const hit of hits) {
+        const s = hit.session;
+        const next = Object.assign({}, s, {
+          billing: Object.assign({}, s.billing || {}, { fee: hit.eff }),
+          updatedAt: nowISO(),
+        });
+        const written = await saveSessionDurable(next);
+        if (!written || written.ok !== true) {
+          throw new Error('session write failed: ' + (s && s.id) + ' ' + ((written && written.error && written.error.message) || ''));
+        }
+        // 同步 cache（saveSessionDurable 的 merged.record 即最新值）
+        const idx = cache.sessions.findIndex((item) => item && item.id === s.id);
+        if (idx >= 0 && written.value) cache.sessions[idx] = written.value;
+        writtenCount += 1;
+      }
+      return { ok: true, written: writtenCount };
+    } catch (e) {
+      return { ok: false, written: 0, error: { code: 'XJ_FILL_ZERO_FEES_FAILED', message: e && e.message ? e.message : 'Fill zero fees failed' } };
+    }
+  }
   function createClient(data) {
     licenseGuard('client', null);
     const client = Object.assign(
@@ -1664,6 +1735,9 @@ const Store = (() => {
         email: '',
         firstVisitDate: '',
         status: 'active',
+        fee: 0,                     // 收费标准（当前单价 ¥/次；月结按次单价累加）
+        billingMode: 'per-session', // 'per-session' 次结 / 'monthly' 月结
+        feeChanges: [],             // 费用变更历史 [{ fee, startDate }]（按生效开始日期匹配）
         tags: [],
         notes: '',
         createdAt: nowISO(),
@@ -1678,7 +1752,8 @@ const Store = (() => {
     const client = Object.assign(
       {
         id: genId('c'), name: '', alias: '', gender: 'unknown', birthDate: '', phone: '', email: '',
-        firstVisitDate: '', status: 'active', tags: [], notes: '', createdAt: nowISO(), updatedAt: nowISO(),
+        firstVisitDate: '', status: 'active', fee: 0, billingMode: 'per-session', feeChanges: [],
+        tags: [], notes: '', createdAt: nowISO(), updatedAt: nowISO(),
       },
       data
     );
@@ -2851,7 +2926,17 @@ const Store = (() => {
     Object.assign(sv, patch, { updatedAt: nowISO() });
     const candidate = cloneRecord(sv);
     persistSupervisionPatch(id, base, candidate).then((saved) => {
-      if (!saved || !saved.ok) console.warn('[Store] 督导更新持久化失败', saved && saved.error);
+      if (saved && saved.ok && saved.value) {
+        adoptRecordInPlace(sv, saved.value);
+        return;
+      }
+      console.warn('[Store] 督导更新持久化失败', saved && saved.error);
+      if (saved && saved.error && saved.error.code === RECORD_GONE) {
+        cache.supervisions = cache.supervisions.filter((s) => s.id !== id);
+        return;
+      }
+      // 失败不得让内存停在磁盘没有的值上：否则界面显示「已保存」，档案里却还是旧的。
+      adoptRecordInPlace(sv, base);
     });
     return sv;
   }
@@ -4045,6 +4130,7 @@ const Store = (() => {
     isHydrated,
     // 来访者
     getClients, getClient, createClient, createClientDurable, updateClient, updateClientDurable, deleteClient,
+    effectiveFeeForDate, sessionsWithEffectiveFee, fillZeroFeesDurable,
     // 会话
     getSessions, getSession, getSessionsByClient, getSessionsForPicker, isBillableSession,
     getSessionFull, createSession, createSessionDurable, saveSessionDurable, saveSessionsDurable, saveBillingBatchDurable, updateSessionFull, deleteSession, deleteSessionDurable, deleteSessionsDurable,

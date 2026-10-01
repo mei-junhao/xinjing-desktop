@@ -504,12 +504,32 @@
     });
     sessions.sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
 
-    var mode = (client.billing && client.billing.billingMode) || 'per-session';
+    var mode = (client.billingMode || (client.billing && client.billing.billingMode)) || 'per-session';
     var modeLabel = mode === 'monthly' ? '月结' : (mode === 'prepaid' ? '预付费' : '次结');
     var modeClass = mode === 'monthly' ? 'monthly' : '';
 
-    var receivable = computeReceivable(sessions);  // 应收：本月实际会谈费用合计
-    var received = computeReceived(client, ym, sessions);  // 已收：已付 sessions + monthlyPayments
+    // 来访者档案费率补价：fee<=0 的会谈按档案费率（含费用变更按开始日期匹配）计价
+    var effSessions = (typeof Store.sessionsWithEffectiveFee === 'function')
+      ? Store.sessionsWithEffectiveFee(sessions, client)
+      : sessions.map(function (s) { return { session: s, fee: Number(s.billing && s.billing.fee) || 0, appliedFromArchive: false }; });
+    var sessionsForCalc = effSessions.map(function (e) { return e.session; });
+    // 自动把 0 元部分写回收费价格（fire-and-forget：渲染不等待）
+    if (typeof Store.fillZeroFeesDurable === 'function') {
+      var fillPromise = Store.fillZeroFeesDurable(sessions.slice(), client);
+      if (fillPromise && fillPromise.then) {
+        fillPromise.then(function (res) {
+          if (res && res.ok && res.written > 0) {
+            try {
+              var fb = document.getElementById('bc-inv-feedback');
+              if (fb) { fb.setAttribute('data-state', 'info'); fb.textContent = '已按档案费率自动补价 ' + res.written + ' 笔 0 元费用'; }
+            } catch (e) {}
+          }
+        }).catch(function () {});
+      }
+    }
+
+    var receivable = computeReceivable(sessionsForCalc);  // 应收：本月实际会谈费用合计
+    var received = computeReceived(client, ym, sessionsForCalc);  // 已收：已付 sessions + monthlyPayments
     var pending = Math.max(0, receivable - received);
 
     // 已有月结记录金额（用于显示「已记月结」）
@@ -537,23 +557,24 @@
     // P3#9 修复：变量名 settleBtnDisabled 误导（实际是属性串），重命名为 settleBtnAttrs
     var settleBtnAttrs = pending <= 0 ? ' disabled style="opacity:.5;cursor:not-allowed"' : '';
 
-    var rowsHtml = sessions.map(function (s, i) {
+    var rowsHtml = effSessions.map(function (e, i) {
+      var s = e.session;
       var b = s.billing || {};
-      var fee = Number(b.fee) || 0;
+      var fee = Number(e.fee) || 0;
       var paidAmt = b.paid ? (b.paidAmount != null ? Number(b.paidAmount) : fee) : 0;
       return '<tr><td style="padding:6px 4px">' + App.escapeHtml(s.date || '') + '</td>' +
         '<td>第' + (s.sessionNumber || (i + 1)) + '节</td>' +
-        '<td>¥' + fee.toLocaleString() + '</td>' +
+        '<td>¥' + fee.toLocaleString() + (e.appliedFromArchive ? ' <span title="按来访者档案费率自动补价" style="color:var(--accent);font-size:10px">档案价</span>' : '') + '</td>' +
         '<td style="color:' + (b.paid ? 'var(--success)' : 'var(--orange)') + '">' + (b.paid ? '已收 ¥' + paidAmt.toLocaleString() : '待收') + '</td></tr>';
     }).join('');
     if (!rowsHtml) rowsHtml = '<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--ink-3)">本月暂无会谈记录</td></tr>';
 
     // P1 修复：拆分显示「会谈已收」与「月结已收」，避免用户误以为双重计算
     var sessionPaidOnly = 0;
-    sessions.forEach(function (s) {
-      if (s.billing && s.billing.paid) {
-        var fee = Number(s.billing.fee) || 0;
-        sessionPaidOnly += (s.billing.paidAmount != null) ? Number(s.billing.paidAmount) : fee;
+    effSessions.forEach(function (e) {
+      if (e.session.billing && e.session.billing.paid) {
+        var fee = Number(e.fee) || 0;
+        sessionPaidOnly += (e.session.billing.paidAmount != null) ? Number(e.session.billing.paidAmount) : fee;
       }
     });
 
@@ -686,6 +707,28 @@
       var successText = mode === 'add'
         ? '月结已保存：' + ym.replace('-', '年') + '月 · 本次确认结算 ¥' + amount.toLocaleString() + '，累计 ¥' + newAmount.toLocaleString()
         : '月结已保存：' + ym.replace('-', '年') + '月 · 手动覆盖金额已设为 ¥' + newAmount.toLocaleString();
+      // 2026-10-01 一键月结：结算成功后把该月该来访者所有未结会谈自动标记已收
+      //（无需再逐条手动点“未收→已收”；标记失败不影响月结金额记录本身）
+      var markedPaid = 0;
+      try {
+        var ymSessions = (Store.getSessions ? Store.getSessions() : []).filter(function (sv) {
+          return sv.clientId === clientId && sv.date && sv.date.slice(0, 7) === ym && sv.billing && !sv.billing.paid;
+        });
+        for (var si = 0; si < ymSessions.length; si++) {
+          var so = ymSessions[si];
+          var sw = await Store.saveSessionDurable(Object.assign({}, so, {
+            billing: Object.assign({}, so.billing, {
+              paid: true,
+              paidAt: new Date().toISOString(),
+              paidAmount: Number(so.billing && so.billing.fee) || 0
+            })
+          }));
+          if (sw && sw.ok) markedPaid++;
+        }
+      } catch (e2) {
+        if (typeof console !== 'undefined' && console.error) console.error('[billing-calendar] markPaid failed', e2);
+      }
+      if (markedPaid > 0) successText += '，并自动将本月 ' + markedPaid + ' 节标记为已收';
       setBillingFeedback(successText, 'success');
       App.showToast('月结已保存 · ' + (mode === 'add' ? '本次 ¥' + amount.toLocaleString() + '，累计 ¥' + newAmount.toLocaleString() : '已设为 ¥' + newAmount.toLocaleString()), 'success');
       // 仅保存成功才触发重绘（render() 会自动恢复月结单区到当前选中的来访者与月份）
@@ -713,7 +756,11 @@
     }
     var rows = sessions.map(function (s, i) {
       var b = s.billing || {};
+      // 打印账单同样应用档案费率补价（若调用方未预补价）
       var fee = Number(b.fee) || 0;
+      if (fee <= 0 && client && typeof Store.effectiveFeeForDate === 'function') {
+        fee = Store.effectiveFeeForDate(client, s.date);
+      }
       var paid = !!(b && b.paid);
       var paidAmt = paid ? (b.paidAmount != null ? Number(b.paidAmount) : fee) : 0;
       return '<tr><td style="padding:6px">' + App.escapeHtml(s.date || '') + '</td><td>第' + (s.sessionNumber || (i + 1)) + '节</td><td>¥' + fee.toLocaleString() + '</td><td style="color:' + (paid ? '#3f7d5a' : '#b06a47') + '">' + (paid ? '已收 ¥' + paidAmt.toLocaleString() : '未收') + '</td></tr>';
@@ -790,6 +837,9 @@
     App.bindModalClose(overlay.id);
     App.openModalElement(overlay, { removeOnClose: true, initialFocus: '[data-modal-cancel]' });
   }
+
+  // 2026-10-01：导出结算入口供 billing-shell 明细区“一键月结”按钮调用
+  try { window.__BC_DO_SETTLE__ = doSettle; } catch (e) {}
 
   init();
 })();
