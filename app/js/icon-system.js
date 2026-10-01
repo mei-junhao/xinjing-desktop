@@ -3,6 +3,7 @@
   'use strict';
 
   var iconScriptId = 'xj-lucide-runtime';
+  var rendering = false;
   var pending = false;
   var emojiIcons = {
     '🤖': 'sparkles', '📄': 'file-text', '📝': 'clipboard-pen-line', '📅': 'calendar-days',
@@ -53,10 +54,18 @@
     replaceDecorativeEmoji(scope || document);
     ensureRuntime(function () {
       if (!window.lucide || !window.lucide.createIcons) return;
-      window.lucide.createIcons({
-        root: scope || document,
-        attrs: { width: 18, height: 18, 'stroke-width': 1.7, 'aria-hidden': 'true' }
-      });
+      rendering = true;
+      try {
+        window.lucide.createIcons({
+          root: scope || document,
+          attrs: { width: 18, height: 18, 'stroke-width': 1.7, 'aria-hidden': 'true' }
+        });
+      } finally {
+        // 图标替换产生的 DOM 变更会在 microtask 中送达 MutationObserver；
+        // 这里延迟到下一帧再解除抑制，保证这轮由渲染自身引发的变更不会
+        // 再触发 scheduleRender → 无限自我喂养循环（页面假死）。
+        requestAnimationFrame(function () { rendering = false; });
+      }
     });
   }
 
@@ -73,6 +82,7 @@
     if (!window.MutationObserver || !document.body || document.body.dataset.iconObserver === '1') return;
     document.body.dataset.iconObserver = '1';
     var observer = new MutationObserver(function (mutations) {
+      if (rendering) return;
       var shouldRender = mutations.some(function (mutation) {
         return mutation.type === 'characterData' || mutation.addedNodes.length > 0;
       });

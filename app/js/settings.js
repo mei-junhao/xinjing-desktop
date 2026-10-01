@@ -861,7 +861,7 @@ App.initPage({
     if (!state || state.mode !== 'full' || !state.identity) {
       card.innerHTML =
         '<div style="font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:8px">未激活</div>' +
-        '<div style="font-size:13px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:12px">完整功能（含 AI 督导）需输入激活码解锁。两种激活方式等效，任选其一。</div>' +
+        '<div style="font-size:13px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:12px">当前账号未激活 AI 功能。两种激活方式等效，任选其一。</div>' +
         '<div style="border-top:1px dashed var(--border);padding-top:12px;margin-bottom:12px">' +
           '<div style="font-size:13px;font-family:var(--sans);font-weight:600;color:var(--text);margin-bottom:6px">本地激活（离线，无需联网）</div>' +
           '<div style="font-size:12px;color:var(--muted);font-family:var(--sans);line-height:1.6;margin-bottom:8px">使用本地激活码离线校验，无需联网。如已有激活码，点下方按钮输入。</div>' +
