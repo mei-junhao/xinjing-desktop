@@ -72,7 +72,15 @@ const Supervisors = (() => {
     item.legacyAliases.forEach(function (alias) { ALIASES[alias] = item.id; });
   });
 
-  function normalizeId(value) { return ALIASES[String(value || '').trim()] || null; }
+  function normalizeId(value) {
+    const raw = String(value || '').trim();
+    if (ALIASES[raw]) return ALIASES[raw];
+    if (raw.indexOf('builtin-') === 0) {
+      const stripped = raw.slice('builtin-'.length);
+      if (ALIASES[stripped]) return ALIASES[stripped];
+    }
+    return null;
+  }
   function getDefinition(value) {
     const id = normalizeId(value);
     return id ? SUPERVISOR_REGISTRY.find(function (item) { return item.id === id; }) || null : null;
