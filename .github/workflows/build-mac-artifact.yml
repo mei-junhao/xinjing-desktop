@@ -1,0 +1,47 @@
+name: Build Mac artifacts (upload to GHA artifact only)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        env:
+          ELECTRON_MIRROR: https://cdn.npmmirror.com/binaries/electron/
+        run: |
+          npm install --no-audit --no-fund
+          npm install electron@43.2.0 electron-builder@24.13.3 --no-save --no-audit --no-fund
+      - name: Build Mac (unsigned)
+        env:
+          ELECTRON_MIRROR: https://cdn.npmmirror.com/binaries/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+        run: npx electron-builder --mac --publish never
+      - name: Create DMG via hdiutil
+        run: |
+          set -e
+          APP=$(find dist -name '*.app' -maxdepth 3 | head -1)
+          VERSION=$(node -p "require('./package.json').version")
+          VOLNAME="心镜 $VERSION"
+          STAGING=$(mktemp -d)
+          cp -R "$APP" "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING" -ov -format UDZO "dist/xinjing-$VERSION.dmg"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-dist
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          retention-days: 3
