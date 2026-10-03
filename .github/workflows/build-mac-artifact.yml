@@ -26,7 +26,11 @@ jobs:
         env:
           ELECTRON_MIRROR: https://cdn.npmmirror.com/binaries/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
-        run: npx electron-builder --mac --publish never
+        run: |
+          # main 分支 package.json 无 mac 段：从 release 分支取 electron-builder.yml（1024px icon-mac + dmg/zip）
+          git fetch origin release/3.6.3-mac --depth 1
+          git checkout origin/release/3.6.3-mac -- electron-builder.yml
+          npx electron-builder --mac --publish never
       - name: Create DMG via hdiutil
         run: |
           set -e
