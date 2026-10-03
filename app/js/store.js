@@ -2536,11 +2536,18 @@ const Store = (() => {
       sourceRef: value.sourceRef && typeof value.sourceRef === 'object'
         ? {
             id: String(value.sourceRef.id || ''),
+            schemaVersion: String(value.sourceRef.schemaVersion || ''),
+            clientId: String(value.sourceRef.clientId || value.clientId || ''),
             sessionId: String(value.sourceRef.sessionId || ''),
+            anchor: value.sourceRef.anchor && typeof value.sourceRef.anchor === 'object' ? {
+              kind: String(value.sourceRef.anchor.kind || ''), locator: String(value.sourceRef.anchor.locator || ''), fragment: String(value.sourceRef.anchor.fragment || ''),
+              position: value.sourceRef.anchor.position && typeof value.sourceRef.anchor.position === 'object' ? value.sourceRef.anchor.position : undefined,
+            } : null,
             normalizationVersion: String(value.sourceRef.normalizationVersion || ''),
             sourceVersion: String(value.sourceRef.sourceVersion || ''),
             sourceContentHash: String(value.sourceRef.sourceContentHash || ''),
             anchorContentHash: String(value.sourceRef.anchorContentHash || ''),
+            capturedAt: String(value.sourceRef.capturedAt || ''),
             status: String(value.sourceRef.status || 'active'),
           }
         : (value.sourceRef || null),
@@ -2584,6 +2591,18 @@ const Store = (() => {
     persistRecordIntent('materialWorkspaces', item, null);
     return item;
   }
+  async function createMaterialWorkspaceDurable(data) {
+    const limit = materialWorkspaceLimit();
+    const unlinkedCount = cache.materialWorkspaces.filter((item) => item.linkStatus === 'unlinked').length;
+    if (unlinkedCount >= limit) return { ok: false, value: null, error: { code: 'XJ_MATERIAL_LIMIT', message: 'Material workspace limit reached' } };
+    const item = normalizeMaterialWorkspace(Object.assign({ id: genId('mat'), createdAt: nowISO(), updatedAt: nowISO() }, data || {}));
+    try {
+      await commitInTx(['materialWorkspaces'], (values) => ({ materialWorkspaces: upsertRecord(values.materialWorkspaces, item) }));
+      return { ok: true, value: item, version: item.updatedAt };
+    } catch (e) {
+      return { ok: false, value: null, error: { code: 'XJ_DURABLE_MATERIAL_CREATE_FAILED', message: e && e.message ? e.message : 'Material persistence failed' } };
+    }
+  }
   function updateMaterialWorkspace(id, patch) {
     const item = getMaterialWorkspace(id);
     if (!item || !patch || typeof patch !== 'object') return null;
@@ -2596,6 +2615,26 @@ const Store = (() => {
     cache.materialWorkspaces[index] = next;
     persistRecordIntent('materialWorkspaces', next, item === next ? null : cloneRecord(item));
     return next;
+  }
+  async function updateMaterialWorkspaceDurable(id, patch) {
+    const item = getMaterialWorkspace(id);
+    if (!item || !patch || typeof patch !== 'object') return { ok: false, value: null, error: { code: 'XJ_MATERIAL_NOT_FOUND', message: 'Material workspace was not found' } };
+    const base = cloneRecord(item);
+    const candidate = normalizeMaterialWorkspace(Object.assign({}, item, patch, {
+      source: Object.assign({}, item.source, patch.source || {}), workflow: Object.assign({}, item.workflow, patch.workflow || {}), artifacts: Object.assign({}, item.artifacts, patch.artifacts || {}), updatedAt: nowISO(),
+    }));
+    try {
+      const committed = await commitInTx(['materialWorkspaces'], (values, out) => {
+        const merged = patchRecord(values.materialWorkspaces, id, base, candidate);
+        out.result = merged;
+        return merged.status === RECORD_GONE ? {} : { materialWorkspaces: merged.array };
+      });
+      const merged = committed.result;
+      if (!merged || merged.status === RECORD_GONE) return { ok: false, value: null, error: { code: RECORD_GONE, message: 'Material workspace was removed by another window' } };
+      return { ok: true, value: merged.record, version: merged.record.updatedAt };
+    } catch (e) {
+      return { ok: false, value: null, error: { code: 'XJ_DURABLE_MATERIAL_UPDATE_FAILED', message: e && e.message ? e.message : 'Material persistence failed' } };
+    }
   }
   function deleteMaterialWorkspace(id) {
     const before = cache.materialWorkspaces.length;
@@ -4155,7 +4194,7 @@ const Store = (() => {
     getSupervisorIdentities, getSupervisorIdentity,
     createSupervisorIdentity, updateSupervisorIdentity, deleteSupervisorIdentity,
     // 临床材料工作项
-    getMaterialWorkspaces, getMaterialWorkspace, getMaterialWorkspacesForSession, createMaterialWorkspace, updateMaterialWorkspace, deleteMaterialWorkspace, linkMaterialWorkspace, reconcileMaterialContext,
+    getMaterialWorkspaces, getMaterialWorkspace, getMaterialWorkspacesForSession, createMaterialWorkspace, createMaterialWorkspaceDurable, updateMaterialWorkspace, updateMaterialWorkspaceDurable, deleteMaterialWorkspace, linkMaterialWorkspace, reconcileMaterialContext,
     // 临床动作溯源
     getClinicalActionRuns, getClinicalActionRun, createClinicalActionRun, updateClinicalActionRun,
     // 设置

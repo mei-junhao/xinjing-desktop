@@ -36,10 +36,10 @@
 
   function saveDraft() {
     var key = draftKey();
-    if (!key || !Store._put) return;
+    if (!key || !Store._put) return Promise.resolve(false);
     var content = collectCurrentContent();
-    if (!content.trim()) return;
-    Store._put(key, { version: 1, updatedAt: new Date().toISOString(), mode: currentMode, workflow: currentWorkflow, fields: readFields() }).catch(function () {});
+    if (!content.trim()) return Promise.resolve(false);
+    return Promise.resolve(Store._put(key, { version: 1, updatedAt: new Date().toISOString(), mode: currentMode, workflow: currentWorkflow, fields: readFields() })).then(function () { return true; });
   }
 
   function clearDraft() {
@@ -926,22 +926,25 @@
   };
 
   // ---------- 离开 / 跳转：自动保存 ----------
-  function autoSaveSilent() { try { saveDraft(); } catch (e) {} }
-  window.leavePage = function () { autoSaveSilent(); location.href = 'index.html'; };
+  function autoSaveSilent() { try { saveDraft().catch(function () {}); } catch (e) {} }
+  window.leavePage = async function () { try { await saveDraft(); location.href = 'index.html'; } catch (e) { App.showToast('草稿保存失败，未离开当前页面', 'error'); } };
   window.finishAndGoReport = async function () {
     if (await saveNotes(false)) location.href = 'report-writing.html?clientId=' + encodeURIComponent(currentClientId || '') + '&sessionId=' + encodeURIComponent(currentSessionId || '');
   };
 
-  window.scheduleNextSession = function () {
+  window.scheduleNextSession = async function () {
     if (!currentClientId) return;
+    if (!await saveNotes(false)) return;
     location.href = 'session-calendar.html?clientId=' + encodeURIComponent(currentClientId) + '&new=1';
   };
-  window.openCurrentBilling = function () {
+  window.openCurrentBilling = async function () {
     if (!currentClientId) return;
+    if (!await saveNotes(false)) return;
     location.href = 'billing-shell.html?clientId=' + encodeURIComponent(currentClientId);
   };
-  window.openCurrentSupervision = function () {
+  window.openCurrentSupervision = async function () {
     if (!currentClientId) return;
+    if (!await saveNotes(false)) return;
     location.href = 'supervision.html?clientId=' + encodeURIComponent(currentClientId) + '&sessionId=' + encodeURIComponent(currentSessionId || '');
   };
   window.generateNoteSummary = function () {
@@ -951,15 +954,35 @@
     var requestSessionId = currentSessionId;
     if (!App.featureGate('ai-notes') || typeof AI === 'undefined' || !AI.send) { App.showToast('生成摘要需激活 AI 功能', 'warning'); return; }
     var requestVersion = ++summaryRequestVersion;
+    var clinicalContext = null;
+    var clinicalRun = null;
+    if (typeof ClinicalContext !== 'undefined' && ClinicalContext.build) {
+      clinicalContext = ClinicalContext.build('transcript-ai-detect', { clientId: requestClientId, sessionId: requestSessionId }, {
+        system: '你是心理咨询记录助手。基于输入记录生成一段简洁、非诊断性的会谈摘要，只陈述已有材料，不补充事实。',
+        inputText: data.notes,
+        selectedSessionIds: [requestSessionId],
+        instruction: '生成本次会谈摘要'
+      });
+      if (!clinicalContext || !clinicalContext.ok) { App.showToast('当前会谈上下文无效，请重新选择会谈', 'warning'); return; }
+      if (typeof ClinicalContextView !== 'undefined' && ClinicalContextView.confirmSend && !ClinicalContextView.confirmSend(clinicalContext)) { App.showToast('已取消 AI 摘要', 'info'); return; }
+      clinicalRun = ClinicalContext.createActionRun(clinicalContext);
+      if (!clinicalRun) { App.showToast('无法确认会谈归属，已取消生成', 'warning'); return; }
+    }
     App.showToast('正在生成会谈摘要…', 'info');
     AI.send([{ role: 'system', content: '你是心理咨询记录助手。基于输入记录生成一段简洁、非诊断性的会谈摘要，只陈述已有材料，不补充事实。' }, { role: 'user', content: data.notes }], async function (res) {
-      if (!res || res.error || !res.content) { App.showToast('生成摘要失败，请重试', 'error'); return; }
+      if (!res || res.error || !res.content) { if (clinicalRun) ClinicalContext.failActionRun(clinicalRun.id, (res && res.error) || '生成失败'); App.showToast('生成摘要失败，请重试', 'error'); return; }
       if (requestVersion !== summaryRequestVersion || currentClientId !== requestClientId || currentSessionId !== requestSessionId) {
+        if (clinicalRun) ClinicalContext.failActionRun(clinicalRun.id, '上下文已变更', 'stale');
         App.showToast('会谈已切换，已丢弃旧摘要结果', 'warning');
         return;
       }
+      if (clinicalContext && !ClinicalContext.isSnapshotCurrent(clinicalContext.snapshot, data.notes, { clientId: currentClientId, sessionId: currentSessionId, selectedSessionIds: [currentSessionId] })) {
+        if (clinicalRun) ClinicalContext.failActionRun(clinicalRun.id, '上下文已变更', 'stale');
+        App.showToast('会谈内容已变更，已丢弃旧摘要结果', 'warning');
+        return;
+      }
       var summary = String(res.content).trim();
-      if (!summary) { App.showToast('模型返回了空摘要，请重试', 'error'); return; }
+      if (!summary) { if (clinicalRun) ClinicalContext.failActionRun(clinicalRun.id, '空摘要'); App.showToast('模型返回了空摘要，请重试', 'error'); return; }
       // 先展示真实生成结果，避免持久化异常让用户只看到加载状态消失。
       renderNoteSummary(summary);
       var box = document.getElementById('note-summary');
@@ -967,6 +990,7 @@
       if (status) status.textContent = '正在保存到本次会谈…';
       var s = Store.getSession(requestSessionId);
       if (!s) {
+        if (clinicalRun) ClinicalContext.failActionRun(clinicalRun.id, '未找到会谈');
         if (status) status.textContent = '未找到本次会谈，摘要仅保留在当前页面';
         App.showToast('未找到本次会谈，摘要未写入本地', 'error');
         return;
@@ -975,17 +999,20 @@
       try {
         saved = await Store.updateSessionFull(Object.assign({}, s, { summary: summary }));
       } catch (error) {
+        if (clinicalRun) ClinicalContext.failActionRun(clinicalRun.id, error.message || '保存失败');
         if (status) status.textContent = '保存失败，摘要仍在页面；请重试保存';
         App.showToast('会谈摘要保存失败：摘要已保留，请恢复存储后重试', 'error');
         return;
       }
       if (!saved || saved.ok !== true) {
+        if (clinicalRun) ClinicalContext.failActionRun(clinicalRun.id, '保存失败');
         if (status) status.textContent = '保存失败，摘要仍在页面；请重试保存';
         App.showToast('会谈摘要保存失败：摘要已保留，请恢复存储后重试', 'error');
         return;
       }
       if (status) status.textContent = '已保存到本次会谈';
       renderNoteSummary(saved.value && saved.value.summary ? saved.value.summary : summary);
+      if (clinicalRun) ClinicalContext.completeActionRun(clinicalRun.id, { kind: 'transcript-detection-preview', ref: requestSessionId });
       App.showToast('会谈摘要已保存', 'success');
     }, { onDelta: function (piece, fullText) { renderNoteSummary(fullText || piece || ''); } });
   };

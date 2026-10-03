@@ -45,6 +45,12 @@ files:
   - build/icon.png
   - build/icon.ico
   - app/**/*
+  # Temporary backups and draft/demo artifacts are never production resources.
+  - "!app/**/*.bak-*"
+  - "!app/**/*-draft.*"
+  - "!app/**/*-demo.*"
+  - "!app/**/draft/**"
+  - "!app/**/demo/**"
   - "!**/*.log"
   - "!**/Thumbs.db"
   - "!**/.DS_Store"

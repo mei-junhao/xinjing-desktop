@@ -197,7 +197,7 @@
   <!-- 顶栏 -->
   <div class="topbar">
     <div><h1>今日工作台</h1><div class="date" id="wel-date"></div></div>
-    <div class="workbench-switch" role="tablist" aria-label="工作台视角"><button id="wb-client-view" type="button" role="tab" aria-selected="true"><i data-lucide="users-round"></i>来访者视角</button><button id="wb-document-view" type="button" role="tab" aria-selected="false"><i data-lucide="file-up"></i>文档视角</button></div>
+    <div class="workbench-switch" role="tablist" aria-label="工作台视角"><button id="wb-client-view" type="button" role="tab" aria-selected="true" aria-controls="dual-workbench" tabindex="0"><i data-lucide="users-round"></i>来访者视角</button><button id="wb-document-view" type="button" role="tab" aria-selected="false" aria-controls="dual-workbench" tabindex="-1"><i data-lucide="file-up"></i>文档视角</button></div>
     <div class="spacer"></div>
     <button class="start-next" id="start-next-session" type="button"><i data-lucide="play"></i>开始下一场会谈</button>
     <button class="xj-toggle" id="xj-toggle-btn" onclick="toggleXiaojing()"><span class="xj-dot"></span> 小镜</button>
@@ -229,7 +229,7 @@
     <div class="schedule-week" id="week-schedule"></div>
     <div id="today-schedule"></div>
   </section>
-  <section class="dual-workbench" id="dual-workbench" aria-live="polite"></section>
+  <section class="dual-workbench" id="dual-workbench" role="tabpanel" tabindex="0" aria-labelledby="wb-client-view" aria-live="polite"></section>
 
   <!-- 新手任务清单（由 onboarding.js 渲染，完成/关闭后自动收起） -->
   <div id="ob-checklist"></div>

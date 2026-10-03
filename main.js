@@ -3174,8 +3174,8 @@ ipcMain.on('xj:aiCancel', (event, requestId) => {
 });
 
 // ---- 授权相关 IPC ----
-ipcMain.handle('xj:getState', () => licenseState || computeState());
-ipcMain.handle('xj:getVersion', () => app.getVersion());
+ipcMain.handle('xj:getState', (event) => isTrustedRendererEvent(event) ? (licenseState || computeState()) : { ok: false, errorCode: 'sender-denied' });
+ipcMain.handle('xj:getVersion', (event) => isTrustedRendererEvent(event) ? app.getVersion() : '');
 
 // ---- v5.0.2 桌面账号：注册/验证/登录/会话恢复/登出/会员投影（渲染进程永不见 session token）----
 ipcMain.handle('xj:account:bootstrap', handleAccountBootstrap);
@@ -3219,7 +3219,8 @@ ipcMain.handle('xj:saveBackupConfig', (e, cfg) => {
   } catch (_) { return { ok: false, errorCode: 'XJ_BACKUP_WRITE_FAILED' }; }
 });
 // 选择备份文件夹（自定义多位置容灾）
-ipcMain.handle('xj:selectBackupFolder', async () => {
+ipcMain.handle('xj:selectBackupFolder', async (event) => {
+  if (!isTrustedRendererEvent(event)) return null;
   try {
     const r = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'], title: '选择备份位置' });
     return r.canceled ? null : (r.filePaths && r.filePaths[0]) || null;
@@ -3291,11 +3292,18 @@ function writeKnowledgeMetaFile(entries) {
   }).catch(function () { return { ok: false, reason: 'write-failed' }; });
   return knowledgeMetaWriteQueue;
 }
-ipcMain.handle('xj:readKnowledgeMeta', () => readKnowledgeMetaFile());
-ipcMain.handle('xj:writeKnowledgeMeta', (e, entries) => writeKnowledgeMetaFile(entries));
+ipcMain.handle('xj:readKnowledgeMeta', (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer', entries: {} };
+  return readKnowledgeMetaFile();
+});
+ipcMain.handle('xj:writeKnowledgeMeta', (event, entries) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer', entries: {} };
+  return writeKnowledgeMetaFile(entries);
+});
 
 // 选择资料文件夹（用户主动选择，写入配置）
-ipcMain.handle('xj:selectUserDocFolder', async () => {
+ipcMain.handle('xj:selectUserDocFolder', async (event) => {
+  if (!isTrustedRendererEvent(event)) return null;
   try {
     const r = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'], title: '选择你的资料文件夹' });
     if (r.canceled || !r.filePaths || !r.filePaths[0]) return null;
@@ -3305,14 +3313,16 @@ ipcMain.handle('xj:selectUserDocFolder', async () => {
   } catch (err) { console.error('[userdocs] select failed', err.message); return null; }
 });
 
-ipcMain.handle('xj:getUserDocFolder', async () => {
+ipcMain.handle('xj:getUserDocFolder', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer', folder: null };
   const cfg = readUserDocConfig();
   return { folder: cfg.folder || null };
 });
 
 // AI 上下文注入路径：全程 fs.promises + 逐文件 setImmediate 让出，绝不阻塞主进程 UI
 // （与下方 readUserDocMeta/searchUserDocs 同铁律，修复早期版本遗留的同步 IO 冻结问题）
-ipcMain.handle('xj:readUserDocs', async (e, opts) => {
+ipcMain.handle('xj:readUserDocs', async (event, opts) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer', files: [] };
   opts = opts || {};
   const cfg = readUserDocConfig();
   if (!cfg.folder) return { ok: false, reason: 'no-folder' };
@@ -3547,7 +3557,8 @@ async function validateClinicalMaterialPath(abs) {
   return { ok: true, file: clinicalMaterialMeta(abs, stat) };
 }
 
-ipcMain.handle('xj:selectClinicalMaterialFile', async () => {
+ipcMain.handle('xj:selectClinicalMaterialFile', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, error: 'untrusted-renderer' };
   try {
     if (!mainWindow) return { ok: false, error: '窗口未就绪' };
     const picked = await dialog.showOpenDialog(mainWindow, {
@@ -3567,6 +3578,7 @@ ipcMain.handle('xj:selectClinicalMaterialFile', async () => {
 });
 
 ipcMain.handle('xj:parseClinicalMaterialFile', async (event, selectionId) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, error: 'untrusted-renderer' };
   const selection = clinicalMaterialSelections.get(String(selectionId || ''));
   if (!selection || selection.expiresAt < Date.now()) {
     clinicalMaterialSelections.delete(String(selectionId || ''));
@@ -3588,7 +3600,8 @@ ipcMain.handle('xj:parseClinicalMaterialFile', async (event, selectionId) => {
 // 生成卡片/画廊摘要：去掉 frontmatter、markdown 语法、超长 token（data URI / 长 URL / base64），
 // 取首个干净的散文句，避免卡片底部出现「乱码」长串
 // 元数据：files/tree/categories/keywords/stats（供三栏/卡片/属性表/图谱/统计视图）
-ipcMain.handle('xj:readUserDocMeta', async () => {
+ipcMain.handle('xj:readUserDocMeta', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer', files: [] };
   const cfg = readUserDocConfig();
   if (!cfg.folder) return { ok: false, reason: 'no-folder' };
   const root = cfg.folder;
@@ -3676,7 +3689,8 @@ function cleanSummary(text) {
 }
 
 // 单文件全文（供沉浸阅读视图）：folder 取自 config，path.resolve 后二次防穿越校验
-ipcMain.handle('xj:readUserDocFile', async (e, args) => {
+ipcMain.handle('xj:readUserDocFile', async (event, args) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer' };
   args = args || {};
   const relPath = String(args.relPath || '');
   if (!relPath) return { ok: false, reason: 'no-path' };
@@ -3696,7 +3710,8 @@ ipcMain.handle('xj:readUserDocFile', async (e, args) => {
 });
 
 // 片段化全文搜索（供搜索视图）：逐文件逐行匹配，返回 {relPath,name,lineNo,text,score}
-ipcMain.handle('xj:searchUserDocs', async (e, args) => {
+ipcMain.handle('xj:searchUserDocs', async (event, args) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer', hits: [] };
   args = args || {};
   const query = String(args.query || '').trim();
   const max = Math.min(200, Math.max(1, args.max || 50));
@@ -3759,7 +3774,8 @@ function ensureRagIndex() {
   return ragIndex;
 }
 
-ipcMain.handle('xj:ragIndexStatus', async () => {
+ipcMain.handle('xj:ragIndexStatus', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer' };
   const ri = ensureRagIndex();
   if (!ri) return { ok: false, reason: 'rag-module-unavailable' };
   try {
@@ -3770,7 +3786,8 @@ ipcMain.handle('xj:ragIndexStatus', async () => {
   }
 });
 
-ipcMain.handle('xj:ragIndex', async () => {
+ipcMain.handle('xj:ragIndex', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, error: 'untrusted-renderer' };
   const policy = currentRagPolicy();
   if (policy.method === 'keyword') return { ok: false, error: 'membership-required' };
   const ri = ensureRagIndex();
@@ -3794,14 +3811,16 @@ ipcMain.handle('xj:ragIndex', async () => {
   }
 });
 
-ipcMain.handle('xj:ragCancel', async () => {
+ipcMain.handle('xj:ragCancel', async (event) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer' };
   const ri = ensureRagIndex();
   if (!ri) return { ok: false };
   ri.cancel();
   return { ok: true };
 });
 
-ipcMain.handle('xj:ragSearch', async (e, args) => {
+ipcMain.handle('xj:ragSearch', async (event, args) => {
+  if (!isTrustedRendererEvent(event)) return { ok: false, reason: 'untrusted-renderer', results: [] };
   args = args || {};
   const query = String(args.query || '').trim();
   const state = licenseState || computeState();
@@ -3821,7 +3840,10 @@ ipcMain.handle('xj:ragSearch', async (e, args) => {
   }
 });
 
-ipcMain.on('xj:openActivation', () => openActivationWindow());
+ipcMain.on('xj:openActivation', (event) => {
+  if (!isTrustedRendererEvent(event)) return;
+  openActivationWindow();
+});
 
 // 关闭确认窗的抉择：cancel=取消退出(主窗口保持打开) / stay=后台常驻 / quit=完全退出
 ipcMain.on('xj:closeDecision', (ev, action) => {
@@ -3848,11 +3870,20 @@ ipcMain.on('xj:closeDecision', (ev, action) => {
 
 // 报告/文档保存到用户选择的路径（保存对话框），返回真实路径
 ipcMain.handle('xj:saveFileAs', async (ev, opts) => {
-  const { filename, content, mime } = opts || {};
+  if (!isTrustedRendererEvent(ev)) return { error: 'sender-denied' };
+  if (!opts || typeof opts !== 'object' || Array.isArray(opts)) return { ok: false, errorCode: 'XJ_IPC_INVALID_PAYLOAD' };
+  const allowed = new Set(['filename', 'content', 'mime']);
+  if (Object.keys(opts).some((key) => !allowed.has(key))) return { ok: false, errorCode: 'XJ_IPC_UNKNOWN_FIELD' };
+  const filename = opts.filename === undefined ? 'report.doc' : opts.filename;
+  const content = opts.content === undefined ? '' : opts.content;
+  const { mime } = opts;
+  if (typeof filename !== 'string' || filename.trim().length === 0 || filename.length > 255) return { ok: false, errorCode: 'XJ_IPC_INVALID_FILENAME' };
+  if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > 10 * 1024 * 1024) return { ok: false, errorCode: 'XJ_IPC_INVALID_CONTENT' };
+  if (mime !== undefined && (typeof mime !== 'string' || mime.length > 128)) return { ok: false, errorCode: 'XJ_IPC_INVALID_MIME' };
   try {
     if (!mainWindow) return { error: '窗口未就绪' };
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: filename || 'report.doc',
+      defaultPath: filename,
       filters: [{ name: 'Word 文档', extensions: ['doc'] }]
     });
     if (canceled || !filePath) return { canceled: true };
@@ -3865,7 +3896,7 @@ ipcMain.handle('xj:saveFileAs', async (ev, opts) => {
 
 // 渲染进程完成旧端口数据迁移后回传：关闭临时迁移服务 + 归档旧端口库（防重复迁移）
 ipcMain.on('xj:migrate-done', (ev, ports) => {
-  if (AGENT_ACCEPTANCE_MODE) return;
+  if (!isTrustedRendererEvent(ev) || AGENT_ACCEPTANCE_MODE) return;
   for (const s of legacyMigrateServers) { try { s.close(); } catch (err) { /* ignore */ } }
   legacyMigrateServers = [];
   if (Array.isArray(ports)) archiveLegacyPorts(ports);
@@ -3954,11 +3985,14 @@ ipcMain.handle('xj:cloud-activate', async (event, code) => {
   return activateSignedClaim(response.signedClaim, 'cloud');
 });
 
-ipcMain.handle('xj:openExternal', async (e, url) => {
+ipcMain.handle('xj:openExternal', async (event, url) => {
+  if (!isTrustedRendererEvent(event)) return false;
   if (AGENT_ACCEPTANCE_MODE) return false;
   try {
-    const parsed = new URL(String(url || ''));
-    if (!['https:', 'http:', 'mailto:'].includes(parsed.protocol)) return false;
+    const raw = String(url || '');
+    if (!raw || /[\u0000-\u001F\u007F]/.test(raw)) return false;
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !parsed.hostname) return false;
     await shell.openExternal(parsed.toString());
     return true;
   } catch (err) {

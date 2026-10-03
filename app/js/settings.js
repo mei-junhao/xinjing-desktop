@@ -11,7 +11,7 @@ App.initPage({
 
     // sandbox preload 通过主进程读取真实应用版本，避免本地 require 在沙箱中失效。
     async function getAppVersion() {
-      var ver = '5.1.9';
+      var ver = window.__XJ_VERSION__ || '5.1.25';
       try {
         if (window.__XJ_API__ && typeof window.__XJ_API__.getVersion === 'function') {
           ver = await window.__XJ_API__.getVersion() || ver;
@@ -40,11 +40,7 @@ App.initPage({
     if (themeToggle) {
       themeToggle.classList.toggle('on', document.documentElement.classList.contains('dark'));
     }
-    window.toggleTheme = function () {
-      var isDark = document.documentElement.classList.toggle('dark');
-      try { localStorage.setItem('xj_theme', isDark ? 'dark' : 'light'); } catch (e) {}
-      if (themeToggle) themeToggle.classList.toggle('on', isDark);
-    };
+    // toggleTheme is defined once below with shared class/ARIA synchronization.
 
     // 激活状态 — 订阅式监听（主进程广播后实时刷新，不依赖启动快照）
     var licEl = document.getElementById('license-status');
@@ -782,12 +778,12 @@ App.initPage({
     try { localStorage.setItem('xj_theme', next ? 'dark' : 'light'); } catch (e) {}
     document.documentElement.classList.toggle('dark', next);
     const sw = document.getElementById('theme-toggle');
-    if (sw) sw.setAttribute('aria-checked', String(next));
+    if (sw) { sw.classList.toggle('on', next); sw.setAttribute('aria-checked', String(next)); }
     App.showToast(next ? '已切换到深色' : '已切换到浅色', 'success');
   };
   function initThemeToggle() {
     const sw = document.getElementById('theme-toggle');
-    if (sw) sw.setAttribute('aria-checked', String(isThemeDark()));
+    if (sw) { var active = isThemeDark(); sw.classList.toggle('on', active); sw.setAttribute('aria-checked', String(active)); }
   }
 
   function initWritingStyleToggle() {

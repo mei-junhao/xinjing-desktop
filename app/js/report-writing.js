@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   var currentClientId = null;
+  var currentSessionId = null;
   var materialId = '';
   var tplSections = null; // 模板解析出的模块（null=用默认6段）
   var currentStep = 0;
@@ -127,13 +128,54 @@
     App.showToast('正在读取逐字稿…', 'info');
     var reader = new FileReader();
     var onText = async function (text) {
-      var r = await Store.createSessionDurable({
-        clientId: currentClientId, date: App.todayStr(), durationMinutes: 0, type: 'individual',
-        recordKind: 'clinical', billing: null, transcript: text, hasTranscript: true, notes: '',
-      });
+      try {
+      var r;
+      if (currentSessionId) {
+        var existing = Store.getSession(currentSessionId);
+        if (!existing || existing.clientId !== currentClientId) {
+          App.showToast('当前会谈不存在或不属于该来访者，逐字稿未保存', 'error');
+          return;
+        }
+        r = await Store.updateSessionFull(Object.assign({}, existing, { transcript: text, hasTranscript: true }));
+      } else {
+        r = await Store.createSessionDurable({
+          clientId: currentClientId, date: App.todayStr(), durationMinutes: 0, type: 'individual',
+          recordKind: 'clinical', billing: null, transcript: text, hasTranscript: true, notes: '',
+        });
+        if (r && r.ok && r.value) currentSessionId = r.value.id;
+      }
       if (!r || !r.ok) { App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
+      // Persist a linked material workspace only after the durable session write succeeds.
+      if (Store.createMaterialWorkspace || Store.updateMaterialWorkspace) {
+        var existingMaterial = materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null;
+        if (existingMaterial && existingMaterial.clientId && existingMaterial.clientId !== currentClientId) {
+          App.showToast('材料不属于当前来访者，未建立材料工作区', 'error'); return;
+        }
+        var source = { name: file.name || 'transcript.txt', ext: (file.name || '').split('.').pop().toLowerCase(), size: file.size || 0, modifiedAt: file.lastModified || 0 };
+        var workspacePatch = { clientId: currentClientId, sessionId: currentSessionId || (r.value && r.value.id) || '', linkStatus: 'linked', parseStatus: 'ready', extractedText: text, source: source, workflow: { report: 'in-progress' } };
+        var wsResult;
+        if (existingMaterial && Store.updateMaterialWorkspaceDurable) wsResult = await Store.updateMaterialWorkspaceDurable(existingMaterial.id, workspacePatch);
+        else if (Store.createMaterialWorkspaceDurable) wsResult = await Store.createMaterialWorkspaceDurable(workspacePatch);
+        else if (existingMaterial && Store.updateMaterialWorkspace) wsResult = { ok: true, value: Store.updateMaterialWorkspace(existingMaterial.id, workspacePatch) };
+        else if (Store.createMaterialWorkspace) wsResult = { ok: true, value: Store.createMaterialWorkspace(workspacePatch) };
+        else wsResult = null;
+        if (!wsResult || !wsResult.ok) { App.showToast('材料工作区保存失败：草稿已保留，请重试', 'error'); return; }
+        var ws = wsResult.value;
+        if (ws && ws.id && !materialId) materialId = ws.id;
+        if (ws && typeof SourceRef !== 'undefined' && SourceRef && typeof SourceRef.create === 'function' && Store.updateMaterialWorkspace) {
+          var sourceRef = SourceRef.create({ clientId: currentClientId, sessionId: workspacePatch.sessionId, anchor: { kind: 'material:text', locator: 'material:' + ws.id }, sourceText: text, anchorText: text });
+          var sourceResult = Store.updateMaterialWorkspaceDurable
+            ? await Store.updateMaterialWorkspaceDurable(ws.id, { sourceRef: sourceRef })
+            : { ok: true, value: Store.updateMaterialWorkspace(ws.id, { sourceRef: sourceRef }) };
+          if (!sourceResult || !sourceResult.ok) { App.showToast('材料引用保存失败：草稿已保留，请重试', 'error'); return; }
+          ws = sourceResult.value;
+        }
+      }
       App.showToast('逐字稿已存入数据库，可在「基于节次」中勾选引用', 'success');
       renderSessMenu();
+      } catch (error) {
+        App.showToast('逐字稿处理失败：草稿已保留，请重试', 'error');
+      }
     };
     if (file.name.toLowerCase().endsWith('.docx')) {
       if (typeof mammoth !== 'undefined') {
@@ -395,8 +437,7 @@
   };
 
   // 保存：弹出保存对话框，写到用户选择的真实路径并如实告知
-  window.onSaveReport = function () {
-    if (materialId && Store.updateMaterialWorkspace) Store.updateMaterialWorkspace(materialId, { workflow: { report: 'completed' }, artifacts: { reportDraftKey: 'xj_report_draft_' + (currentClientId || '') } });
+  window.onSaveReport = async function () {
     var secs = getSections();
     var body = '<h1>案例报告</h1>';
     var client = currentClientId ? Store.getClient(currentClientId) : null;
@@ -409,16 +450,21 @@
       }
     });
     var fname = (client ? client.name : 'report') + '_案例报告.doc';
-    App.saveReportFile(fname, body).then(function (r) {
-      if (!r) { App.showToast('保存失败', 'error'); return; }
-      if (r.canceled) { App.showToast('已取消保存', 'info'); return; }
-      if (r.error) { App.showToast('保存失败：' + r.error, 'error'); return; }
-      App.showToast('报告已保存：' + r.path, 'success');
-    });
+    try {
+      var r = await App.saveReportFile(fname, body);
+      if (!r) { App.showToast('保存失败', 'error'); return false; }
+      if (r.canceled) { App.showToast('已取消保存', 'info'); return false; }
+      if (r.error) { App.showToast('保存失败：' + r.error, 'error'); return false; }
+      if (materialId && Store.updateMaterialWorkspaceDurable) {
+        var durable = await Store.updateMaterialWorkspaceDurable(materialId, { workflow: { report: 'completed' }, artifacts: { reportDraftKey: 'xj_report_draft_' + (currentClientId || '') } });
+        if (!durable || !durable.ok) { App.showToast('报告已导出，但材料状态未保存，请重试', 'error'); return false; }
+      }
+      App.showToast('报告已保存：' + r.path, 'success'); return true;
+    } catch (e) { App.showToast('保存失败', 'error'); return false; }
   };
 
   // 开始 AI 督导：先保存 Word，再携带报告跳转督导页
-  window.onStartSupervision = function () {
+  window.onStartSupervision = async function () {
     exportWord();
     // 暂存报告纯文本，供督导页预填材料区
     try {
@@ -431,8 +477,13 @@
         reportText += (i + 1) + '. ' + sec.title + '\n' + val + '\n\n';
       });
       if (currentClientId) localStorage.setItem('xj_report_draft_' + currentClientId, reportText);
-    } catch (e) {}
+      if (materialId && Store.updateMaterialWorkspaceDurable) {
+        var durable = await Store.updateMaterialWorkspaceDurable(materialId, { workflow: { report: 'in-progress' }, artifacts: { reportDraftKey: 'xj_report_draft_' + (currentClientId || '') } });
+        if (!durable || !durable.ok) { App.showToast('报告交接保存失败，未进入督导', 'error'); return false; }
+      }
+    } catch (e) { App.showToast('报告交接保存失败，未进入督导', 'error'); return false; }
     location.href = 'supervision.html?client=' + encodeURIComponent(currentClientId || '') + '&autoloadreport=1';
+    return true;
   };
 
   App.initPage({ title: '撰写报告', subtitle: '', actions: '', onReady: function () {
@@ -440,6 +491,7 @@
     try {
       var params = new URLSearchParams(location.search);
       var initialClientId = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());
+      currentSessionId = params.get('sessionId') || params.get('session') || null;
       materialId = params.get('materialId') || '';
       var material = currentMaterialWorkspace();
       if (material && material.parseStatus === 'ready') {

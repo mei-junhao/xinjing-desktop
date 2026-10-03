@@ -405,8 +405,14 @@
   function setWorkbenchView(view) {
     var documentView = view === 'document';
     try { localStorage.setItem(WORKBENCH_VIEW_KEY, documentView ? 'document' : 'client'); } catch (e) {}
-    document.getElementById('wb-client-view').setAttribute('aria-selected', documentView ? 'false' : 'true');
-    document.getElementById('wb-document-view').setAttribute('aria-selected', documentView ? 'true' : 'false');
+    var clientTab = document.getElementById('wb-client-view');
+    var documentTab = document.getElementById('wb-document-view');
+    clientTab.setAttribute('aria-selected', documentView ? 'false' : 'true');
+    documentTab.setAttribute('aria-selected', documentView ? 'true' : 'false');
+    clientTab.setAttribute('tabindex', documentView ? '-1' : '0');
+    documentTab.setAttribute('tabindex', documentView ? '0' : '-1');
+    var panel = document.getElementById('dual-workbench');
+    if (panel) panel.setAttribute('aria-labelledby', documentView ? 'wb-document-view' : 'wb-client-view');
     ['hero-stats', 'ob-checklist'].forEach(function (id) { var el = document.getElementById(id); if (el) el.closest('section,div').hidden = documentView; });
     document.querySelectorAll('.work-schedule').forEach(function (el) { el.hidden = documentView; });
     document.querySelectorAll('.quick-tools,.bottom-row').forEach(function (el) { el.hidden = documentView; });
@@ -504,7 +510,29 @@
     }
     renderWorkbench(safeView());
   };
-  function bindWorkbench() { var clientButton = document.getElementById('wb-client-view'); var documentButton = document.getElementById('wb-document-view'); if (!clientButton || !documentButton) return; clientButton.addEventListener('click', function () { setWorkbenchView('client'); }); documentButton.addEventListener('click', function () { setWorkbenchView('document'); }); setWorkbenchView(safeView()); }
+  function bindWorkbench() {
+    var clientButton = document.getElementById('wb-client-view');
+    var documentButton = document.getElementById('wb-document-view');
+    if (!clientButton || !documentButton) return;
+    var tabs = [clientButton, documentButton];
+    clientButton.addEventListener('click', function () { setWorkbenchView('client'); });
+    documentButton.addEventListener('click', function () { setWorkbenchView('document'); });
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener('keydown', function (event) {
+        var targetIndex = -1;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') targetIndex = (index + 1) % tabs.length;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') targetIndex = (index + tabs.length - 1) % tabs.length;
+        else if (event.key === 'Home') targetIndex = 0;
+        else if (event.key === 'End') targetIndex = tabs.length - 1;
+        else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); tab.click(); return; }
+        if (targetIndex < 0) return;
+        event.preventDefault();
+        tabs[targetIndex].focus();
+        tabs[targetIndex].click();
+      });
+    });
+    setWorkbenchView(safeView());
+  }
 
   // ---- QuickRecord 接入：首页快捷入口 + 工作台客户端动作 ----
   // 不修改 QuickRecord 模块本身，仅提供 UI 入口和 DOM 交互。
