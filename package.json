@@ -37,7 +37,10 @@
       "app/**/*"
     ],
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
@@ -54,6 +57,25 @@
     },
     "portable": {
       "artifactName": "xinjing-portable-${version}.exe"
+    },
+    "mac": {
+      "icon": "build/icon-mac.png",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "xinjing-${version}.${ext}"
     }
   },
   "dependencies": {
