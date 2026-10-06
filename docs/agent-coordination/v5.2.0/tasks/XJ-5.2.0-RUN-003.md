@@ -1,0 +1,82 @@
+# Task Card: XJ-5.2.0-RUN-003
+
+- task_id: XJ-5.2.0-RUN-003
+- contract_id: xj-5.2.0-agent-run-contract-v1
+- write_lock_id: lock-5.2.0-run-003
+- base_commit: eb16e2b74e6ab919a782b8bc6f66bfe9524431f2
+- active_release_train: 5.2.0 implementation (third work package; not release-ready)
+- config_evidence_id: cfg-5.2.0-20261004-agent-run-baseline
+- agent_profile_id: gpt-6.1-sol-low
+- benchmark_manifest: synthetic AgentRun transition/immutability fixtures v1
+- visual_baseline: none; no UI changes authorized
+- prerequisites:
+  - XJ-5.2.0-AGENT-CONTRACT-001 accepted by Codex intake
+  - XJ-5.2.0-ROUTER-002 accepted by Codex intake
+- protected_file_hashes:
+  - app/js/agent-core.js: 00F758CE37702108AF4FF9BF48C294EDCB5BC32480B6DD6AD6DFD7F7235A5AD2
+  - app/js/clinical-context.js: 09536023837266F2D560CE8D2500A6EA6BE0A25C53F97CC1C781EB46A23C1B64
+  - app/js/store.js: 00473C3984B95429BE2E82AAD3C61369A2A1C2459CACA7C77CF84A66277504A7
+  - app/js/agent-tools.js: FBD7BBF2BCA95BA025420998AB96511BB517725028ECD2FA9998A7C80A644D2B
+  - app/js/clinical-agent-tasks.js: 3FFBD7A8FCB59A94F48EC08F324F321AABC914BC9B00DD5D5E4459E0456C0B18
+  - app/js/clinical-agent-router.js: 51D8AAC36800C6090D0C14307A326D2D611548CDC6954427548ADF80F97EFA99
+- allowlist:
+  - app/js/clinical-agent-run.js (new file only)
+  - tests/v5.2.0/clinical-agent-run.contract.test.cjs (new file only)
+  - docs/delivery-reports/XJ-5.2.0-RUN-003.md
+- forbidden:
+  - app/js/agent-core.js
+  - app/js/agent-tools.js
+  - app/js/clinical-context.js
+  - app/js/store.js
+  - app/js/clinical-agent-tasks.js
+  - app/js/clinical-agent-router.js
+  - app/js/store.js
+  - app/js/app.js
+  - app/js/ai.js
+  - all package/version/build/signing/publish files
+  - existing tests and existing reports
+  - real clinical data, external messages, network writes, commits, pushes, merges
+- objective:
+  - Add a dependency-light immutable AgentRun state machine for bounded clinical workflows.
+  - Define statuses: planned, awaiting-context, awaiting-confirmation, running, draft-ready, stale, failed, cancelled, adopted, persisted.
+  - Define legal transitions and pure create/transition/appendStep/project functions.
+  - Preserve taskId, runId, origin, sources, snapshotKey, stepId, error, cancellation and output disposition metadata without storing clinical body text.
+- required API:
+  - STATUSES immutable list
+  - create(input)
+  - transition(run, nextStatus, patch?)
+  - appendStep(run, step)
+  - project(run)
+  - canTransition(from, to)
+- required semantics:
+  - create requires non-empty runId and taskId, starts at planned unless explicit awaiting-context is requested.
+  - No transition may mutate its input; returned run and nested public metadata must be defensive/frozen or copies.
+  - Legal path includes planned→awaiting-context/awaiting-confirmation/running/cancelled/failed; awaiting-context→awaiting-confirmation/running/cancelled/failed; awaiting-confirmation→running/cancelled/stale/failed; running→draft-ready/stale/failed/cancelled; draft-ready→adopted/stale/cancelled/failed; adopted→persisted/stale; persisted/stale/failed/cancelled are terminal.
+  - No direct planned→persisted, awaiting-confirmation→persisted, or failed→running transitions.
+  - `persisted` requires prior `adopted`; `adopted` requires prior `draft-ready`; `draft-ready` must remain preview/draft-only.
+  - stale/cancelled/failed transitions retain error/cancellation metadata and cannot silently become successful.
+  - appendStep accepts bounded metadata only (stepId, status, task/effect, startedAt/completedAt, errorCode, retryable); reject clinical body/content/prompt fields.
+  - project returns metadata only and never source body, prompt, answer, or model output.
+- acceptance:
+  - Module loads in a clean Node process with no Electron, DOM, Store, AI, router, or network dependency.
+  - Positive and negative transition matrix is tested, including terminal states, prerequisite enforcement, stale/cancelled preservation, immutability, metadata-only projection, malformed input and body-leak rejection.
+  - Focused mutation-sensitive tests prove bypassing transition guards or dropping prerequisite checks turns red.
+  - No protected-file hash changes and no existing behavior changes.
+- verification_commands:
+  - node --test tests/v5.2.0/clinical-agent-run.contract.test.cjs
+  - node --check app/js/clinical-agent-run.js
+  - git diff --check -- app/js/clinical-agent-run.js tests/v5.2.0/clinical-agent-run.contract.test.cjs docs/agent-coordination/v5.2.0/tasks/XJ-5.2.0-RUN-003.md
+  - node --check app/js/clinical-agent-tasks.js
+  - node --check app/js/clinical-agent-router.js
+  - Get-FileHash app/js/agent-core.js,app/js/clinical-context.js,app/js/store.js,app/js/agent-tools.js,app/js/clinical-agent-tasks.js,app/js/clinical-agent-router.js,package.json,package-lock.json -Algorithm SHA256
+- rollback: remove only the two newly added source/test files and this task report after Codex intake; never reset or clean the shared worktree
+- stop_conditions:
+  - Any need to change protected/shared runtime files or accepted task/router contracts
+  - Any ambiguity about state semantics not resolvable from this card
+  - Any test requiring real data, network, Store, AI, Electron, or UI
+  - Any hash drift or second writer on the allowlist
+- lifecycle:
+  - received -> running -> delivered/rejected
+- delivery_report: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-RUN-003.md
+- acceptance_owner: /root
+- next_after_acceptance: create XJ-5.2.0-CONTEXT-004 only after this card passes independent intake; no automatic runtime integration

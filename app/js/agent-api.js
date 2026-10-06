@@ -134,7 +134,7 @@
       try {
         if (!App.aiUnlocked()) return '授权已失效，请重新激活';
       } catch (e) {
-        return '授权检查异常：' + (e.message || e);
+        return '授权检查异常';
       }
     }
     // 模型能力检查
@@ -146,7 +146,7 @@
           return '当前模型（' + (cfg.model || '内置') + '）不支持工具调用';
         }
       } catch (e) {
-        return '模型能力检查异常：' + (e.message || e);
+        return '模型能力检查异常';
       }
     }
     return null;
@@ -239,7 +239,7 @@
       var result = await _writeGuard(toolName, args);
       return result === true;
     } catch (e) {
-      log('warn', 'writeGuard 执行异常（fail-close 拒绝）：' + (e.message || e));
+      log('warn', 'writeGuard 执行异常（fail-close 拒绝）');
       return false;
     }
   }
@@ -357,7 +357,7 @@
         try {
           item.reject(errObj(ERR.USR_CANCELLED, 'session 已销毁，排队请求被取消'));
         } catch (e) {
-          log('warn', 'removeFromQueueBySession reject 异常：' + (e.message || e));
+          log('warn', 'removeFromQueueBySession reject 异常');
         }
         removed++;
       }
@@ -380,7 +380,7 @@
         try {
           item.reject(errObj(ERR.SYS_CONCURRENCY_ERROR, '该 session 已有请求在执行中'));
         } catch (e) {
-          log('warn', '_drainQueue reject 异常：' + (e.message || e));
+          log('warn', '_drainQueue reject 异常');
         }
         continue;
       }
@@ -1132,8 +1132,8 @@
     try {
       return await _invokeToolImpl(name, options);
     } catch (e) {
-      log('error', 'invokeTool: 内部异常 ' + (e && e.message ? e.message : e));
-      return errObj(ERR.SYS_INTERNAL_ERROR, 'invokeTool 内部异常：' + (e && e.message ? e.message : String(e)));
+      log('error', 'invokeTool: 内部异常：系统内部错误');
+      return errObj(ERR.SYS_INTERNAL_ERROR, 'invokeTool 内部异常');
     }
   }
 
@@ -1209,7 +1209,7 @@
           log('warn', 'invokeTool: writeGuard 超时（' + _WRITE_GUARD_TIMEOUT + 'ms），拒绝写工具 ' + name);
           return errObj(ERR.USR_CONFIRM_TIMEOUT, 'writeGuard 确认超时（' + _WRITE_GUARD_TIMEOUT + 'ms）');
         }
-        log('warn', 'invokeTool: writeGuard 异常：' + (e && e.message ? e.message : e));
+        log('warn', 'invokeTool: writeGuard 异常');
         return errObj(ERR.SEC_WRITE_DENIED, 'writeGuard 执行异常');
       }
       if (!guardOk) {
@@ -1239,8 +1239,8 @@
       execPromise = Promise.resolve(tools.invoke(name, args));
     } catch (e) {
       _releaseToolSlot(toolSlotToken);
-      log('warn', 'invokeTool: tools.invoke 同步异常：' + (e.message || e));
-      return errObj(ERR.TOOL_ERROR, '工具执行同步异常：' + (e.message || e));
+      log('warn', 'invokeTool: tools.invoke 同步异常');
+      return errObj(ERR.TOOL_ERROR, '工具执行同步异常');
     }
 
     // 注：withTimeout 超时后底层 execPromise 仍会继续执行（JS Promise 不可取消）。
@@ -1291,8 +1291,8 @@
       if (e && e.code === ERR.TOOL_TIMEOUT) {
         return errObj(ERR.TOOL_TIMEOUT, '工具「' + name + '」执行超时（' + timeout + 'ms）');
       }
-      log('warn', 'invokeTool: 工具 ' + name + ' 执行异常：' + (e && e.message ? e.message : e));
-      return errObj(ERR.TOOL_ERROR, '工具执行异常：' + (e && e.message ? e.message : String(e)));
+      log('warn', 'invokeTool: 工具执行异常');
+      return errObj(ERR.TOOL_ERROR, '工具执行异常');
     }
   }
 
@@ -1372,6 +1372,7 @@
     this._messages = [];
     this._closed = false;
     this._running = false;
+    this._streamOpen = false;
     this._maxSteps = (typeof options.maxSteps === 'number' && options.maxSteps > 0 && options.maxSteps <= 32)
       ? options.maxSteps : _SESSION_MAX_STEPS;
     this._maxContextUnits = (typeof options.maxContextUnits === 'number' && options.maxContextUnits > 0 && options.maxContextUnits <= 200)
@@ -1380,6 +1381,8 @@
     this._onConfirm = typeof options.onConfirm === 'function' ? options.onConfirm : null;
     this._onMessage = typeof options.onMessage === 'function' ? options.onMessage : null;
     this._onToolCall = typeof options.onToolCall === 'function' ? options.onToolCall : null;
+    this._onDelta = typeof options.onDelta === 'function' ? options.onDelta : null;
+    this._onReasoning = typeof options.onReasoning === 'function' ? options.onReasoning : null;
     this._onError = typeof options.onError === 'function' ? options.onError : null;
     this._systemPrompt = typeof options.systemPrompt === 'string' ? options.systemPrompt : null;
 
@@ -1437,6 +1440,7 @@
   Session.prototype.close = function () {
     if (this._closed) return;
     this._closed = true;
+    this._streamOpen = false;
     // P3 修复：关闭时重置 _running 状态，确保后续调用语义准确
     this._running = false;
     // P2-4：关闭时清除空闲定时器
@@ -1468,6 +1472,7 @@
     this._running = true;
     var self = this;
     var hasSlot = false;
+    var terminal = { open: false };
 
     try {
       // 1. 获取会话级并发槽位（每次请求获取-释放，空闲会话不占槽位）
@@ -1498,21 +1503,35 @@
       }
 
       var onConfirmWrapper = async function (toolCall, args) {
-        return self._handleToolConfirm(toolCall, args);
+        if (!terminal.open || self._closed) return { ok: false };
+        return self._handleToolConfirm(toolCall, args, terminal);
       };
       var onProgressWrapper = function (step, total) {
         log('debug', 'Session ' + self.id + ' 进度：' + step + '/' + total);
       };
       var onEventWrapper = function (event) {
+        if (!terminal.open || self._closed) return;
         self._handleCoreEvent(event);
       };
+      var onDeltaWrapper = function (content) {
+        if (!self._streamOpen || self._closed || typeof self._onDelta !== 'function') return;
+        self._onDelta(typeof content === 'string' ? content : '');
+      };
+      var onReasoningWrapper = function (content) {
+        if (!self._streamOpen || self._closed || typeof self._onReasoning !== 'function') return;
+        self._onReasoning(typeof content === 'string' ? content : '');
+      };
+      self._streamOpen = true;
+      terminal.open = true;
 
       // P1-2 修复：runRound 超时保护（5 分钟）
       var runRoundPromise = agentCore.runRound(
         deepClone(self._messages),
         onConfirmWrapper,
         onProgressWrapper,
-        onEventWrapper
+        onEventWrapper,
+        onDeltaWrapper,
+        onReasoningWrapper
       );
       var result = await withTimeout(
         runRoundPromise,
@@ -1522,8 +1541,11 @@
 
       // 5. 处理结果
       if (result && result.error) {
-        if (self._onError) self._onError(result.error);
-        return errObj(ERR.MODEL_ERROR, result.error);
+        terminal.open = false;
+        self._streamOpen = false;
+        var safeFailure = '模型调用失败';
+        if (self._onError) self._onError(safeFailure);
+        return errObj(ERR.MODEL_ERROR, safeFailure);
       }
 
       var replyText = (result && result.reply) ? result.reply : '';
@@ -1562,18 +1584,31 @@
         }
       }
 
+      terminal.open = false;
       return okObj(replyText);
     } catch (e) {
-      // 如果是已知的 errObj（有 code + message），直接返回保留错误码
-      if (e && typeof e === 'object' && e.code && typeof e.message === 'string') {
-        log('error', 'Session ' + self.id + ' 错误：' + e.code + ' - ' + e.message);
-        if (self._onError) self._onError(e.message);
-        return e;
+      // 识别已知错误对象：provider 常用 message，withTimeout 的 errObj 使用 error。
+      if (e && typeof e === 'object' && e.code
+        && (typeof e.message === 'string' || typeof e.error === 'string')) {
+        terminal.open = false;
+        var knownMessage = typeof e.message === 'string' ? e.message : e.error;
+        var safeKnown = '模型调用失败';
+        if (e.code === ERR.MODEL_TIMEOUT) {
+          // Preserve our own timeout wording, never provider-supplied raw text.
+          safeKnown = /^操作超时（\d+ms）$/.test(knownMessage) ? knownMessage : '操作超时';
+        }
+        log('error', 'Session ' + self.id + ' 错误：' + e.code + ' - ' + safeKnown);
+        if (self._onError) self._onError(safeKnown);
+        return errObj(e.code, safeKnown);
       }
-      log('error', 'Session ' + self.id + ' 异常：' + (e && e.message ? e.message : e));
-      if (self._onError) self._onError(e && e.message ? e.message : String(e));
-      return errObj(ERR.SYS_INTERNAL_ERROR, '会话异常：' + (e && e.message ? e.message : String(e)));
+      terminal.open = false;
+      // Unknown exceptions may contain provider secrets; keep fallback logs stable and safe.
+      log('error', 'Session ' + self.id + ' 错误：' + ERR.MODEL_ERROR + ' - 模型调用失败');
+      if (self._onError) self._onError('模型调用失败');
+      return errObj(ERR.MODEL_ERROR, '模型调用失败');
     } finally {
+      terminal.open = false;
+      self._streamOpen = false;
       // 统一释放槽位和重置状态
       if (hasSlot) {
         releaseSlot(self.id);
@@ -1584,9 +1619,9 @@
     }
   };
 
-  Session.prototype._handleToolConfirm = async function (toolCall, args) {
+  Session.prototype._handleToolConfirm = async function (toolCall, args, sendTerminal) {
     // 关闭状态下拒绝所有工具
-    if (this._closed) {
+    if (this._closed || (sendTerminal && !sendTerminal.open)) {
       return { ok: false };
     }
 
@@ -1651,6 +1686,8 @@
           toolCall: deepClone(toolCall)
         }));
         var userResult = await withTimeout(confirmPromise, CONFIRM_TIMEOUT, ERR.USR_CONFIRM_TIMEOUT);
+        // Fail closed when the session terminates while confirmation is pending.
+        if (this._closed || (sendTerminal && !sendTerminal.open)) return { ok: false };
         if (userResult && userResult.ok) {
           return { ok: true };
         }
@@ -1669,6 +1706,8 @@
     try {
       var guardPromise = Promise.resolve(checkWriteGuard(realName, deepClone(args)));
       var guardOk = await withTimeout(guardPromise, CONFIRM_TIMEOUT, ERR.USR_CONFIRM_TIMEOUT);
+      // A late guard result must not authorize a closed session.
+      if (this._closed || (sendTerminal && !sendTerminal.open)) return { ok: false };
       if (guardOk) return { ok: true };
       return { ok: false };
     } catch (e) {
@@ -1819,7 +1858,7 @@
     try {
       session = new Session(options);
     } catch (e) {
-      return errObj(ERR.SYS_INTERNAL_ERROR, '创建会话失败：' + (e && e.message ? e.message : String(e)));
+      return errObj(ERR.SYS_INTERNAL_ERROR, '创建会话失败');
     }
 
     try {

@@ -1,0 +1,81 @@
+# Task Card: XJ-5.2.0-CONTEXT-004
+
+- task_id: XJ-5.2.0-CONTEXT-004
+- contract_id: xj-5.2.0-context-admission-bridge-v1
+- write_lock_id: lock-5.2.0-context-004
+- base_commit: eb16e2b74e6ab919a782b8bc6f66bfe9524431f2
+- active_release_train: 5.2.0 implementation (fourth work package; not release-ready)
+- config_evidence_id: cfg-5.2.0-20261004-context-admission-baseline
+- agent_profile_id: gpt-6.1-sol-low
+- benchmark_manifest: synthetic context-admission/source-boundary fixtures v1
+- visual_baseline: none; no UI changes authorized
+- prerequisites:
+  - XJ-5.2.0-AGENT-CONTRACT-001 accepted by Codex intake
+  - XJ-5.2.0-ROUTER-002 accepted by Codex intake
+  - XJ-5.2.0-RUN-003 accepted by Codex intake
+- protected_file_hashes:
+  - app/js/agent-core.js: 00F758CE37702108AF4FF9BF48C294EDCB5BC32480B6DD6AD6DFD7F7235A5AD2
+  - app/js/clinical-context.js: 09536023837266F2D560CE8D2500A6EA6BE0A25C53F97CC1C781EB46A23C1B64
+  - app/js/store.js: 00473C3984B95429BE2E82AAD3C61369A2A1C2459CACA7C77CF84A66277504A7
+  - app/js/agent-tools.js: FBD7BBF2BCA95BA025420998AB96511BB517725028ECD2FA9998A7C80A644D2B
+  - app/js/clinical-agent-tasks.js: 3FFBD7A8FCB59A94F48EC08F324F321AABC914BC9B00DD5D5E4459E0456C0B18
+  - app/js/clinical-agent-router.js: 51D8AAC36800C6090D0C14307A326D2D611548CDC6954427548ADF80F97EFA99
+  - app/js/clinical-agent-run.js: 858D743C5A1B16730C966C26DEF334852BDAB964612EA11596CBD607C11A3D57
+- allowlist:
+  - app/js/clinical-agent-context-bridge.js (new file only)
+  - tests/v5.2.0/clinical-agent-context-bridge.contract.test.cjs (new file only)
+  - docs/delivery-reports/XJ-5.2.0-CONTEXT-004.md
+- forbidden:
+  - app/js/agent-core.js
+  - app/js/agent-tools.js
+  - app/js/clinical-context.js
+  - app/js/store.js
+  - app/js/clinical-agent-tasks.js
+  - app/js/clinical-agent-router.js
+  - app/js/clinical-agent-run.js
+  - app/js/app.js
+  - app/js/ai.js
+  - all package/version/build/signing/publish files
+  - existing tests and existing reports
+  - real clinical data, external messages, network writes, commits, pushes, merges
+- objective:
+  - Add a pure context-admission bridge that composes the accepted router, task contract, and AgentRun APIs without reading Store or ClinicalContext.
+  - Convert a successful route result plus source/snapshot metadata into a metadata-only `awaiting-confirmation` AgentRun.
+  - Fail closed on unclear route, unknown task, missing runId/snapshotKey, missing or invalid sources, cross-client/session mismatch, stale context, and invalid output disposition.
+- required public API:
+  - admit(routeResult, input) -> awaiting-confirmation metadata or stable failure reason
+  - project(admissionOrRun) -> metadata-only confirmation preview
+  - isAdmissible(admission) -> boolean
+- input contract:
+  - routeResult must be `{ ok: true, taskId }`; failed/ambiguous routes return `intent-unclear` without a task or run.
+  - input must include non-empty `runId`, non-empty `snapshotKey`, `sources` array, and optional `context`/`origin`; body/content/prompt fields are never copied.
+  - The bridge obtains the registered effect from ClinicalAgentTasks, always validates with `outputDisposition=preview`, and creates an AgentRun using the accepted run contract.
+- success contract:
+  - status is `awaiting-confirmation`; output contains only runId/taskId/status/effect/risk/source kind+id summaries/required kinds/snapshotKey/confirmation boundary/previewFirst.
+  - No clinical source body, prompt, answer, model output, raw route text, or durable-write result may be returned.
+  - `project` must return defensive/frozen metadata and preserve stable validator reasons.
+- acceptance:
+  - Module loads in a clean Node process with injected accepted task/run dependencies only; no Electron, DOM, Store, ClinicalContext, AI, or network.
+  - Successful admission creates an awaiting-confirmation run with preview disposition.
+  - Failed/ambiguous route, missing runId/snapshotKey/sources, stale markers, source mismatch, unknown task, and invalid disposition fail closed with stable reasons.
+  - Projection is metadata-only, immutable/defensive, and contains no body/content/prompt/answer/raw route text.
+  - Focused tests cover positive, negative, malformed, mutation-sensitive, and no-body-leak cases.
+  - No protected-file hash changes and no existing behavior changes.
+- verification_commands:
+  - node --test tests/v5.2.0/clinical-agent-context-bridge.contract.test.cjs
+  - node --check app/js/clinical-agent-context-bridge.js
+  - node --check app/js/clinical-agent-tasks.js
+  - node --check app/js/clinical-agent-run.js
+  - git diff --check -- app/js/clinical-agent-context-bridge.js tests/v5.2.0/clinical-agent-context-bridge.contract.test.cjs docs/agent-coordination/v5.2.0/tasks/XJ-5.2.0-CONTEXT-004.md
+  - Get-FileHash app/js/agent-core.js,app/js/clinical-context.js,app/js/store.js,app/js/agent-tools.js,app/js/clinical-agent-tasks.js,app/js/clinical-agent-router.js,app/js/clinical-agent-run.js,package.json,package-lock.json -Algorithm SHA256
+- rollback: remove only the two newly added source/test files and this task report after Codex intake; never reset or clean the shared worktree
+- stop_conditions:
+  - Any need to change protected/shared runtime files or accepted contracts
+  - Any ambiguity about admission/output semantics not resolvable from this card
+  - Any test requiring real data, network, Store, ClinicalContext, AI, Electron, or UI
+  - Any hash drift or second writer on the allowlist
+- lifecycle:
+  - received -> running -> delivered/rejected
+- delivery_report: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-CONTEXT-004.md
+- acceptance_owner: /root
+- next_after_acceptance: create XJ-5.2.0-WORKFLOW-005 only after this card passes independent intake; no automatic runtime integration

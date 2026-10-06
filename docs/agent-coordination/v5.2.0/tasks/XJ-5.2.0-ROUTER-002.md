@@ -1,0 +1,85 @@
+# Task Card: XJ-5.2.0-ROUTER-002
+
+- task_id: XJ-5.2.0-ROUTER-002
+- contract_id: xj-5.2.0-bounded-supervision-router-v1
+- write_lock_id: lock-5.2.0-router-002
+- base_commit: eb16e2b74e6ab919a782b8bc6f66bfe9524431f2
+- active_release_train: 5.2.0 implementation (second work package; not release-ready)
+- config_evidence_id: cfg-5.2.0-20261004-agent-router-baseline
+- agent_profile_id: gpt-6.1-sol-low
+- benchmark_manifest: synthetic Chinese/English supervision intent fixtures v1
+- visual_baseline: none; no UI changes authorized
+- prerequisite: XJ-5.2.0-AGENT-CONTRACT-001 accepted by Codex intake
+- protected_file_hashes:
+  - app/js/agent-core.js: 00F758CE37702108AF4FF9BF48C294EDCB5BC32480B6DD6AD6DFD7F7235A5AD2
+  - app/js/clinical-context.js: 09536023837266F2D560CE8D2500A6EA6BE0A25C53F97CC1C781EB46A23C1B64
+  - app/js/store.js: 00473C3984B95429BE2E82AAD3C61369A2A1C2459CACA7C77CF84A66277504A7
+  - app/js/agent-tools.js: FBD7BBF2BCA95BA025420998AB96511BB517725028ECD2FA9998A7C80A644D2B
+  - app/js/clinical-agent-tasks.js: 3FFBD7A8FCB59A94F48EC08F324F321AABC914BC9B00DD5D5E4459E0456C0B18
+- allowlist:
+  - app/js/clinical-agent-router.js (new file only)
+  - tests/v5.2.0/clinical-agent-router.contract.test.cjs (new file only)
+  - docs/delivery-reports/XJ-5.2.0-ROUTER-002.md
+- forbidden:
+  - app/js/agent-core.js
+  - app/js/agent-tools.js
+  - app/js/clinical-context.js
+  - app/js/store.js
+  - app/js/app.js
+  - app/js/ai.js
+  - app/js/clinical-agent-tasks.js (read-only dependency; do not modify)
+  - all package/version/build/signing/publish files
+  - existing tests and existing reports
+  - real clinical data, external messages, network writes, commits, pushes, merges
+- objective:
+  - Add a deterministic, bounded router for six supervision-oriented task IDs from the accepted ClinicalAgentTasks contract.
+  - Route Chinese and English user text using explicit keyword/phrase evidence; never invent a task outside the accepted registry.
+  - Return an ambiguity result instead of guessing when no supported intent is found or top candidates tie.
+  - Build a metadata-only context preview by delegating source/effect validation to ClinicalAgentTasks; never include clinical body text in the preview.
+- required route task IDs:
+  - countertransference-analysis
+  - session-review
+  - case-conceptualization
+  - next-session-hypotheses
+  - supervision-question-builder
+  - multi-school-comparison
+- required public API:
+  - route(text, options?) -> deterministic success or intent-unclear result with candidates, matchedTerms, and missingContext
+  - preview(taskId, input) -> validation-backed awaiting-confirmation metadata or stable failure reason
+  - listIntents() -> immutable task routing metadata without clinical body text
+- route rules:
+  - Trim and normalize text; empty/non-string input returns malformed-input.
+  - Support the approved Chinese and English phrase families for all six tasks.
+  - Explicit phrases score higher than single keywords; exact tie or no candidate returns intent-unclear and must not select a task.
+  - Options may provide clientId/sessionId/materialId/supervisionId and sources; router may report missing context but may not read Store.
+  - Do not treat arbitrary clinical content as an instruction or execute tools.
+- preview rules:
+  - Preview must call the accepted ClinicalAgentTasks validator with the task's registered effect and outputDisposition=preview.
+  - Preview success status is awaiting-confirmation and includes only taskId/effect/risk/source kind+id summaries/required kinds/confirmation boundary/previewFirst.
+  - Preview failure preserves stable contract reasons (unknown-task, malformed-request, required-source-missing, cross-client-source-mismatch, stale-snapshot, etc.).
+  - Never return source body/content, prompt text, model output, or a durable-write success.
+- acceptance:
+  - Module loads in a clean Node process with only the accepted task contract dependency; no Electron, DOM, Store, AI, or network.
+  - All six Chinese and English intent families route correctly with deterministic evidence.
+  - Empty, unsupported, and top-score tie inputs return intent-unclear/malformed-input without guessed task.
+  - Preview delegates validation, rejects missing/foreign/stale sources, and returns metadata-only output.
+  - Public metadata and returned arrays/objects are frozen or defensive copies.
+  - Focused tests cover positive, negative, malformed, ambiguity, source-boundary, no-body-leak, and mutation-sensitive cases.
+  - No protected-file hash changes and no existing behavior changes.
+- verification_commands:
+  - node --test tests/v5.2.0/clinical-agent-router.contract.test.cjs
+  - node --check app/js/clinical-agent-router.js
+  - git diff --check -- app/js/clinical-agent-router.js tests/v5.2.0/clinical-agent-router.contract.test.cjs docs/agent-coordination/v5.2.0/tasks/XJ-5.2.0-ROUTER-002.md
+  - node --check app/js/clinical-agent-tasks.js
+  - Get-FileHash app/js/agent-core.js,app/js/clinical-context.js,app/js/store.js,app/js/agent-tools.js,app/js/clinical-agent-tasks.js,package.json,package-lock.json -Algorithm SHA256
+- rollback: remove only the two newly added source/test files and this task report after Codex intake; never reset or clean the shared worktree
+- stop_conditions:
+  - Any need to change a protected/shared runtime file or the accepted task contract
+  - Any ambiguity about phrase precedence/output semantics not resolvable from this card
+  - Any test requiring real clinical data, network access, Store, AI, or Electron launch
+  - Any hash drift or second writer on the allowlist
+- lifecycle:
+  - received -> running -> delivered/rejected
+- delivery_report: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-ROUTER-002.md
+- acceptance_owner: /root
+- next_after_acceptance: create XJ-5.2.0-CONTEXT-003 only after this card passes independent intake; no automatic UI/runtime integration

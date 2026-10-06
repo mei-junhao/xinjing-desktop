@@ -1,0 +1,97 @@
+# Task Card: XJ-5.2.0-ADAPTER-006
+
+- task_id: XJ-5.2.0-ADAPTER-006
+- objective: Build a pure, dependency-injected adapter that gives the accepted session-review workflow a controlled execution boundary matching the real ClinicalContext and SupervisionCore call shapes, without runtime/UI integration or persistence.
+- owner: gpt-6.1-sol-low
+- manager: codex (/root)
+- project_root: D:/xinjing-electron
+- branch_or_worktree: release/3.6.3-mac; shared worktree; do not switch branches or create commits
+- base_commit: eb16e2b74e6ab919a782b8bc6f66bfe9524431f2
+- active_release_train: 5.2.0 implementation (sixth work package; not release-ready)
+- config_evidence_id: cfg-5.2.0-20261005-adapter-006-baseline
+- agent_profile_id: gpt-6.1-sol-low
+- contract_id: xj-5.2.0-clinical-context-supervision-adapter-v1
+- write_lock_id: lock-5.2.0-adapter-006
+- benchmark_manifest: synthetic adapter lifecycle, freshness, cancellation, opaque-context and no-persistence fixtures v1
+- visual_baseline: not-applicable; no UI or Electron changes authorized
+- prerequisites:
+  - XJ-5.2.0-AGENT-CONTRACT-001, ROUTER-002, RUN-003, CONTEXT-004 and WORKFLOW-005 accepted by Codex intake
+- protected_file_hashes:
+  - app/js/agent-core.js: 00F758CE37702108AF4FF9BF48C294EDCB5BC32480B6DD6AD6DFD7F7235A5AD2
+  - app/js/clinical-context.js: 09536023837266F2D560CE8D2500A6EA6BE0A25C53F97CC1C781EB46A23C1B64
+  - app/js/store.js: 00473C3984B95429BE2E82AAD3C61369A2A1C2459CACA7C77CF84A66277504A7
+  - app/js/agent-tools.js: FBD7BBF2BCA95BA025420998AB96511BB517725028ECD2FA9998A7C80A644D2B
+  - app/js/clinical-agent-tasks.js: 3FFBD7A8FCB59A94F48EC08F324F321AABC914BC9B00DD5D5E4459E0456C0B18
+  - app/js/clinical-agent-router.js: 51D8AAC36800C6090D0C14307A326D2D611548CDC6954427548ADF80F97EFA99
+  - app/js/clinical-agent-run.js: 858D743C5A1B16730C966C26DEF334852BDAB964612EA11596CBD607C11A3D57
+  - app/js/clinical-agent-context-bridge.js: 55E67EBA7E0DD5629EE66FB8863A86DA2C6EFC7A79C518E4E2653925676F961B
+  - app/js/clinical-agent-workflow.js: 4DF115AE80921C28F09FFC6D1526F593F453F623189B707AAA4DE745CDA380A5
+  - package.json: B74E0AA8F9B645D06647096545A3C611C112EF217AABADEA407B1950D629FC72
+  - package-lock.json: FDB8D11766CE697211B6C21AEE91E488ECD8E12FEAFF725C568D62906156CB03
+- write_allowlist:
+  - app/js/clinical-agent-adapter.js (new file only)
+  - tests/v5.2.0/clinical-agent-adapter.contract.test.cjs (new file only)
+  - docs/delivery-reports/XJ-5.2.0-ADAPTER-006.md
+- forbidden:
+  - app/js/clinical-context.js
+  - app/js/supervision-core.js
+  - app/js/supervision.js
+  - app/js/store.js
+  - app/js/agent-core.js
+  - app/js/agent-tools.js
+  - app/js/clinical-agent-workflow.js
+  - app/js/clinical-agent-tasks.js
+  - app/js/clinical-agent-router.js
+  - app/js/clinical-agent-run.js
+  - app/js/clinical-agent-context-bridge.js
+  - package/version/build/signing/publish files and all existing tests/reports
+  - UI, Electron, DOM, network, real clinical data, external messages, commits, pushes, merges
+- required_public_api:
+  - withDependencies(deps)
+  - create(request)
+  - execute(state, options?)
+  - isAdapterState(value)
+  - project(value)
+- input_contract:
+  - create accepts an object with taskId=session-review, runId, snapshotKey, sources, inputText, and optional origin, selection, contextOptions.
+  - It calls injected context.build(taskId, selection, options) using the real ClinicalContext.build shape. The fixture must return ok=true, task, snapshot, sources, messages, origin and outputMode=preview-only.
+  - Context build errors, missing identity/snapshot/source metadata, unknown task, stale source markers, cross-client/session mismatch, and wrong output mode fail closed with stable reasons.
+- execution_contract:
+  - The injected context.isSnapshotCurrent(snapshot, inputText, selection) is called before and after execution, with its arguments behaviorally asserted.
+  - The only execution entry is injected executor(payload, meta); payload is a defensive copy of private context.messages and meta contains only runId/taskId/snapshotKey/outputDisposition/source summaries. Executor never receives Store, ClinicalContext, SupervisionCore, saveSupervision or persistence handles.
+  - Executor may return a string or plain object draft only. null, undefined, arrays, executor errors, stale-before/after and cancellation-before/mid/after return stable failed/stale/cancelled results; raw executor error messages must not leak.
+  - Successful execution returns a new state with status=draft-ready and outputDisposition=draft; draft appears only in execute's returned result. project(state) never includes draft or private context.
+  - Old state handles and terminal states cannot be executed again. Executor mutation of payload must not mutate private context; no await removal may allow early success.
+- forbidden_behavior:
+  - No Store/ClinicalContext global lookup, no AI call, no ClinicalContext.createActionRun, no SupervisionCore.saveSupervision, no file/network/external-send/persistence call, no public messages/material/supervision/body/content/prompt/rawText/modelInput.
+- acceptance_commands:
+  - node --test tests/v5.2.0/clinical-agent-adapter.contract.test.cjs
+  - node --check app/js/clinical-agent-adapter.js
+  - node --test tests/v5.2.0/clinical-agent-tasks.contract.test.cjs tests/v5.2.0/clinical-agent-router.contract.test.cjs tests/v5.2.0/clinical-agent-run.contract.test.cjs tests/v5.2.0/clinical-agent-context-bridge.contract.test.cjs tests/v5.2.0/clinical-agent-workflow.contract.test.cjs tests/v5.2.0/clinical-agent-adapter.contract.test.cjs
+  - node --check app/js/clinical-agent-tasks.js; node --check app/js/clinical-agent-router.js; node --check app/js/clinical-agent-run.js; node --check app/js/clinical-agent-context-bridge.js; node --check app/js/clinical-agent-workflow.js
+  - git diff --check -- app/js/clinical-agent-adapter.js tests/v5.2.0/clinical-agent-adapter.contract.test.cjs docs/agent-coordination/v5.2.0/tasks/XJ-5.2.0-ADAPTER-006.md docs/delivery-reports/XJ-5.2.0-ADAPTER-006.md
+  - Get-FileHash app/js/agent-core.js,app/js/clinical-context.js,app/js/store.js,app/js/agent-tools.js,app/js/clinical-agent-tasks.js,app/js/clinical-agent-router.js,app/js/clinical-agent-run.js,app/js/clinical-agent-context-bridge.js,app/js/clinical-agent-workflow.js,package.json,package-lock.json -Algorithm SHA256
+- required_tests:
+  - positive real-entry-shaped fixture creates and executes to draft-ready
+  - build failure, malformed context, stale-before, stale-after, cross-client/session, cancellation before/mid/after, executor throw, malformed draft and missing dependencies fail closed
+  - no-persistence spies remain unused; public projection/error has no sensitive fields
+  - payload mutation isolation, old-handle replay rejection, terminal replay rejection, async await behavior and UMD/clean Node loading
+- checkpoints:
+  - A: read AGENTS.md/card; confirm branch/base/protected hashes/allowlist and no second writer before edits
+  - B: report focused raw test output around 50 percent; do not broaden scope
+  - C: before delivery run every acceptance command, inspect real diff, recompute hashes, and complete adversarial self-review
+- rollback: remove only the new adapter source, focused test and delivery report; preserve evidence; never reset, clean or revert shared work
+- stop_conditions:
+  - any need to modify protected/shared runtime files or accepted contracts
+  - any need for UI/Electron/Store/AI/network/real data/persistence
+  - hash drift, second writer, allowlist drift, ambiguous draft/freshness semantics, or a failed test requiring weakened assertions
+- delivery_report: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-ADAPTER-006.md
+- acceptance_owner: /root
+- next_after_acceptance: only after independent Codex intake may create the next bounded 5.2.0 task; this card does not integrate runtime/UI or mark release-ready
+
+## Agent Instructions
+
+先读 AGENTS.md、本任务卡和 001–005 accepted reports/source/tests。Checkpoint A 未通过不得写入。你不是项目负责人；/root 保留架构、范围、集成和最终验收权。共享工作树中不得回滚或覆盖未知改动，不得创建提交。
+
+交付报告必须列出真实命令、退出码、范围/哈希核对、P0–P3、剩余风险、未授权动作，以及单独的“内部对抗审查”章节。必须主动尝试删除 await、替换 freshness、吞掉 executor error、注入 persist/saveSupervision spy、让 executor 改写 payload、重放旧句柄；任何攻击仍让测试通过都必须判定 FAIL/BLOCKED。报告最后一行严格使用：
+DELIVERY_REPORT: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-ADAPTER-006.md

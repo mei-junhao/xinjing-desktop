@@ -1,4 +1,121 @@
 /* 心镜 — AI 督导（单列上下流：材料 → 生成 → 结果流 → 追问 + 会员分层） */
+// 标准督导执行结果的唯一页面边界：桥接/执行器的异常只允许落成稳定、可重试的安全结果。
+var SupervisionOutcome = (function () {
+  'use strict';
+  var SAFE_REASONS = {
+    'ai-failed': true,
+    'ai-cancelled': true,
+    'cancelled': true,
+    'executor-failed': true,
+    'stale-before': true,
+    'stale-after': true,
+    'malformed-draft': true,
+    'lifecycle-failed': true,
+    'timeout': true,
+    'invalid-confirmed-state': true,
+    'invalid-state': true,
+    'bridge-unavailable': true,
+    'context-build-failed': true,
+    'confirmation-required': true,
+    'bridge-confirm-failed': true,
+  };
+  function reason(value, fallback) {
+    var candidate = value && typeof value.reason === 'string' ? value.reason : value;
+    return Object.prototype.hasOwnProperty.call(SAFE_REASONS, candidate) ? candidate : (fallback || 'executor-failed');
+  }
+  function failure(code) {
+    var safeCode = reason(code, 'executor-failed');
+    if (safeCode === 'ai-cancelled' || safeCode === 'cancelled' || safeCode === 'timeout') {
+      return { error: '本次生成已取消', code: 'ai-cancelled', interrupted: true, cancelled: true, contextSent: true };
+    }
+    return { error: '本次生成未完成，请重试。', code: safeCode };
+  }
+  function safeDraft(value) {
+    if (!value || value.ok !== true) return null;
+    var draft = value.draft;
+    if (typeof draft === 'string') return draft;
+    if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return null;
+    try { return JSON.stringify(draft); } catch (_) { return null; }
+  }
+  function execute(bridge, state, options) {
+    options = options || {};
+    return new Promise(function (resolve) {
+      var settled = false;
+      function finish(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      }
+      function cancelled() {
+        try { return !!(options && typeof options.isCancelled === 'function' && options.isCancelled()); } catch (_) { return true; }
+      }
+      try {
+        var executionOptions = Object.assign({}, options || {});
+        if (typeof options.onDelta === 'function') {
+          executionOptions.onDelta = function (piece, fullText) {
+            if (!cancelled()) options.onDelta(piece, fullText);
+          };
+        }
+        var pending = bridge.execute(state, executionOptions);
+        Promise.resolve(pending).then(function (value) {
+          try {
+            if (cancelled()) { finish(failure('ai-cancelled')); return; }
+            var draft = safeDraft(value);
+            if (!draft) { finish(failure(value && value.reason || 'malformed-draft')); return; }
+            finish({
+              ok: true,
+              content: draft,
+              tier: value.tier || '',
+              transportState: value.transportState || '',
+              fallback: value.fallback === true,
+              warning: value.warning || '',
+              requestedTier: value.requestedTier || '',
+              originalErrorCode: value.originalErrorCode || '',
+            });
+          } catch (_) {
+            finish(failure('executor-failed'));
+          }
+        }, function () {
+          finish(failure('executor-failed'));
+        });
+      } catch (_) {
+        finish(failure('executor-failed'));
+      }
+    });
+  }
+  function confirmAndExecute(bridge, prepared, confirm, options) {
+    return new Promise(function (resolve) {
+      var settled = false;
+      function finish(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      }
+      Promise.resolve().then(function () {
+        return confirm();
+      }).then(function (confirmed) {
+        if (!confirmed) { finish({ error: '用户已取消本次 AI 督导', cancelled: true }); return; }
+        var running;
+        try { running = bridge.confirm(prepared, { confirmed: true }); } catch (_) { finish({ error: '确认失败，请重试。', code: 'bridge-confirm-failed' }); return; }
+        if (!running || running.ok !== true) { finish({ error: '无法确认材料归属', code: 'confirmation-required' }); return; }
+        execute(bridge, running, options).then(finish, function () { finish(failure('executor-failed')); });
+      }, function () {
+        finish({ error: '确认失败，请重试。', code: 'bridge-confirm-failed' });
+      });
+    });
+  }
+  async function runAttempt(run, onFailure, onFinally) {
+    try {
+      return await run();
+    } catch (_) {
+      try { if (typeof onFailure === 'function') onFailure(); } catch (_) {}
+    } finally {
+      try { if (typeof onFinally === 'function') onFinally(); } catch (_) {}
+    }
+  }
+  return Object.freeze({ execute: execute, confirmAndExecute: confirmAndExecute, runAttempt: runAttempt, failure: failure });
+}());
+
 App.initPage({
   title: 'AI 督导',
   onReady: function () {
@@ -1141,28 +1258,30 @@ App.initPage({
 
     function callAI(msgs, signal, onDelta) {
       return new Promise(function (resolve) {
-        if (typeof AI === 'undefined' || !AI.send) { resolve({ error: 'AI 模块未就绪' }); return; }
+        var settled = false;
+        function finish(value) {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        }
+        if (typeof ClinicalAgentProductionBridge === 'undefined' || typeof ClinicalAgentWorkflow === 'undefined') { finish({ error: '督导桥接未就绪', code: 'bridge-unavailable' }); return; }
         var input = materialTA ? materialTA.value.trim() : '';
         var finalMessage = msgs[msgs.length - 1] || {};
-        var context = ClinicalContext.build('supervision-ai', { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId }, { system: (msgs[0] && msgs[0].content) || '', inputText: input, instruction: finalMessage.content || '', history: msgs.slice(1, -1) });
-        if (!context.ok) { resolve({ error: '当前上下文无效，请检查材料或关联信息' }); return; }
-        if (ClinicalContextView) ClinicalContextView.renderSummary(document.getElementById('sup-context-host') || document.body, context);
-        // XJ519-Z4：上下文确认改为异步 DOM 确认，不再使用 window.confirm 同步阻塞。
-        confirmContextSendAsync(context).then(function (confirmed) {
-          if (!confirmed) { resolve({ error: '用户已取消本次 AI 督导', cancelled: true }); return; }
-          var run = ClinicalContext.createActionRun(context);
-          if (!run) { resolve({ error: '无法确认材料归属' }); return; }
-          AI.send(context.messages, function (res) {
-            var currentInput = materialTA ? materialTA.value.trim() : '';
-            if (!ClinicalContext.isSnapshotCurrent(context.snapshot, currentInput, { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId })) { ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); resolve({ error: '上下文已变更，旧结果未采用' }); return; }
-            if (res && res.content && !res.error) {
-              ClinicalContext.completeActionRun(run.id, { kind: 'supervision-preview', summary: res.content, citations: [] });
-              // DEC-02 ①②：兜底成功也要把降级事实与实际档位带到页面与后续归档。
-              resolve(Object.assign({ content: res.content }, degradationOf(res)));
-            }
-            else { ClinicalContext.failActionRun(run.id, (res && res.error) || '无响应'); resolve({ error: (res && res.error) || '无响应', code: res && res.code, errorCode: res && res.errorCode, interrupted: !!(res && res.interrupted) }); }
-          }, lengthOptions({ signal: signal, onDelta: onDelta }));
-        });
+        var request = { text: '生成整体印象', runId: 'sup-' + Date.now() + '-' + Math.random().toString(36).slice(2), snapshotKey: '', inputText: input, selection: { clientId: currentClientId, sessionId: currentSessionId, materialId: materialId }, contextOptions: { system: (msgs[0] && msgs[0].content) || '', inputText: input, instruction: finalMessage.content || '', history: msgs.slice(1, -1) }, sources: [] };
+        var bridge;
+        try { bridge = ClinicalAgentProductionBridge.fromGlobals({ workflow: ClinicalAgentWorkflow, ClinicalContext: ClinicalContext, AI: AI, timeoutMs: 60000 }); } catch (_) { finish({ error: '督导桥接未就绪', code: 'bridge-unavailable' }); return; }
+        var preparedContext;
+        try { preparedContext = bridge.prepareContext ? bridge.prepareContext({ taskId: 'supervision-preview', runId: request.runId, snapshotKey: 'pending', inputText: input, selection: request.selection, contextOptions: request.contextOptions, sources: request.sources, origin: request.selection }) : null; } catch (_) { finish({ error: '当前上下文无效，请检查材料或关联信息', code: 'context-build-failed' }); return; }
+        if (!preparedContext || preparedContext.ok !== true) { finish({ error: '当前上下文无效，请检查材料或关联信息', code: 'context-build-failed' }); return; }
+        request.snapshotKey = preparedContext.snapshotKey;
+        request.sources = Array.isArray(preparedContext.sources) ? preparedContext.sources.map(function (source) { return { kind: source.kind, id: source.id, label: source.label, chars: source.chars, truncated: source.truncated, clientId: source.clientId, sessionId: source.sessionId }; }) : [];
+        if (ClinicalContextView && preparedContext) ClinicalContextView.renderSummary(document.getElementById('sup-context-host') || document.body, { ok: true, snapshot: { key: preparedContext.snapshotKey }, sources: preparedContext.sources });
+        var prepared;
+        try { prepared = bridge.prepare(request, preparedContext); } catch (_) { finish({ error: '当前上下文无效，请检查材料或关联信息', code: 'context-build-failed' }); return; }
+        if (!prepared || prepared.ok !== true) { finish({ error: '当前上下文无效，请检查材料或关联信息', code: 'context-build-failed' }); return; }
+        SupervisionOutcome.confirmAndExecute(bridge, prepared, function () {
+          return confirmContextSendAsync(Object.assign({}, prepared, { sources: request.sources, estimatedChars: preparedContext.estimatedChars }));
+        }, { signal: signal, onDelta: onDelta, isCancelled: function () { return !!(signal && signal.aborted); } }).then(finish, function () { finish({ error: '本次生成未完成，请重试。', code: 'executor-failed' }); });
       });
     }
 
@@ -1252,7 +1371,7 @@ App.initPage({
         });
         block.querySelector('.ab-head').appendChild(cancelBtn);
       }
-      try {
+      await SupervisionOutcome.runAttempt(async function () {
         var msgs = buildMessages(text, isImpression);
         var r = await callAI(msgs, controller ? controller.signal : null, function (piece, fullText) {
           streamInto(block, fullText || piece || '');
@@ -1261,7 +1380,7 @@ App.initPage({
         var cancelBtn2 = block.querySelector('[data-sup-cancel]');
         if (cancelBtn2) cancelBtn2.remove();
         if (r && r.cancelled) {
-          setCancelledResult(block, '已取消本次 AI 督导（上下文未发送）。');
+          setCancelledResult(block, r.contextSent ? '已取消生成。' : '已取消本次 AI 督导（上下文未发送）。');
         } else if (r && r.code === 'ABORT_ERR') {
           setCancelledResult(block, '已取消生成。');
         } else if (r && !r.error) {
@@ -1285,15 +1404,19 @@ App.initPage({
             if (askEl) { askEl.hidden = false; input.focus(); }
           }
         } else {
-          failResult(block, '生成失败：' + ((r && r.error) || '未知错误') + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
+          var errorCode = SupervisionOutcome.failure(r && r.code).code;
+          failResult(block, '生成失败：' + ((r && r.error) || '本次生成未完成，请重试。') + '（' + errorCode + '）。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
         }
-      } catch (e) {
+      }, function () {
         var cancelBtn3 = block.querySelector('[data-sup-cancel]');
         if (cancelBtn3) cancelBtn3.remove();
-        failResult(block, '执行异常：' + ((e && e.message) || '未知错误') + '。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
-      }
-      activeSupervisionController = null;
-      busy = false;
+        failResult(block, '执行异常：本次生成未完成。可重试，或检查当前模型配置。', { text: text, isImpression: !!isImpression });
+      }, function () {
+        var cancelBtn4 = block.querySelector('[data-sup-cancel]');
+        if (cancelBtn4) cancelBtn4.remove();
+        activeSupervisionController = null;
+        busy = false;
+      });
     }
 
     window.saveSup = async function () {

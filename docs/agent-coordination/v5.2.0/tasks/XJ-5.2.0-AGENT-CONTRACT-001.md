@@ -1,0 +1,76 @@
+# Task Card: XJ-5.2.0-AGENT-CONTRACT-001
+
+- task_id: XJ-5.2.0-AGENT-CONTRACT-001
+- contract_id: xj-5.2.0-clinical-agent-task-contract-v1
+- write_lock_id: lock-5.2.0-agent-contract-001
+- base_commit: eb16e2b74e6ab919a782b8bc6f66bfe9524431f2
+- active_release_train: 5.2.0 implementation (first work package; not release-ready)
+- config_evidence_id: cfg-5.2.0-20261004-agent-contract-baseline
+- agent_profile_id: gpt-6.1-sol-low
+- benchmark_manifest: synthetic clinical-agent task/effect fixtures v1
+- visual_baseline: none; no UI changes authorized
+- protected_file_hashes:
+  - app/js/agent-core.js: 00F758CE37702108AF4FF9BF48C294EDCB5BC32480B6DD6AD6DFD7F7235A5AD2
+  - app/js/clinical-context.js: 09536023837266F2D560CE8D2500A6EA6BE0A25C53F97CC1C781EB46A23C1B64
+  - app/js/store.js: 00473C3984B95429BE2E82AAD3C61369A2A1C2459CACA7C77CF84A66277504A7
+  - app/js/agent-tools.js: FBD7BBF2BCA95BA025420998AB96511BB517725028ECD2FA9998A7C80A644D2B
+  - package.json: B74E0AA8F9B645D06647096545A3C611C112EF217AABADEA407B1950D629FC72
+  - package-lock.json: FDB8D11766CE697211B6C21AEE91E488ECD8E12FEAFF725C568D62906156CB03
+- allowlist:
+  - app/js/clinical-agent-tasks.js (new file only)
+  - tests/v5.2.0/clinical-agent-tasks.contract.test.cjs (new file only)
+  - docs/delivery-reports/XJ-5.2.0-AGENT-CONTRACT-001.md
+- forbidden:
+  - app/js/agent-core.js
+  - app/js/agent-tools.js
+  - app/js/clinical-context.js
+  - app/js/store.js
+  - app/js/app.js
+  - app/js/ai.js
+  - all package/version/build/signing/publish files
+  - existing tests and existing reports
+  - real clinical data, external messages, network writes, commits, pushes, merges
+- objective:
+  - Add a standalone, dependency-light contract registry for bounded clinical Agent workflows.
+  - Define the first six supervision-oriented task IDs, required context/source kinds, output disposition, confirmation boundary, and effect taxonomy.
+  - Expose pure validation/projection functions usable by a later router without changing existing runtime behavior.
+- required task IDs:
+  - countertransference-analysis
+  - session-review
+  - case-conceptualization
+  - next-session-hypotheses
+  - supervision-question-builder
+  - multi-school-comparison
+- required effect taxonomy:
+  - read
+  - retrieve-sensitive
+  - draft
+  - durable-write
+  - export
+  - external-send
+  - destructive
+  - config
+- acceptance:
+  - Module loads in a clean Node VM without Electron, DOM, Store, or network dependencies.
+  - Unknown task/effect is rejected; task definitions are immutable from the public API.
+  - Every task is preview/draft-first and requires human confirmation before durable-write.
+  - Cross-client source mismatch, missing required source, stale snapshot marker, and invalid output disposition are rejected.
+  - Projection exposes task ID, risk/effect, source requirements, output sections, and confirmation boundary without clinical body text.
+  - Focused contract tests cover positive, negative, malformed, and mutation-sensitive cases.
+  - No protected-file hash changes and no existing behavior changes.
+- verification_commands:
+  - node --test tests/v5.2.0/clinical-agent-tasks.contract.test.cjs
+  - node --check app/js/clinical-agent-tasks.js
+  - git diff --check -- app/js/clinical-agent-tasks.js tests/v5.2.0/clinical-agent-tasks.contract.test.cjs docs/agent-coordination/v5.2.0/tasks/XJ-5.2.0-AGENT-CONTRACT-001.md
+  - Get-FileHash app/js/agent-core.js,app/js/clinical-context.js,app/js/store.js,app/js/agent-tools.js,package.json,package-lock.json -Algorithm SHA256
+- rollback: remove only the two newly added source/test files and this task report after Codex intake; never reset or clean the shared worktree
+- stop_conditions:
+  - Any need to change a protected/shared runtime file or public durable API
+  - Any ambiguity about output semantics that cannot be resolved from the approved contract
+  - Any test requiring real clinical data, network access, or Electron launch
+  - Any hash drift or second writer on the allowlist
+- lifecycle:
+  - received -> running -> delivered/rejected
+- delivery_report: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-AGENT-CONTRACT-001.md
+- acceptance_owner: /root
+- next_after_acceptance: create XJ-5.2.0-ROUTER-002 only after this card passes independent intake; no automatic scope expansion

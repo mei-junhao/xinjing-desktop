@@ -1,0 +1,75 @@
+# Task Card: XJ-5.2.0-ADAPTER-006-ESCALATION-007
+
+- task_id: XJ-5.2.0-ADAPTER-006-ESCALATION-007
+- objective: Repair the two remaining Codex-intake gaps in the 006 adapter candidate after three bounded attempts: bind request source metadata to the exact built source set, and preserve stable stale-snapshot semantics for request-side stale markers. This is an escalation takeover, not a re-dispatch of the same task.
+- owner: gpt-6.1-sol-low
+- manager: codex (/root)
+- project_root: D:/xinjing-electron
+- branch_or_worktree: release/3.6.3-mac; shared worktree; do not switch branches or create commits
+- base_commit: eb16e2b74e6ab919a782b8bc6f66bfe9524431f2
+- active_release_train: 5.2.0 implementation; escalation after ADAPTER-006 intake rejection; not release-ready
+- config_evidence_id: cfg-5.2.0-20261005-adapter-006-escalation-007
+- agent_profile_id: gpt-6.1-sol-low
+- contract_id: xj-5.2.0-clinical-context-supervision-adapter-intake-repair-v2
+- write_lock_id: lock-5.2.0-adapter-006-escalation-007
+- prior_attempts: three same-card implementation/intake attempts; remaining gaps and evidence are recorded in docs/delivery-reports/XJ-5.2.0-ADAPTER-006.md
+- benchmark_manifest: synthetic source-binding and stale-reason regression fixtures v1
+- visual_baseline: not-applicable; no UI or Electron changes authorized
+- prerequisites:
+  - XJ-5.2.0-ADAPTER-006 candidate exists but is not accepted
+  - prior 001-005 contracts remain accepted and protected
+- protected_file_hashes:
+  - app/js/agent-core.js: 00F758CE37702108AF4FF9BF48C294EDCB5BC32480B6DD6AD6DFD7F7235A5AD2
+  - app/js/clinical-context.js: 09536023837266F2D560CE8D2500A6EA6BE0A25C53F97CC1C781EB46A23C1B64
+  - app/js/store.js: 00473C3984B95429BE2E82AAD3C61369A2A1C2459CACA7C77CF84A66277504A7
+  - app/js/agent-tools.js: FBD7BBF2BCA95BA025420998AB96511BB517725028ECD2FA9998A7C80A644D2B
+  - app/js/clinical-agent-tasks.js: 3FFBD7A8FCB59A94F48EC08F324F321AABC914BC9B00DD5D5E4459E0456C0B18
+  - app/js/clinical-agent-router.js: 51D8AAC36800C6090D0C14307A326D2D611548CDC6954427548ADF80F97EFA99
+  - app/js/clinical-agent-run.js: 858D743C5A1B16730C966C26DEF334852BDAB964612EA11596CBD607C11A3D57
+  - app/js/clinical-agent-context-bridge.js: 55E67EBA7E0DD5629EE66FB8863A86DA2C6EFC7A79C518E4E2653925676F961B
+  - app/js/clinical-agent-workflow.js: 4DF115AE80921C28F09FFC6D1526F593F453F623189B707AAA4DE745CDA380A5
+  - package.json: B74E0AA8F9B645D06647096545A3C611C112EF217AABADEA407B1950D629FC72
+  - package-lock.json: FDB8D11766CE697211B6C21AEE91E488ECD8E12FEAFF725C568D62906156CB03
+- write_allowlist:
+  - app/js/clinical-agent-adapter.js (modify existing 006 candidate only)
+  - tests/v5.2.0/clinical-agent-adapter.contract.test.cjs (modify existing 006 candidate only)
+  - docs/delivery-reports/XJ-5.2.0-ADAPTER-006-ESCALATION-007.md (new escalation report)
+- forbidden:
+  - original 006 task card and original 006 report (read-only; preserve failure evidence)
+  - all runtime/UI/Store/AI/Electron/network/persistence files
+  - all accepted 001-005 modules/tests/reports, package/version/build/release files
+  - commits, pushes, merges, real clinical data and external messages
+- required_repairs:
+  - request.sources must be a non-empty, unique metadata set and every request source kind/id must match exactly one built source kind/id; request-side source substitution must fail closed with stable source-mismatch.
+  - request-side stale/isStale/status=stale markers must return stable stale-snapshot, not malformed-request. Built-side stale markers must retain stale-snapshot.
+  - If request.origin and built.origin both provide clientId/sessionId, they must agree; built source identities must agree with the effective origin and request source identities when present. Conflicts fail with cross-client-source-mismatch or cross-session-source-mismatch.
+  - Preserve real ClinicalContext shape (snapshot.key), opaque context, freshness before/after, cancellation, payload isolation, plain-object draft validation, and metadata-only projection already covered by 006.
+- required_behavior_tests:
+  - request source id differs from built source id -> source-mismatch and executor is never callable.
+  - request source kind differs from built source kind -> source-mismatch.
+  - request source list is missing/duplicate/malformed -> invalid-context; request source stale/isStale/status=stale -> stale-snapshot.
+  - request.origin differs from built.origin -> stable client/session mismatch.
+  - matching source set and origins remains positive draft-ready.
+  - keep all prior 006 tests and full 001-005 regression tests green.
+- acceptance_commands:
+  - node --test tests/v5.2.0/clinical-agent-adapter.contract.test.cjs
+  - node --test tests/v5.2.0/clinical-agent-tasks.contract.test.cjs tests/v5.2.0/clinical-agent-router.contract.test.cjs tests/v5.2.0/clinical-agent-run.contract.test.cjs tests/v5.2.0/clinical-agent-context-bridge.contract.test.cjs tests/v5.2.0/clinical-agent-workflow.contract.test.cjs tests/v5.2.0/clinical-agent-adapter.contract.test.cjs
+  - node --check app/js/clinical-agent-adapter.js; node --check app/js/clinical-agent-tasks.js; node --check app/js/clinical-agent-router.js; node --check app/js/clinical-agent-run.js; node --check app/js/clinical-agent-context-bridge.js; node --check app/js/clinical-agent-workflow.js
+  - git diff --check -- app/js/clinical-agent-adapter.js tests/v5.2.0/clinical-agent-adapter.contract.test.cjs docs/agent-coordination/v5.2.0/tasks/XJ-5.2.0-ADAPTER-006-ESCALATION-007.md docs/delivery-reports/XJ-5.2.0-ADAPTER-006-ESCALATION-007.md
+  - Get-FileHash app/js/agent-core.js,app/js/clinical-context.js,app/js/store.js,app/js/agent-tools.js,app/js/clinical-agent-tasks.js,app/js/clinical-agent-router.js,app/js/clinical-agent-run.js,app/js/clinical-agent-context-bridge.js,app/js/clinical-agent-workflow.js,package.json,package-lock.json -Algorithm SHA256
+- checkpoints:
+  - A: read this card, AGENTS.md, current 006 candidate and failure report; confirm no other active writer
+  - B: focused repair tests pass with raw output before broad regression
+  - C: full regression, hashes, diff and adversarial self-review complete before delivery
+- required_adversarial_review:
+  - remove request/built source-set comparison; stale marker becomes malformed; skip origin reconciliation; bypass executor-never-called-on-admission-failure; expose raw error or persistence handle; remove await/freshness checks. Any surviving green mutation is FAIL/BLOCKED.
+- rollback: revert only the two modified 006 candidate files and remove only this escalation report; preserve original 006 report and all evidence; never reset/clean shared worktree
+- stop_conditions:
+  - any new contract ambiguity, protected-file drift, second writer, need for runtime integration, or a third-party/real-data action
+- delivery_report: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-ADAPTER-006-ESCALATION-007.md
+- acceptance_owner: /root
+
+## Agent Instructions
+
+This is the Codex escalation takeover after three same-card attempts. Do not broaden scope or reinterpret the contract. Modify only the two existing 006 candidate files plus the new escalation report. Do not edit the original 006 card/report. Report actual commands, exits, hashes, diff, P0-P3, prior failure evidence, and a separate internal adversarial review. Last line must be exactly:
+DELIVERY_REPORT: D:/xinjing-electron/docs/delivery-reports/XJ-5.2.0-ADAPTER-006-ESCALATION-007.md

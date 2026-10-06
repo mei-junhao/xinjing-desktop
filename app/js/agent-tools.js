@@ -52,25 +52,53 @@
   }
 
   // ---------- 失败响应投影（F5-D2 / 卡片 §7.4） ----------
-  // 工具层过去把下层失败写成 { ok:false, error:'…' } 一句话，显式吞掉了 provider /
-  // 核心返回的 errorCode 与结构化字段（失败段号、超限字符数等），调用方无法分流。
-  // 这里原样携带 errorCode / code / stage / failedSegments / totalSegments / 预算字段，
-  // 只做补齐不做改写：error 文案保持下层原值。
+  // 保留受限的机器诊断字段，同时隔离提供商与存储层错误原文。
+  const SAFE_FAILURE_CODES = [
+    'ABORTED', 'AI_UNAVAILABLE', 'ARCHIVE_INCOMPLETE', 'DURABLE_SAVE_FAILED', 'EMPTY_RESPONSE',
+    'INVALID_PROMPT', 'INVALID_SCHOOL_SELECTION', 'LEAD_ROUTE_FAILED', 'LEAD_ROUTE_INVALID',
+    'LEAD_SYNTHESIS_FAILED', 'MATERIAL_REQUIRED', 'MATERIAL_TOO_LONG', 'MODE_REQUIRED',
+    'PARTIAL_SUMMARY', 'PROMPT_GOVERNANCE_REJECTED', 'PROVIDER_REJECTED', 'PROVIDER_THROWN',
+    'STAGE_BUDGET_EXCEEDED', 'STAGE_TIMEOUT', 'STORE_UNAVAILABLE',
+    'aborted', 'account_session_required', 'auth', 'empty_response', 'network', 'provider_http', 'rate_limit'
+  ];
+  const SAFE_FAILURE_CODES_LIST = SAFE_FAILURE_CODES.concat(['ABORT_ERR', 'XJ_AI_ACCOUNT_SESSION_REQUIRED', 'XJ_AI_INPUT_BUDGET_EXCEEDED']);
+  const SAFE_FAILURE_STAGES = ['archive', 'preprocess', 'request', 'route', 'school', 'synthesis'];
+  const SAFE_TRANSPORT_STATES = ['manual-only', 'primary-empty', 'primary-ready'];
+
+  function safeFailureCode(value) {
+    return typeof value === 'string' && SAFE_FAILURE_CODES_LIST.indexOf(value) >= 0 ? value : '';
+  }
+
+  function safeDiagnosticCount(value) {
+    return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+      ? value
+      : null;
+  }
+
   function toolFailure(result, fallbackText) {
     const src = (result && typeof result === 'object') ? result : {};
-    const out = { ok: false };
-    if (typeof src.error === 'string' && src.error) out.error = src.error;
-    else if (src.error && typeof src.error.message === 'string' && src.error.message) out.error = src.error.message;
-    else out.error = fallbackText || '调用失败';
-    if (src.errorCode) out.errorCode = src.errorCode;
-    if (src.code) out.code = src.code;
-    if (src.stage) out.stage = src.stage;
-    if (Array.isArray(src.failedSegments)) out.failedSegments = src.failedSegments.slice();
-    if (typeof src.totalSegments === 'number') out.totalSegments = src.totalSegments;
-    if (typeof src.totalChars === 'number') out.totalChars = src.totalChars;
-    if (typeof src.limitChars === 'number') out.limitChars = src.limitChars;
+    const out = { ok: false, error: fallbackText || '调用失败' };
+    const errorCode = safeFailureCode(src.errorCode);
+    const code = safeFailureCode(src.code);
+    const stage = typeof src.stage === 'string' && SAFE_FAILURE_STAGES.indexOf(src.stage) >= 0 ? src.stage : '';
+    const transportState = typeof src.transportState === 'string' && SAFE_TRANSPORT_STATES.indexOf(src.transportState) >= 0 ? src.transportState : '';
+    if (errorCode) out.errorCode = errorCode;
+    if (code) out.code = code;
+    if (stage) out.stage = stage;
+    if (Array.isArray(src.failedSegments)) {
+      const failedSegments = src.failedSegments
+        .filter(function (value) { return Number.isSafeInteger(value) && value > 0; })
+        .slice(0, 100);
+      if (failedSegments.length) out.failedSegments = failedSegments;
+    }
+    const totalSegments = safeDiagnosticCount(src.totalSegments);
+    const totalChars = safeDiagnosticCount(src.totalChars);
+    const limitChars = safeDiagnosticCount(src.limitChars);
+    if (totalSegments !== null) out.totalSegments = totalSegments;
+    if (totalChars !== null) out.totalChars = totalChars;
+    if (limitChars !== null) out.limitChars = limitChars;
     if (typeof src.truncated === 'boolean') out.truncated = src.truncated;
-    if (typeof src.transportState === 'string') out.transportState = src.transportState;
+    if (transportState) out.transportState = transportState;
     return out;
   }
 
@@ -293,7 +321,7 @@
           if (!createdClient || !createdClient.ok) { results.push({ skipped: true, reason: '来访者「' + resolved.clientName + '」新建失败' }); continue; }
           clientId = createdClient.value.id;
           createdCount++;
-        } catch (e) { results.push({ skipped: true, reason: '来访者「' + resolved.clientName + '」新建失败：' + e.message }); continue; }
+        } catch (e) { results.push({ skipped: true, reason: '来访者「' + resolved.clientName + '」新建失败' }); continue; }
       }
       // 2. 写前查重：复用 [billing:KEY] tag 惯例，细化为 [billing:clientId:date:fee]
       //    现有 includes('[billing:') 子串匹配（billing-shell.html L437）仍命中新 tag
@@ -317,10 +345,10 @@
       };
       try {
         const created = await Store.createSessionDurable(session);
-        if (!created || !created.ok) { results.push({ skipped: true, reason: '落库失败：' + (created && created.error && created.error.message || '持久化失败'), tag: tag }); continue; }
+        if (!created || !created.ok) { results.push({ skipped: true, reason: '落库失败：持久化失败', tag: tag }); continue; }
         results.push({ ok: true, clientId: clientId, sessionId: created.value && created.value.id, date: r.date, fee: r.fee, paid: !!r.paid, tag: tag });
       } catch (e) {
-        results.push({ skipped: true, reason: '落库失败：' + e.message, tag: tag });
+        results.push({ skipped: true, reason: '落库失败：持久化失败', tag: tag });
       }
     }
     const added = results.filter(function (x) { return x.ok; }).length;
@@ -385,10 +413,10 @@
       });
       try {
         const saved = await Store.updateClientDurable(clientId, { billing: billingMerged });
-        if (!saved || !saved.ok) return { ok: false, error: '月结追加落库失败：' + (saved && saved.error && saved.error.message || '持久化失败') };
+        if (!saved || !saved.ok) return { ok: false, error: '月结追加落库失败' };
         return sanitizeResult({ ok: true, data: { clientId: clientId, month: args.month, amount: dup.amount, previousAmount: existingAmount, appended: true, followups: computeFollowups(clientId) } });
       } catch (e) {
-        return { ok: false, error: '月结追加落库失败：' + e.message };
+        return { ok: false, error: '月结追加落库失败' };
       }
     }
     const billing = Object.assign({}, client.billing || {}, {
@@ -396,10 +424,10 @@
     });
     try {
       const saved = await Store.updateClientDurable(clientId, { billing: billing });
-      if (!saved || !saved.ok) return { ok: false, error: '月结落库失败：' + (saved && saved.error && saved.error.message || '持久化失败') };
+      if (!saved || !saved.ok) return { ok: false, error: '月结落库失败' };
       return sanitizeResult({ ok: true, data: { clientId: clientId, month: args.month, amount: args.amount, followups: computeFollowups(clientId) } });
     } catch (e) {
-      return { ok: false, error: '月结落库失败：' + e.message };
+      return { ok: false, error: '月结落库失败' };
     }
   }
 
@@ -610,10 +638,10 @@
     if (!updatedKeys.length) return { ok: false, error: 'patch 无可识别字段（仅允许 name/phone/email/note/tags）' };
     try {
       const saved = await Store.updateClientDurable(args.clientId, safePatch);
-      if (!saved || !saved.ok) return { ok: false, error: '更新失败：' + (saved && saved.error && saved.error.message || '持久化失败') };
+      if (!saved || !saved.ok) return { ok: false, error: '更新失败' };
       return sanitizeResult({ ok: true, data: { clientId: args.clientId, updated: updatedKeys } });
     } catch (e) {
-      return { ok: false, error: '更新失败：' + e.message };
+      return toolFailure(e, '更新失败');
     }
   }
 
@@ -956,7 +984,7 @@
     }
     try {
       var result = await SupervisionCore.runImpression(args.supervisorName, args.material);
-      if (result.error) return toolFailure(result, '督导启动失败');
+      if (result && result.error) return toolFailure(result, '督导启动失败');
       var chatMessages = result.chatMessages;
       if (!chatMessages || chatMessages.length < 2) {
         return { ok: false, error: '整体印象生成失败：返回消息不完整' };
@@ -982,7 +1010,7 @@
         data: { sessionId: sv.id, impression: chatMessages[1].content, clientId: clientId, followups: clientId ? computeFollowups(clientId) : [] }
       });
     } catch (e) {
-      return { ok: false, error: '\u7763\u5bfc\u542f\u52a8\u5931\u8d25\uff1a' + (e && e.message || e) };
+      return toolFailure(e, '督导启动失败');
     }
   }
 
@@ -1040,12 +1068,12 @@
         if (!saved || !saved.ok) return { ok: false, error: '\u7763\u5bfc\u8ffd\u95ee\u7ed3\u679c\u4fdd\u5b58\u5931\u8d25' };
       } catch (e) {
         if (typeof console !== 'undefined' && console.warn) {
-          console.warn('[Agent] supervision.ask \u9644\u52a0\u5b58\u50a8\u672a\u4fdd\u5b58:', e && e.message || e);
+          console.warn('[Agent] supervision.ask 附加存储未保存');
         }
       }
       return sanitizeResult({ ok: true, data: { sessionId: args.sessionId, reply: result.reply } });
     } catch (e) {
-      return { ok: false, error: '\u7763\u5bfc\u8ffd\u95ee\u5931\u8d25\uff1a' + (e && e.message || e) };
+      return toolFailure(e, '督导追问失败');
     }
   }
 
@@ -1128,7 +1156,7 @@
         data: { sessionId: conv.id, masterName: conv.title, firstReply: firstReply }
       });
     } catch (e) {
-      return { ok: false, error: '\u5927\u5e08\u5bf9\u8bdd\u5f00\u542f\u5931\u8d25\uff1a' + (e && e.message || e) };
+      return toolFailure(e, '大师对话开启失败');
     }
   }
 
@@ -1179,7 +1207,7 @@
       masterConvs.set(args.sessionId, conv);
       return sanitizeResult({ ok: true, data: { sessionId: args.sessionId, reply: res.content } });
     } catch (e) {
-      return { ok: false, error: '\u5927\u5e08\u6d88\u606f\u53d1\u9001\u5931\u8d25\uff1a' + (e && e.message || e) };
+      return toolFailure(e, '大师消息发送失败');
     }
   }
 
@@ -1550,7 +1578,7 @@
         const t = TOOL_REGISTRY[name];
         if (!t) return { ok: false, error: '未知工具：' + name };
         try { return await t.handler(args || {}); }
-        catch (e) { return { ok: false, error: e.message }; }
+        catch (e) { return { ok: false, error: '工具执行失败' }; }
       }
     };
   }
