@@ -2671,9 +2671,9 @@ const Store = (() => {
   // 临床动作溯源：只保存受控 ID、版本和长度信息，绝不复制临床正文或路径。
   // 任务白名单必须与 js/clinical-context.js 的 TASKS 同源；漏登记会让该任务的动作记录
   // 在 normalize 阶段被丢弃，页面表现为「无法确认材料归属」且核心从不被调用。
-  const ACTION_TASKS = new Set(['transcript-ai-detect', 'report-ai-fill', 'supervision-ai', 'supervision-multi-school', 'real-supervision-ai-organize', 'real-supervision-ai-record-analyze', 'growth-summary']);
+  const ACTION_TASKS = new Set(['transcript-ai-detect', 'report-ai-fill', 'supervision-ai', 'supervision-multi-school', 'countertransference-analysis', 'session-review', 'case-conceptualization', 'next-session-hypotheses', 'supervision-question-builder', 'multi-school-comparison', 'supervision-preview', 'real-supervision-ai-organize', 'real-supervision-ai-record-analyze', 'growth-summary']);
   // 无临床对象可绑的督导任务：与 clinical-context.js :: validateSources 的无来源放行分支一一对应。
-  const UNBOUND_SUPERVISION_TASKS = new Set(['supervision-ai', 'supervision-multi-school']);
+  const UNBOUND_SUPERVISION_TASKS = new Set(['supervision-ai', 'supervision-multi-school', 'supervision-question-builder', 'supervision-preview', 'multi-school-comparison']);
   const ACTION_STATUSES = new Set(['pending', 'succeeded', 'failed', 'stale', 'cancelled']);
   const SOURCE_KINDS = new Set(['client', 'session', 'material', 'supervision', 'userdocs']);
   function normalizeClinicalActionRun(value) {

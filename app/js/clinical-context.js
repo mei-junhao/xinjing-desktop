@@ -33,6 +33,10 @@
     // 督导不强制锚定某一节会谈：允许「已绑来访者但该来访者还没有会谈记录」正常生成。
     // 逐来源的 kind/哈希/版本/状态与来访者一致性校验全部保留，只是不再要求必须有 session 来源。
     'supervision-ai': taskSpec('supervision-ai', 'ai-supervise', 'AI 督导', ['client', 'session', 'material', 'supervision'], [], 24000, 6000, 'supervision-preview', 'fixture-supervision-ai-v1'),
+    'countertransference-analysis': taskSpec('countertransference-analysis', 'ai-supervise', '反移情分析', ['session', 'supervision'], ['session'], 22000, 5500, 'countertransference-analysis', 'fixture-countertransference-analysis-v1'),
+    'session-review': taskSpec('session-review', 'ai-supervise', '会谈复盘', ['session', 'material'], ['session'], 22000, 5500, 'session-review', 'fixture-session-review-v1'),
+    'case-conceptualization': taskSpec('case-conceptualization', 'ai-supervise', '个案概念化', ['client', 'session', 'material'], ['client'], 24000, 6000, 'case-conceptualization', 'fixture-case-conceptualization-v1'),
+    'next-session-hypotheses': taskSpec('next-session-hypotheses', 'ai-supervise', '下次会谈假设', ['client', 'session', 'material'], ['session'], 24000, 6000, 'next-session-hypotheses', 'fixture-next-session-hypotheses-v1'),
     // 多学派督导：权益与页面门禁一致走 ai-masters；outputKind 必须与 supervision.js completeActionRun 传入的 kind 相同
     'supervision-multi-school': taskSpec('supervision-multi-school', 'ai-masters', '多学派督导', ['client', 'session', 'material', 'supervision'], [], 24000, 6000, 'supervision-multi-school', 'fixture-supervision-multi-school-v1'),
     'growth-summary': taskSpec('growth-summary', 'ai-growth', 'AI 成长摘要', ['material'], ['material'], 26400, 6600, 'growth-summary-preview', 'fixture-growth-summary-v1'),

@@ -10,19 +10,19 @@ test('positive lifecycle reaches draft-ready and does not persist', async () => 
   const r = await workflow.execute(c, { getExecutionPayload: async () => ({ runId: 'run-1', snapshotKey: 'snap-1', metadata: 'only' }), isFresh: () => true, executeDraft: async () => { calls++; return { summary: 'draft' }; }, persist: () => { throw new Error('must not persist'); } });
   assert.equal(r.status, 'draft-ready'); assert.equal(r.outputDisposition, 'draft'); assert.equal(calls, 1); assert.deepEqual(r.draft, { summary: 'draft' });
 });
-test('unsupported, ambiguous, missing identity and stale context fail closed', () => {
-  assert.equal(workflow.prepare({ ...base, text: '反移情分析 会谈复盘' }).reason, 'workflow-task-not-enabled');
-  assert.equal(workflow.prepare({ ...base, text: '做反移情分析' }).reason, 'workflow-task-not-enabled');
+test('enabled clinical tasks admit and stale context still fails closed', () => {
+  assert.equal(workflow.prepare({ ...base, text: '反移情分析 会谈复盘' }).taskId, 'countertransference-analysis');
+  assert.equal(workflow.prepare({ ...base, text: '做反移情分析' }).taskId, 'countertransference-analysis');
   assert.equal(workflow.prepare({ ...base, runId: '' }).reason, 'run-id-missing');
   assert.equal(workflow.prepare({ ...base, context: { stale: true } }).reason, 'stale-snapshot');
   assert.equal(workflow.prepare({ ...base, sources: [{ id: 'x', kind: 'session', stale: true }] }).reason, 'stale-snapshot');
 });
-test('supervision-question-builder is enabled while other routed tasks remain blocked', () => {
+test('supervision-question-builder and countertransference routes are enabled', () => {
   const supervision = workflow.prepare({ ...base, text: '督导问题生成', sources: [{ id: 'supervision-1', kind: 'supervision' }] });
   assert.equal(supervision.ok, true);
   assert.equal(supervision.taskId, 'supervision-question-builder');
   assert.equal(supervision.status, 'awaiting-confirmation');
-  assert.equal(workflow.prepare({ ...base, text: '反移情分析' }).reason, 'workflow-task-not-enabled');
+  assert.equal(workflow.prepare({ ...base, text: '反移情分析' }).taskId, 'countertransference-analysis');
 });
 test('supervision preview is enabled for independent empty-source text', () => { const p = workflow.prepare({ ...base, text: '生成整体印象', sources: [], origin: {} }); assert.equal(p.ok, true); assert.equal(p.taskId, 'supervision-preview'); assert.deepEqual(p.sources, []); });
 test('workflow rejects material and supervision bound empty-source text', () => { for (const origin of [{ materialId: 'm1' }, { supervisionId: 'sup1' }]) { const p = workflow.prepare({ ...base, text: '生成整体印象', sources: [], origin }); assert.equal(p.reason, 'required-source-missing'); } });

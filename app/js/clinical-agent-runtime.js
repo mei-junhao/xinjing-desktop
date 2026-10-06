@@ -73,7 +73,12 @@
       entry.controller = null;
       if (result && (result.ok === true || result.ok === false)) entry.active = false;
       if (timedOut || entry.cancelled || cancelled()) return fail('ai-cancelled', { clinicalActionRunId: result && result.clinicalActionRunId });
-      if (!result || result.ok !== true) return fail(result && result.reason || 'executor-failed', { clinicalActionRunId: result && result.clinicalActionRunId });
+      if (!result || result.ok !== true) {
+        var failureReason = result && result.reason || 'executor-failed';
+        if (typeof workflow.settle === 'function') workflow.settle(entry.workflow, failureReason === 'stale-after' || failureReason === 'stale-before' ? 'stale' : 'failed', failureReason);
+        return fail(failureReason, { clinicalActionRunId: result && result.clinicalActionRunId });
+      }
+      if (typeof workflow.settle === 'function') workflow.settle(entry.workflow, 'draft-ready');
       return freeze({ ok: true, runId: confirmed.runId, taskId: confirmed.taskId, status: 'draft-ready', snapshotKey: result.snapshotKey || confirmed.snapshotKey, sources: result.sources || confirmed.sources, outputDisposition: 'draft', draft: result.draft, clinicalActionRunId: result.clinicalActionRunId });
     }
     function cancel(state, reason) { var entry = states.get(state); if (!entry || !entry.active) return fail('invalid-runtime-state'); entry.cancelled = true; try { if (entry.controller) entry.controller.abort(); } catch (_) {} try { if (typeof adapter.cancel === 'function') adapter.cancel(entry.adapter, reason || 'cancelled'); } catch (_) {} if (!entry.running) entry.active = false; workflow.cancel(entry.workflow, reason || 'cancelled'); return freeze({ ok: false, runId: state.runId, taskId: state.taskId, status: 'cancelled', reason: text(reason) || 'cancelled' }); }

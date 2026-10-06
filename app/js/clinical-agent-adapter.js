@@ -28,7 +28,11 @@
     if (!expectedSession && sessionCount > 1) return 'cross-session-source-mismatch';
     return '';
   }
-  function contextTaskFor(taskId) { return taskId === 'supervision-question-builder' || taskId === 'supervision-preview' ? 'supervision-ai' : taskId === 'session-review' ? 'session-review' : ''; }
+  function contextTaskFor(taskId) {
+    if (taskId === 'supervision-question-builder' || taskId === 'supervision-preview') return 'supervision-ai';
+    if (taskId === 'multi-school-comparison') return 'supervision-multi-school';
+    return taskId;
+  }
   function validRequest(r) { return !!(r && typeof r === 'object' && !Array.isArray(r) && !!contextTaskFor(text(r.taskId)) && text(r.runId) && text(r.snapshotKey) && typeof r.inputText === 'string'); }
   function sameSourceSet(requestSources, builtSources) {
     if (requestSources.length !== builtSources.length) return false;
@@ -139,7 +143,12 @@
       if (privateState.actionRunId) {
         if (!lifecycle || typeof lifecycle.completeActionRun !== 'function') return failLifecycle(privateState, 'lifecycle-failed', 'failed');
         var completed;
-        try { completed = lifecycle.completeActionRun(privateState.actionRunId, { kind: 'supervision-preview', summary: typeof draft === 'string' ? draft : JSON.stringify(draft), citations: [] }); } catch (e4) { return failLifecycle(privateState, 'lifecycle-failed', 'failed'); }
+        var outputKind = 'supervision-preview';
+        try {
+          outputKind = privateState.request && (privateState.request.taskId === 'supervision-preview' || privateState.request.taskId === 'supervision-question-builder')
+            ? 'supervision-preview' : (text(privateState.context && privateState.context.task) || outputKind);
+        } catch (_) {}
+        try { completed = lifecycle.completeActionRun(privateState.actionRunId, { kind: outputKind, summary: typeof draft === 'string' ? draft : JSON.stringify(draft), citations: [] }); } catch (e4) { return failLifecycle(privateState, 'lifecycle-failed', 'failed'); }
         if (!lifecycleOk(completed)) return failLifecycle(privateState, 'lifecycle-failed', 'failed');
         privateState.lifecycleSettled = true;
       }
