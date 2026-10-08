@@ -16,11 +16,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 960,
+      "bodyChars": 920,
       "screenshot": {
         "file": "1024x700-clinical-light.png",
-        "bytes": 68952,
-        "sha256": "EB6DEDA001024EFCB1DD0B0D10B029E19B21C5B719ECA25F269861687A79F765"
+        "bytes": 62091,
+        "sha256": "86581C77BEA945D966651E7569BB929964752AC1346AA1985649EADA5A9D6829"
       },
       "consoleErrors": []
     },
@@ -34,11 +34,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 960,
+      "bodyChars": 1005,
       "screenshot": {
         "file": "1024x700-clinical-dark.png",
-        "bytes": 65143,
-        "sha256": "08D3CA6050E6C332C9EA51660E16DAD0D11AFF5E23D86E7685E8D8BA9EF99C16"
+        "bytes": 68402,
+        "sha256": "E47C3AB92C674BE7FF776ACA024E997296F628D7E0955D4D2D709520733126C4"
       },
       "consoleErrors": []
     },
@@ -52,11 +52,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 960,
+      "bodyChars": 1005,
       "screenshot": {
         "file": "1024x700-theatre-light.png",
-        "bytes": 69970,
-        "sha256": "FB9D4AE01548A8A0EF26FDD26FE21DA15D3B711E52185F637B657BE0D369BDCB"
+        "bytes": 73828,
+        "sha256": "6582B8F85E9F0C1685D9FB2695CFB75728AE35927D487B6D16F59AA771B7E8FD"
       },
       "consoleErrors": []
     },
@@ -70,11 +70,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 960,
+      "bodyChars": 1005,
       "screenshot": {
         "file": "1024x700-theatre-dark.png",
-        "bytes": 65553,
-        "sha256": "B4B7AAE6AAAB48F296792A27A2C135C245994EAD439744E806E23939A5EB2F24"
+        "bytes": 69082,
+        "sha256": "365D37D10264358C05A184FB82F07FE31AFB9A962B08353B8D0C9B8181A8E612"
       },
       "consoleErrors": []
     },
@@ -88,11 +88,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 960,
+      "bodyChars": 1005,
       "screenshot": {
         "file": "1024x700-observatory-light.png",
-        "bytes": 68802,
-        "sha256": "9DA504829BED64D069C794372B7D86DA22CA57769C92CB8927CB8E5956EDAD2E"
+        "bytes": 72602,
+        "sha256": "631A36210238F90457EACA54D2C5EEC959A5439E6C6703B9F73B890577042979"
       },
       "consoleErrors": []
     },
@@ -106,11 +106,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 960,
+      "bodyChars": 1005,
       "screenshot": {
         "file": "1024x700-observatory-dark.png",
-        "bytes": 64766,
-        "sha256": "1C5216BA658BF0F6BC7D4292D00B051761CC2D6B62B88D6CC4AAEBCC10825970"
+        "bytes": 68032,
+        "sha256": "DC5F2EAE237F8C829CC5862AB1482A73E199AF48382B07BD2DAC57E13B24E430"
       },
       "consoleErrors": []
     },
@@ -124,11 +124,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1366x768-clinical-light.png",
-        "bytes": 77775,
-        "sha256": "817B6C410031B3DB7962B9ECF094D1C5F1E7DD1AB0DF420AB6455F8200CF1E5B"
+        "bytes": 80784,
+        "sha256": "D34557D867F2C8E16C09700A815BAEF734B1CADFAEBD83C6366B24384D2D4BAF"
       },
       "consoleErrors": []
     },
@@ -142,11 +142,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1366x768-clinical-dark.png",
-        "bytes": 73959,
-        "sha256": "3082D57DF5C7EF973C6C1687ECCD48CD54034366DE08A6F68917DB1A5094EAB2"
+        "bytes": 76155,
+        "sha256": "F68EF44F4DDF81FEB3C3A074D0DFC9331429DBD9A2B73A80DC9524E0C8FC9DB1"
       },
       "consoleErrors": []
     },
@@ -160,11 +160,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1366x768-theatre-light.png",
-        "bytes": 78693,
-        "sha256": "2BD3DF09932E5B611B4A5EEA825AF190CD22615709FE3EFDF2CE15FA159BE900"
+        "bytes": 81900,
+        "sha256": "B9CEA0F629E7EC9112654C9639CC417B3C4E7D77FAC8CC4C5DFAB4406A22760C"
       },
       "consoleErrors": []
     },
@@ -178,11 +178,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1366x768-theatre-dark.png",
-        "bytes": 74339,
-        "sha256": "50FD4434F96C3E376D48E131EDE8FA7542804B595CB79390FED4AF670B507C0F"
+        "bytes": 76907,
+        "sha256": "1C8CE689B6D46B90578440BE5C719348F8279D59502CCA827B0ABE30A7E825C9"
       },
       "consoleErrors": []
     },
@@ -196,11 +196,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1366x768-observatory-light.png",
-        "bytes": 77155,
-        "sha256": "7D29B4A53EC693AFA30A57E9744BC016F48F5E0F040CFFA3149DA4FC1175679D"
+        "bytes": 80245,
+        "sha256": "307B4BD134BABBC44191E4AF86515D8108317800F6A269CF6D0069398071B87B"
       },
       "consoleErrors": []
     },
@@ -214,11 +214,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1366x768-observatory-dark.png",
-        "bytes": 73210,
-        "sha256": "D61CF8F74787B4AAA5368B3092D8E3F85B3352DEE6A0BE9AC2C0554EED264C26"
+        "bytes": 75903,
+        "sha256": "F0EEEF7F62B54372C0C3133558748E720E927BDFA89397BCB3101A2F4B03EB2B"
       },
       "consoleErrors": []
     },
@@ -232,11 +232,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1920x1080-clinical-light.png",
-        "bytes": 87420,
-        "sha256": "8C84FB5FDDB1CAA77BB6C30240E80A8D6F6E511248A2A55043D8C53D8DE15ABA"
+        "bytes": 90914,
+        "sha256": "A3DA96576B2BB84EAC1E600B2B08CA37E3825AEAABAA3245888AFB80BCBADE37"
       },
       "consoleErrors": []
     },
@@ -250,11 +250,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1920x1080-clinical-dark.png",
-        "bytes": 81946,
-        "sha256": "4A8D52ACD81199E00BB2D3E72FE47CFA6B32442E8DA84A9F1EC441895BF68496"
+        "bytes": 85124,
+        "sha256": "2B0E9C1E7E342F08BC32710C55BC1758511C3D4E2E73F42FEA67312763FC2193"
       },
       "consoleErrors": []
     },
@@ -268,11 +268,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1920x1080-theatre-light.png",
-        "bytes": 88228,
-        "sha256": "15FA2725FFF8B5514290ADE1934CAF154C8E65935D8381721BFE24F223EA0327"
+        "bytes": 92031,
+        "sha256": "1215032564911E015431D016DC03EF1721C4556F04017DEE7F1F3044841B2B1E"
       },
       "consoleErrors": []
     },
@@ -286,11 +286,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1920x1080-theatre-dark.png",
-        "bytes": 82723,
-        "sha256": "81040276F43F398699AAB89FED36A9B16DF440CD02017D5F32B938A3AC639C2F"
+        "bytes": 86175,
+        "sha256": "71A696B6BB617C6D20B2D7A80A8E9514930F67C389065CFDFE99EB9F66A41A8C"
       },
       "consoleErrors": []
     },
@@ -304,11 +304,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1920x1080-observatory-light.png",
-        "bytes": 87179,
-        "sha256": "63B7AB73B56FB7997D706D709C6BFDE62083561DB1492310599F5A8913CCAB9D"
+        "bytes": 90731,
+        "sha256": "9DFEA30FBBA5F3CDAED5640A09CE839EB5E5C8A6FA821EE7D568D1505303A6EC"
       },
       "consoleErrors": []
     },
@@ -322,11 +322,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 966,
+      "bodyChars": 1011,
       "screenshot": {
         "file": "1920x1080-observatory-dark.png",
-        "bytes": 81998,
-        "sha256": "4063209329AA63A6A3143C628FEB1A2DD918ECE4A0EFD65DEA9DA0280810CB0D"
+        "bytes": 85014,
+        "sha256": "C5426DBE5D276220CA2E2CB31937BAF18D8B82FA0A133E5372B2D0CCC746E147"
       },
       "consoleErrors": []
     },
@@ -340,11 +340,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 1367,
+      "bodyChars": 1698,
       "screenshot": {
         "file": "settings-1024x700-clinical-light.png",
-        "bytes": 54970,
-        "sha256": "C29084ECB4589587D04D3C58EB348AAD330C4EF963EB691A52DB97AA1AE2C639"
+        "bytes": 61521,
+        "sha256": "E504C161953B9FEB02A51B5C9204A2CCF47F0991F23A267FB5FF3C288FE8F2EE"
       },
       "consoleErrors": []
     },
@@ -358,11 +358,11 @@
       "overflow": false,
       "widest": null,
       "longChinese": true,
-      "bodyChars": 1367,
+      "bodyChars": 1698,
       "screenshot": {
         "file": "settings-1024x700-clinical-dark.png",
-        "bytes": 54058,
-        "sha256": "33B7C854ECA944CEC58CE6788EAB816A66DEBBF71A41C0B09A73C3B2D99807F3"
+        "bytes": 59377,
+        "sha256": "66B8694069EE46C1425C59A3CD223164D9CEDF42B2E627DF90A7866A6C3A85E5"
       },
       "consoleErrors": []
     }

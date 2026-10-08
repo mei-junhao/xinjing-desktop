@@ -10,6 +10,8 @@ var SupervisionOutcome = (function () {
     'stale-before': true,
     'stale-after': true,
     'malformed-draft': true,
+    'output-evidence-missing': true,
+    'output-citation-not-admitted': true,
     'lifecycle-failed': true,
     'timeout': true,
     'invalid-confirmed-state': true,
@@ -33,6 +35,13 @@ var SupervisionOutcome = (function () {
   function safeDraft(value) {
     if (!value || value.ok !== true) return null;
     var draft = value.draft;
+    var fields = draft;
+    if (typeof draft === 'string') { try { fields = JSON.parse(draft); } catch (_) {} }
+    var keys = ['facts', 'inferences', 'hypotheses'];
+    if (fields && typeof fields === 'object' && !Array.isArray(fields) && keys.every(function (key) { return typeof fields[key] === 'string'; })) {
+      var titles = ['来源事实（待核对）', '推论', '待验证假设'];
+      return keys.map(function (key, index) { return '【' + titles[index] + '】\n' + (fields[key].trim() || '（未提供）'); }).join('\n\n');
+    }
     if (typeof draft === 'string') return draft;
     if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return null;
     try { return JSON.stringify(draft); } catch (_) { return null; }
@@ -698,8 +707,10 @@ App.initPage({
           throw multiSchoolError(multiContext && multiContext.reason === 'task-budget-exceeded' ? '材料与已选来源超过当前督导预算，请缩短至允许范围后重试' : '当前上下文无效，请重新选择来访者或材料', admissionCode);
         }
         if (!(await confirmContextSendAsync(multiContext)) || controller.signal.aborted || generation !== multiSchoolGeneration) throw multiSchoolError('用户已取消本次多学派督导', 'ABORTED');
-        multiActionRun = ClinicalContext.createActionRun(multiContext);
+        multiActionRun = await ClinicalContext.createActionRunDurable(multiContext);
         if (!multiActionRun) throw multiSchoolError('无法确认材料归属，已取消分析', 'XJ_CLINICAL_SOURCE_NOT_ADMITTED');
+        if (controller.signal.aborted || generation !== multiSchoolGeneration) throw multiSchoolError('本次多学派督导已取消', 'ABORTED');
+        if (!ClinicalContext.isSnapshotCurrent(multiContext.snapshot, material, { clientId: currentClientId, sessionId: currentSessionId })) throw multiSchoolError('上下文已变更，请重新预览材料', 'XJ_STALE_CONTEXT');
         multiSchoolContext = multiContext;
         var result = await SupervisionSyndicate.run({
           material: material,
@@ -740,7 +751,7 @@ App.initPage({
         if (controller.signal.aborted || generation !== multiSchoolGeneration) throw multiSchoolError('本次多学派督导已取消', 'ABORTED');
         var latestMaterial = (document.getElementById('sup-multi-material') || {}).value || '';
         if (!ClinicalContext.isSnapshotCurrent(multiContext.snapshot, latestMaterial.trim(), { clientId: currentClientId, sessionId: currentSessionId })) {
-          ClinicalContext.failActionRun(multiActionRun.id, '上下文已变更', 'stale');
+          await ClinicalContext.failActionRunDurable(multiActionRun.id, '上下文已变更', 'stale');
           multiActionRun = null;
           throw multiSchoolError('上下文已变更，旧分析未采用', 'XJ_STALE_CONTEXT');
         }
@@ -756,17 +767,19 @@ App.initPage({
         }
         renderMultiSchoolResults(result);
         if (result && result.ok) {
-          ClinicalContext.completeActionRun(multiActionRun.id, { kind: 'supervision-multi-school', summary: result.synthesis || '', citations: [] });
+          var completedAction = await ClinicalContext.completeActionRunDurable(multiActionRun.id, { kind: 'supervision-multi-school', summary: result.synthesis || '', citations: [] });
+          if (!completedAction || completedAction.status !== 'succeeded') throw multiSchoolError('临床动作记录保存失败，结果未确认，请恢复本机存储后重试', 'XJ_DURABLE_ACTION_RUN_FAILED');
+          if (controller.signal.aborted || generation !== multiSchoolGeneration) throw multiSchoolError('本次多学派督导已取消', 'ABORTED');
           setMultiSchoolStatus(runFallbackEvents.length
             ? '综合完成，可归档（本次含内置模型代答，非所选模型结果）'
             : '综合完成，可归档', 'ready');
           if (saveButton) saveButton.disabled = false;
         } else {
-          ClinicalContext.failActionRun(multiActionRun.id, (result && result.error) || '多学派督导失败');
+          await ClinicalContext.failActionRunDurable(multiActionRun.id, (result && result.error) || '多学派督导失败');
           setMultiSchoolStatus('本次督导失败：' + ((result && result.error) || '未获得综合结果'), 'error');
         }
       } catch (error) {
-        if (multiActionRun) ClinicalContext.failActionRun(multiActionRun.id, error && error.message ? error.message : '多学派督导失败');
+        if (multiActionRun) await ClinicalContext.failActionRunDurable(multiActionRun.id, error && error.message ? error.message : '多学派督导失败', controller.signal.aborted ? 'cancelled' : 'failed');
         if (generation === multiSchoolGeneration && !controller.signal.aborted) {
           multiSchoolResult = { ok: false, error: error && error.message ? error.message : '多学派督导失败', errorCode: (error && error.errorCode) || (result && result.errorCode) || 'MULTI_SCHOOL_RUN_FAILED' };
           renderMultiSchoolResults(multiSchoolResult);

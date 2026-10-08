@@ -24,7 +24,7 @@
     var out = {};
     ['origin', 'snapshotKey', 'stepId', 'error', 'cancellation'].forEach(function (k) { if (own(input, k) && input[k] !== undefined) out[k] = clone(input[k]); });
     if (input.outputDisposition !== undefined) { if (OUTPUT_DISPOSITIONS.indexOf(input.outputDisposition) < 0) throw new TypeError('invalid output disposition'); out.outputDisposition = input.outputDisposition; }
-    if (own(input, 'sources')) { if (!Array.isArray(input.sources)) throw new TypeError('sources must be an array'); out.sources = input.sources.map(function (s) { if (!s || typeof s !== 'object' || Array.isArray(s)) throw new TypeError('invalid source'); var x = {}; ['id', 'kind', 'version', 'contentHash', 'anchorContentHash', 'status'].forEach(function (k) { if (own(s, k)) x[k] = clone(s[k]); }); if (!str(x.id)) throw new TypeError('source id required'); return x; }); }
+    if (own(input, 'sources')) { if (!Array.isArray(input.sources)) throw new TypeError('sources must be an array'); out.sources = input.sources.map(function (s) { if (!s || typeof s !== 'object' || Array.isArray(s)) throw new TypeError('invalid source'); var x = {}; ['id', 'kind', 'clientId', 'sessionId', 'normalizationVersion', 'sourceVersion', 'sourceContentHash', 'version', 'contentHash', 'anchorContentHash', 'status'].forEach(function (k) { if (own(s, k)) x[k] = clone(s[k]); }); if (!str(x.id)) throw new TypeError('source id required'); return x; }); }
     return out;
   }
   function create(input) {

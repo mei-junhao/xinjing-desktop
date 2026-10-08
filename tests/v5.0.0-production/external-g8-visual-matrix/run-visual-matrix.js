@@ -19,7 +19,10 @@ const WebSocket = require('ws');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const ELECTRON = path.join(ROOT, 'node_modules', 'electron', 'dist', 'electron.exe');
-const ARTIFACTS = path.join(__dirname, 'artifacts');
+// 每次运行隔离输出，避免覆盖锁定的历史截图；可由调用方固定到指定目录。
+const ARTIFACTS = process.env.XJ_VISUAL_ARTIFACTS_DIR
+  ? path.resolve(process.env.XJ_VISUAL_ARTIFACTS_DIR)
+  : path.join(__dirname, 'artifacts', 'run-' + Date.now() + '-' + process.pid);
 const ACCEPTANCE_MODE = '1';
 
 const RESOLUTIONS = [
@@ -111,6 +114,16 @@ async function waitFor(cdp, expression, label) {
   }
   throw new Error('Timed out waiting for ' + label);
 }
+async function fill(cdp, selector, value) {
+  await evaluate(cdp, '(function(){var e=document.querySelector(' + JSON.stringify(selector) + '); if(!e) return false; var s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set; s.call(e,' + JSON.stringify(value) + '); e.dispatchEvent(new Event("input",{bubbles:true})); e.dispatchEvent(new Event("change",{bubbles:true})); return true;})()');
+}
+async function submit(cdp, selector) { await evaluate(cdp, '(function(){var e=document.querySelector(' + JSON.stringify(selector) + '); if(!e) return false; e.requestSubmit(); return true;})()'); }
+function startAuthServer() {
+  const { createServer } = require(path.join(ROOT, 'server', 'account-auth-routes.js'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xj-visual-auth-'));
+  const service = createServer({ dataFile: path.join(dir, 'accounts.sqlite'), host: '127.0.0.1', port: 0 });
+  return { service, dir, listen: () => service.listen(), close: () => new Promise((resolve) => service.server.close(resolve)), token: () => { const q = service.mailer.peek(); return q.length ? q[q.length - 1].verificationToken : ''; } };
+}
 function capture(cdp, name) {
   return cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true }).then((result) => {
     const buffer = Buffer.from(result.data || '', 'base64');
@@ -137,6 +150,8 @@ async function main() {
   fs.mkdirSync(ARTIFACTS, { recursive: true });
   const port = await findFreePort();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'xinjing-visual-matrix-'));
+  const auth = startAuthServer();
+  const authPort = await auth.listen();
   const runtimeLogs = [];
   const consoleErrors = [];
   let child = null;
@@ -151,13 +166,13 @@ async function main() {
       ROOT
     ], {
       cwd: ROOT,
-      env: Object.assign({}, process.env, { XJ_AGENT_ACCEPTANCE: ACCEPTANCE_MODE, XJ_AGENT_ACCEPTANCE_USER_DATA: userData }),
+      env: Object.assign({}, process.env, { XJ_AGENT_ACCEPTANCE: ACCEPTANCE_MODE, XJ_AGENT_ACCEPTANCE_USER_DATA: userData, XJ_ACCOUNT_API_BASE: 'http://127.0.0.1:' + authPort }),
       stdio: ['ignore', 'pipe', 'pipe']
     });
     child.stderr.on('data', (chunk) => runtimeLogs.push(String(chunk).trim()));
     child.stdout.on('data', (chunk) => runtimeLogs.push(String(chunk).trim()));
 
-    const page = await waitForPage(port, '/index.html');
+    const page = await waitForPage(port, '/account.html');
     cdp = await createCdp(page.webSocketDebuggerUrl);
     await cdp.send('Runtime.enable');
     await cdp.send('Page.enable');
@@ -167,7 +182,17 @@ async function main() {
     cdp.onEvent('Log.entryAdded', (params) => {
       if (params.entry && params.entry.level === 'error') consoleErrors.push(String(params.entry.text || '').slice(0, 200));
     });
-    await waitFor(cdp, 'document.readyState === "complete" && typeof window.Store !== "undefined" && typeof window.__XJ_API__ !== "undefined"', 'Store and bridge initialization');
+    await waitFor(cdp, 'document.readyState === "complete" && typeof window.__XJ_API__ !== "undefined"', 'account bridge initialization');
+    const email = 'visual-matrix-' + Date.now() + '@example.invalid';
+    await evaluate(cdp, 'document.querySelector("#tab-register") && document.querySelector("#tab-register").click()');
+    await fill(cdp, '#register-email', email); await fill(cdp, '#register-password', 'VisualMatrixA1'); await fill(cdp, '#register-password2', 'VisualMatrixA1');
+    await submit(cdp, '#form-register'); await waitFor(cdp, '!document.querySelector("#view-verify").hidden', 'verification pane');
+    const verificationToken = auth.token();
+    if (!verificationToken) throw new Error('synthetic verification token missing');
+    await fill(cdp, '#verify-token', verificationToken); await submit(cdp, '#form-verify');
+    await waitFor(cdp, 'document.querySelector("#tab-login").getAttribute("aria-selected")==="true"', 'login pane');
+    await fill(cdp, '#login-email', email); await fill(cdp, '#login-password', 'VisualMatrixA1'); await submit(cdp, '#form-login');
+    await waitFor(cdp, 'location.pathname.endsWith("/index.html")', 'authenticated workbench');
 
     // index.html workbench across all 18 units
     for (const res of RESOLUTIONS) {
@@ -196,6 +221,8 @@ async function main() {
       cdp.close();
     }
     try { fs.rmSync(userData, { recursive: true, force: true }); } catch (_) {}
+    try { await auth.close(); } catch (_) {}
+    try { fs.rmSync(auth.dir, { recursive: true, force: true }); } catch (_) {}
   }
 
   const failed = units.filter((u) => u.overflow);

@@ -1481,6 +1481,7 @@
     const lab1 = document.createElement('span');
     lab1.textContent = '模式'; lab1.style.cssText = 'color:#777';
     const modeSel = document.createElement('select');
+    modeSel.setAttribute('aria-label', 'Agent 模式');
     modeSel.style.cssText = 'border:1px solid #ccc;border-radius:6px;padding:2px 4px;font-size:12px';
     [['chat', '对话'], ['plan', '计划'], ['readwrite', '读写'], ['goal', '目标']].forEach(function (pair) {
       const o = document.createElement('option');
@@ -1492,6 +1493,7 @@
     const lab2 = document.createElement('span');
     lab2.textContent = '权限'; lab2.style.cssText = 'color:#777;margin-left:8px';
     const permSel = document.createElement('select');
+    permSel.setAttribute('aria-label', 'Agent 权限');
     permSel.style.cssText = 'border:1px solid #ccc;border-radius:6px;padding:2px 4px;font-size:12px';
     [['default', '默认权限'], ['unrestricted', '完全无限制']].forEach(function (pair) {
       const o = document.createElement('option');
@@ -1540,7 +1542,14 @@
       });
     });
     bar.appendChild(lab1); bar.appendChild(modeSel); bar.appendChild(lab2); bar.appendChild(permSel); bar.appendChild(wdBtn);
-    document.body.appendChild(bar);
+    const chatControls = document.getElementById('chat-agent-controls');
+    if (chatControls) {
+      bar.className = 'xj-agent-docked';
+      [bar, lab1, lab2, modeSel, permSel, wdBtn].forEach(function (node) { node.removeAttribute('style'); });
+      wdBtn.innerHTML = '<i data-lucide="folder-open" aria-hidden="true"></i><span>工作文件夹</span>';
+      chatControls.appendChild(bar);
+      if (window.IconSystem) window.IconSystem.render(bar);
+    } else document.body.appendChild(bar);
   }
 
   const TOOL_REGISTRY = {

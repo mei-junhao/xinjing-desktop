@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const Bridge = require('../../app/js/clinical-agent-production-bridge.js');
 const Adapter = require('../../app/js/clinical-agent-adapter.js');
 const Runtime = require('../../app/js/clinical-agent-runtime.js');
+const draft = JSON.stringify({ facts: '', inferences: 'draft', hypotheses: '' });
 
 function loadOutcome() {
   const source = fs.readFileSync(path.join(__dirname, '../../app/js/supervision.js'), 'utf8');
@@ -25,7 +26,7 @@ function fixture() {
     failActionRun() { events.push('fail'); return { ok: true }; }
   };
   const workflow = { prepare(r) { return { ok: true, runId: r.runId, taskId: 'supervision-preview', status: 'awaiting-confirmation', snapshotKey: r.snapshotKey, sources: [] }; }, confirm(s, c) { return c && c.confirmed ? { ...s, ok: true, status: 'running' } : { ok: false, reason: 'confirmation-required' }; }, cancel(s) { return { ...s, ok: false, status: 'cancelled' }; }, isWorkflowState() { return true; } };
-  const api = Bridge.withDependencies({ runtime: Runtime.withDependencies({ workflow, adapter: Adapter.withDependencies({ context, executor: async () => { events.push('ai'); return 'draft'; }, lifecycle: context }), defaultTimeoutMs: 100 }) });
+  const api = Bridge.withDependencies({ runtime: Runtime.withDependencies({ workflow, adapter: Adapter.withDependencies({ context, executor: async () => { events.push('ai'); return draft; }, lifecycle: context }), defaultTimeoutMs: 100 }) });
   return { api, events };
 }
 
@@ -48,7 +49,7 @@ test('real fromGlobals forwards prepareContext and reuses the single private bui
     failActionRun() { events.push('fail'); return { ok: true }; }
   };
   const workflow = { prepare(r) { return { ok: true, runId: r.runId, taskId: 'supervision-preview', status: 'awaiting-confirmation', snapshotKey: r.snapshotKey, sources: [] }; }, confirm(s, c) { return c && c.confirmed ? { ...s, ok: true, status: 'running' } : { ok: false, reason: 'confirmation-required' }; }, cancel(s) { return { ...s, ok: false, status: 'cancelled' }; }, isWorkflowState() { return true; } };
-  const ai = { send(messages, cb) { events.push('ai'); cb({ content: 'draft' }); } };
+  const ai = { send(messages, cb) { events.push('ai'); cb({ content: draft }); } };
   const api = Bridge.fromGlobals({ workflow, ClinicalContext: context, AI: ai, adapter: Adapter, timeoutMs: 100 });
   const token = api.prepareContext({ taskId: 'supervision-preview', runId: 'run-2', snapshotKey: 'pending', inputText: '生成整体印象', sources: [], origin: {} });
   assert.equal(token.ok, true);
@@ -74,7 +75,7 @@ test('real fromGlobals preserves bound client/session/material/supervision sourc
     failActionRun() { events.push('fail'); return { ok: true }; }
   };
   const workflow = { prepare(r) { return { ok: true, runId: r.runId, taskId: 'supervision-preview', status: 'awaiting-confirmation', snapshotKey: r.snapshotKey, sources: r.sources }; }, confirm(s, c) { return c && c.confirmed ? { ...s, ok: true, status: 'running' } : { ok: false, reason: 'confirmation-required' }; }, cancel(s) { return { ...s, ok: false, status: 'cancelled' }; }, isWorkflowState() { return true; } };
-  const ai = { send(messages, cb) { events.push('ai'); cb({ content: 'draft' }); } };
+  const ai = { send(messages, cb) { events.push('ai'); cb({ content: draft }); } };
   const api = Bridge.fromGlobals({ workflow, ClinicalContext: context, AI: ai, adapter: Adapter, timeoutMs: 100 });
   const token = api.prepareContext({ taskId: 'supervision-preview', runId: 'run-bound', snapshotKey: 'pending', inputText: '生成整体印象', sources, origin: { clientId: 'client-1', sessionId: 'session-1', materialId: 'material-1', supervisionId: 'supervision-1' } });
   assert.deepEqual(token.sources, sources.map((source) => ({ kind: source.kind, id: source.id })));
@@ -90,7 +91,7 @@ test('confirmation projection preserves safe source summary but never raw body',
     isSnapshotCurrent() { return true; }, createActionRun() { return { id: 'r' }; }, completeActionRun() { return { ok: true }; }, failActionRun() { return { ok: true }; }
   };
   const workflow = { prepare(r) { return { ok: true, runId: r.runId, taskId: 'supervision-preview', status: 'awaiting-confirmation', snapshotKey: r.snapshotKey, sources: r.sources }; }, confirm(s, c) { return c && c.confirmed ? { ...s, ok: true, status: 'running' } : { ok: false, reason: 'confirmation-required' }; }, cancel(s) { return s; }, isWorkflowState() { return true; } };
-  const api = Bridge.fromGlobals({ workflow, ClinicalContext: context, AI: { send(_m, cb) { cb({ content: 'draft' }); } }, adapter: Adapter });
+  const api = Bridge.fromGlobals({ workflow, ClinicalContext: context, AI: { send(_m, cb) { cb({ content: draft }); } }, adapter: Adapter });
   const token = api.prepareContext({ taskId: 'supervision-preview', runId: 'r', snapshotKey: 'pending', inputText: 'x', sources: [], origin: {} });
   const json = JSON.stringify(token);
   assert.match(json, /会谈材料/); assert.match(json, /321/); assert.match(json, /300/); assert.match(json, /truncated/); assert.doesNotMatch(json, /PRIVATE BODY|messages|executor/);
@@ -101,6 +102,22 @@ test('standard outcome boundary settles resolved provider failure without raw er
   const result = await outcome.execute({ execute() { return Promise.resolve({ ok: false, reason: 'ai-failed', message: 'PRIVATE PROVIDER ERROR', privateContext: 'PRIVATE CONTEXT' }); } }, {}, {});
   assert.deepEqual(JSON.parse(JSON.stringify(result)), { error: '本次生成未完成，请重试。', code: 'ai-failed' });
   assert.equal(JSON.stringify(result).includes('PRIVATE'), false);
+});
+
+test('标准督导三栏草稿显示可审阅标题与来源，不直接展示原始 JSON', async () => {
+  const outcome = loadOutcome();
+  const fields = { facts: '合成可核对内容 [s1]', inferences: '合成推论，待复核', hypotheses: '合成假设，待验证' };
+  for (const draft of [fields, JSON.stringify(fields)]) {
+    const result = await outcome.execute({ execute: async () => ({ ok: true, draft }) }, {}, {});
+    assert.equal(result.ok, true);
+    assert.equal(result.content, '【来源事实（待核对）】\n合成可核对内容 [s1]\n\n【推论】\n合成推论，待复核\n\n【待验证假设】\n合成假设，待验证');
+    assert.doesNotMatch(result.content, /"facts"|"inferences"|"hypotheses"/);
+  }
+  for (const code of ['output-evidence-missing', 'output-citation-not-admitted']) {
+    const result = await outcome.execute({ execute: async () => ({ ok: false, reason: code, draft: fields }) }, {}, {});
+    assert.equal(result.code, code);
+    assert.equal(result.content, undefined);
+  }
 });
 
 test('standard outcome boundary converts execute rejection and synchronous throw to retryable safe failures', async () => {

@@ -16,6 +16,7 @@
   let hydrationFailed = false;
   let draftSeq = 0;
   let pendingResumeRun = null;
+  let activeClinicalRun = null;
   let sendUndoState = null;   // 方案 B：最近一次发送的待撤销状态 { userEl, userObj }
   let sendUndoTimer = null;   // 方案 B：3 秒自动失效计时器
   let undoToastEl = null;     // 方案 B：撤销提示条 DOM
@@ -162,7 +163,7 @@
         if (Array.isArray(chat) && chat.length > 0) {
           chat.forEach(m => {
             messages.push(m);
-            renderMsg(m.role, m.content, m.commercial);
+            renderMsg(m.role, m.content, m.commercial, m.clinicalAgentRunId ? { draft: true, clinicalAgent: true, runId: m.clinicalAgentRunId, snapshot: Object.assign(m.clinicalAgentOrigin ? resolveDraftSnapshot(m.clinicalAgentOrigin) : {}, { sourceCount: (m.clinicalAgentSources || []).length }) } : null);
           });
           renderSystem('已恢复跨页对话记忆（' + chat.length + ' 条）', 'history');
         }
@@ -170,15 +171,15 @@
     } catch (e) {}
   }
 
-  function resolveDraftSnapshot() {
+  function resolveDraftSnapshot(origin) {
     const snap = { clientName: '', sessionLabel: '', sourceCount: 0 };
     try {
       if (window.XJClinicalWorkspace && typeof window.XJClinicalWorkspace.resolveContext === 'function') {
-        const ctx = window.XJClinicalWorkspace.resolveContext({ preferRecentSession: true });
+        const ctx = origin ? { clientId: origin.clientId, session: Store.getSession(origin.sessionId) } : clinicalAgentContext();
         if (ctx && ctx.clientId && typeof Store !== 'undefined' && Store.getClient) {
           const client = Store.getClient(ctx.clientId);
           if (client) snap.clientName = client.name || '';
-          if (ctx.session && window.XJClinicalWorkspace.formatSession) {
+          if (ctx.session && ctx.session.clientId === ctx.clientId && window.XJClinicalWorkspace.formatSession) {
             snap.sessionLabel = window.XJClinicalWorkspace.formatSession(ctx.session) || '';
           }
         }
@@ -200,7 +201,7 @@
     head.appendChild(el('span', 'chat-draft-run', '运行 ' + (meta.runId || '未知')));
     footer.appendChild(head);
     const snap = meta.snapshot || {};
-    const sourceText = snap.clientName ? (snap.clientName + (snap.sessionLabel ? ' · ' + snap.sessionLabel : '')) : '未绑定来访者/会谈';
+    const sourceText = snap.clientName ? (snap.clientName + (snap.sessionLabel ? ' · ' + snap.sessionLabel : '')) : (meta.clinicalAgent ? '任务来源归属请在工作台核对' : '未绑定来访者/会谈');
     const sourceCountText = snap.sourceCount > 0 ? (snap.sourceCount + ' 项已验证来源') : '无已验证来源';
     const source = el('div', 'chat-draft-source', '<i data-lucide="file-check-2" aria-hidden="true"></i><span>来源 ' + esc(sourceText) + ' · ' + esc(sourceCountText) + '</span>');
     footer.appendChild(source);
@@ -214,6 +215,13 @@
     actions.appendChild(confirm);
     actions.appendChild(cancel);
     footer.appendChild(actions);
+    if (meta.clinicalAgent) {
+      confirm.textContent = '审阅草稿';
+      confirm.setAttribute('aria-label', '在证据与草稿工作台审阅');
+      cancel.remove();
+      confirm.addEventListener('click', function () { window.XJClinicalAgentWorkbench.openDraft(meta.runId); });
+      return footer;
+    }
     if (window.IconSystem) window.IconSystem.render(footer);
     confirm.addEventListener('click', function () {
       if (confirm.dataset.done) return;
@@ -248,7 +256,13 @@
     const displayRole = role === 'assistant' ? 'assistant' : role;
     const msgEl = el('div', 'chat-msg ' + displayRole);
     const avatar = el('div', 'avatar', role === 'user' ? '我' : '心');
-    const bubble = el('div', 'bubble', esc(content || ''));
+    let displayContent = content || '';
+    if (role === 'assistant' && meta && meta.clinicalAgent && window.ClinicalAgentRunStore) {
+      const fields = ClinicalAgentRunStore.fieldsOf(content);
+      const titles = ['来源事实（待核对）', '推论', '待验证假设'];
+      displayContent = ['facts', 'inferences', 'hypotheses'].map((key, index) => '【' + titles[index] + '】\n' + (fields[key].trim() || '（未提供）')).join('\n\n');
+    }
+    const bubble = el('div', 'bubble', esc(displayContent));
     if (role === 'assistant') {
       const commercialMeta = renderCommercialMeta(commercial);
       if (commercialMeta) bubble.appendChild(commercialMeta);
@@ -422,6 +436,36 @@
       hash.test(String(sourceRef.anchorContentHash || '')));
   }
 
+  function renderAgentSelection(context) {
+    var params = new URLSearchParams(location.search);
+    var clients = Store.getClients(), sessions = context.clientId ? Store.getSessionsByClient(context.clientId) : [];
+    var materials = Store.getMaterialWorkspaces ? Store.getMaterialWorkspaces().filter(function (item) { return item.clientId === context.clientId && item.sessionId === context.sessionId && item.parseStatus === 'ready'; }) : [];
+    var supervisions = Store.getSupervisionsByClient ? Store.getSupervisionsByClient(context.clientId) : [];
+    var lists = {
+      client: { rows: clients, value: context.clientId, label: function (row) { return row.name || '未命名来访者'; } },
+      session: { rows: sessions, value: context.sessionId, label: function (row) { return XJClinicalWorkspace.formatSession(row); } },
+      material: { rows: materials, value: params.get('materialId') || '', label: function (row) { return row.title || row.source && row.source.name || '材料'; } },
+      supervision: { rows: supervisions, value: params.get('supervisionId') || '', label: function (row) { return row.reportTitle || row.title || (row.date || '') + ' 督导记录'; } }
+    };
+    Object.keys(lists).forEach(function (key) {
+      var select = document.getElementById('chat-agent-' + key), list = lists[key];
+      if (!select) return;
+      select.innerHTML = '<option value="">未选择</option>' + list.rows.map(function (row) { return '<option value="' + esc(row.id) + '">' + esc(list.label(row)) + '</option>'; }).join('');
+      select.value = list.value;
+      if (!select.__agentBound) {
+        select.__agentBound = true;
+        select.addEventListener('change', function () {
+          var query = new URLSearchParams(location.search);
+          if (key === 'client' || key === 'session') { query.delete('materialId'); query.delete('supervisionId'); }
+          if (key === 'client') { query.set('sessionId', ''); query.set('clientId', select.value); if (App.setActiveClientId) App.setActiveClientId(select.value); }
+          else if (key === 'session' || select.value) query.set(key + 'Id', select.value); else query.delete(key + 'Id');
+          history.replaceState({}, '', location.pathname + '?' + query.toString());
+          window.dispatchEvent(new CustomEvent('xj:clinical-context-changed', { detail: clinicalAgentSelection() }));
+        });
+      }
+    });
+  }
+
   function renderStructureContext() {
     const requestId = ++structureContextRequestId;
     if (!window.XJClinicalWorkspace) return;
@@ -445,7 +489,8 @@
       const session = String((row.session && (row.session.title || row.session.topic)) || '').toLowerCase();
       return !filter || name.indexOf(filter) >= 0 || session.indexOf(filter) >= 0;
     });
-    const context = window.XJClinicalWorkspace.resolveContext({ preferRecentSession: true });
+    const context = clinicalAgentContext();
+    renderAgentSelection(context);
     historyList.innerHTML = visibleRows.length ? visibleRows.map(function (row) {
       const active = context.clientId && row.client.id === context.clientId;
       const sessionLabel = row.session ? window.XJClinicalWorkspace.formatSession(row.session) : '暂无会谈';
@@ -455,6 +500,8 @@
     }).join('') : '<div class="xj-workspace-empty"><p>' + (filter ? '没有匹配的对话或来访者。' : '本机暂无可用来访者上下文。') + '</p></div>';
     historyList.querySelectorAll('[data-chat-client-id]').forEach(function (button) {
       button.addEventListener('click', function () {
+        var params = new URLSearchParams(location.search); params.delete('materialId'); params.delete('supervisionId');
+        history.replaceState({}, '', location.pathname + '?' + params.toString());
         window.XJClinicalWorkspace.setContext(button.dataset.chatClientId, button.dataset.chatSessionId);
         renderStructureContext();
       });
@@ -463,7 +510,8 @@
       search.__xj_bound = true;
       search.addEventListener('input', renderStructureContext);
     }
-    window.XJClinicalWorkspace.renderContextStrip(contextStrip, { feature: 'ai-analyze', preferRecentSession: true });
+    if (context.clientId) window.XJClinicalWorkspace.renderContextStrip(contextStrip, { feature: 'ai-analyze', preferRecentSession: !new URLSearchParams(location.search).has('sessionId') });
+    else contextStrip.innerHTML = '<span class="xj-context-cell"><small>来访者</small><strong>未选择</strong></span>';
     const session = context.session;
     if (!context.clientId || !session) {
       sourceList.innerHTML = '<div class="xj-workspace-empty"><p>选择来访者和会谈后显示已验证材料。</p></div>';
@@ -633,26 +681,34 @@
   function clinicalAgentIntent(text) {
     var value = String(text || '').trim();
     if (!value || /真人督导|督导录音|督导转写/.test(value)) return null;
-    if (!/督导|反移情|会谈复盘|个案概念化|下次会谈|多流派|整体印象/.test(value)) return null;
     if (typeof ClinicalAgentRouter === 'undefined' || typeof ClinicalAgentRouter.route !== 'function') return null;
     var routed = ClinicalAgentRouter.route(value, { sources: [] });
     if (routed && routed.ok === true && clinicalAgentTaskForRoute(routed.taskId)) return routed;
+    if (routed && routed.candidates && routed.candidates.length > 1) return { ok: false, reason: 'intent-unclear' };
     if (/督导问题|督导提问/.test(value)) return { ok: true, taskId: 'supervision-question-builder', matchedTerms: ['督导问题'] };
     if (/督导|整体印象|案例分析|个案分析/.test(value)) return { ok: true, taskId: 'supervision-preview', matchedTerms: ['督导'] };
     return null;
   }
 
+  function clinicalAgentContext() {
+    var params = new URLSearchParams(location.search);
+    if (params.has('clientId') && !params.get('clientId')) return {};
+    return window.XJClinicalWorkspace && typeof window.XJClinicalWorkspace.resolveContext === 'function'
+      ? window.XJClinicalWorkspace.resolveContext({ preferRecentSession: !params.has('sessionId') }) : {};
+  }
+
   function clinicalAgentSelection() {
-    var context = window.XJClinicalWorkspace && typeof window.XJClinicalWorkspace.resolveContext === 'function'
-      ? window.XJClinicalWorkspace.resolveContext({ preferRecentSession: true }) : {};
+    var context = clinicalAgentContext();
     context = context && typeof context === 'object' ? context : {};
+    var params = new URLSearchParams(location.search);
     return {
       clientId: String(context.clientId || ''),
       sessionId: String(context.sessionId || (context.session && context.session.id) || ''),
-      materialId: String(context.materialId || (context.material && context.material.id) || ''),
-      supervisionId: String(context.supervisionId || (context.supervision && context.supervision.id) || '')
+      materialId: String(params.get('materialId') || ''),
+      supervisionId: String(params.get('supervisionId') || '')
     };
   }
+  window.getClinicalAgentSelection = clinicalAgentSelection;
 
   function clinicalAgentSourceSummary(sources) {
     return (Array.isArray(sources) ? sources : []).map(function (source) {
@@ -673,65 +729,82 @@
       bubble.innerHTML = '<div style="font-weight:600;margin-bottom:8px"><i data-lucide="shield-check" aria-hidden="true"></i> 督导任务预览</div>' +
         '<div style="font-size:13px;line-height:1.7;color:var(--ink-2)">' + esc(preview.taskLabel || '受控督导任务') + '</div>' +
         '<div style="font-size:12px;line-height:1.6;color:var(--ink-3);margin-top:6px">来源：' + esc(sourceText) + '</div>' +
-        '<div style="font-size:11px;color:var(--ink-3);margin-top:6px">快照：' + esc(preview.snapshotKey || '') + ' · 确认后才会调用 AI</div>' +
+        '<div style="font-size:12px;color:var(--ink-3);margin-top:6px;overflow-wrap:anywhere">快照：' + esc(preview.snapshotKey || '') + ' · 确认后才会调用 AI</div>' +
         '<div style="display:flex;gap:8px;margin-top:12px">' +
-          '<button type="button" class="clinical-agent-confirm" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer">确认生成草稿</button>' +
+          '<button type="button" class="clinical-agent-confirm" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff;cursor:pointer">确认生成草稿</button>' +
           '<button type="button" class="clinical-agent-cancel" style="font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--paper);color:var(--ink-2);cursor:pointer">取消</button>' +
         '</div>';
       msgEl.appendChild(avatar); msgEl.appendChild(bubble); msgsEl.appendChild(msgEl); msgsEl.scrollTop = msgsEl.scrollHeight;
       if (window.IconSystem) window.IconSystem.render(msgEl);
-      bubble.querySelector('.clinical-agent-confirm').addEventListener('click', function () { msgEl.remove(); resolve({ confirmed: true }); });
-      bubble.querySelector('.clinical-agent-cancel').addEventListener('click', function () { msgEl.remove(); resolve({ confirmed: false }); });
+      function finish(confirmed) {
+        window.removeEventListener('xj:clinical-context-changed', cancel);
+        document.removeEventListener('keydown', escape);
+        msgEl.remove(); resolve({ confirmed: confirmed });
+      }
+      function cancel() { finish(false); }
+      function escape(event) { if (event.key === 'Escape') { event.preventDefault(); cancel(); } }
+      window.addEventListener('xj:clinical-context-changed', cancel, { once: true });
+      document.addEventListener('keydown', escape);
+      bubble.querySelector('.clinical-agent-confirm').addEventListener('click', function () { finish(true); });
+      bubble.querySelector('.clinical-agent-cancel').addEventListener('click', cancel);
+      bubble.querySelector('.clinical-agent-cancel').focus();
     });
   }
 
   async function runClinicalAgentFromChat(text, route) {
-    if (typeof ClinicalAgentProductionBridge === 'undefined' || typeof ClinicalAgentProductionBridge.fromGlobals !== 'function' || typeof ClinicalAgentWorkflow === 'undefined') {
-      renderSystem('督导 Agent 模块未就绪，请重启应用。', 'triangle-alert', 'warning');
-      return true;
+    if (!route.ok) { renderSystem('问题涉及多种任务，请明确选择一种：反移情分析、会谈复盘、个案概念化、下次会谈假设、督导问题生成或多流派比较。', 'triangle-alert', 'warning'); return true; }
+    if (!window.ClinicalAgentProductionBridge || !window.ClinicalAgentPipeline || !window.ClinicalAgentRunStore) {
+      renderSystem('督导 Agent 模块未就绪，请重启应用。', 'triangle-alert', 'warning'); return true;
     }
-    var selection = clinicalAgentSelection();
-    var resumeRecord = pendingResumeRun;
+    var selection = clinicalAgentSelection(), resumeRecord = pendingResumeRun;
     pendingResumeRun = null;
-    if (resumeRecord && resumeRecord.origin) {
-      var originKeys = ['clientId', 'sessionId', 'materialId', 'supervisionId'];
-      if (originKeys.some(function (key) { return resumeRecord.origin[key] && selection[key] && resumeRecord.origin[key] !== selection[key]; })) {
-        renderSystem('无法继续：当前来访者或会谈与历史运行不一致。', 'triangle-alert', 'warning');
-        return true;
-      }
+    if (resumeRecord && !ClinicalAgentRunStore.sameOrigin(resumeRecord.origin, selection)) {
+      renderSystem('无法继续：请先选择历史运行所属的来访者、会谈和材料。', 'triangle-alert', 'warning'); return true;
     }
-    var runId = resumeRecord && resumeRecord.runId ? resumeRecord.runId : 'chat-' + Date.now().toString(36) + '-' + (++draftSeq);
-    var taskId = route.taskId;
-    var taskLabelMap = { 'countertransference-analysis': '反移情分析', 'session-review': '会谈复盘', 'case-conceptualization': '个案概念化', 'next-session-hypotheses': '下次会谈假设', 'supervision-question-builder': '督导问题生成', 'multi-school-comparison': '多流派比较', 'supervision-preview': '督导整体印象' };
-    var taskLabel = taskLabelMap[taskId] || '受控临床 Agent 任务';
-    var bridge;
-    try { bridge = ClinicalAgentProductionBridge.fromGlobals({ timeoutMs: 60000 }); } catch (error) { renderSystem('督导 Agent 初始化失败，请稍后重试。', 'triangle-alert', 'warning'); return true; }
-    var pipeline = typeof ClinicalAgentPipeline !== 'undefined' && ClinicalAgentPipeline.create ? ClinicalAgentPipeline.create({ bridge: bridge }) : null;
-    var request = { text: text, inputText: text, runId: runId, taskId: taskId, snapshotKey: 'pending', sources: [], origin: selection, selection: selection, context: { origin: selection }, contextOptions: { inputText: text, history: messages.slice(-12), system: '你是心镜临床督导助手，只输出可审阅草稿并保留不确定性。' } };
-    var preparedPlan = pipeline ? pipeline.prepare(request) : null;
-    var token = preparedPlan && preparedPlan.ok === true ? preparedPlan.token : bridge.prepareContext(request);
-    if (!token || token.ok !== true) { renderSystem('无法建立本轮来源快照：' + String(token && token.reason || 'context-build-failed'), 'triangle-alert', 'warning'); return true; }
-    if (preparedPlan && preparedPlan.ok !== true) { renderSystem('督导任务暂不可执行：' + String(preparedPlan.reason || 'workflow-rejected'), 'triangle-alert', 'warning'); return true; }
-    request.snapshotKey = token.snapshotKey;
-    request.sources = token.sources || [];
-    var prepared = preparedPlan && preparedPlan.ok === true ? preparedPlan.prepared : bridge.prepare(request, token);
-    if (!prepared || prepared.ok !== true) { renderSystem('督导任务暂不可执行：' + String(prepared && prepared.reason || 'workflow-rejected'), 'triangle-alert', 'warning'); return true; }
-    prepared = Object.assign({}, prepared, { taskLabel: taskLabel });
-    var confirmation = await renderClinicalAgentConfirmation({ taskLabel: taskLabel, snapshotKey: prepared.snapshotKey, sources: prepared.sources });
-    if (!confirmation.confirmed) { renderSystem('已取消本次督导草稿生成。', 'circle-check', 'info'); return true; }
-    var confirmedPlan = preparedPlan && preparedPlan.ok === true ? pipeline.confirm(preparedPlan) : null;
-    var confirmed = confirmedPlan && confirmedPlan.ok === true ? confirmedPlan.confirmed : bridge.confirm(prepared, { confirmed: true });
-    if (!confirmed || confirmed.ok === false) { renderSystem('督导任务确认失败，请重新预览。', 'triangle-alert', 'warning'); return true; }
-    renderProgress('正在生成督导草稿…');
-    var result = confirmedPlan && confirmedPlan.ok === true ? await pipeline.execute(confirmedPlan) : await bridge.execute(confirmed);
-    clearTyping();
-    if (!result || result.ok !== true) { renderMsg('assistant', '督导草稿生成失败：' + String(result && result.reason || 'executor-failed')); return true; }
-    var draft = typeof result.draft === 'string' ? result.draft : JSON.stringify(result.draft, null, 2);
-    var assistantRef = { role: 'assistant', content: draft, clinicalAgentRunId: result.runId, clinicalAgentSnapshotKey: result.snapshotKey, clinicalAgentSources: result.sources };
-    messages.push(assistantRef);
-    renderMsg('assistant', draft, null, { draft: true, runId: result.runId, snapshot: { snapshotKey: result.snapshotKey, sourceCount: (result.sources || []).length }, messageRef: assistantRef });
-    if (window.XJClinicalAgentWorkbench && typeof window.XJClinicalAgentWorkbench.recordDraft === 'function') window.XJClinicalAgentWorkbench.recordDraft({ taskId: result.taskId, runId: result.runId, snapshotKey: result.snapshotKey, sources: result.sources, pipelineSteps: result.pipelineSteps || [] });
-    saveMemory();
+    var runId = resumeRecord ? resumeRecord.runId : 'chat-' + Date.now().toString(36) + '-' + (++draftSeq);
+    var taskId = resumeRecord ? resumeRecord.taskId : route.taskId;
+    var taskLabels = { 'countertransference-analysis': '反移情分析', 'session-review': '会谈复盘', 'case-conceptualization': '个案概念化', 'next-session-hypotheses': '下次会谈假设', 'supervision-question-builder': '督导问题生成', 'multi-school-comparison': '多流派比较', 'supervision-preview': '督导整体印象' };
+    var bridge = ClinicalAgentProductionBridge.fromGlobals({ timeoutMs: 60000 });
+    var pipeline = ClinicalAgentPipeline.create({ bridge: bridge });
+    // 临床任务不使用跨来访者的通用聊天历史，只使用本轮问题和选定来源。
+    var request = { text: taskLabels[taskId], inputText: text, runId: runId, taskId: taskId, origin: selection, selection: selection, contextOptions: { inputText: text, history: [], system: '你是心镜临床督导助手，只输出可审阅草稿并保留不确定性。' } };
+    var plan = pipeline.prepare(request);
+    if (!plan || !plan.ok) { renderSystem('无法建立来源预览。请核对来访者、会谈和材料后重试。', 'triangle-alert', 'warning'); return true; }
+    var meta = { runId: runId, taskId: taskId, status: 'awaiting-confirmation', snapshotKey: plan.snapshotKey, origin: selection, sources: plan.sources, stepIds: plan.steps.map(function (step) { return step.id; }) };
+    var savedRequest = await ClinicalAgentRunStore.saveRequest(meta, text);
+    if (!savedRequest.ok) { bridge.cancel(plan.prepared, 'request-save-failed'); renderSystem('本轮问题无法保存到本机，尚未调用 AI。请检查存储后重试。', 'triangle-alert', 'warning'); return true; }
+    if (window.XJClinicalAgentWorkbench) await XJClinicalAgentWorkbench.refreshHistory(false);
+    var confirmation = await renderClinicalAgentConfirmation({ taskLabel: taskLabels[taskId], snapshotKey: plan.snapshotKey, sources: plan.token.sources, estimatedChars: plan.token.estimatedChars });
+    if (!confirmation.confirmed) {
+      bridge.cancel(plan.prepared, 'user-cancelled');
+      if (ClinicalAgentWorkflow.waitForPersistence) await ClinicalAgentWorkflow.waitForPersistence(plan.prepared);
+      if (window.XJClinicalAgentWorkbench) await XJClinicalAgentWorkbench.refreshHistory(false);
+      renderSystem('已取消本次督导草稿生成。', 'circle-check', 'info'); return true;
+    }
+    var confirmedPlan = pipeline.confirm(plan);
+    if (!confirmedPlan.ok) { renderSystem('确认失败，请重新预览。', 'triangle-alert', 'warning'); return true; }
+    activeClinicalRun = { bridge: bridge, handle: confirmedPlan.confirmed };
+    var typing = renderTyping();
+    var stop = el('button', 'clinical-agent-stop');
+    stop.type = 'button'; stop.textContent = '取消生成';
+    stop.addEventListener('click', function () { if (activeClinicalRun) activeClinicalRun.bridge.cancel(activeClinicalRun.handle, 'user-cancelled'); });
+    if (typing) typing.querySelector('.bubble').appendChild(stop);
+    try {
+      var result = await pipeline.execute(confirmedPlan, { isCancelled: function () { return !ClinicalAgentRunStore.sameOrigin(selection, clinicalAgentSelection()); } });
+      clearTyping();
+      if (!result || !result.ok) { renderSystem('本次生成未完成，未保存或采用草稿。请核对来源后重新预览。', 'triangle-alert', 'warning'); return true; }
+      if (!ClinicalAgentRunStore.sameOrigin(selection, clinicalAgentSelection())) { renderSystem('当前来访者已切换，旧结果未采用。', 'triangle-alert', 'warning'); return true; }
+      var draft = typeof result.draft === 'string' ? result.draft : JSON.stringify(result.draft, null, 2);
+      var assistantRef = { role: 'assistant', content: draft, clinicalAgentRunId: result.runId, clinicalAgentSnapshotKey: result.snapshotKey, clinicalAgentSources: result.sources, clinicalAgentOrigin: selection };
+      messages.push(assistantRef);
+      renderMsg('assistant', draft, null, { draft: true, clinicalAgent: true, runId: result.runId, snapshot: Object.assign(resolveDraftSnapshot(selection), { sourceCount: result.sources.length }), messageRef: assistantRef });
+      if (window.XJClinicalAgentWorkbench) await XJClinicalAgentWorkbench.recordDraft(Object.assign({}, result, { origin: selection, stepIds: plan.steps.map(function (step) { return step.id; }) }));
+      saveMemory();
+    } finally {
+      activeClinicalRun = null;
+      clearTyping();
+      if (window.XJClinicalAgentWorkbench) await XJClinicalAgentWorkbench.refreshHistory(false);
+    }
     return true;
   }
 
@@ -740,17 +813,20 @@
     if (!inputEl) return;
     const text = (inputEl.value || '').trim();
     if (!text) return;
-    const agentRoute = clinicalAgentIntent(text);
+    const agentRoute = pendingResumeRun ? { ok: true, taskId: pendingResumeRun.taskId } : clinicalAgentIntent(text);
     if (agentRoute) {
+      // 临床任务使用预览取消和运行取消，不允许只撤销消息却继续执行任务。
+      sendUndoState = null;
+      if (sendUndoTimer) { clearTimeout(sendUndoTimer); sendUndoTimer = null; }
+      hideUndoToast();
       inputEl.value = '';
       inputEl.style.height = '';
       const userEl = renderMsg('user', text);
       const userObj = { role: 'user', content: text };
       messages.push(userObj);
-      setSendUndo(userEl, userObj);
       busy = true;
       if (sendBtn) sendBtn.disabled = true;
-      try { await runClinicalAgentFromChat(text, agentRoute); } catch (error) { renderMsg('assistant', '督导任务异常：' + (error.message || '未知错误')); }
+      try { await runClinicalAgentFromChat(text, agentRoute); } catch (_) { renderSystem('督导任务未完成，请核对来源与本机存储后重试。', 'triangle-alert', 'warning'); }
       finally { busy = false; if (sendBtn) sendBtn.disabled = false; saveMemory(); }
       return;
     }
@@ -1015,12 +1091,15 @@
   };
 
   window.undoLastWrite = undoLastWrite;
-  window.resumeClinicalAgentRun = function (run) {
-    if (!run || typeof run !== 'object' || !run.runId || !run.taskId) return;
+  window.resumeClinicalAgentRun = async function (run) {
+    if (busy || !run || !run.runId || !clinicalAgentTaskForRoute(run.taskId)) return;
+    if (!ClinicalAgentRunStore.sameOrigin(run.origin, clinicalAgentSelection())) { renderSystem('请先选择历史运行所属的来访者、会谈和材料。', 'triangle-alert', 'warning'); return; }
+    var saved;
+    try { saved = await ClinicalAgentRunStore.getRequest(run.runId); } catch (_) {}
+    if (!saved || !saved.question || !ClinicalAgentRunStore.sameOrigin(saved.origin, run.origin) || saved.snapshotKey !== run.snapshotKey) { renderSystem('该旧运行未保存匹配的原问题，请重新输入问题；不会自动执行旧任务。', 'triangle-alert', 'warning'); return; }
     pendingResumeRun = run;
-    var labels = { 'countertransference-analysis': '反移情分析', 'session-review': '会谈复盘', 'case-conceptualization': '个案概念化', 'next-session-hypotheses': '下次会谈假设', 'supervision-question-builder': '督导问题生成', 'multi-school-comparison': '多流派比较', 'supervision-preview': '督导整体印象' };
-    if (inputEl) inputEl.value = '继续' + (labels[run.taskId] || run.taskId);
-    sendMsg();
+    if (inputEl) inputEl.value = saved.question;
+    await sendMsg();
   };
 
   function init() {
@@ -1034,6 +1113,8 @@
     renderStructureContext();
     if (window.XJClinicalAgentWorkbench && typeof window.XJClinicalAgentWorkbench.mount === 'function') window.XJClinicalAgentWorkbench.mount('#clinical-agent-workbench-root');
     window.addEventListener('xj:clinical-context-changed', renderStructureContext);
+    window.addEventListener('xj:clinical-context-changed', function () { if (activeClinicalRun) activeClinicalRun.bridge.cancel(activeClinicalRun.handle, 'context-changed'); });
+    window.addEventListener('pagehide', function () { if (activeClinicalRun) activeClinicalRun.bridge.cancel(activeClinicalRun.handle, 'page-hidden'); });
 
     if (inputEl) {
       inputEl.addEventListener('keydown', function (e) {

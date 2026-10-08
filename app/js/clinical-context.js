@@ -204,7 +204,9 @@
       clientId: context.origin.clientId, sessionId: context.origin.sessionId, materialId: context.origin.materialId, supervisionId: context.origin.supervisionId,
       selectedSessionIds: ids, sessionVersions: versions,
       materialUpdatedAt: context.material ? String(context.material.updatedAt || '') : '', supervisionUpdatedAt: context.supervision ? String(context.supervision.updatedAt || '') : '',
-      inputDigest: digest(inputText), key: [context.origin.clientId, context.origin.sessionId, context.origin.materialId, context.origin.supervisionId, ids.join(','), digest(inputText)].join('|')
+      inputDigest: digest(inputText), task: context.task, includeUserDocs: (context.sources || []).some(function (source) { return source.kind === 'userdocs'; }),
+      sourceFingerprint: digest(JSON.stringify((context.sources || []).map(sourceProjection))),
+      key: [context.origin.clientId, context.origin.sessionId, context.origin.materialId, context.origin.supervisionId, ids.join(','), digest(inputText), digest(JSON.stringify((context.sources || []).map(sourceProjection)))].join('|')
     };
   }
   function isSnapshotCurrent(snapshot, inputText, selection) {
@@ -219,6 +221,10 @@
     if (snapshot.materialId && (!material || String(material.updatedAt || '') !== snapshot.materialUpdatedAt)) return false;
     var supervision = snapshot.supervisionId && Store.getSupervision ? Store.getSupervision(snapshot.supervisionId) : null;
     if (snapshot.supervisionId && (!supervision || String(supervision.updatedAt || '') !== snapshot.supervisionUpdatedAt)) return false;
+    if (snapshot.task && snapshot.sourceFingerprint) {
+      var rebuilt = build(snapshot.task, selection || snapshot, { inputText: inputText, selectedSessionIds: snapshot.selectedSessionIds, includeUserDocs: snapshot.includeUserDocs === true });
+      if (!rebuilt.ok || rebuilt.snapshot.sourceFingerprint !== snapshot.sourceFingerprint) return false;
+    }
     return (snapshot.selectedSessionIds || []).every(function (id) { return sessionVersion(id) === snapshot.sessionVersions[id]; });
   }
 
@@ -244,6 +250,7 @@
     var origin = { clientId: resolved.clientId, sessionId: resolved.sessionId, materialId: resolved.materialId, supervisionId: resolved.supervisionId };
     var sources = [], blocks = [], displaySources = [];
     function add(kind, id, label, value, limit, version) {
+      if (spec.allowedSourceKinds.indexOf(kind) < 0) return;
       var cut = clip(value, limit);
       if (!cut.text) return;
       sources.push(governedSource(kind, id, label, cut.text, origin, version, cut.truncated));
@@ -306,24 +313,32 @@
   function sourceProjection(source) {
     return { kind: source.kind, id: source.id, clientId: source.clientId, sessionId: source.sessionId, normalizationVersion: source.normalizationVersion, sourceVersion: source.sourceVersion, sourceContentHash: source.sourceContentHash, anchorContentHash: source.anchorContentHash, status: source.status };
   }
-  function createActionRun(context) {
+  function actionRunData(context) {
     if (!context || !getTaskSpec(context.task) || context.outputMode !== 'preview-only') return null;
     var admission = validateSources(context.task, context.sources, context.origin);
     if (!admission.ok) return null;
-    return Store.createClinicalActionRun({ task: context.task, status: 'pending', outputMode: 'preview-only', origin: Object.assign({}, context.origin), sources: context.sources.map(sourceProjection), snapshot: Object.assign({}, context.snapshot), createdAt: new Date().toISOString() });
+    return { task: context.task, status: 'pending', outputMode: 'preview-only', origin: Object.assign({}, context.origin), sources: context.sources.map(sourceProjection), snapshot: Object.assign({}, context.snapshot), createdAt: new Date().toISOString() };
+  }
+  function createActionRun(context) {
+    var data = actionRunData(context);
+    return data ? Store.createClinicalActionRun(data) : null;
+  }
+  async function createActionRunDurable(context) {
+    var data = actionRunData(context);
+    if (!data || typeof Store.createClinicalActionRunDurable !== 'function') return null;
+    var result = await Store.createClinicalActionRunDurable(data);
+    return result && result.ok === true ? result.value : null;
+  }
+  function actionCompletionPatch(existing, output) {
+    var validation = validateOutput(existing.task, output);
+    return { status: validation.ok ? 'succeeded' : 'failed', output: validation.ok ? { kind: output.kind, ref: digest(JSON.stringify(output)) } : { kind: text(output && output.kind || ''), ref: '' }, completedAt: new Date().toISOString() };
   }
   function completeActionRun(id, output) {
     var existing = Store.updateClinicalActionRun(id, {});
     if (!existing) return null;
-    var validation = validateOutput(existing.task, output);
     // 向后兼容：即使输出未通过校验，也回写动作追踪 ID（不标记 succeeded），
     // 保证 v4.3 artifacts 白名单字段（transcriptActionRunId 等）可追踪失败动作。
-    var status = validation.ok ? 'succeeded' : 'failed';
-    var run = Store.updateClinicalActionRun(id, {
-      status: status,
-      output: validation.ok ? { kind: output.kind, ref: digest(JSON.stringify(output)) } : { kind: text(output && output.kind || ''), ref: '' },
-      completedAt: new Date().toISOString()
-    });
+    var run = Store.updateClinicalActionRun(id, actionCompletionPatch(existing, output));
     if (!run || !run.origin || !run.origin.materialId || !Store.updateMaterialWorkspace) return run;
     var artifactKeys = {
       'transcript-ai-detect': 'transcriptActionRunId',
@@ -337,6 +352,27 @@
     return run;
   }
   function failActionRun(id, error, status) { return Store.updateClinicalActionRun(id, { status: status || 'failed', error: text(error).slice(0, 200), completedAt: new Date().toISOString() }); }
+  async function completeActionRunDurable(id, output) {
+    if (typeof Store.getClinicalActionRun !== 'function' || typeof Store.updateClinicalActionRunDurable !== 'function') return null;
+    var existing = Store.getClinicalActionRun(id);
+    if (!existing) return null;
+    var result = await Store.updateClinicalActionRunDurable(id, actionCompletionPatch(existing, output));
+    if (!result || result.ok !== true) return null;
+    var run = result.value;
+    var artifactKey = { 'transcript-ai-detect': 'transcriptActionRunId', 'report-ai-fill': 'reportActionRunId', 'supervision-ai': 'supervisionActionRunId', 'real-supervision-ai-organize': 'realSupervisionActionRunId', 'real-supervision-ai-record-analyze': 'realSupervisionActionRunId' }[run.task];
+    if (artifactKey && run.origin.materialId) {
+      if (typeof Store.updateMaterialWorkspaceDurable !== 'function') return null;
+      var artifacts = {}; artifacts[artifactKey] = run.id;
+      var linked = await Store.updateMaterialWorkspaceDurable(run.origin.materialId, { artifacts: artifacts });
+      if (!linked || linked.ok !== true) return null;
+    }
+    return run;
+  }
+  async function failActionRunDurable(id, error, status) {
+    if (typeof Store.updateClinicalActionRunDurable !== 'function') return null;
+    var result = await Store.updateClinicalActionRunDurable(id, { status: status || 'failed', error: text(error).slice(0, 200), completedAt: new Date().toISOString() });
+    return result && result.ok === true ? result.value : null;
+  }
 
-  window.ClinicalContext = Object.freeze({ TASKS: TASKS, getTaskSpec: getTaskSpec, validateSources: validateSources, validateOutput: validateOutput, resolve: resolve, build: build, summarize: summarize, createSnapshot: createSnapshot, isSnapshotCurrent: isSnapshotCurrent, createActionRun: createActionRun, completeActionRun: completeActionRun, failActionRun: failActionRun, digest: digest });
+  window.ClinicalContext = Object.freeze({ TASKS: TASKS, getTaskSpec: getTaskSpec, validateSources: validateSources, validateOutput: validateOutput, resolve: resolve, build: build, summarize: summarize, createSnapshot: createSnapshot, isSnapshotCurrent: isSnapshotCurrent, createActionRun: createActionRun, completeActionRun: completeActionRun, failActionRun: failActionRun, createActionRunDurable: createActionRunDurable, completeActionRunDurable: completeActionRunDurable, failActionRunDurable: failActionRunDurable, digest: digest });
 })();

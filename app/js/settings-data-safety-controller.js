@@ -15,6 +15,7 @@
     'clinicalActionRuns', 'clinicalTasks', 'importQuarantine',
     'deletionBatches', 'deletionQuarantine'
   ]);
+  var AGENT_COLLECTIONS = ['clinicalAgentRuns.v1', 'clinicalAgentDrafts.v1'];
 
   function success(value) { return { ok: true, errorCode: '', value: value }; }
   function failure(errorCode) { return { ok: false, errorCode: errorCode, value: null }; }
@@ -51,13 +52,14 @@
     try {
       var value = JSON.parse(text);
       if (!value || typeof value !== 'object' || Array.isArray(value) || value.version !== '2.0.0') return null;
-      var allowed = ['version', 'exportedAt'].concat(COLLECTIONS);
+      var allowed = ['version', 'exportedAt'].concat(COLLECTIONS, AGENT_COLLECTIONS);
       var keys = Object.keys(value);
       if (keys.some(function (key) { return allowed.indexOf(key) === -1; })) return null;
       if (value.exportedAt !== undefined && typeof value.exportedAt !== 'string') return null;
       for (var index = 0; index < COLLECTIONS.length; index += 1) {
         if (!Array.isArray(value[COLLECTIONS[index]])) return null;
       }
+      if (AGENT_COLLECTIONS.some(function (key) { return Object.prototype.hasOwnProperty.call(value, key) && (!value[key] || value[key].version !== 1 || !Array.isArray(value[key].runs)); })) return null;
       return value;
     } catch (_) { return null; }
   }
@@ -92,11 +94,30 @@
       projection[key] = { count: list.length, ids: stableIds(list) };
     }
     projection.invalidReferences = referenceProjection(parsed);
+    AGENT_COLLECTIONS.forEach(function (key) {
+      if (parsed[key]) projection[key] = parsed[key].runs.slice().sort(function (a, b) { return String(a.runId).localeCompare(String(b.runId)); }).map(stableValue);
+    });
     return projection;
+  }
+  function stableValue(value) {
+    if (Array.isArray(value)) return value.map(stableValue);
+    if (!value || typeof value !== 'object') return value;
+    var result = {};
+    Object.keys(value).sort().forEach(function (key) { result[key] = stableValue(value[key]); });
+    return result;
   }
   function sameProjection(expectedText, actualText) {
     var expected = readbackProjection(expectedText);
     var actual = readbackProjection(actualText);
+    // 旧备份未包含 Agent 集合时，不要求清空恢复设备已有的历史。
+    if (expected && actual) AGENT_COLLECTIONS.forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(expected, key)) { delete actual[key]; return; }
+      // Agent 历史按 ID 合并：核对每条备份内容，不把设备原有的其他运行当成恢复失败。
+      if (Array.isArray(actual[key])) {
+        var ids = new Set(expected[key].map(function (row) { return row.runId; }));
+        actual[key] = actual[key].filter(function (row) { return ids.has(row.runId); });
+      }
+    });
     return !!expected && !!actual && JSON.stringify(expected) === JSON.stringify(actual);
   }
   function safeToast(ui, message, type) {

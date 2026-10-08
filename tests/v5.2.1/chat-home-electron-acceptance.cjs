@@ -91,7 +91,7 @@ function startAuthServer() {
     dir,
     service,
     listen: () => service.listen(),
-    close: () => new Promise((resolve) => service.server.close(resolve)),
+    close: () => new Promise((resolve) => service.server.close(() => { service.auth.close(); resolve(); })),
     token: () => {
       const queue = service.mailer.peek();
       return queue.length ? queue[queue.length - 1].verificationToken : '';
@@ -148,7 +148,7 @@ async function main() {
     await evaluate(cdp, '(function () {\n' +
       'var probe = window.__xjChatProbe = { actionRunCount: 0, aiCount: 0, executeCount: 0, events: [] };\n' +
       'var context = window.ClinicalContext;\n' +
-      'if (context) { var wrapped = {}; Object.keys(context).forEach(function (key) { wrapped[key] = context[key]; }); ["createActionRun", "completeActionRun", "failActionRun"].forEach(function (key) { if (typeof context[key] !== "function") return; wrapped[key] = function () { var result = context[key].apply(context, arguments); if (key === "createActionRun") probe.actionRunCount += 1; probe.events.push({ step: key, ok: !!result }); return result; }; }); window.ClinicalContext = wrapped; }\n' +
+      'if (context) { var wrapped = {}; Object.keys(context).forEach(function (key) { wrapped[key] = context[key]; }); ["createActionRunDurable", "completeActionRunDurable", "failActionRunDurable"].forEach(function (key) { if (typeof context[key] !== "function") return; wrapped[key] = async function () { var result = await context[key].apply(context, arguments); if (key === "createActionRunDurable") probe.actionRunCount += 1; probe.events.push({ step: key, ok: !!result, status: result && result.status }); return result; }; }); window.ClinicalContext = wrapped; }\n' +
       'var ai = window.AI; if (ai && typeof ai.send === "function") { var original = ai.send; ai.send = function () { probe.aiCount += 1; probe.events.push({ step: "AI.send" }); return original.apply(ai, arguments); }; }\n' +
       'var bridge = window.ClinicalAgentProductionBridge; if (bridge && typeof bridge.fromGlobals === "function") { var originalFromGlobals = bridge.fromGlobals; window.ClinicalAgentProductionBridge = Object.assign({}, bridge, { fromGlobals: function (options) { var instance = originalFromGlobals.call(bridge, options); if (!instance || typeof instance.execute !== "function") return instance; var originalExecute = instance.execute; return Object.assign({}, instance, { execute: function () { probe.executeCount += 1; probe.events.push({ step: "bridge.execute" }); return originalExecute.apply(instance, arguments); } }); } }); }\n' +
       '}())');
@@ -158,17 +158,18 @@ async function main() {
     await waitFor(cdp, 'document.querySelector(".clinical-agent-confirm") && document.querySelector(".clinical-agent-cancel")', 'chat confirmation card');
     out.beforeConfirm = await evaluate(cdp, '({ actionRunCount: __xjChatProbe.actionRunCount, aiCount: __xjChatProbe.aiCount, executeCount: __xjChatProbe.executeCount, previewText: document.querySelector("#chat-msgs").innerText.slice(-1000) })');
     await evaluate(cdp, 'document.querySelector(".clinical-agent-confirm").click()');
-    await waitFor(cdp, 'document.querySelector("#chat-typing") || document.querySelector("#clinical-agent-workbench-root .xj-agent-run-card") || document.querySelector("#chat-msgs").innerText.includes("督导草稿生成失败")', 'post-confirm execution');
+    await waitFor(cdp, 'document.querySelector("#chat-msgs").innerText.includes("本次生成未完成") && !document.querySelector("#chat-typing")', 'failure terminal');
     await sleep(800);
     out.afterConfirm = await evaluate(cdp, '({ actionRunCount: __xjChatProbe.actionRunCount, aiCount: __xjChatProbe.aiCount, executeCount: __xjChatProbe.executeCount, workbench: document.querySelector("#clinical-agent-workbench-root").innerText.slice(0, 1200), chat: document.querySelector("#chat-msgs").innerText.slice(-1200), events: __xjChatProbe.events })');
+    out.diskActions = await evaluate(cdp, '(async function () { return JSON.parse(await Store.exportAll()).clinicalActionRuns.map(function (run) { return { id: run.id, status: run.status }; }); }())');
     out.screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true }).then((result) => {
       const buffer = Buffer.from(result.data || '', 'base64');
       fs.writeFileSync(path.join(ARTIFACTS, 'chat-home.png'), buffer);
       return { file: 'chat-home.png', bytes: buffer.length, sha256: crypto.createHash('sha256').update(buffer).digest('hex').toUpperCase() };
     });
     const previewSafe = /确认后才会调用 AI/.test(out.beforeConfirm.previewText) && !/raw body|messages|executor|privateContext/i.test(out.beforeConfirm.previewText);
-    const afterTerminal = /督导草稿生成失败|督导草稿|草稿|受控临床 Agent 任务/.test(out.afterConfirm.chat + out.afterConfirm.workbench);
-    out.status = out.loaded.input && out.loaded.send && out.loaded.workbench && out.beforeConfirm.actionRunCount === 0 && out.beforeConfirm.aiCount === 0 && out.beforeConfirm.executeCount === 0 && out.afterConfirm.executeCount === 1 && out.afterConfirm.aiCount === 1 && previewSafe && afterTerminal ? 'PASS' : 'FAIL';
+    const afterTerminal = /本次生成未完成/.test(out.afterConfirm.chat) && out.afterConfirm.events.filter(event => event.step === 'failActionRunDurable' && event.ok && event.status === 'failed').length === 1 && out.diskActions.length === 1 && out.diskActions[0].status === 'failed';
+    out.status = out.loaded.input && out.loaded.send && out.loaded.workbench && out.beforeConfirm.actionRunCount === 0 && out.beforeConfirm.aiCount === 0 && out.beforeConfirm.executeCount === 0 && out.afterConfirm.executeCount === 1 && out.afterConfirm.actionRunCount === 1 && out.afterConfirm.aiCount === 1 && previewSafe && afterTerminal ? 'PASS' : 'FAIL';
   } catch (error) {
     out.error = String(error.stack || error);
     try { if (cdp) out.debug = await evaluate(cdp, '({ path: location.pathname, body: (document.body && document.body.innerText || "").slice(-2000), probe: window.__xjChatProbe || null, children: document.querySelector("#chat-msgs") ? document.querySelector("#chat-msgs").children.length : -1 })'); } catch (_) {}
@@ -183,4 +184,5 @@ async function main() {
   process.exitCode = out.status === 'PASS' ? 0 : 1;
 }
 
-main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });
+module.exports = { ROOT, ELECTRON, sleep, findFreePort, getJson, createCdp, evaluate, waitFor, startAuthServer };
+if (require.main === module) main().catch((error) => { console.error(error.stack || error); process.exitCode = 1; });

@@ -20,6 +20,8 @@
   const DEVICE_KDF = Object.freeze({ name: 'device-safe-storage', version: 1 });
   const PACKAGE_KEYS = Object.freeze(['format', 'formatVersion', 'kind', 'payloadVersion', 'createdAt', 'kdf', 'cipher', 'aad', 'ciphertext', 'authTag', 'payloadSha256']);
   const USER_EXPORT_KEYS = new Set(['version', 'exportedAt', 'clients', 'sessions', 'supervisions', 'supervisorIdentities', 'masterConversations', 'expenses', 'materialWorkspaces', 'clinicalActionRuns', 'clinicalTasks', 'importQuarantine', 'deletionBatches', 'deletionQuarantine']);
+  const AGENT_EXPORT_KEYS = ['clinicalAgentRuns.v1', 'clinicalAgentDrafts.v1'];
+  AGENT_EXPORT_KEYS.forEach((key) => USER_EXPORT_KEYS.add(key));
   const SNAPSHOT_KEYS = new Set(['version', 'kind', 'createdAt', 'files']);
   const SENSITIVE_SETTING_KEYS = new Set(['apiKey', 'accessToken', 'refreshToken', 'secret', 'password', 'token', 'privateKey', 'clientSecret']);
 
@@ -87,6 +89,7 @@
     if (String(parsed.version || '') !== expectedVersion) throw backupError('XJ_BACKUP_PAYLOAD_INVALID');
     const allowed = kind === 'user-export' ? USER_EXPORT_KEYS : SNAPSHOT_KEYS;
     if (Object.keys(parsed).some((key) => !allowed.has(key))) throw backupError('XJ_BACKUP_PAYLOAD_INVALID');
+    if (kind === 'user-export' && AGENT_EXPORT_KEYS.some((key) => Object.prototype.hasOwnProperty.call(parsed, key) && (!isPlainObject(parsed[key]) || parsed[key].version !== 1 || !Array.isArray(parsed[key].runs)))) throw backupError('XJ_BACKUP_PAYLOAD_INVALID');
     if (kind === 'user-data-snapshot' && String(parsed.kind || '') !== 'user-data-snapshot') {
       throw backupError('XJ_BACKUP_PAYLOAD_INVALID');
     }

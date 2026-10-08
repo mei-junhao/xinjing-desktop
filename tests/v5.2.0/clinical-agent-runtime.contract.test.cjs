@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Runtime = require('../../app/js/clinical-agent-runtime.js');
 const fs = require('fs'); const vm = require('vm');
+const draft = JSON.stringify({ facts: 'draft [s1]', inferences: '', hypotheses: '' });
 function fixture() {
   const calls = { build: [], exec: 0, ai: 0, persist: 0 };
   const workflow = { prepare(r) { return { ok: true, runId: r.runId, taskId: r.taskId || (r.text.includes('督导') ? 'supervision-question-builder' : 'session-review'), status: 'awaiting-confirmation', snapshotKey: r.snapshotKey, sources: r.sources }; }, confirm(s, c) { return c && c.confirmed === true ? { ...s, ok: true, status: 'running', outputDisposition: 'draft' } : { ok: false, reason: 'confirmation-required' }; }, cancel(s) { return { ...s, ok: false, status: 'cancelled', reason: 'cancelled' }; }, isWorkflowState(v) { return !!v; } };
@@ -29,23 +30,23 @@ test('adapter errors, cancellation and metadata projection remain private', asyn
 test('fromGlobals calls AI.send through the real adapter factory and normalizes callback/promise failures', async () => {
   const base = fixture(); let sends = 0; let seenMessages; let seenOptions;
   const context = { build(task) { assert.equal(task, 'session-review'); return { ok: true, task, outputMode: 'preview-only', snapshot: { key: 'snap-1' }, sources: [{ kind: 'session', id: 's1' }], messages: [{ role: 'user', content: 'clinical' }] }; }, isSnapshotCurrent: () => true };
-  const ai = { send(messages, cb, options) { sends++; seenMessages = messages; seenOptions = options; cb({ content: 'draft' }); } };
+  const ai = { send(messages, cb, options) { sends++; seenMessages = messages; seenOptions = options; cb({ content: draft }); } };
   const rt = Runtime.fromGlobals({ workflow: base.workflow, ClinicalContext: context, AI: ai, adapter: { withDependencies: deps => require('../../app/js/clinical-agent-adapter.js').withDependencies(deps) } });
-  const p = rt.prepare(req()); const c = rt.confirm(p, { confirmed: true }); const out = await rt.execute(c); assert.equal(out.status, 'draft-ready'); assert.equal(sends, 1); assert.equal(seenMessages[0].content, 'clinical'); assert.equal(seenOptions.taskId, 'session-review');
+  const p = rt.prepare(req()); const c = rt.confirm(p, { confirmed: true }); const out = await rt.execute(c); assert.equal(out.status, 'draft-ready'); assert.equal(sends, 1); assert.equal(seenMessages.find(message => message.role === 'user').content, 'clinical'); assert.match(seenMessages.find(message => message.role === 'system').content, /会谈复盘/); assert.equal(seenOptions.taskId, 'session-review');
   for (const send of [(m, cb) => cb({ error: 'secret' }), (m, cb) => Promise.reject(new Error('secret')), (m, cb) => cb({ interrupted: true })]) { const failing = Runtime.fromGlobals({ workflow: base.workflow, ClinicalContext: context, AI: { send } , adapter: { withDependencies: deps => require('../../app/js/clinical-agent-adapter.js').withDependencies(deps) } }); const q = failing.confirm(failing.prepare(req()), { confirmed: true }); const r = await failing.execute(q); assert.ok(['ai-failed', 'ai-cancelled'].includes(r.reason)); assert.equal(JSON.stringify(r).includes('secret'), false); }
 });
 
 test('fromGlobals forwards onDelta through runtime and suppresses cancellation/late callbacks', async () => {
   const base = fixture(); const context = { build: () => ({ ok:true, task:'session-review', outputMode:'preview-only', snapshot:{key:'snap-1'}, sources:[{kind:'session',id:'s1'}], messages:[{role:'user',content:'synthetic'}] }), isSnapshotCurrent:() => true };
   const events = [];
-  const ai = { send(messages, cb, options) { events.push('send'); options.onDelta('partial', 'partial'); events.push('delta'); cb({ content:'final', providerSecret:'hidden' }); } };
+  const ai = { send(messages, cb, options) { events.push('send'); options.onDelta('partial', 'partial'); events.push('delta'); cb({ content:draft, providerSecret:'hidden' }); } };
   const rt = Runtime.fromGlobals({ workflow: base.workflow, ClinicalContext: context, AI: ai, adapter:{withDependencies:d=>require('../../app/js/clinical-agent-adapter.js').withDependencies(d)} });
   const c = rt.confirm(rt.prepare(req()), {confirmed:true});
   const run = rt.execute(c, { onDelta: value => events.push('ui:' + value) });
-  assert.deepEqual(events, ['send', 'ui:partial', 'delta', 'ui:final']);
+  assert.deepEqual(events, ['send', 'ui:partial', 'delta', 'ui:' + draft]);
   const out = await run;
   assert.equal(out.status, 'draft-ready');
-  assert.deepEqual(events, ['send', 'ui:partial', 'delta', 'ui:final']);
+  assert.deepEqual(events, ['send', 'ui:partial', 'delta', 'ui:' + draft]);
   assert.equal(JSON.stringify(out).includes('providerSecret'), false);
 
   let resolve; const late = [];
@@ -85,5 +86,25 @@ test('fromGlobals propagates per-execution abort signals without cross-talk', as
   const ai = { send(m, cb, o) { seen.push(o.signal); resolvers.push(cb); } };
   const rt = Runtime.fromGlobals({ workflow: base.workflow, ClinicalContext: context, AI: ai, adapter:{withDependencies:d=>require('../../app/js/clinical-agent-adapter.js').withDependencies(d)} });
   const c1 = rt.confirm(rt.prepare(req()), {confirmed:true}); const c2 = rt.confirm(rt.prepare({...req(), runId:'run-2'}), {confirmed:true});
-  const p1 = rt.execute(c1); const p2 = rt.execute(c2); assert.equal(seen.length,2); assert.notEqual(seen[0], seen[1]); rt.cancel(c1); assert.equal(seen[0].aborted,true); assert.equal(seen[1].aborted,false); resolvers[0]({content:'late'}); resolvers[1]({content:'ok'}); assert.equal((await p1).reason,'ai-cancelled'); assert.equal((await p2).status,'draft-ready');
+  const p1 = rt.execute(c1); const p2 = rt.execute(c2); assert.equal(seen.length,2); assert.notEqual(seen[0], seen[1]); rt.cancel(c1); assert.equal(seen[0].aborted,true); assert.equal(seen[1].aborted,false); resolvers[0]({content:'late'}); resolvers[1]({content:draft}); assert.equal((await p1).reason,'ai-cancelled'); assert.equal((await p2).status,'draft-ready');
+});
+
+test('全局运行时默认超时生效，单次执行可显式覆盖', async () => {
+  const base = fixture();
+  const context = { build: () => ({ ok: true, task: 'session-review', outputMode: 'preview-only', snapshot: { key: 'snap-1' }, sources: [{ kind: 'session', id: 's1' }], messages: [{ role: 'user', content: 'synthetic' }] }), isSnapshotCurrent: () => true };
+  let callback, signal;
+  const rt = Runtime.fromGlobals({ workflow: base.workflow, ClinicalContext: context, adapter: require('../../app/js/clinical-agent-adapter.js'), timeoutMs: 10, AI: { send(_messages, cb, options) { callback = cb; signal = options.signal; } } });
+  const timed = rt.confirm(rt.prepare(req()), { confirmed: true });
+  assert.equal((await rt.execute(timed)).reason, 'ai-cancelled');
+  assert.equal(signal.aborted, true);
+  callback({ content: draft });
+  assert.equal((await rt.execute(timed)).reason, 'invalid-confirmed-state');
+  const overridden = rt.confirm(rt.prepare({ ...req(), runId: 'override-timeout' }), { confirmed: true });
+  let settled = false;
+  const pending = rt.execute(overridden, { timeoutMs: 0 }).then(result => { settled = true; return result; });
+  await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(settled, false);
+  assert.equal(signal.aborted, false);
+  callback({ content: draft });
+  assert.equal((await pending).status, 'draft-ready');
 });

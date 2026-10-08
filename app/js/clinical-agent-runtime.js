@@ -21,10 +21,11 @@
       return token;
     }
     function prepare(request, preparedContext) {
-      var prepared = workflow.prepare(request);
-      if (!prepared || prepared.ok !== true) return fail(prepared && prepared.reason || 'workflow-rejected');
-    var adapterRequest = Object.assign({}, request, { taskId: prepared.taskId, runId: prepared.runId, snapshotKey: prepared.snapshotKey, inputText: typeof request.inputText === 'string' ? request.inputText : request.text });
       var contextEntry = preparedContext && states.get(preparedContext);
+      var workflowRequest = contextEntry && contextEntry.context ? Object.assign({}, request, { sources: contextEntry.context.sources, origin: contextEntry.context.origin || request.origin }) : request;
+      var prepared = workflow.prepare(workflowRequest);
+      if (!prepared || prepared.ok !== true) return fail(prepared && prepared.reason || 'workflow-rejected');
+      var adapterRequest = Object.assign({}, request, { taskId: prepared.taskId, runId: prepared.runId, snapshotKey: prepared.snapshotKey, inputText: typeof request.inputText === 'string' ? request.inputText : request.text });
       var handle = adapter.create(adapterRequest, contextEntry && contextEntry.context);
       if (!handle || handle.ok !== true) { workflow.cancel(prepared, 'adapter-rejected'); return fail(handle && handle.reason || 'adapter-rejected'); }
       var out = metadata(prepared);
@@ -44,6 +45,13 @@
       options = options || {};
       var entry = states.get(confirmed);
       if (!entry || !entry.active || !confirmed || confirmed.status !== 'running') return fail('invalid-confirmed-state');
+      if (entry.running) return fail('execution-already-running');
+      entry.running = true;
+      if (typeof workflow.waitForPersistence === 'function') {
+        var stored = await workflow.waitForPersistence(entry.workflow);
+        if (!stored || stored.ok !== true) { entry.running = false; entry.active = false; return fail('run-persistence-failed'); }
+        if (!entry.active || entry.cancelled) { entry.running = false; return fail('ai-cancelled'); }
+      }
       entry.running = true;
       var cancelled = function () { return entry.cancelled || (typeof options.isCancelled === 'function' && options.isCancelled()); };
       var controller = null;
@@ -72,13 +80,22 @@
       entry.running = false;
       entry.controller = null;
       if (result && (result.ok === true || result.ok === false)) entry.active = false;
-      if (timedOut || entry.cancelled || cancelled()) return fail('ai-cancelled', { clinicalActionRunId: result && result.clinicalActionRunId });
+      if (timedOut || entry.cancelled || cancelled()) {
+        workflow.cancel(entry.workflow, 'cancelled');
+        if (typeof workflow.waitForPersistence === 'function') await workflow.waitForPersistence(entry.workflow);
+        return fail('ai-cancelled', { clinicalActionRunId: result && result.clinicalActionRunId });
+      }
       if (!result || result.ok !== true) {
         var failureReason = result && result.reason || 'executor-failed';
         if (typeof workflow.settle === 'function') workflow.settle(entry.workflow, failureReason === 'stale-after' || failureReason === 'stale-before' ? 'stale' : 'failed', failureReason);
+        if (typeof workflow.waitForPersistence === 'function') await workflow.waitForPersistence(entry.workflow);
         return fail(failureReason, { clinicalActionRunId: result && result.clinicalActionRunId });
       }
       if (typeof workflow.settle === 'function') workflow.settle(entry.workflow, 'draft-ready');
+      if (typeof workflow.waitForPersistence === 'function') {
+        var terminalStored = await workflow.waitForPersistence(entry.workflow);
+        if (!terminalStored || terminalStored.ok !== true) return fail('run-persistence-failed');
+      }
       return freeze({ ok: true, runId: confirmed.runId, taskId: confirmed.taskId, status: 'draft-ready', snapshotKey: result.snapshotKey || confirmed.snapshotKey, sources: result.sources || confirmed.sources, outputDisposition: 'draft', draft: result.draft, clinicalActionRunId: result.clinicalActionRunId });
     }
     function cancel(state, reason) { var entry = states.get(state); if (!entry || !entry.active) return fail('invalid-runtime-state'); entry.cancelled = true; try { if (entry.controller) entry.controller.abort(); } catch (_) {} try { if (typeof adapter.cancel === 'function') adapter.cancel(entry.adapter, reason || 'cancelled'); } catch (_) {} if (!entry.running) entry.active = false; workflow.cancel(entry.workflow, reason || 'cancelled'); return freeze({ ok: false, runId: state.runId, taskId: state.taskId, status: 'cancelled', reason: text(reason) || 'cancelled' }); }
@@ -93,8 +110,10 @@
     if (!adapterApi || typeof adapterApi.withDependencies !== 'function') throw new Error('adapter factory required');
     var signals = new Map();
     function signalKey(meta) { return text(meta && meta.runId) + '|' + text(meta && meta.snapshotKey); }
-    var executor = function (messages, meta) { return new Promise(function (resolve) { var settled = false; function done(value) { if (value && typeof meta.onDelta === 'function' && value.content && !value.error && !value.interrupted && !value.cancelled && !value.aborted) { try { meta.onDelta(value.content, value.content); } catch (_) {} } if (settled) return; if (value && value.error) { settled = true; return resolve({ __runtimeFailure: 'ai-failed' }); } if (value && (value.interrupted || value.cancelled || value.aborted)) { settled = true; return resolve({ __runtimeFailure: 'ai-cancelled' }); } var draft = typeof value === 'string' ? value : value && (value.content || value.text || value.draft); if (draft === undefined || draft === null) { settled = true; return resolve({ __runtimeFailure: 'ai-failed' }); } settled = true; resolve(draft); } try { var result = ai.send(messages, done, { runId: meta.runId, taskId: meta.taskId, snapshotKey: meta.snapshotKey, outputDisposition: meta.outputDisposition, signal: meta.signal || signals.get(signalKey(meta)), onDelta: meta.onDelta }); if (result && typeof result.then === 'function') result.then(done, function () { done({ error: true }); }); } catch (e) { done({ error: true }); } }); };
-    var lifecycle = typeof context.createActionRun === 'function' && typeof context.completeActionRun === 'function' && typeof context.failActionRun === 'function' ? { createActionRun: context.createActionRun, completeActionRun: context.completeActionRun, failActionRun: context.failActionRun } : null;
+    var executor = function (messages, meta) { return new Promise(function (resolve) { var settled = false; function done(value) { if (value && typeof meta.onDelta === 'function' && value.content && !value.error && !value.interrupted && !value.cancelled && !value.aborted) { try { meta.onDelta(value.content, value.content); } catch (_) {} } if (settled) return; if (value && value.error) { settled = true; return resolve({ __runtimeFailure: 'ai-failed' }); } if (value && (value.interrupted || value.cancelled || value.aborted)) { settled = true; return resolve({ __runtimeFailure: 'ai-cancelled' }); } var draft = typeof value === 'string' ? value : value && (value.content || value.text || value.draft); if (draft === undefined || draft === null) { settled = true; return resolve({ __runtimeFailure: 'ai-failed' }); } settled = true; resolve(draft); } try { var result = ai.send(messages, done, { runId: meta.runId, taskId: meta.taskId, snapshotKey: meta.snapshotKey, outputDisposition: meta.outputDisposition, sources: meta.sources, signal: meta.signal || signals.get(signalKey(meta)), onDelta: meta.onDelta }); if (result && typeof result.then === 'function') result.then(done, function () { done({ error: true }); }); } catch (e) { done({ error: true }); } }); };
+    var lifecycle = typeof context.createActionRunDurable === 'function' && typeof context.completeActionRunDurable === 'function' && typeof context.failActionRunDurable === 'function'
+      ? { createActionRun: context.createActionRunDurable, completeActionRun: context.completeActionRunDurable, failActionRun: context.failActionRunDurable }
+      : typeof context.createActionRun === 'function' && typeof context.completeActionRun === 'function' && typeof context.failActionRun === 'function' ? { createActionRun: context.createActionRun, completeActionRun: context.completeActionRun, failActionRun: context.failActionRun } : null;
     var builtAdapter = adapterApi.withDependencies({ context: context, executor: executor, lifecycle: lifecycle });
     var adapter = { prepareContext: builtAdapter.prepareContext, create: builtAdapter.create, cancel: builtAdapter.cancel, isAdapterState: builtAdapter.isAdapterState, async execute(state, options) { options = options || {}; var key = signalKey(state); signals.set(key, options.signal); try { var out = await builtAdapter.execute(state, options); if (out && out.ok === true && out.draft && out.draft.__runtimeFailure) return fail(out.draft.__runtimeFailure, { clinicalActionRunId: out.clinicalActionRunId }); if (out && out.ok === false && out.reason === 'cancelled') return fail('ai-cancelled', { clinicalActionRunId: out.clinicalActionRunId }); if (out && out.ok === false && out.reason === 'executor-failed') return fail('ai-failed', { clinicalActionRunId: out.clinicalActionRunId }); return out; } finally { signals.delete(key); } } };
     return make({ workflow: workflow, adapter: adapter, executor: executor, defaultTimeoutMs: options.timeoutMs });

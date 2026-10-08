@@ -33,6 +33,33 @@
     if (taskId === 'multi-school-comparison') return 'supervision-multi-school';
     return taskId;
   }
+  var INSTRUCTIONS = {
+    'countertransference-analysis': '反移情分析：区分咨询师的情绪、身体与行动倾向和来访者事实，提出关系假设、替代解释及督导问题，不将感受当作来访者的诊断。',
+    'session-review': '会谈复盘：按会谈进程总结关键互动、干预、观察与待复核问题，区分逐字记录和推测。',
+    'case-conceptualization': '个案概念化：组织主诉、维持因素、保护因素和关系模式，注明证据缺口及替代解释，不作确定诊断。',
+    'next-session-hypotheses': '下次会谈假设：提出可验证的工作假设、观察信号和开放问题，不替咨询师决定行动。',
+    'supervision-question-builder': '督导问题生成：整理背景、关键难点与具体督导提问，逐项说明提问依据及待澄清点。',
+    'multi-school-comparison': '多流派比较：分别从精神动力学、认知行为、人本视角比较理解与提问，注明适用范围和冲突，不虚构专家共识。',
+    'supervision-preview': '督导整体印象：给出审慎的整体理解、证据与下一步待验证问题。'
+  };
+  function reviewDraft(draft, sources) {
+    var fields = draft;
+    if (typeof fields === 'string') { try { fields = JSON.parse(fields); } catch (_) { return fail('malformed-draft'); } }
+    var keys = ['facts', 'inferences', 'hypotheses'];
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.keys(fields).some(function (key) { return keys.indexOf(key) < 0; }) || keys.some(function (key) { return typeof fields[key] !== 'string'; }) || !keys.some(function (key) { return text(fields[key]); })) return fail('malformed-draft');
+    var admitted = new Set(sources.map(function (source) { return source.id; })), cited = new Set();
+    for (var i = 0; i < keys.length; i += 1) {
+      var refs = fields[keys[i]].match(/\[[^\[\]\r\n]+\]/g) || [];
+      for (var j = 0; j < refs.length; j += 1) {
+        var id = refs[j].slice(1, -1).trim();
+        if (!admitted.has(id)) return fail('output-citation-not-admitted');
+        cited.add(id);
+      }
+    }
+    // 只核验引用归属，不把“引用存在”当作事实语义已经得到临床证实。
+    if (fields.facts.split(/\r?\n/).some(function (line) { return text(line) && !/\[[^\[\]\r\n]+\]/.test(line); })) return fail('output-evidence-missing');
+    return { ok: true, citations: sourceMeta(sources.filter(function (source) { return cited.has(source.id); })) };
+  }
   function validRequest(r) { return !!(r && typeof r === 'object' && !Array.isArray(r) && !!contextTaskFor(text(r.taskId)) && text(r.runId) && text(r.snapshotKey) && typeof r.inputText === 'string'); }
   function sameSourceSet(requestSources, builtSources) {
     if (requestSources.length !== builtSources.length) return false;
@@ -100,11 +127,15 @@
       return state;
     }
     function lifecycleOk(value) { return value !== null && value !== undefined && (!value || value.ok !== false); }
-    function failLifecycle(privateState, reason, status) {
+    async function failLifecycle(privateState, reason, status) {
+      if (privateState && privateState.failurePending) return privateState.failurePending;
       if (!privateState || !privateState.actionRunId || privateState.lifecycleSettled) return fail(reason, privateState && privateState.actionRunId ? { clinicalActionRunId: privateState.actionRunId } : undefined);
       privateState.lifecycleSettled = true;
-      try { if (!lifecycle || typeof lifecycle.failActionRun !== 'function' || !lifecycleOk(lifecycle.failActionRun(privateState.actionRunId, reason, status || 'failed'))) return fail('lifecycle-failed', { clinicalActionRunId: privateState.actionRunId }); } catch (e) { return fail('lifecycle-failed', { clinicalActionRunId: privateState.actionRunId }); }
-      return fail(reason, { clinicalActionRunId: privateState.actionRunId });
+      privateState.failurePending = (async function () {
+        try { if (!lifecycle || typeof lifecycle.failActionRun !== 'function' || !lifecycleOk(await lifecycle.failActionRun(privateState.actionRunId, reason, status || 'failed'))) return fail('lifecycle-failed', { clinicalActionRunId: privateState.actionRunId }); } catch (e) { return fail('lifecycle-failed', { clinicalActionRunId: privateState.actionRunId }); }
+        return fail(reason, { clinicalActionRunId: privateState.actionRunId });
+      }());
+      return privateState.failurePending;
     }
     function cancel(state, reason) {
       var privateState = handles.get(state);
@@ -127,11 +158,18 @@
       if (lifecycle) {
         if (typeof lifecycle.createActionRun !== 'function') return fail('lifecycle-failed');
         var actionRun;
-        try { actionRun = lifecycle.createActionRun(privateState.context); } catch (e0) { return fail('lifecycle-failed'); }
+        try { actionRun = await lifecycle.createActionRun(privateState.context); } catch (e0) { return fail('lifecycle-failed'); }
         privateState.actionRunId = text(actionRun && (actionRun.id || actionRun.clinicalActionRunId || actionRun.runId));
         if (!privateState.actionRunId) return fail('lifecycle-failed');
+        if (cancelled()) return failLifecycle(privateState, 'cancelled', 'cancelled');
+        try { current = context.isSnapshotCurrent(privateState.context.snapshot, privateState.request.inputText, privateState.request.selection); } catch (_) { current = false; }
+        if (!current) return failLifecycle(privateState, 'stale-before', 'stale');
       }
       var payload = privateState.context.messages.map(function (m) { return { role: m.role, content: m.content }; });
+      var instruction = (INSTRUCTIONS[state.taskId] || '') + '\n仅输出 JSON 对象，且只含 facts、inferences、hypotheses 三个字符串字段，不加 Markdown 围栏或其他字段。facts 每一非空行必须以 [来源ID] 标注来源可核对内容；没有事实依据时留空。inferences 明确标为推论；hypotheses 明确标为待验证假设。方括号仅用于引用下列来源，不引用不存在的来源：' + privateState.context.sources.map(function (source) { return source.id; }).join('、');
+      var system = payload.find(function (message) { return message.role === 'system'; });
+      if (system) system.content += '\n' + instruction;
+      else payload.unshift({ role: 'system', content: instruction });
       var meta = { runId: state.runId, taskId: state.taskId, snapshotKey: state.snapshotKey, outputDisposition: 'draft', sources: sourceMeta(privateState.context.sources), clinicalActionRunId: privateState.actionRunId };
       var draft;
       try { draft = await executor(payload, Object.assign({}, meta, { signal: options.signal, onDelta: options.onDelta })); } catch (e2) { return failLifecycle(privateState, 'executor-failed', 'failed'); }
@@ -140,6 +178,8 @@
       try { current = context.isSnapshotCurrent(privateState.context.snapshot, privateState.request.inputText, privateState.request.selection); } catch (e3) { return failLifecycle(privateState, 'stale-after', 'stale'); }
       if (!current) return failLifecycle(privateState, 'stale-after', 'stale');
       if (draft === null || draft === undefined || Array.isArray(draft) || (typeof draft !== 'string' && (typeof draft !== 'object' || (Object.getPrototypeOf(draft) !== Object.prototype && Object.getPrototypeOf(draft) !== null)))) return failLifecycle(privateState, 'malformed-draft', 'failed');
+      var reviewed = reviewDraft(draft, privateState.context.sources);
+      if (!reviewed.ok) return failLifecycle(privateState, reviewed.reason, 'failed');
       if (privateState.actionRunId) {
         if (!lifecycle || typeof lifecycle.completeActionRun !== 'function') return failLifecycle(privateState, 'lifecycle-failed', 'failed');
         var completed;
@@ -148,8 +188,11 @@
           outputKind = privateState.request && (privateState.request.taskId === 'supervision-preview' || privateState.request.taskId === 'supervision-question-builder')
             ? 'supervision-preview' : (text(privateState.context && privateState.context.task) || outputKind);
         } catch (_) {}
-        try { completed = lifecycle.completeActionRun(privateState.actionRunId, { kind: outputKind, summary: typeof draft === 'string' ? draft : JSON.stringify(draft), citations: [] }); } catch (e4) { return failLifecycle(privateState, 'lifecycle-failed', 'failed'); }
-        if (!lifecycleOk(completed)) return failLifecycle(privateState, 'lifecycle-failed', 'failed');
+        try { completed = await lifecycle.completeActionRun(privateState.actionRunId, { kind: outputKind, summary: typeof draft === 'string' ? draft : JSON.stringify(draft), citations: reviewed.citations }); } catch (e4) { return failLifecycle(privateState, 'lifecycle-failed', 'failed'); }
+        if (!lifecycleOk(completed) || completed.status === 'failed') return failLifecycle(privateState, 'lifecycle-failed', 'failed');
+        if (cancelled()) return failLifecycle(privateState, 'cancelled', 'cancelled');
+        try { current = context.isSnapshotCurrent(privateState.context.snapshot, privateState.request.inputText, privateState.request.selection); } catch (_) { current = false; }
+        if (!current) return failLifecycle(privateState, 'stale-after', 'stale');
         privateState.lifecycleSettled = true;
       }
       var result = { ok: true, status: 'draft-ready', runId: state.runId, taskId: state.taskId, snapshotKey: state.snapshotKey, outputDisposition: 'draft', sources: sourceMeta(privateState.context.sources), draft: draft, clinicalActionRunId: privateState.actionRunId };

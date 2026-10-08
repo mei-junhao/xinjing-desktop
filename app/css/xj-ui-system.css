@@ -6,7 +6,7 @@
   --xj-surface-muted: #f5f8f7;
   --xj-text: #17221f;
   --xj-text-2: #52615c;
-  --xj-text-3: #75837e;
+  --xj-text-3: #596b63;
   --xj-border: #cbd6d2;
   --xj-accent: #147d70;
   --xj-accent-hover: #0f685d;
@@ -25,6 +25,7 @@
   --text: var(--xj-text);
   --text-secondary: var(--xj-text-2);
   --text-muted: var(--xj-text-3);
+  --muted: var(--xj-text-3);
   --border: var(--xj-border);
   --hair: var(--xj-border);
   --accent: var(--xj-accent);
@@ -78,7 +79,7 @@
   --xj-surface-muted: #f2f0eb;
   --xj-text: #292522;
   --xj-text-2: #655e58;
-  --xj-text-3: #847b74;
+  --xj-text-3: #665d55;
   --xj-border: #d0c9c0;
   --xj-accent: #7a3945;
   --xj-accent-hover: #612b35;
@@ -165,7 +166,7 @@
   --xj-surface-muted: #e7eef1;
   --xj-text: #0f1e22;
   --xj-text-2: #4c6268;
-  --xj-text-3: #6d8187;
+  --xj-text-3: #4c6268;
   --xj-border: #c8d4d8;
   --xj-accent: #1f6166;
   --xj-accent-hover: #16504a;
@@ -311,7 +312,7 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   --xj-surface-muted: #f5f6f8;
   --xj-text: #222222;
   --xj-text-2: #5f6878;
-  --xj-text-3: #858585;
+  --xj-text-3: #666666;
   --xj-border: rgba(15, 23, 42, .12);
   --xj-accent: #007aff;
   --xj-accent-hover: #0068d8;
@@ -794,7 +795,7 @@ html, body { overflow-x: hidden; }
 h1, h2, h3, h4, h5, h6 { font-family: var(--sans); letter-spacing: 0; }
 
 /* Clinical light CTA surface (explicit, matching G9 dark-contrast discipline). */
-:root, [data-skin="clinical"]:not(.dark) {
+:root:not([data-skin]), [data-skin="clinical"]:not(.dark) {
   --cta-bg: var(--xj-accent, #147d70);
   --cta-bg-hover: var(--xj-accent-hover, #0f685d);
 }

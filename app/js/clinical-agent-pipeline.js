@@ -13,6 +13,7 @@
     function prepare(request) {
       request = request && typeof request === 'object' ? request : {};
       var route = router.route(request.text, { sources: [] });
+      if (request.taskId && (!route || route.taskId !== request.taskId)) return fail('intent-task-mismatch');
       if (!route || route.ok !== true) return fail(route && route.reason || 'intent-unclear');
       var steps = [
         { id: 'context-builder', status: 'ready' },
@@ -24,7 +25,7 @@
       var token = bridge.prepareContext(Object.assign({}, request, { taskId: route.taskId, snapshotKey: 'pending' }));
       if (!token || token.ok !== true) return fail(token && token.reason || 'context-build-failed', { taskId: route.taskId, steps: steps });
       steps[3].status = 'ready';
-      var prepared = bridge.prepare(Object.assign({}, request, { text: request.text, taskId: route.taskId, runId: token.runId || request.runId, snapshotKey: token.snapshotKey, sources: token.sources || [], origin: request.selection || request.origin || {} }), token);
+      var prepared = bridge.prepare(Object.assign({}, request, { text: request.text, taskId: route.taskId, stepIds: steps.map(function (step) { return step.id; }), runId: token.runId || request.runId, snapshotKey: token.snapshotKey, sources: token.sources || [], origin: request.selection || request.origin || {} }), token);
       if (!prepared || prepared.ok !== true) return fail(prepared && prepared.reason || 'workflow-rejected', { taskId: route.taskId, steps: steps });
       steps[4].status = 'awaiting-confirmation';
       return freeze({ ok: true, taskId: prepared.taskId, runId: prepared.runId, snapshotKey: prepared.snapshotKey, sources: prepared.sources, prepared: prepared, token: token, steps: steps });

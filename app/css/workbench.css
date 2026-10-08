@@ -266,7 +266,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
 .chat-header .logo-icon { border-radius: 7px; background: var(--accent); }
 .chat-header .logo-title { color: var(--ink); }
 .chat-msg .avatar { border-radius: 6px; }
-.chat-msg.assistant .avatar, .chat-msg.user .bubble { background: var(--accent); }
+.chat-msg.assistant .avatar { background: var(--accent); }
+.chat-msg.user .bubble { background: var(--accent-soft); color: var(--ink); }
 .chat-send { background: var(--cta-bg, var(--accent)); }
 .chat-msg.assistant .bubble { border-color: var(--hair); border-radius: 8px 8px 8px 2px; }
 .chat-msg.user .bubble { border-radius: 8px 8px 2px 8px; }

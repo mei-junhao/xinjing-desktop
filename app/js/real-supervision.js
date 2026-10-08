@@ -358,6 +358,12 @@
       loadClientRecords();
       App.showToast('已自动关联来访者：' + (Store.getClient(cid).name || ''), 'success');
     }
+    var sourceId = params.get('id');
+    if (sourceId) {
+      var sourceRecord = records.find(function (record) { return record.id === sourceId && record.clientId === currentClientId; });
+      if (sourceRecord) { openRecord(sourceRecord.id); switchRSTab('record'); }
+      else App.showToast('督导来源不存在或不属于当前来访者，请重新核对来源。', 'warning');
+    }
   }
   if (window.Store && typeof Store.hydrate === 'function') {
     Store.hydrate().then(initRS).catch(initRS);

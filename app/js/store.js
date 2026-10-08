@@ -522,13 +522,16 @@ const Store = (() => {
   // 因此任何 durable 写入都必须：在同一个 readwrite 事务内读出全部参与集合 →
   // 在 DB 当前值上做合并/字段级 patch → 同事务写回 → 只有 tx.oncomplete 之后才把
   // 结果同步进内存 cache。mutate 抛错即 tx.abort()，磁盘不留一半改动。
-  const OBJECT_COLLECTION_KEYS = new Set(['settings']);
+  const AGENT_RUN_KEY = 'clinicalAgentRuns.v1';
+  const AGENT_DRAFT_KEY = 'clinicalAgentDrafts.v1';
+  const OBJECT_COLLECTION_KEYS = new Set(['settings', AGENT_RUN_KEY, AGENT_DRAFT_KEY]);
   const RECORD_GONE = 'XJ_DURABLE_RECORD_GONE';
 
   function isPlainObjectValue(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
   }
   function collectionDefault(key) {
+    if (key === AGENT_RUN_KEY || key === AGENT_DRAFT_KEY) return { version: 1, runs: [] };
     return OBJECT_COLLECTION_KEYS.has(key) ? {} : [];
   }
   function cloneRecord(value) {
@@ -2671,9 +2674,9 @@ const Store = (() => {
   // 临床动作溯源：只保存受控 ID、版本和长度信息，绝不复制临床正文或路径。
   // 任务白名单必须与 js/clinical-context.js 的 TASKS 同源；漏登记会让该任务的动作记录
   // 在 normalize 阶段被丢弃，页面表现为「无法确认材料归属」且核心从不被调用。
-  const ACTION_TASKS = new Set(['transcript-ai-detect', 'report-ai-fill', 'supervision-ai', 'supervision-multi-school', 'countertransference-analysis', 'session-review', 'case-conceptualization', 'next-session-hypotheses', 'supervision-question-builder', 'multi-school-comparison', 'supervision-preview', 'real-supervision-ai-organize', 'real-supervision-ai-record-analyze', 'growth-summary']);
+  const ACTION_TASKS = new Set(['transcript-ai-detect', 'report-ai-fill', 'supervision-ai', 'supervision-multi-school', 'countertransference-analysis', 'session-review', 'case-conceptualization', 'next-session-hypotheses', 'real-supervision-ai-organize', 'real-supervision-ai-record-analyze', 'growth-summary']);
   // 无临床对象可绑的督导任务：与 clinical-context.js :: validateSources 的无来源放行分支一一对应。
-  const UNBOUND_SUPERVISION_TASKS = new Set(['supervision-ai', 'supervision-multi-school', 'supervision-question-builder', 'supervision-preview', 'multi-school-comparison']);
+  const UNBOUND_SUPERVISION_TASKS = new Set(['supervision-ai', 'supervision-multi-school']);
   const ACTION_STATUSES = new Set(['pending', 'succeeded', 'failed', 'stale', 'cancelled']);
   const SOURCE_KINDS = new Set(['client', 'session', 'material', 'supervision', 'userdocs']);
   function normalizeClinicalActionRun(value) {
@@ -2685,11 +2688,11 @@ const Store = (() => {
       id: String(value.id || genId('car')), task: value.task,
       status: ACTION_STATUSES.has(value.status) ? value.status : 'failed',
       origin: { clientId: String(origin.clientId || ''), sessionId: String(origin.sessionId || ''), materialId: String(origin.materialId || ''), supervisionId: String(origin.supervisionId || '') },
-      sources: sourceRows.map((source) => ({ kind: SOURCE_KINDS.has(source && source.kind) ? source.kind : '', id: String((source && source.id) || ''), label: String((source && source.label) || ''), chars: Math.max(0, Number(source && source.chars) || 0), truncated: !!(source && source.truncated) })).filter((source) => source.kind && source.id),
+      sources: sourceRows.map((source) => ({ kind: SOURCE_KINDS.has(source && source.kind) ? source.kind : '', id: String((source && source.id) || ''), label: String((source && source.label) || ''), chars: Math.max(0, Number(source && source.chars) || 0), truncated: !!(source && source.truncated), clientId: String(source && source.clientId || ''), sessionId: String(source && source.sessionId || ''), normalizationVersion: String(source && source.normalizationVersion || ''), sourceVersion: String(source && source.sourceVersion || ''), sourceContentHash: String(source && source.sourceContentHash || ''), anchorContentHash: String(source && source.anchorContentHash || ''), status: String(source && source.status || '') })).filter((source) => source.kind && source.id),
       snapshot: {
         clientId: String(snapshot.clientId || ''), sessionId: String(snapshot.sessionId || ''), materialId: String(snapshot.materialId || ''), supervisionId: String(snapshot.supervisionId || ''),
         selectedSessionIds: Array.isArray(snapshot.selectedSessionIds) ? snapshot.selectedSessionIds.map(String).sort() : [], sessionVersions: snapshot.sessionVersions && typeof snapshot.sessionVersions === 'object' ? snapshot.sessionVersions : {},
-        materialUpdatedAt: String(snapshot.materialUpdatedAt || ''), supervisionUpdatedAt: String(snapshot.supervisionUpdatedAt || ''), inputDigest: String(snapshot.inputDigest || ''), key: String(snapshot.key || '')
+        materialUpdatedAt: String(snapshot.materialUpdatedAt || ''), supervisionUpdatedAt: String(snapshot.supervisionUpdatedAt || ''), inputDigest: String(snapshot.inputDigest || ''), key: String(snapshot.key || ''), task: String(snapshot.task || ''), sourceFingerprint: String(snapshot.sourceFingerprint || ''), includeUserDocs: snapshot.includeUserDocs === true
       },
       output: { kind: String(value.output && value.output.kind || ''), ref: String(value.output && value.output.ref || '') },
       error: String(value.error || '').slice(0, 200), createdAt: String(value.createdAt || nowISO()), completedAt: String(value.completedAt || '')
@@ -2770,6 +2773,31 @@ const Store = (() => {
     const index = cache.clinicalActionRuns.findIndex((item) => item.id === id);
     cache.clinicalActionRuns[index] = run; persistRecordIntent('clinicalActionRuns', run, base); return run;
   }
+  async function saveClinicalActionRunDurable(id, data) {
+    try {
+      const committed = await commitInTx(['clinicalActionRuns', 'clients', 'sessions', 'materialWorkspaces', 'supervisions'], (values, out) => {
+        const current = id ? values.clinicalActionRuns.find((run) => run.id === id) : null;
+        if (id && !current) throw new Error('Clinical action run not found');
+        const run = normalizeClinicalActionRun(current
+          ? Object.assign({}, current, data, { id: current.id, origin: Object.assign({}, current.origin, data && data.origin), snapshot: Object.assign({}, current.snapshot, data && data.snapshot), output: Object.assign({}, current.output, data && data.output) })
+          : Object.assign({ id: genId('car'), createdAt: nowISO() }, data));
+        const lookup = {
+          clients: new Map(values.clients.map((row) => [String(row.id), row])),
+          sessions: new Map(values.sessions.map((row) => [String(row.id), row])),
+          materials: new Map(values.materialWorkspaces.map((row) => [String(row.id), row])),
+          supervisions: new Map(values.supervisions.map((row) => [String(row.id), row])),
+        };
+        if (!run || !isValidClinicalActionRun(run, lookup)) throw new Error('Invalid clinical action run');
+        out.result = { ok: true, value: run };
+        return { clinicalActionRuns: upsertRecord(values.clinicalActionRuns, run) };
+      });
+      return committed.result;
+    } catch (_) {
+      return { ok: false, value: null, error: { code: 'XJ_DURABLE_ACTION_RUN_FAILED', message: '临床动作记录保存失败，请恢复本机存储后重试。' } };
+    }
+  }
+  function createClinicalActionRunDurable(data) { return saveClinicalActionRunDurable('', data); }
+  function updateClinicalActionRunDurable(id, patch) { return saveClinicalActionRunDurable(id, patch); }
 
   // ============================================================
   // 督导 (Supervision) —— content/conclusion 大字段随对象整体存入 IndexedDB
@@ -3567,34 +3595,118 @@ const Store = (() => {
   // 备份 / 恢复（明文只存在于本次加密调用的短时内存）
   // ============================================================
   async function exportAll() {
-    return JSON.stringify(
-      {
-        version: '2.0.0',
-        exportedAt: nowISO(),
-        clients: cache.clients,
-        sessions: cache.sessions,
-        supervisions: cache.supervisions,
-        supervisorIdentities: cache.supervisorIdentities,
-        masterConversations: cache.masterConversations,
-        expenses: cache.expenses,
-        materialWorkspaces: cache.materialWorkspaces,
-        clinicalActionRuns: cache.clinicalActionRuns,
-        clinicalTasks: cache.clinicalTasks,
-        importQuarantine: cache.importQuarantine,
-        deletionBatches: cache.deletionBatches.map(normalizeDeletionBatch).filter(Boolean),
-        deletionQuarantine: cache.deletionQuarantine.map(normalizeDeletionQuarantineEntry).filter(Boolean),
-      },
-      null,
-      2
-    );
+    // 同一只读事务获取备份快照，不用本窗口可能过期的 cache 拼接新草稿。
+    return queueStoreWrite(async () => {
+      const keys = IMPORT_KEYS.filter((key) => key !== 'settings');
+      const data = { version: '2.0.0', exportedAt: nowISO() };
+      if (!_dbAvailable) {
+        keys.forEach((key) => {
+          const raw = localStorage.getItem('xj2_' + key);
+          data[key] = raw ? JSON.parse(raw) : collectionDefault(key);
+        });
+      } else {
+        const db = await getDB();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE, 'readonly');
+          keys.forEach((key) => {
+            const request = tx.objectStore(STORE).get(key);
+            request.onsuccess = () => { data[key] = request.result ? request.result.value : collectionDefault(key); };
+          });
+          tx.oncomplete = resolve;
+          tx.onabort = () => reject(tx.error || new Error('备份快照读取失败'));
+          tx.onerror = () => reject(tx.error || new Error('备份快照读取失败'));
+        });
+      }
+      data.deletionBatches = data.deletionBatches.map(normalizeDeletionBatch).filter(Boolean);
+      data.deletionQuarantine = data.deletionQuarantine.map(normalizeDeletionQuarantineEntry).filter(Boolean);
+      return JSON.stringify(data, null, 2);
+    });
   }
   function importQuarantineRecord(collection, value, reason) {
     const origin = value && value.origin && typeof value.origin === 'object' ? value.origin : {};
     return {
-      id: genId('iq'), collection, entityId: String(value && value.id || ''),
+      id: genId('iq'), collection, entityId: String(value && (value.id || value.runId) || ''),
       clientId: String(value && value.clientId || origin.clientId || ''), sessionId: String(value && value.sessionId || origin.sessionId || ''),
       reason, importedAt: nowISO(),
     };
+  }
+
+  const AGENT_TASKS = new Set(['countertransference-analysis', 'session-review', 'case-conceptualization', 'next-session-hypotheses', 'supervision-question-builder', 'multi-school-comparison', 'supervision-preview']);
+  const AGENT_STATUSES = new Set(['planned', 'awaiting-context', 'awaiting-confirmation', 'running', 'draft-ready', 'adopted', 'persisted', 'cancelled', 'stale', 'failed']);
+  const AGENT_STEPS = new Set(['context-builder', 'intent-classifier', 'supervision-router', 'evidence-validator', 'draft-orchestrator']);
+  function agentOrigin(value) {
+    const origin = {};
+    ['clientId', 'sessionId', 'materialId', 'supervisionId'].forEach((key) => {
+      if (value && typeof value[key] === 'string' && value[key].trim()) origin[key] = value[key].trim();
+    });
+    return origin;
+  }
+  function sameAgentOrigin(a, b) {
+    return ['clientId', 'sessionId', 'materialId', 'supervisionId'].every((key) => (a && a[key] || '') === (b && b[key] || ''));
+  }
+  function agentArchive(value) {
+    if (!isPlainObjectValue(value) || value.version !== 1 || !Array.isArray(value.runs)) throw new Error('Agent 备份集合格式无效');
+    return value.runs;
+  }
+  function importedAgentRun(value, lookup) {
+    if (!isPlainObjectValue(value) || typeof value.runId !== 'string' || !value.runId.trim() || !AGENT_TASKS.has(value.taskId) || !AGENT_STATUSES.has(value.status)) return null;
+    const origin = agentOrigin(value.origin);
+    if (!origin.clientId && (!['planned', 'awaiting-context', 'cancelled', 'failed'].includes(value.status) || Object.keys(origin).length)) return null;
+    const sources = Array.isArray(value.sources) ? value.sources : [];
+    if (!origin.clientId && sources.length) return null;
+    if (sources.some((source) => !isPlainObjectValue(source) || typeof source.id !== 'string' || !source.id || !['client', 'session', 'material', 'supervision'].includes(source.kind) || (source.clientId && source.clientId !== origin.clientId))) return null;
+    if (origin.clientId && clinicalActionRunValidationError({ task: 'session-review', origin, sources: sources.length ? sources : [{ kind: 'client', id: origin.clientId }], snapshot: {} }, lookup)) return null;
+    const metadata = {
+      runId: value.runId.trim(), taskId: value.taskId, status: value.status, origin,
+      snapshotKey: typeof value.snapshotKey === 'string' ? value.snapshotKey : '',
+      outputDisposition: value.outputDisposition === 'draft' ? 'draft' : 'preview',
+      stepIds: (Array.isArray(value.stepIds) ? value.stepIds : []).filter((id) => AGENT_STEPS.has(id)),
+      sources: sources.map((source) => {
+        const ref = {};
+        ['id', 'kind', 'clientId', 'sessionId', 'normalizationVersion', 'sourceVersion', 'sourceContentHash', 'anchorContentHash', 'status'].forEach((key) => { if (typeof source[key] === 'string') ref[key] = source[key]; });
+        return ref;
+      }),
+      updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
+      error: '', cancellation: null,
+    };
+    const codes = new Set(['ai-failed', 'ai-cancelled', 'executor-failed', 'execution-payload-failed', 'lifecycle-failed', 'run-persistence-failed', 'draft-persistence-failed', 'malformed-draft', 'stale-before', 'stale-after', 'stale-context', 'stale', 'failed', 'cancelled', 'timeout', 'user-cancelled', 'context-changed', 'page-hidden', 'request-save-failed', 'adapter-rejected']);
+    if (codes.has(value.error)) metadata.error = value.error;
+    if (value.cancellation) metadata.cancellation = { reason: codes.has(value.cancellation.reason) ? value.cancellation.reason : 'cancelled' };
+    return metadata;
+  }
+  function prepareAgentImport(data, base, lookup, quarantine) {
+    const currentRuns = agentArchive(base[AGENT_RUN_KEY]);
+    const currentDrafts = agentArchive(base[AGENT_DRAFT_KEY]);
+    const runs = new Map(currentRuns.map((run) => [run.runId, run]));
+    const rejected = new Set();
+    const seen = new Set();
+    if (Object.prototype.hasOwnProperty.call(data, AGENT_RUN_KEY)) agentArchive(data[AGENT_RUN_KEY]).forEach((value) => {
+      const run = importedAgentRun(value, lookup);
+      const existing = run && runs.get(run.runId);
+      if (!run || seen.has(run.runId) || (existing && (existing.taskId !== run.taskId || !sameAgentOrigin(existing.origin, run.origin)))) {
+        quarantine.push(importQuarantineRecord(AGENT_RUN_KEY, value, 'invalid-or-mismatched-agent-run'));
+        if (value && value.runId) rejected.add(value.runId);
+      } else { seen.add(run.runId); runs.set(run.runId, run); }
+    });
+    const drafts = new Map(currentDrafts.map((draft) => [draft.runId, draft]));
+    const seenDrafts = new Set();
+    if (Object.prototype.hasOwnProperty.call(data, AGENT_DRAFT_KEY)) agentArchive(data[AGENT_DRAFT_KEY]).forEach((value) => {
+      const run = value && runs.get(value.runId);
+      const fields = value && value.fields;
+      const validFields = isPlainObjectValue(fields) && ['facts', 'inferences', 'hypotheses'].every((key) => typeof fields[key] === 'string');
+      if (!run || rejected.has(value.runId) || seenDrafts.has(value.runId) || !sameAgentOrigin(agentOrigin(value.origin), run.origin) || value.snapshotKey !== run.snapshotKey || (value.taskId && value.taskId !== run.taskId) || !['awaiting-confirmation', 'draft-ready', 'adopted', 'cancelled'].includes(value.status) || (['draft-ready', 'adopted'].includes(value.status) && !validFields) || typeof value.question !== 'string') {
+        quarantine.push(importQuarantineRecord(AGENT_DRAFT_KEY, value, 'invalid-or-mismatched-agent-draft'));
+      } else {
+        seenDrafts.add(value.runId);
+        const draft = { runId: run.runId, origin: run.origin, snapshotKey: run.snapshotKey, status: value.status, question: value.question };
+        if (value.taskId) draft.taskId = run.taskId;
+        if (value.updatedAt) draft.updatedAt = String(value.updatedAt);
+        if (validFields && value.status !== 'cancelled') draft.fields = { facts: fields.facts, inferences: fields.inferences, hypotheses: fields.hypotheses };
+        else if (value.status === 'cancelled') draft.fields = null;
+        drafts.set(run.runId, draft);
+      }
+    });
+    return { [AGENT_RUN_KEY]: { version: 1, runs: Array.from(runs.values()) }, [AGENT_DRAFT_KEY]: { version: 1, runs: Array.from(drafts.values()) } };
   }
 
   // 备份里缺少的集合，回落基准从「本窗口 cache」改成「调用方传入的快照」。
@@ -3660,6 +3772,7 @@ const Store = (() => {
       materials: new Map(next.materialWorkspaces.map((material) => [String(material && material.id || ''), material]).filter((entry) => entry[0])),
       supervisions: new Map(next.supervisions.map((supervision) => [String(supervision && supervision.id || ''), supervision]).filter((entry) => entry[0])),
     };
+    Object.assign(next, prepareAgentImport(data, base, clinicalLookup, quarantine));
     const importedRuns = Array.isArray(data.clinicalActionRuns) ? data.clinicalActionRuns : [];
     importedRuns.forEach((value) => {
       const run = normalizeClinicalActionRun(value);
@@ -3717,6 +3830,7 @@ const Store = (() => {
     'clients', 'sessions', 'supervisions', 'supervisorIdentities', 'masterConversations',
     'expenses', 'materialWorkspaces', 'clinicalActionRuns', 'clinicalTasks', 'importQuarantine',
     'deletionBatches', 'deletionQuarantine', 'settings',
+    AGENT_RUN_KEY, AGENT_DRAFT_KEY,
   ];
 
   async function importAll(jsonStr) {
@@ -3734,6 +3848,7 @@ const Store = (() => {
         const next = prepareImport(data, snapshot);
         const written = {};
         IMPORT_KEYS.forEach((key) => {
+          if (key === AGENT_RUN_KEY || key === AGENT_DRAFT_KEY) { written[key] = next[key]; return; }
           if (key === 'settings') {
             written.settings = Object.assign({}, values.settings, diffRecordFields(snapshot.settings, next.settings));
             return;
@@ -3774,6 +3889,8 @@ const Store = (() => {
       deletionBatches: deletionArray(values.deletionBatches),
       deletionQuarantine: deletionArray(values.deletionQuarantine),
       settings: isPlainObjectValue(values.settings) ? values.settings : {},
+      [AGENT_RUN_KEY]: values[AGENT_RUN_KEY],
+      [AGENT_DRAFT_KEY]: values[AGENT_DRAFT_KEY],
     };
   }
   function getImportQuarantine() { return cache.importQuarantine.slice(); }
@@ -4196,7 +4313,7 @@ const Store = (() => {
     // 临床材料工作项
     getMaterialWorkspaces, getMaterialWorkspace, getMaterialWorkspacesForSession, createMaterialWorkspace, createMaterialWorkspaceDurable, updateMaterialWorkspace, updateMaterialWorkspaceDurable, deleteMaterialWorkspace, linkMaterialWorkspace, reconcileMaterialContext,
     // 临床动作溯源
-    getClinicalActionRuns, getClinicalActionRun, createClinicalActionRun, updateClinicalActionRun,
+    getClinicalActionRuns, getClinicalActionRun, createClinicalActionRun, updateClinicalActionRun, createClinicalActionRunDurable, updateClinicalActionRunDurable,
     // 设置
     getSettings, saveSettings, saveSettingsDurable,
     // 统计

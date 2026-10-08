@@ -4,7 +4,7 @@
  * 供 `npm test` 调用：按显式清单依次运行已验证可从干净状态
  * 离线执行的自包含测试文件（node *.test.js，各自以退出码汇报）。
  *
- * 清单外的测试（如 ui-language 系列、self-test.js、依赖外部
+ * 清单外的测试（如历史候选冻结的 ui-language 系列、依赖外部
  * 认证服务的 account-auth-production-contract 等）目前存在已知
  * 红项或环境依赖，暂不纳入默认路由，可单独 `node <文件>` 执行。
  *
@@ -13,10 +13,13 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
 const { spawnSync } = require('child_process');
 
-// 显式绿灯清单：相对项目根目录的测试文件路径
+// 离线回归清单：相对项目根目录的测试文件路径
 const TEST_FILES = [
+  'scripts/self-test.js',
+  'tests/v5.1.25-ui-version-settings.cjs',
   'scripts/account-auth-contract.test.js',
   'scripts/account-auth-quota-sqlite.test.js',
   'scripts/account-auth-session-security.test.js',
@@ -43,9 +46,19 @@ const TEST_FILES = [
   'tests/local-agent-bus/agent-queue.test.js',
   'tests/local-agent-bus/mutation-sensitivity.test.js',
   'tests/local-agent-bus/opencode-watcher-config.test.js',
+  'tests/v5.1.25/sourceref-roundtrip.test.cjs',
+  'tests/v5.1.25/durable-material-store-idb.test.cjs',
+  'tests/v5.1.25/clinical-context-load-order.cjs',
+  'tests/v5.1.25/clinical-report-material-source.cjs',
 ];
 
 const rootDir = path.resolve(__dirname, '..');
+// 新 Agent 合同必须进入默认回归，不能只依赖发布时手动记得运行。
+for (const dir of ['tests/v5.2.0', 'tests/v5.2.1']) {
+  for (const name of fs.readdirSync(path.join(rootDir, dir)).sort()) {
+    if (name.endsWith('.contract.test.cjs')) TEST_FILES.push(dir + '/' + name);
+  }
+}
 const filter = process.argv[2];
 const selected = filter
   ? TEST_FILES.filter((f) => f.toLowerCase().includes(filter.toLowerCase()))

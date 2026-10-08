@@ -21,7 +21,7 @@ function fixture(overrides = {}) {
     completeActionRun(id, output) { events.push('complete:' + id + ':' + output.kind); if (overrides.complete) return overrides.complete(id, output); return { ok: true }; },
     failActionRun(id, reason, status) { events.push('fail:' + id + ':' + reason + ':' + status); if (overrides.fail) return overrides.fail(id, reason, status); return { ok: true }; }
   };
-  let ai = overrides.ai || ((messages, cb) => { events.push('ai'); cb({ content: 'draft text' }); });
+  let ai = overrides.ai || ((messages, cb) => { events.push('ai'); cb({ content: JSON.stringify({ facts: '', inferences: 'draft text', hypotheses: '' }) }); });
   const api = Bridge.fromGlobals({ workflow: workflow(), ClinicalContext: context, AI: { send: ai }, adapter: { withDependencies: d => Adapter.withDependencies(d) }, timeoutMs: overrides.timeoutMs });
   return { api, context, events };
 }
@@ -31,7 +31,7 @@ test('confirmation gate and independent empty-source admission stay closed befor
 test('provider failure, stale-after, malformed draft and cancel fail action-run exactly once', async () => {
   for (const scenario of [
     { ai: (m, cb) => cb({ error: 'provider secret' }), reason: 'ai-failed' },
-    { fresh: (() => { let n = 0; return () => ++n === 1; })(), reason: 'stale-after' },
+    { fresh: (() => { let n = 0; return () => ++n <= 2; })(), reason: 'stale-after' },
     { ai: (m, cb) => cb({ content: [] }), reason: 'malformed-draft' }
   ]) { const f = fixture(scenario); const c = f.api.confirm(f.api.prepare(request()), { confirmed: true }); const out = await f.api.execute(c); assert.equal(out.reason, scenario.reason); assert.equal(f.events.filter(x => x.startsWith('fail:')).length, 1); assert.equal(f.events.filter(x => x.startsWith('complete:')).length, 0); assert.equal(JSON.stringify(out).includes('private'), false); }
   let resolve; const f = fixture({ ai: () => new Promise(r => { resolve = r; }) }); const c = f.api.confirm(f.api.prepare(request()), { confirmed: true }); const pending = f.api.execute(c); await new Promise(r => setImmediate(r)); assert.equal(f.api.cancel(c, 'user-cancel').status, 'cancelled'); resolve({ content: 'late' }); assert.equal((await pending).reason, 'ai-cancelled'); assert.equal(f.events.filter(x => x.startsWith('fail:')).length, 1); assert.equal(f.events.filter(x => x.startsWith('complete:')).length, 0);

@@ -19,7 +19,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
 .chat-header .logo-sub{font-size:12px;color:var(--ink-3);margin-top:1px}
 .chat-header .actions{display:flex;align-items:center;gap:8px}
 .chat-membership-status{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border:1px solid var(--border);border-radius:6px;background:var(--paper);color:var(--ink-3);font-size:11px;white-space:nowrap}
-.chat-membership-status.pro,.chat-membership-status.custom{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.chat-membership-status.pro,.chat-membership-status.custom{color:var(--accent-hover);border-color:var(--accent);background:var(--accent-soft)}
 .chat-header .btn{padding:6px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;cursor:pointer;background:var(--paper-2);color:var(--ink-2);transition:color .18s ease,background-color .18s ease,border-color .18s ease}
 .chat-header .btn:hover{border-color:var(--accent);color:var(--accent)}
 .chat-header .btn.pri{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}
@@ -35,7 +35,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
 .chat-msg.user{flex-direction:row-reverse}
 .chat-msg .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
 .chat-msg.assistant .avatar{background:var(--accent-soft);color:var(--accent)}
-.chat-msg.user .avatar{background:var(--border);color:var(--ink-2)}
+.chat-msg.user .avatar{background:var(--border);color:var(--ink)}
 .chat-msg .bubble{max-width:70%;padding:12px 16px;border-radius:8px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
 .chat-msg.assistant .bubble{background:var(--paper-2);border:1px solid var(--border);border-radius:8px 8px 8px 3px}
 .chat-msg.user .bubble{background:var(--accent);color:#fff;border-radius:8px 8px 3px 8px}
@@ -73,8 +73,8 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
 .xj-agent-run-card{display:flex;flex-direction:column;gap:5px;font-size:12px}.xj-agent-run-card span,.xj-agent-history-row span,.xj-agent-history-row small{color:var(--ink-3);font-size:11px}
 .xj-agent-plan{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0}.xj-agent-plan span{padding:3px 6px;border:1px solid var(--border);border-radius:5px}.xj-agent-plan span[data-state="completed"],.xj-agent-plan span[data-state="ready"]{border-color:var(--accent);color:var(--accent)}
 .xj-agent-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.xj-agent-columns label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--ink-3)}.xj-agent-columns textarea{min-height:56px;resize:vertical;border:1px solid var(--border);border-radius:5px;padding:6px;background:var(--paper);color:var(--ink);font:11px/1.5 inherit}
-.xj-agent-actions{display:flex;gap:7px;margin-top:4px}.xj-agent-actions button,.xj-agent-history-row button{border:1px solid var(--border);border-radius:5px;background:var(--paper);color:var(--ink-2);padding:4px 8px;font-size:11px;cursor:pointer}.xj-agent-actions button:first-child{border-color:var(--accent);background:var(--accent);color:#fff}
-.xj-agent-sources{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}.xj-agent-sources a{font-size:11px;color:var(--accent);text-decoration:none}.xj-agent-history{display:flex;flex-direction:column;gap:5px}.xj-agent-history-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:6px 0;border-top:1px solid var(--border)}.xj-agent-history-row small{grid-column:1}.xj-agent-history-row button{grid-column:2;grid-row:1 / span 2;align-self:center}.xj-agent-empty{font-size:11px;color:var(--ink-3)}
+.xj-agent-actions{display:flex;gap:7px;margin-top:4px}.xj-agent-actions button,.xj-agent-history-row button{border:1px solid var(--border);border-radius:5px;background:var(--paper);color:var(--ink-2);padding:4px 8px;font-size:11px;cursor:pointer}.xj-agent-actions button:first-child{border-color:var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}
+.xj-agent-sources{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}.xj-agent-sources a{font-size:11px;color:var(--accent-hover);text-decoration:none}.xj-agent-history{display:flex;flex-direction:column;gap:5px}.xj-agent-history-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:6px 0;border-top:1px solid var(--border)}.xj-agent-history-row small{grid-column:1}.xj-agent-history-row button{grid-column:2;grid-row:1 / span 2;align-self:center}.xj-agent-empty{font-size:11px;color:var(--ink-3)}
 @media (max-width:900px){.xj-agent-workbench-grid{grid-template-columns:1fr}.xj-agent-columns{grid-template-columns:1fr}}
 
 .welcome-card{background:var(--paper-2);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:20px}
@@ -88,17 +88,32 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
 /* AI 输出草稿边界（run id + 来源快照 + 取消 + 人工确认） */
 .chat-msg.assistant .bubble .chat-draft-meta{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;font-size:11px;line-height:1.5;color:var(--ink-3)}
 .chat-draft-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.chat-draft-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.chat-draft-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent-hover);font-weight:600}
 .chat-draft-badge.confirmed{background:var(--green-soft,var(--accent-soft));color:var(--green,var(--accent))}
 .chat-draft-run{color:var(--ink-3)}
 .chat-draft-source{display:flex;align-items:flex-start;gap:5px;color:var(--ink-2)}
 .chat-draft-source i{width:13px;height:13px;flex-shrink:0;margin-top:1px}
 .chat-draft-actions{display:flex;gap:8px;margin-top:2px}
 .chat-draft-btn{padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:var(--paper);color:var(--ink-2);font:600 11px var(--sans,inherit);cursor:pointer}
-.chat-draft-btn.confirm{border-color:var(--accent);background:var(--accent);color:#fff}
+.chat-draft-btn.confirm{border-color:var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}
 .chat-draft-btn.cancel{border-color:var(--danger,var(--red,#b54747));color:var(--danger,var(--red,#b54747))}
 .chat-draft-btn:disabled{opacity:.5;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){.chat-draft-btn{transition:none}}
+.chat-agent-selection{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-agent-selection label{display:flex;gap:8px;align-items:center;font-size:12px;min-width:0}
+.chat-agent-selection select{min-width:0;flex:1;height:32px;border:1px solid var(--border);border-radius:4px;background:var(--paper);color:var(--ink);font:12px inherit}
+.chat-workspace-main .pi-workbench{max-height:64px;flex-shrink:0;overflow:auto}
+.chat-workspace-main .xj-agent-workbench{max-height:32vh;min-height:64px;flex-shrink:0;overflow:auto;margin:0;padding:12px 16px;border:0;border-top:1px solid var(--border);border-radius:0;background:var(--paper)}
+.xj-agent-workbench-head small,.xj-agent-run-card span,.xj-agent-history-row span,.xj-agent-history-row small,.xj-agent-sources a,.xj-agent-empty{font-size:12px;overflow-wrap:anywhere}
+.xj-agent-run-card,.xj-agent-workbench section{min-width:0}
+.xj-agent-columns label{font-size:12px}.xj-agent-columns textarea{font:14px/1.6 var(--sans, sans-serif);width:100%;min-height:96px;box-sizing:border-box}
+.xj-agent-workbench-grid{grid-template-columns:minmax(0,1fr)}
+.xj-agent-plan{padding-left:20px;font-size:12px;gap:4px 24px}.xj-agent-plan li{padding:2px 0}
+.xj-agent-actions{flex-wrap:wrap}.xj-agent-actions button,.xj-agent-history-row button,.clinical-agent-stop{min-height:32px;font-size:12px;display:inline-flex;gap:4px;align-items:center}
+.xj-agent-workbench button svg{width:14px;height:14px}
+.xj-agent-workbench button:focus-visible,.chat-agent-selection select:focus-visible,.clinical-agent-stop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[data-agent-feedback]{font-size:12px;margin:8px 0;overflow-wrap:anywhere}[data-agent-feedback]:empty{display:none}
+@media (prefers-reduced-motion:reduce){.typing-dots span{animation:none}.chat-send,.chat-input,.voice-btn{transition:none}}
 </style>
   <link rel="stylesheet" href="css/workbench.css">
   <link rel="stylesheet" href="css/xj-ui-system.css">
@@ -128,11 +143,18 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
       </div>
     </div>
 
-    <div class="chat-msgs" id="chat-msgs"></div>
+    <section class="chat-agent-selection" aria-label="选择本轮来源">
+      <label>来访者<select id="chat-agent-client" aria-label="本轮来访者"></select></label>
+      <label>会谈<select id="chat-agent-session" aria-label="本轮会谈"></select></label>
+      <label>材料<select id="chat-agent-material" aria-label="本轮材料"></select></label>
+      <label>督导<select id="chat-agent-supervision" aria-label="本轮督导记录"></select></label>
+    </section>
+    <div class="chat-msgs" id="chat-msgs" aria-live="polite"></div>
 
     <!-- XJ-5.1.0-005：Pi Workbench 主界面（任务轨迹/计划工具轨迹/approval 卡/暂停继续取消/材料入口/会员门禁/空错加载态） -->
     <section class="pi-workbench" id="pi-workbench-root" aria-label="Pi 工作台"></section>
-    <section class="xj-agent-workbench" id="clinical-agent-workbench-root" aria-label="证据与草稿工作台"></section>
+    <section class="xj-agent-workbench" id="clinical-agent-workbench-root" aria-label="证据与草稿工作台" tabindex="0"></section>
+    <div class="chat-agent-controls" id="chat-agent-controls" role="group" aria-label="Agent 运行设置"></div>
 
     <div class="chat-input-row">
       <div class="chat-input-area">
@@ -145,7 +167,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang 
     </main>
     <aside class="chat-context-panel" aria-label="当前临床上下文">
       <div class="xj-panel-heading"><div><small>本轮材料</small><h2>临床上下文</h2></div><span class="xj-status-chip" id="chat-context-status">只读</span></div>
-      <section class="chat-context-section"><h3>当前上下文</h3><div class="xj-context-strip" id="chat-context-strip"></div></section>
+      <section class="chat-context-section"><h3>当前上下文</h3><div class="xj-context-strip" id="chat-context-strip" tabindex="0" role="region" aria-label="当前上下文"></div></section>
       <section class="chat-context-section"><h3>已确认来源</h3><div id="chat-source-list"><div class="xj-workspace-empty"><p>选择来访者后显示已验证材料。</p></div></div></section>
       <section class="chat-context-section"><h3>临床边界</h3><p class="chat-context-copy">小镜输出仅作草稿，不会自动写入正式记录。保存前请确认来访者、会谈和来源。</p></section>
     </aside>
