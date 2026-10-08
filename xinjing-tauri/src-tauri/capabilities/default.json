@@ -1,0 +1,23 @@
+{
+  "identifier": "capability",
+  "description": "心镜 XinJing 主窗口权限",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:webview:default",
+    "core:app:default",
+    "core:event:default",
+    "core:image:default",
+    "core:resources:default",
+    "core:menu:default",
+    "core:tray:default",
+    "core:path:default",
+    "updater:default",
+    "dialog:default",
+    "fs:default",
+    "shell:default",
+    "notification:default",
+    "os:default"
+  ]
+}

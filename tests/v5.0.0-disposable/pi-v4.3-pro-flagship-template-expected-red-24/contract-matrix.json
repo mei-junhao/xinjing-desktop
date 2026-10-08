@@ -1,0 +1,176 @@
+{
+  "task_id": "XJ-5.0.0-pi-v4.3-pro-flagship-template-expected-red-24",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "rows": [
+    {
+      "id": "F1-LIST",
+      "capability": "Free tier lists manual-session-v1 only",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "positive",
+      "production_entry_point": "app/js/session-template-view-model.js SessionTemplateViewModel.list",
+      "evidence": "SessionTemplateViewModel.list({tier:Free}) -> ids=[\"manual-session-v1\"]"
+    },
+    {
+      "id": "F1-SELECT",
+      "capability": "Free tier selects manual-session-v1 via real select()",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "positive",
+      "production_entry_point": "app/js/session-template-view-model.js SessionTemplateViewModel.select",
+      "evidence": "select ok=true templateId=manual-session-v1"
+    },
+    {
+      "id": "F1-SELECT-FLAGSHIP-DENIED",
+      "capability": "Free tier cannot select flagship-session-v1 (fail closed)",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "fail-closed",
+      "production_entry_point": "app/js/session-template-view-model.js SessionTemplateViewModel.select",
+      "evidence": "select flagship under Free -> ok=false code=template-unavailable"
+    },
+    {
+      "id": "F1-DURABLE",
+      "capability": "Free manual selection persists durably and survives reload",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "positive",
+      "production_entry_point": "app/js/store.js Store.saveSessionTemplateSelectionDurable",
+      "evidence": "save.ok=true read.tier=Free reload.tier=Free"
+    },
+    {
+      "id": "F1-DURABLE-FAILURE",
+      "capability": "durable template failure returns {ok:false} and preserves authoritative",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "fail-closed",
+      "production_entry_point": "app/js/store.js Store.saveSessionTemplateSelectionDurable",
+      "evidence": "ffOk=true ffFail=false authoritative.tier=Free"
+    },
+    {
+      "id": "F1-QUICKRECORD",
+      "capability": "real QuickRecord Free manual end-to-end path (not paywalled)",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "positive",
+      "production_entry_point": "app/js/quick-record.js QuickRecord.createQuickRecord",
+      "evidence": "qr.ok=true sessionIdPrefix=match sel.tier=Free"
+    },
+    {
+      "id": "FC-QUICKRECORD-TIER",
+      "capability": "QuickRecord rejects Pro/Flagship templateId",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "fail-closed",
+      "production_entry_point": "app/js/quick-record.js createQuickRecord guard",
+      "evidence": "qrPro.ok=false qrFlag.ok=false"
+    },
+    {
+      "id": "FC-ENT-TIER",
+      "capability": "unknown/expired/revoked entitlement tier fails closed to free",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "fail-closed",
+      "production_entry_point": "app/js/entitlements.js normalizeTier/effectiveTier",
+      "evidence": "ntUnknown=free ntFlagship=free etExpired=free etFlagship=free proCapNorm=pro"
+    },
+    {
+      "id": "FC-STORE-BODY-BRAND",
+      "capability": "Store rejects body-like text + arbitrary/unsafe brand payloads",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "fail-closed",
+      "production_entry_point": "app/js/store.js normalizeSessionTemplateSelection",
+      "evidence": "body=false content=false brandDropped=true unsafe=false customOnFree=false overlong=false"
+    },
+    {
+      "id": "TRIAL-NOT-RAISED",
+      "capability": "Trial not normalized to custom/Flagship",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "trial-quota",
+      "production_entry_point": "app/js/entitlements.js isTrialActive/effectiveTier/canUse",
+      "evidence": "trialActive=true effTier=free aiNotes=true customSup=false"
+    },
+    {
+      "id": "QUOTA-BYOK-NOT-RAISED",
+      "capability": "quota/BYOK does not raise tier",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "trial-quota",
+      "production_entry_point": "app/js/entitlements.js effectiveTier",
+      "evidence": "quotaEffTier=pro byokCustom=false raiseFns=[] srcTrace=false"
+    },
+    {
+      "id": "PRO-SEL-BOUNDARY",
+      "capability": "Pro ai-session-v1 selection persistence boundary (defensive only)",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "boundary",
+      "production_entry_point": "app/js/store.js Store.saveSessionTemplateSelectionDurable",
+      "evidence": "proSel.ok=true read.tier=Pro"
+    },
+    {
+      "id": "FLAG-SEL-BOUNDARY",
+      "capability": "Flagship selection + bounded customTemplateId persistence boundary (defensive only)",
+      "expected_current_result": "behavior present and correct (CONFIRMED)",
+      "actual_result": "behavior confirmed",
+      "classification": "CONFIRMED",
+      "category": "boundary",
+      "production_entry_point": "app/js/store.js Store.saveSessionTemplateSelectionDurable",
+      "evidence": "flagSel.ok=true read.custom=brand-acme-001 reload.custom=brand-acme-001"
+    },
+    {
+      "id": "PRO-AI-GEN",
+      "capability": "Pro AI-assisted template content GENERATION (missing)",
+      "expected_current_result": "capability absent / behavior missing (EXPECTED_RED gap)",
+      "actual_result": "gap confirmed absent as expected",
+      "classification": "EXPECTED_RED",
+      "category": "expected-red",
+      "production_entry_point": "NO PRODUCTION ENTRY (app/js/session-template-view-model.js has no generate function)",
+      "evidence": "stvmKeys=[\"PERSISTENCE_STATUS\",\"TIERS\",\"apply\",\"list\",\"select\"] hasGenFn=false"
+    },
+    {
+      "id": "PRO-AI-ORCH",
+      "capability": "Pro AI provider/orchestration for template draft (missing)",
+      "expected_current_result": "capability absent / behavior missing (EXPECTED_RED gap)",
+      "actual_result": "gap confirmed absent as expected",
+      "classification": "EXPECTED_RED",
+      "category": "expected-red",
+      "production_entry_point": "NO PRODUCTION ENTRY (apply() yields empty skeleton only)",
+      "evidence": "apply.ok=true entriesEmpty=true providerFns=[] srcTrace=false"
+    },
+    {
+      "id": "FLAG-DEF",
+      "capability": "Flagship custom brand template DEFINITION (missing)",
+      "expected_current_result": "capability absent / behavior missing (EXPECTED_RED gap)",
+      "actual_result": "gap confirmed absent as expected",
+      "classification": "EXPECTED_RED",
+      "category": "expected-red",
+      "production_entry_point": "NO PRODUCTION ENTRY (only static built-in flagship-session-v1)",
+      "evidence": "hasDefineFn=false flagshipStatic=true"
+    },
+    {
+      "id": "FLAG-VAL",
+      "capability": "Flagship brand ASSET validation (missing)",
+      "expected_current_result": "capability absent / behavior missing (EXPECTED_RED gap)",
+      "actual_result": "gap confirmed absent as expected",
+      "classification": "EXPECTED_RED",
+      "category": "expected-red",
+      "production_entry_point": "NO PRODUCTION ENTRY (Store validates customTemplateId string format only)",
+      "evidence": "brandValFns=[] customIdFormatValid=true srcTrace=false"
+    }
+  ]
+}

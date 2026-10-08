@@ -1,0 +1,94 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.4-controlled-supervision-package-runtime-32",
+  "mutant_total": 17,
+  "killed": 17,
+  "survived": 0,
+  "harness_errors": 0,
+  "results": [
+    {
+      "id": "M01",
+      "title": "remove author signature verification",
+      "verdict": "killed"
+    },
+    {
+      "id": "M02",
+      "title": "remove ciphertext hash verification",
+      "verdict": "killed"
+    },
+    {
+      "id": "M03",
+      "title": "remove subject binding gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M04",
+      "title": "remove license binding gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M05",
+      "title": "remove device key id gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M06",
+      "title": "remove device public hash gates",
+      "verdict": "killed"
+    },
+    {
+      "id": "M07",
+      "title": "remove Flagship entitlement gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M08",
+      "title": "remove online package revocation gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M09",
+      "title": "remove online evidence requirement",
+      "verdict": "killed"
+    },
+    {
+      "id": "M10",
+      "title": "remove offline seven-day ceiling",
+      "verdict": "killed"
+    },
+    {
+      "id": "M11",
+      "title": "remove clock rollback gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M12",
+      "title": "remove grant sequence high-water",
+      "verdict": "killed"
+    },
+    {
+      "id": "M13",
+      "title": "remove package version high-water",
+      "verdict": "killed"
+    },
+    {
+      "id": "M14",
+      "title": "remove normalized resource path gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M15",
+      "title": "remove executable and network content gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M16",
+      "title": "remove migration target finality gate",
+      "verdict": "killed"
+    },
+    {
+      "id": "M17",
+      "title": "reverse mutation: permit all entitlement decisions",
+      "verdict": "killed"
+    }
+  ]
+}

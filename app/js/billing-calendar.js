@@ -1,0 +1,845 @@
+/* 心镜 v3.7.0 — 账单月历视图（合并月结单 + 月概览含支出/净收入 + 月结模式自动计算）*/
+(function () {
+  'use strict';
+  var curYear, curMonth;
+  var billingSettleBusy = false;          // 手动覆盖/确认结算互斥，防双击与重入
+  var billingFeedbackText = '';           // 持久反馈文本（render 重建后恢复）
+  var billingFeedbackTone = 'idle';       // idle | info | busy | success | error
+  var billingOverrideEscBound = false;
+
+  // 持久可读反馈区（role=status / aria-live=polite）：展开、保存中、成功、失败、重试均落在这里；
+  // render() 重建 DOM 后由 billingFeedbackText/Tone 恢复，保证消息跨重绘持续可见。
+  function setBillingFeedback(text, tone) {
+    billingFeedbackText = text || '';
+    billingFeedbackTone = tone || 'idle';
+    var el = document.getElementById('bc-inv-feedback');
+    if (!el) return;
+    el.textContent = billingFeedbackText;
+    el.setAttribute('data-state', billingFeedbackTone);
+    el.setAttribute('aria-busy', billingFeedbackTone === 'busy' ? 'true' : 'false');
+    var color = billingFeedbackTone === 'error' ? 'var(--orange,#b06a47)'
+      : billingFeedbackTone === 'success' ? 'var(--success,#3f7d5a)'
+      : billingFeedbackTone === 'busy' ? 'var(--accent,#4a6cf7)' : 'var(--ink-3,#8a8f98)';
+    el.style.color = color;
+  }
+  function clearBillingFeedback() { setBillingFeedback('', 'idle'); }
+
+  // 保存期间禁用操作按钮/输入框，防止双击与并发写入
+  function setBillingBusyUI(busy) {
+    ['bc-inv-toggle-override', 'bc-inv-settle', 'bc-inv-settle-override', 'bc-inv-override-amt'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.disabled = !!busy;
+    });
+  }
+
+  // Escape 取消手动覆盖：折叠、同步 aria-expanded、焦点回到展开按钮，且不写入任何结算记录
+  function bindOverrideEscape() {
+    if (billingOverrideEscBound) return;
+    billingOverrideEscBound = true;
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      var wrap = document.getElementById('bc-inv-override-wrap');
+      var toggle = document.getElementById('bc-inv-toggle-override');
+      if (!wrap || wrap.style.display === 'none') return;
+      wrap.style.display = 'none';
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      setBillingFeedback('已取消手动覆盖（未保存任何改动）', 'info');
+      if (toggle) toggle.focus();
+    });
+  }
+
+  function filterValue(id) {
+    var el = document.getElementById(id);
+    return el && el.value ? el.value : 'all';
+  }
+
+  function applyFilters(sessions) {
+    var amount = filterValue('bc-filter-amount');
+    var settled = filterValue('bc-filter-settled');
+    var debt = filterValue('bc-filter-debt');
+    var source = filterValue('bc-filter-source');
+    return sessions.filter(function (s) {
+      var b = s.billing || {};
+      var fee = Number(b.fee) || 0;
+      var paidAmount = b.paid ? (b.paidAmount != null ? Number(b.paidAmount) : fee) : 0;
+      var isSettled = b.paid && paidAmount >= fee;
+      var hasDebt = fee > paidAmount;
+      var src = b.source || 'manual';
+      if (amount === 'with-fee' && fee <= 0) return false;
+      if (amount === 'no-fee' && fee > 0) return false;
+      if (settled === 'settled' && !isSettled) return false;
+      if (settled === 'unsettled' && isSettled) return false;
+      if (debt === 'has-debt' && !hasDebt) return false;
+      if (debt === 'no-debt' && hasDebt) return false;
+      if (source !== 'all' && src !== source) return false;
+      return true;
+    });
+  }
+
+  function renderFilterSummary(visibleSessions) {
+    var el = document.getElementById('bc-filter-summary');
+    if (!el) return;
+    var all = filterValue('bc-filter-amount') === 'all' && filterValue('bc-filter-settled') === 'all' &&
+      filterValue('bc-filter-debt') === 'all' && filterValue('bc-filter-source') === 'all';
+    if (all) { el.textContent = ''; return; }
+    var total = visibleSessions.reduce(function (sum, s) {
+      return sum + (Number(s.billing && s.billing.fee) || 0);
+    }, 0);
+    el.textContent = '筛选结果：' + visibleSessions.length + ' 笔收入 · 合计 ¥' + total.toLocaleString();
+  }
+
+  function bindFilters() {
+    ['bc-filter-amount', 'bc-filter-settled', 'bc-filter-debt', 'bc-filter-source'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && !el.dataset.bound) {
+        el.dataset.bound = '1';
+        el.addEventListener('change', render);
+      }
+    });
+    var reset = document.getElementById('bc-filter-reset');
+    if (reset && !reset.dataset.bound) {
+      reset.dataset.bound = '1';
+      reset.addEventListener('click', function () {
+        ['bc-filter-amount', 'bc-filter-settled', 'bc-filter-debt', 'bc-filter-source'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.value = 'all';
+        });
+        render();
+      });
+    }
+  }
+
+  var calendarReady = false;
+
+  function calendarRuntimeReady() {
+    return typeof window.App !== 'undefined'
+      && typeof App.canUse === 'function'
+      && typeof App.openPlans === 'function'
+      && typeof XJEntitlements !== 'undefined'
+      && typeof XJEntitlements.canUse === 'function';
+  }
+
+  function renderLoadingState() {
+    var box = document.getElementById('bc-body');
+    if (!box) return;
+    box.innerHTML = '<section class="bc-inv-empty" role="status" aria-busy="true"><strong>正在读取本月账务</strong><p>保留月视图布局，等待本地账务数据返回。</p><div style="height:10px;border-radius:5px;background:var(--bg-sunken,#f2f4f3);margin-top:12px"></div><div style="height:10px;width:72%;border-radius:5px;background:var(--bg-sunken,#f2f4f3);margin-top:8px"></div></section>';
+  }
+
+  function renderRuntimeUnavailableState() {
+    var box = document.getElementById('bc-body');
+    if (!box) return;
+    box.innerHTML = '<section class="bc-inv-empty" role="alert"><strong>账务月历运行时尚未就绪</strong><p>授权状态或本地账务模块暂时无法读取，本次未打开账务数据；请重试。</p><button type="button" id="bc-retry-runtime">重试读取</button></section>';
+    var retry = document.getElementById('bc-retry-runtime');
+    if (retry) retry.addEventListener('click', init);
+  }
+
+  function init() {
+    renderLoadingState();
+    // app.js 的授权状态和 Store hydration 都是异步的；不能在首帧把已授权用户
+    // 永久误判为免费锁定，也不能在数据尚未到位时静默渲染空月历。
+    if (!calendarRuntimeReady()) {
+      renderRuntimeUnavailableState();
+      return;
+    }
+    if (window.App && App.onLicenseStateChange && !App.__billingCalendarBound) {
+      App.__billingCalendarBound = true;
+      App.onLicenseStateChange(function () {
+        if (calendarReady) render();
+      });
+    }
+    var hydrate = window.Store && typeof Store.hydrate === 'function' ? Store.hydrate() : Promise.resolve();
+    var refreshLicense = typeof App.refreshLicenseState === 'function' ? App.refreshLicenseState() : Promise.resolve();
+    Promise.all([
+      Promise.resolve(hydrate).catch(function () {}),
+      Promise.resolve(refreshLicense).catch(function () {}),
+    ]).then(function () {
+      var now = new Date();
+      curYear = now.getFullYear();
+      curMonth = now.getMonth();
+      // 初始化完成后先做一次权益门控，避免未授权页面先短暂渲染真实账务；
+      // renderCalendarView() 仍保留运行时门控，覆盖月份切换和状态变化。
+      if (!App.canUse('billing-calendar')) {
+        calendarReady = true;
+        renderLockedState();
+        return;
+      }
+      bindFilters();
+      calendarReady = true;
+      render();
+    });
+  }
+
+  function renderLockedState() {
+    var box = document.getElementById('bc-body');
+    if (!box) return;
+    box.innerHTML = '<section class="bc-inv-empty" role="status"><strong>账单月历明细为会员功能　<button class="btn-new-client" data-new-client="1" type="button" style="margin-top:8px;padding:6px 14px;border-radius:8px;cursor:pointer;background:var(--accent,#4a6cf7);color:#fff;border:0">＋ 新建来访者</button><button class="btn-back-billing" data-back-billing="1" type="button" style="margin-top:8px;margin-left:8px;padding:6px 14px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid var(--border,#444);color:var(--text,#eee)">返回账单</button></strong><p>基础记账、导入、原始数据导出与基础打印仍可在账务工作台使用。</p><button type="button" id="bc-open-plans">查看方案</button></section>';
+    var button = document.getElementById('bc-open-plans');
+    if (button) button.addEventListener('click', function () { App.openPlans(); });
+  }
+
+  window.prevMonth = function () {
+    curMonth--;
+    if (curMonth < 0) { curMonth = 11; curYear--; }
+    render();
+  };
+
+  window.nextMonth = function () {
+    curMonth++;
+    if (curMonth > 11) { curMonth = 0; curYear++; }
+    render();
+  };
+
+  window.todayMonth = function () {
+    var now = new Date();
+    curYear = now.getFullYear();
+    curMonth = now.getMonth();
+    render();
+  };
+
+  function ymOf() { return curYear + '-' + String(curMonth + 1).padStart(2, '0'); }
+
+  // Bug-13 修复：避免 new Date('YYYY-MM-DD') 按 UTC 解析在非东八区错位
+  // 改用字符串前缀比较判断是否属于某年某月
+  function dateInMonth(dateStr, year, month) {
+    if (!dateStr || dateStr.length < 7) return false;
+    var ym = year + '-' + String(month + 1).padStart(2, '0');
+    return dateStr.slice(0, 7) === ym;
+  }
+
+  function isToday(dateStr) {
+    var now = new Date();
+    var t = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    return dateStr === t;
+  }
+
+  // v3.7.0 月结模式自动计算应收：
+  //   per-session/prepaid → 本月 sessions.fee 合计
+  //   monthly → 本月 sessions.fee 合计（用户指定按本月真实咨询节数，不是固定月费）
+  //   任何模式都允许用户在月结单区手动覆盖金额
+  // Bug-6 修复：移除未使用的 client 参数
+  function computeReceivable(sessions) {
+    var total = 0;
+    sessions.forEach(function (s) {
+      var fee = (s.billing && Number(s.billing.fee)) || 0;
+      total += fee;
+    });
+    return total;
+  }
+
+  function computeReceived(client, ym, sessions) {
+    var sessionPaid = 0;
+    sessions.forEach(function (s) {
+      if (s.billing && s.billing.paid) {
+        var fee = Number(s.billing.fee) || 0;
+        var paidAmt = (s.billing.paidAmount != null) ? Number(s.billing.paidAmount) : fee;
+        sessionPaid += paidAmt;
+      }
+    });
+    var mpAmount = 0;
+    if (client && client.billing && Array.isArray(client.billing.monthlyPayments)) {
+      client.billing.monthlyPayments.forEach(function (m) {
+        if (m.month === ym) {
+          var amt = Number(m.amount) || 0;
+          if (amt > 0) mpAmount += amt;  // P3-C: 统一 >0 过滤
+        }
+      });
+    }
+    return sessionPaid + mpAmount;
+  }
+
+  function renderCalendarView() {
+    if (!calendarRuntimeReady()) {
+      renderRuntimeUnavailableState();
+      return;
+    }
+    if (!App.canUse('billing-calendar')) {
+      renderLockedState();
+      return;
+    }
+    var box = document.getElementById('bc-body');
+    document.getElementById('month-label').textContent = curYear + '年' + (curMonth + 1) + '月';
+
+    // 保存当前月结单区选中的来访者/月份，避免 render() 后被重置
+    // P3#9 修复：prevMonthInput 命名避免遮蔽全局函数 prevMonth()
+    var savedClientId = null, savedYm = null;
+    var prevClient = document.getElementById('bc-inv-client');
+    var prevMonthInput = document.getElementById('bc-inv-month');
+    if (prevClient && prevClient.value) {
+      savedClientId = prevClient.value;
+      savedYm = prevMonthInput ? prevMonthInput.value : null;
+    }
+
+    var ym = ymOf();
+    var sessions = Store.getSessions();
+    // Bug-3 修复：仅纳入 billing 非 null 的财务会谈，排除临床记录（billing:null）
+    // 与 billing-shell.html 的 billableSessionsFor 口径一致
+    var monthSessions = sessions.filter(function (s) {
+      if (!s.date) return false;
+      if (!Store.isBillableSession(s)) return false;
+      // Bug-13: 用字符串比较代替 new Date() 避免时区错位
+      return dateInMonth(s.date, curYear, curMonth);
+    });
+
+    // 筛选只作用于日历收入视图与当日明细；顶部月概览始终展示全月真实数据
+    var visibleSessions = applyFilters(monthSessions);
+    renderFilterSummary(visibleSessions);
+
+    // 月概览（含支出/净收入，v3.7.0 6 张卡片）
+    var totalFee = 0, totalPaid = 0;
+    var sessionCount = monthSessions.length;
+    monthSessions.forEach(function (s) {
+      var b = s.billing || {};
+      var fee = Number(b.fee) || 0;
+      if (fee > 0) totalFee += fee;
+      if (b.paid) totalPaid += (b.paidAmount != null ? Number(b.paidAmount) : fee);
+    });
+    // P2-A 修复（第四轮压测）：已收需追加所有 client 的当月 monthlyPayments（月结单确认结算写入的金额），
+    //   与 billing-shell.html 的 renderBillingStats.mPaid 口径一致；
+    //   待收改为 totalFee - totalPaid（同时覆盖 partial payment 场景，避免双重计算）
+    var ymStr = ymOf();
+    Store.getClients().forEach(function (c) {
+      if (c.billing && Array.isArray(c.billing.monthlyPayments)) {
+        c.billing.monthlyPayments.forEach(function (mp) {
+          if (mp.month === ymStr) {
+            var amt = Number(mp.amount) || 0;
+            if (amt > 0) totalPaid += amt;  // P3-C: 统一 >0 过滤，与 clientAgg/renderBillingStats 对齐
+          }
+        });
+      }
+    });
+    var totalPending = Math.max(0, totalFee - totalPaid);
+
+    var allExpenses = Store.getExpenses ? Store.getExpenses() : [];
+    var monthExpenses = allExpenses.filter(function (e) {
+      if (!e.date) return false;
+      // Bug-13: 用字符串比较代替 new Date() 避免时区错位
+      return dateInMonth(e.date, curYear, curMonth);
+    });
+    var totalExpense = monthExpenses.reduce(function (s, e) { return s + (Number(e.amount) || 0); }, 0);
+    // P3-F 修复（第四轮压测）：改名"应收净额"，与 billing-shell 的"净收入(已收口径)"区分
+    var netIncome = totalFee - totalExpense;
+    // P3#8 修复：负数净收入显示 -¥1,000 而非 ¥-1,000
+    function fmtMoney(n) { return (n < 0 ? '-¥' : '¥') + Math.abs(n).toLocaleString(); }
+
+    var overviewHtml = '<div class="bc-overview">' +
+      '<div class="bc-ov-card"><div class="lbl">会谈次数</div><div class="val count">' + sessionCount + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">收入</div><div class="val income">¥' + totalFee.toLocaleString() + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">支出</div><div class="val expense">¥' + totalExpense.toLocaleString() + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">应收净额</div><div class="val net">' + fmtMoney(netIncome) + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">已收</div><div class="val received">¥' + totalPaid.toLocaleString() + '</div></div>' +
+      '<div class="bc-ov-card"><div class="lbl">待收</div><div class="val pending">¥' + totalPending.toLocaleString() + '</div></div>' +
+      '</div>';
+
+    // 日历
+    var firstDay = new Date(curYear, curMonth, 1).getDay();
+    var daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+    var daysInPrev = new Date(curYear, curMonth, 0).getDate();
+
+    var dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+    var headHtml = '<div class="bc-cal-head">' + dayNames.map(function (n) { return '<div>' + n + '</div>'; }).join('') + '</div>';
+
+    var cells = [];
+    for (var i = 0; i < firstDay; i++) {
+      cells.push({ day: daysInPrev - firstDay + 1 + i, other: true });
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      var dateStr = curYear + '-' + String(curMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var daySession = visibleSessions.filter(function (s) { return s.date === dateStr; });
+      cells.push({ day: d, date: dateStr, sessions: daySession, other: false, today: isToday(dateStr) });
+    }
+    var remaining = 42 - cells.length;
+    for (var r = 1; r <= remaining; r++) {
+      cells.push({ day: r, other: true });
+    }
+
+    var calHtml = '<div class="bc-calendar">' + headHtml + '<div class="bc-cal-body">';
+    cells.forEach(function (c) {
+      var cls = 'bc-day';
+      if (c.other) cls += ' other';
+      if (c.today) cls += ' today';
+      var events = '';
+      var eCount = 0;
+      if (c.sessions) {
+        c.sessions.forEach(function (s) {
+          if (eCount >= 3) return;
+          var b = s.billing || {};
+          var cls2 = b.paid ? 'in' : (b.fee > 0 ? 'pending' : '');
+          var client = Store.getClient(s.clientId);
+          var clientName = client ? client.name : '?';
+          events += '<div class="day-event ' + cls2 + '">' + (client ? App.escapeHtml(clientName) : '?') + (b.fee ? ' ¥' + b.fee : '') + '</div>';
+          eCount++;
+        });
+      }
+      var dayExpenses = monthExpenses.filter(function (e) { return e.date === c.date; });
+      dayExpenses.forEach(function (e) {
+        if (eCount >= 4) return;
+        events += '<div class="day-event out">' + App.escapeHtml(e.category || '支出') + ' -¥' + (e.amount || 0) + '</div>';
+        eCount++;
+      });
+      calHtml += '<div class="' + cls + '" data-date="' + (c.date || '') + '">' +
+        '<div class="day-num">' + c.day + '</div>' +
+        '<div class="day-events">' + events + '</div></div>';
+    });
+    calHtml += '</div></div>';
+
+    // v3.7.0 月结单区（月历子项）
+    var invoiceHtml = renderInvoiceSection(ym);
+    // 511-003#7: 周期标签 + aria-live 宣布（月份切换可见更新）
+    var periodLabel = document.getElementById('bc-period-label');
+    if (!periodLabel) {
+      var head = box.querySelector('.bc-cal-head, [class*=head]') || box;
+      var lbl = document.createElement('div');
+      lbl.id = 'bc-period-label'; lbl.setAttribute('aria-live', 'polite'); lbl.setAttribute('role', 'status');
+      lbl.style.cssText = 'font-weight:600;margin:4px 0;';
+      if (head && head.parentNode) head.parentNode.insertBefore(lbl, head.nextSibling); else box.insertBefore(lbl, box.firstChild);
+    }
+    var pl = document.getElementById('bc-period-label');
+    if (pl) pl.textContent = ym.replace('-', '年') + '月 · 账务月历';
+
+    box.innerHTML = overviewHtml + calHtml + invoiceHtml;
+
+    // 点击日期：弹层显示当日明细（不再跳页）
+    box.querySelectorAll('.bc-day[data-date]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var date = el.dataset.date;
+        if (!date) return;
+        showDayDetail(date, visibleSessions.filter(function (s) { return s.date === date; }), monthExpenses.filter(function (e) { return e.date === date; }));
+      });
+    });
+
+    bindInvoiceEvents(ym);
+
+    // 恢复月结单区选中状态：如果有 savedClientId，加载该来访者；否则自动加载第一个
+    // P2#2 修复：月份恢复优先使用 savedYm（用户在月结单区选的月份），无则用月历当前月份 ym
+    var restoreClient = document.getElementById('bc-inv-client');
+    if (restoreClient) {
+      var restoreYm = savedYm || ym;
+      if (savedClientId) {
+        // 尝试恢复选中值（如果来访者仍存在）
+        var clientExists = Array.from(restoreClient.options).some(function (o) { return o.value === savedClientId; });
+        if (clientExists) {
+          restoreClient.value = savedClientId;
+          var monthInput = document.getElementById('bc-inv-month');
+          if (monthInput) monthInput.value = restoreYm;
+          renderInvoiceDetail(savedClientId, restoreYm);
+        } else {
+          // 来访者不存在了，加载第一个
+          if (restoreClient.value) renderInvoiceDetail(restoreClient.value, restoreYm);
+        }
+      } else if (restoreClient.value) {
+        // 首次渲染，自动加载第一个来访者本月
+        renderInvoiceDetail(restoreClient.value, restoreYm);
+      }
+    }
+  }
+
+  function renderErrorState(error) {
+    var box = document.getElementById('bc-body');
+    if (!box) return;
+    if (typeof console !== 'undefined' && console.error) console.error('[billing-calendar] render failed', error);
+    box.innerHTML = '<section class="bc-inv-empty" role="alert"><strong>暂时无法读取月历</strong><p>本地账务数据没有改变，可以重试；如果持续失败，请检查数据文件。</p><button type="button" id="bc-retry-render">重试读取</button></section>';
+    var retry = document.getElementById('bc-retry-render');
+    if (retry) retry.addEventListener('click', render);
+  }
+
+  function render() {
+    try {
+      renderCalendarView();
+    } catch (error) {
+      renderErrorState(error);
+    }
+  }
+
+  // v3.7.0 月结单区渲染
+  function renderInvoiceSection(ym) {
+    var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+    if (!clients.length) {
+      return '<div class="bc-invoice-section"><h3><i data-lucide="clipboard-list" aria-hidden="true"></i> 月结单</h3><div class="bc-inv-empty">请先在来访者档案中创建来访者</div></div>';
+    }
+    var clientOpts = clients.map(function (c) {
+      return '<option value="' + App.escapeHtml(c.id) + '">' + App.escapeHtml(c.name) + '</option>';
+    }).join('');
+    return '<div class="bc-invoice-section">' +
+      '<h3><i data-lucide="clipboard-list" aria-hidden="true"></i> 月结单</h3><div class="hint">生成账单并确认结算，写入月结记录（含打印/PDF 与手动覆盖金额）</div>' +
+      '<div class="bc-inv-form">' +
+        '<label>来访者<select id="bc-inv-client">' + clientOpts + '</select></label>' +
+        '<label>月份<input type="month" id="bc-inv-month" value="' + ym + '"></label>' +
+        '<button id="bc-inv-load">加载月结单</button>' +
+      '</div>' +
+      '<div id="bc-inv-detail"></div>' +
+      '</div>';
+  }
+
+  function bindInvoiceEvents(ym) {
+    var loadBtn = document.getElementById('bc-inv-load');
+    if (!loadBtn) return;
+    loadBtn.addEventListener('click', function () {
+      var clientId = document.getElementById('bc-inv-client').value;
+      var month = document.getElementById('bc-inv-month').value || ym;
+      if (!clientId) { App.showToast('请选择来访者', 'warning'); return; }
+      clearBillingFeedback();
+      renderInvoiceDetail(clientId, month);
+    });
+  }
+
+  function renderInvoiceDetail(clientId, ym) {
+    var detailBox = document.getElementById('bc-inv-detail');
+    if (!detailBox) return;
+    var client = Store.getClient(clientId);
+    if (!client) { detailBox.innerHTML = '<div class="bc-inv-empty">来访者不存在</div>'; return; }
+
+    var ymParts = ym.split('-');
+    var y = parseInt(ymParts[0], 10);
+    var m = parseInt(ymParts[1], 10) - 1;
+    // Bug-12 修复：校验 ym 格式，避免 NaN 导致静默返回空列表
+    if (isNaN(y) || isNaN(m) || m < 0 || m > 11) {
+      detailBox.innerHTML = '<div class="bc-inv-empty">月份格式错误：' + App.escapeHtml(ym) + '</div>';
+      return;
+    }
+    var sessions = Store.getSessions().filter(function (s) {
+      if (!s.date || s.clientId !== clientId) return false;
+      if (!Store.isBillableSession(s)) return false;  // Bug-3: 排除临床记录
+      // Bug-13: 用字符串比较代替 new Date() 避免时区错位
+      return dateInMonth(s.date, y, m);
+    });
+    sessions.sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+
+    var mode = (client.billingMode || (client.billing && client.billing.billingMode)) || 'per-session';
+    var modeLabel = mode === 'monthly' ? '月结' : (mode === 'prepaid' ? '预付费' : '次结');
+    var modeClass = mode === 'monthly' ? 'monthly' : '';
+
+    // 来访者档案费率补价：fee<=0 的会谈按档案费率（含费用变更按开始日期匹配）计价
+    var effSessions = (typeof Store.sessionsWithEffectiveFee === 'function')
+      ? Store.sessionsWithEffectiveFee(sessions, client)
+      : sessions.map(function (s) { return { session: s, fee: Number(s.billing && s.billing.fee) || 0, appliedFromArchive: false }; });
+    var sessionsForCalc = effSessions.map(function (e) { return e.session; });
+    // 自动把 0 元部分写回收费价格（fire-and-forget：渲染不等待）
+    if (typeof Store.fillZeroFeesDurable === 'function') {
+      var fillPromise = Store.fillZeroFeesDurable(sessions.slice(), client);
+      if (fillPromise && fillPromise.then) {
+        fillPromise.then(function (res) {
+          if (res && res.ok && res.written > 0) {
+            try {
+              var fb = document.getElementById('bc-inv-feedback');
+              if (fb) { fb.setAttribute('data-state', 'info'); fb.textContent = '已按档案费率自动补价 ' + res.written + ' 笔 0 元费用'; }
+            } catch (e) {}
+          }
+        }).catch(function () {});
+      }
+    }
+
+    var receivable = computeReceivable(sessionsForCalc);  // 应收：本月实际会谈费用合计
+    var received = computeReceived(client, ym, sessionsForCalc);  // 已收：已付 sessions + monthlyPayments
+    var pending = Math.max(0, receivable - received);
+
+    // 已有月结记录金额（用于显示「已记月结」）
+    // P3-C 修复（第五轮压测）：统一 >0 过滤，与 computeReceived 对齐
+    var existingMpAmount = 0;
+    if (client.billing && Array.isArray(client.billing.monthlyPayments)) {
+      client.billing.monthlyPayments.forEach(function (mp) {
+        if (mp.month === ym) {
+          var amt = Number(mp.amount) || 0;
+          if (amt > 0) existingMpAmount += amt;
+        }
+      });
+    }
+
+    // P1 修复：「确认结算」按钮结算的是 pending（待收金额），不是 receivable（应收总额）。
+    // 语义：monthlyPayments[ym] = 月末补充结算金额（用户为结清本月待收而支付的额外款项）。
+    // 这样 received = sessionPaid + mpAmount 不会双重计算。
+    // 用户若想记录「整月一次性付清」，可点「手动覆盖金额」输入完整金额（会替换月结记录）。
+    // P1#二轮修复：确认结算用 'add' 累加语义（prevMp + pending），避免二次结算丢失历史 mp。
+    //   手动覆盖用 'replace' 替换语义（amt 直接覆盖 prevMp）。
+    var settleAmount = pending;
+    var settleBtnLabel = pending > 0
+      ? '确认结算 ¥' + pending.toLocaleString()
+      : '已结清（无需结算）';
+    // P3#9 修复：变量名 settleBtnDisabled 误导（实际是属性串），重命名为 settleBtnAttrs
+    var settleBtnAttrs = pending <= 0 ? ' disabled style="opacity:.5;cursor:not-allowed"' : '';
+
+    var rowsHtml = effSessions.map(function (e, i) {
+      var s = e.session;
+      var b = s.billing || {};
+      var fee = Number(e.fee) || 0;
+      var paidAmt = b.paid ? (b.paidAmount != null ? Number(b.paidAmount) : fee) : 0;
+      return '<tr><td style="padding:6px 4px">' + App.escapeHtml(s.date || '') + '</td>' +
+        '<td>第' + (s.sessionNumber || (i + 1)) + '节</td>' +
+        '<td>¥' + fee.toLocaleString() + (e.appliedFromArchive ? ' <span title="按来访者档案费率自动补价" style="color:var(--accent);font-size:10px">档案价</span>' : '') + '</td>' +
+        '<td style="color:' + (b.paid ? 'var(--success)' : 'var(--orange)') + '">' + (b.paid ? '已收 ¥' + paidAmt.toLocaleString() : '待收') + '</td></tr>';
+    }).join('');
+    if (!rowsHtml) rowsHtml = '<tr><td colspan="4" style="text-align:center;padding:14px;color:var(--ink-3)">本月暂无会谈记录</td></tr>';
+
+    // P1 修复：拆分显示「会谈已收」与「月结已收」，避免用户误以为双重计算
+    var sessionPaidOnly = 0;
+    effSessions.forEach(function (e) {
+      if (e.session.billing && e.session.billing.paid) {
+        var fee = Number(e.fee) || 0;
+        sessionPaidOnly += (e.session.billing.paidAmount != null) ? Number(e.session.billing.paidAmount) : fee;
+      }
+    });
+
+    var overrideDelta = existingMpAmount - receivable;
+    var fmtSigned = function (n) { return (n < 0 ? '-¥' : '¥') + Math.abs(n).toLocaleString(); };
+    var summaryHtml = '<div class="bc-inv-summary">' +
+      '<div class="item"><span>结算模式</span><b><span class="bc-inv-mode-tag ' + modeClass + '">' + modeLabel + '</span></b></div>' +
+      '<div class="item income"><span>原金额（自动）</span><b>¥' + receivable.toLocaleString() + '</b></div>' +
+      '<div class="item"><span>覆盖金额</span><b>' + fmtSigned(existingMpAmount) + '</b></div>' +
+      '<div class="item ' + (overrideDelta === 0 ? '' : (overrideDelta > 0 ? 'pending' : 'income')) + '"><span>覆盖差额</span><b>' + fmtSigned(overrideDelta) + '</b></div>' +
+      '<div class="item"><span>会谈已收</span><b>¥' + sessionPaidOnly.toLocaleString() + '</b></div>' +
+      (existingMpAmount > 0 ? '<div class="item"><span>月结已收</span><b>¥' + existingMpAmount.toLocaleString() + '</b></div>' : '') +
+      '<div class="item"><span>已收合计</span><b>¥' + received.toLocaleString() + '</b></div>' +
+      '<div class="item pending"><span>待收</span><b>¥' + pending.toLocaleString() + '</b></div>' +
+      '</div>';
+
+    var actionsHtml = '<div class="bc-inv-actions">' +
+      '<button type="button" class="btn-print" id="bc-inv-print">打印 / 存为 PDF</button>' +
+      '<button type="button" class="btn-settle" id="bc-inv-settle"' + settleBtnAttrs + '>' + settleBtnLabel + '</button>' +
+      '<button type="button" class="btn-override" id="bc-inv-toggle-override" aria-expanded="false" aria-controls="bc-inv-override-wrap">手动覆盖金额</button>' +
+      '<span id="bc-inv-override-wrap" style="display:none" role="group" aria-label="手动覆盖金额结算">' +
+        '<input type="number" class="override-input" id="bc-inv-override-amt" value="' + settleAmount + '" min="0" placeholder="补充结算金额" aria-label="手动覆盖金额">' +
+        '<button type="button" class="btn-settle" id="bc-inv-settle-override">按此金额结算</button>' +
+      '</span>' +
+      '</div>' +
+      '<div class="bc-inv-feedback" id="bc-inv-feedback" role="status" aria-live="polite" aria-busy="false" data-state="' + billingFeedbackTone + '">' + App.escapeHtml(billingFeedbackText) + '</div>';
+
+    var billHtml = '<div class="bc-inv-bill">' +
+      '<table style="width:100%;border-collapse:collapse;font:13px var(--sans)">' +
+      '<thead><tr style="color:var(--ink-3);border-bottom:1px solid var(--border)"><th style="padding:6px 4px;text-align:left">日期</th><th>节次</th><th>费用</th><th>状态</th></tr></thead>' +
+      '<tbody>' + rowsHtml + '</tbody></table>' +
+      '</div>';
+
+    detailBox.innerHTML = summaryHtml + actionsHtml + billHtml;
+
+    // 绑定事件
+    var printBtn = document.getElementById('bc-inv-print');
+    if (printBtn) printBtn.addEventListener('click', function () { printInvoice(client, ym, sessions, receivable, received, pending); });
+
+    var settleBtn = document.getElementById('bc-inv-settle');
+    if (settleBtn) settleBtn.addEventListener('click', function () {
+      if (billingSettleBusy) { setBillingFeedback('正在保存本月结算，请稍候…', 'busy'); return; }
+      if (pending <= 0) {
+        App.showToast('本月已结清，无需结算', 'info');
+        setBillingFeedback('本月已结清，无需确认结算（未写入任何记录）', 'info');
+        return;
+      }
+      // P1#二轮修复：'add' 模式——在已有 mp 基础上累加 pending，避免覆盖历史月结金额
+      doSettle(clientId, ym, pending, 'add');
+    });
+
+    var toggleBtn = document.getElementById('bc-inv-toggle-override');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-controls', 'bc-inv-override-wrap');
+      toggleBtn.addEventListener('click', function () {
+        var wrap = document.getElementById('bc-inv-override-wrap');
+        if (!wrap) return;
+        var expanded = wrap.style.display !== 'none';
+        wrap.style.display = expanded ? 'none' : 'inline-flex';
+        var nowExpanded = !expanded;
+        toggleBtn.setAttribute('aria-expanded', nowExpanded ? 'true' : 'false');
+        if (nowExpanded) {
+          var amtInput = document.getElementById('bc-inv-override-amt');
+          if (amtInput) { amtInput.focus(); try { amtInput.select(); } catch (e) {} }
+          setBillingFeedback('已展开手动覆盖：请在金额输入框中输入本月结算金额，然后点击「按此金额结算」保存', 'info');
+        } else {
+          setBillingFeedback('已折叠手动覆盖（未保存任何改动）', 'info');
+        }
+      });
+    }
+    bindOverrideEscape();
+
+    var settleOverrideBtn = document.getElementById('bc-inv-settle-override');
+    if (settleOverrideBtn) settleOverrideBtn.addEventListener('click', function () {
+      if (billingSettleBusy) { setBillingFeedback('正在保存本月结算，请稍候…', 'busy'); return; }
+      var amtInput = document.getElementById('bc-inv-override-amt');
+      var raw = amtInput ? amtInput.value : '';
+      var amt = Number(raw);
+      if (!raw || !isFinite(amt) || amt <= 0) {
+        setBillingFeedback('手动覆盖无效：结算金额需为大于 0 的数字，所选来访者、月份与输入金额均未改变', 'error');
+        App.showToast('结算金额需 > 0', 'warning');
+        if (amtInput) amtInput.focus();
+        return;
+      }
+      if (amt > 100000000) {
+        setBillingFeedback('手动覆盖无效：金额异常过大已拦截，未写入任何记录', 'error');
+        App.showToast('结算金额异常过大，已拦截', 'error');
+        return;
+      }
+      // 'replace' 模式：amt 直接替换该月所有 mp，用于「整月一次性付清」场景
+      doSettle(clientId, ym, amt, 'replace');
+    });
+  }
+
+  // v3.7.0 写入 monthlyPayments（真实结算）
+  // P1#二轮修复：doSettle 区分两种模式——
+  //   mode='add'      → 在该月已有 mp 累计金额基础上累加 amount（用于「确认结算」按钮结清待收）
+  //   mode='replace'  → 用 amount 直接替换该月所有 mp（用于「手动覆盖金额」按钮一次性重置）
+  // P3#10 修复：amount 上界合理性校验（单次结算金额不应超过 1 亿，防误操作）
+  async function doSettle(clientId, ym, amount, mode) {
+    if (billingSettleBusy) { setBillingFeedback('正在保存本月结算，请稍候…', 'busy'); return; }
+    var client = Store.getClient(clientId);
+    if (!client) { setBillingFeedback('月结保存失败：来访者不存在，未写入任何记录', 'error'); App.showToast('来访者不存在', 'error'); return; }
+    if (!(amount > 0)) { setBillingFeedback('月结保存失败：结算金额需大于 0，所选来访者、月份与输入金额均未改变', 'error'); App.showToast('结算金额需 > 0', 'warning'); return; }
+    if (amount > 100000000) { setBillingFeedback('月结保存失败：金额异常过大已拦截，未写入任何记录', 'error'); App.showToast('结算金额异常过大，已拦截', 'error'); return; }
+    // 月份格式校验（防 YYYY-M 不规范输入）
+    if (!/^\d{4}-\d{2}$/.test(ym)) { setBillingFeedback('月结保存失败：月份格式错误，未写入任何记录', 'error'); App.showToast('月份格式错误', 'error'); return; }
+    billingSettleBusy = true;
+    setBillingBusyUI(true);
+    var billing, oldMp, prevAmount, newAmount, saved;
+    try {
+      // 保存中（aria-busy=true 的持久反馈区持续可见）
+      setBillingFeedback('正在保存：' + (mode === 'add' ? '确认结算' : '手动覆盖') + ' ' + ym.replace('-', '年') + '月…', 'busy');
+      billing = Object.assign({}, client.billing || {});
+      oldMp = Array.isArray(billing.monthlyPayments) ? billing.monthlyPayments : [];
+      prevAmount = oldMp
+        .filter(function (m) { return m.month === ym; })
+        .reduce(function (s, m) { return s + (Number(m.amount) || 0); }, 0);
+      newAmount = mode === 'add' ? (prevAmount + amount) : amount;
+      // 移除该月所有旧条目，保留其他月份（其他月份/来访者的月度支付记录不受影响）
+      billing.monthlyPayments = oldMp.filter(function (m) { return m.month !== ym; });
+      billing.monthlyPayments.push({ month: ym, amount: newAmount });
+      saved = await Store.updateClientDurable(clientId, { billing: billing });
+      if (!saved || !saved.ok) {
+        // 失败不重绘：输入金额、所选来访者、月份全部保留，便于重试；不写任何脏数据
+        setBillingFeedback('月结保存失败：本地账务数据未改变，原输入金额已保留；请恢复存储后重试', 'error');
+        App.showToast('月结保存失败：原有数据未改变，请恢复存储后重试', 'error');
+        return;
+      }
+      var successText = mode === 'add'
+        ? '月结已保存：' + ym.replace('-', '年') + '月 · 本次确认结算 ¥' + amount.toLocaleString() + '，累计 ¥' + newAmount.toLocaleString()
+        : '月结已保存：' + ym.replace('-', '年') + '月 · 手动覆盖金额已设为 ¥' + newAmount.toLocaleString();
+      // 2026-10-01 一键月结：结算成功后把该月该来访者所有未结会谈自动标记已收
+      //（无需再逐条手动点“未收→已收”；标记失败不影响月结金额记录本身）
+      var markedPaid = 0;
+      try {
+        var ymSessions = (Store.getSessions ? Store.getSessions() : []).filter(function (sv) {
+          return sv.clientId === clientId && sv.date && sv.date.slice(0, 7) === ym && sv.billing && !sv.billing.paid;
+        });
+        for (var si = 0; si < ymSessions.length; si++) {
+          var so = ymSessions[si];
+          var sw = await Store.saveSessionDurable(Object.assign({}, so, {
+            billing: Object.assign({}, so.billing, {
+              paid: true,
+              paidAt: new Date().toISOString(),
+              paidAmount: Number(so.billing && so.billing.fee) || 0
+            })
+          }));
+          if (sw && sw.ok) markedPaid++;
+        }
+      } catch (e2) {
+        if (typeof console !== 'undefined' && console.error) console.error('[billing-calendar] markPaid failed', e2);
+      }
+      if (markedPaid > 0) successText += '，并自动将本月 ' + markedPaid + ' 节标记为已收';
+      setBillingFeedback(successText, 'success');
+      App.showToast('月结已保存 · ' + (mode === 'add' ? '本次 ¥' + amount.toLocaleString() + '，累计 ¥' + newAmount.toLocaleString() : '已设为 ¥' + newAmount.toLocaleString()), 'success');
+      // 仅保存成功才触发重绘（render() 会自动恢复月结单区到当前选中的来访者与月份）
+      render();
+      return;
+    } catch (e) {
+      if (typeof console !== 'undefined' && console.error) console.error('[billing-calendar] doSettle exception', e);
+      // 异常同样 fail-closed：本地数据未改变，保留输入便于重试
+      setBillingFeedback('月结保存失败：发生异常，本地账务数据未改变，原输入金额已保留；请重试', 'error');
+      App.showToast('月结保存失败：原有数据未改变，请恢复存储后重试', 'error');
+      return;
+    } finally {
+      billingSettleBusy = false;
+      setBillingBusyUI(false);
+    }
+  }
+
+  function printInvoice(client, ym, sessions, receivable, received, pending) {
+    var y = ym.slice(0, 4);
+    var m = Number(ym.slice(5));
+    // P3-2 修复（第三轮压测）：防御性校验，避免异常 ym 导致 "NaN 月"
+    if (isNaN(y) || isNaN(m) || m < 1 || m > 12) {
+      App.showToast('月份格式错误，无法打印', 'error');
+      return;
+    }
+    var rows = sessions.map(function (s, i) {
+      var b = s.billing || {};
+      // 打印账单同样应用档案费率补价（若调用方未预补价）
+      var fee = Number(b.fee) || 0;
+      if (fee <= 0 && client && typeof Store.effectiveFeeForDate === 'function') {
+        fee = Store.effectiveFeeForDate(client, s.date);
+      }
+      var paid = !!(b && b.paid);
+      var paidAmt = paid ? (b.paidAmount != null ? Number(b.paidAmount) : fee) : 0;
+      return '<tr><td style="padding:6px">' + App.escapeHtml(s.date || '') + '</td><td>第' + (s.sessionNumber || (i + 1)) + '节</td><td>¥' + fee.toLocaleString() + '</td><td style="color:' + (paid ? '#3f7d5a' : '#b06a47') + '">' + (paid ? '已收 ¥' + paidAmt.toLocaleString() : '未收') + '</td></tr>';
+    }).join('') || '<tr><td colspan="4" style="text-align:center;padding:14px;color:#999">本月暂无会谈记录</td></tr>';
+    var billHtml =
+      '<div style="max-width:520px;margin:0 auto;background:#fff;padding:32px 34px;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25);font-family:-apple-system,\'PingFang SC\',\'Microsoft YaHei\',sans-serif;color:#3a2f28">' +
+        '<div style="display:flex;align-items:baseline;justify-content:space-between;border-bottom:2px solid #9E5A3C;padding-bottom:12px;margin-bottom:18px">' +
+          '<div><div style="font-size:20px;font-weight:700;color:#9E5A3C;letter-spacing:1px">心镜 · 咨询账单</div><div style="font-size:12px;color:#9a8a7c;margin-top:4px">XinJing Psychological Counseling</div></div>' +
+          '<div style="font-size:13px;color:#6b5d52;text-align:right">账单月份<br><b style="font-size:16px">' + y + ' 年 ' + m + ' 月</b></div>' +
+        '</div>' +
+        '<div style="font-size:15px;margin-bottom:4px">尊敬的 <b>' + App.escapeHtml(client.name) + '</b> 女士/先生：</div>' +
+        '<div style="font-size:13px;color:#6b5d52;margin-bottom:18px">以下是您 ' + y + ' 年 ' + m + ' 月的咨询明细，感谢您的信任与同行。</div>' +
+        '<div style="display:flex;gap:10px;margin-bottom:18px">' +
+          '<div style="flex:1;background:#fbf3ea;border:1px solid #efe2d2;border-radius:10px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:700;color:#9E5A3C">' + sessions.length + ' 节</div><div style="font-size:11px;color:#9a8a7c">本月咨询</div></div>' +
+          '<div style="flex:1;background:#fbf3ea;border:1px solid #efe2d2;border-radius:10px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:700;color:#9E5A3C">¥' + receivable.toLocaleString() + '</div><div style="font-size:11px;color:#9a8a7c">应收合计</div></div>' +
+          '<div style="flex:1;background:#fbf3ea;border:1px solid #efe2d2;border-radius:10px;padding:10px 8px;text-align:center"><div style="font-size:17px;font-weight:700;color:#3f7d5a">¥' + received.toLocaleString() + '</div><div style="font-size:11px;color:#9a8a7c">已收</div></div>' +
+        '</div>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+        '<thead><tr style="color:#9E5A3C;text-align:left;border-bottom:1px solid #e7d8c8"><th style="padding:8px 6px">日期</th><th>节次</th><th>费用</th><th>状态</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table>' +
+        '<div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px solid #e7d8c8;font-size:14px">' +
+          '<span>应收合计：<b>¥' + receivable.toLocaleString() + '</b></span>' +
+          '<span>已收：<b style="color:#3f7d5a">¥' + received.toLocaleString() + '</b></span>' +
+          '<span>待付：<b style="color:#b06a47">¥' + pending.toLocaleString() + '</b></span>' +
+        '</div>' +
+        '<div style="margin-top:18px;font-size:11px;color:#a89a8c;text-align:center;line-height:1.7">本账单由心镜 XinJing 自动生成 · 如有疑问请与咨询师联系<br>截图即具参考价值，正式发票请向咨询师索取</div>' +
+      '</div>';
+    var overlay = document.createElement('div');
+    overlay.id = 'bc-invoice-preview';
+    overlay.className = 'modal-overlay show';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(40,30,22,.55);z-index:10030;display:flex;align-items:center;justify-content:center;overflow:auto;padding:24px';
+    overlay.innerHTML = '<div style="position:relative;max-height:92vh;overflow:auto">' +
+      '<button type="button" data-modal-cancel aria-label="关闭账单预览" style="position:absolute;top:-6px;right:-6px;z-index:2;width:34px;height:34px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);font-size:18px;cursor:pointer;color:#6b5d52">×</button>' +
+      billHtml +
+      '<div style="text-align:center;margin-top:14px"><button onclick="window.print()" style="border:none;background:#9E5A3C;color:#fff;border-radius:8px;padding:9px 22px;font:600 13px sans-serif;cursor:pointer">打印 / 存为 PDF</button></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    App.bindModalClose(overlay.id);
+    App.openModalElement(overlay, { removeOnClose: true, initialFocus: '[data-modal-cancel]' });
+  }
+
+  // v3.7.0 当日明细弹层（不跳页）
+  function showDayDetail(date, sessions, expenses) {
+    var overlay = document.createElement('div');
+    overlay.id = 'bc-day-detail';
+    overlay.className = 'modal-overlay show';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10020;display:flex;align-items:center;justify-content:center;padding:20px';
+    var sHtml = sessions.length ? sessions.map(function (s) {
+      var b = s.billing || {};
+      var client = Store.getClient(s.clientId);
+      var clientName = client ? client.name : '?';
+      var fee = Number(b.fee) || 0;
+      // P2-B 修复（第四轮压测）：已收行用 paidAmount（实收），无则回退 fee，与 renderBDetail/showMonthlyBill 口径一致
+      var paidAmt = b.paid ? (b.paidAmount != null ? Number(b.paidAmount) : fee) : 0;
+      var status = b.paid ? '<span style="color:var(--success)">已收 ¥' + paidAmt.toLocaleString() + '</span>' : '<span style="color:var(--orange)">待收 ¥' + fee.toLocaleString() + '</span>';
+      return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>' + App.escapeHtml(clientName) + ' 第' + (s.sessionNumber || '') + '节</span>' + status + '</div>';
+    }).join('') : '<div style="text-align:center;color:var(--ink-3);padding:14px">当日无收入记录</div>';
+
+    var eHtml = expenses.length ? expenses.map(function (e) {
+      return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span>' + App.escapeHtml(e.category || '支出') + (e.description ? ' · ' + App.escapeHtml(e.description) : '') + '</span><span style="color:var(--success)">-¥' + (Number(e.amount) || 0).toLocaleString() + '</span></div>';
+    }).join('') : '<div style="text-align:center;color:var(--ink-3);padding:14px">当日无支出记录</div>';
+
+    var dayTotalIn = sessions.reduce(function (s, x) { return s + (Number(x.billing && x.billing.fee) || 0); }, 0);
+    var dayTotalOut = expenses.reduce(function (s, x) { return s + (Number(x.amount) || 0); }, 0);
+
+    overlay.innerHTML = '<div style="background:var(--paper-2,#fff);border-radius:14px;padding:22px;max-width:460px;width:92%;max-height:90vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.18)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><h3 style="margin:0;font-family:var(--serif);font-size:18px">' + date + ' 明细</h3>' +
+      '<button type="button" data-modal-cancel aria-label="关闭日期明细" style="border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--ink-3)">×</button></div>' +
+      '<div style="font:12px var(--sans);color:var(--ink-3);margin-bottom:8px">收入 ¥' + dayTotalIn.toLocaleString() + ' · 支出 ¥' + dayTotalOut.toLocaleString() + ' · 净 ' + (dayTotalIn - dayTotalOut < 0 ? '-¥' : '¥') + Math.abs(dayTotalIn - dayTotalOut).toLocaleString() + '</div>' +
+      '<div style="font:13px var(--sans)">' + sHtml + eHtml + '</div>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button onclick="location.href=\'billing-shell.html?date=' + date + '\'" style="border:1px solid var(--border);background:transparent;border-radius:8px;padding:8px 14px;font:13px var(--sans);cursor:pointer;color:var(--ink-2)">记收入</button><button onclick="location.href=\'billing-shell.html?date=' + date + '\'" style="border:1px solid var(--border);background:transparent;border-radius:8px;padding:8px 14px;font:13px var(--sans);cursor:pointer;color:var(--ink-2)">前往账单编辑</button></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    App.bindModalClose(overlay.id);
+    App.openModalElement(overlay, { removeOnClose: true, initialFocus: '[data-modal-cancel]' });
+  }
+
+  // 2026-10-01：导出结算入口供 billing-shell 明细区“一键月结”按钮调用
+  try { window.__BC_DO_SETTLE__ = doSettle; } catch (e) {}
+
+  init();
+})();

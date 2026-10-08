@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none';">
+  <title>Pi 生产桥接 004</title>
+  <style>
+    :root { --bg:#faf7f2; --panel:#fffdf9; --ink:#3b3028; --muted:#7b6e63; --line:#ded3c7; --accent:#9e5a3c; }
+    :root.dark { --bg:#211c18; --panel:#2b241f; --ink:#f1e8df; --muted:#b8a99b; --line:#56483d; --accent:#d5a083; }
+    :root[data-skin="theatre"] { --accent:#7b6548; }
+    :root[data-skin="observatory"] { --accent:#4d7080; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.55 -apple-system,"Microsoft YaHei",sans-serif; }
+    header { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); }
+    header h1 { margin:0; font-size:17px; }
+    .chip { padding:3px 9px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font-size:11px; }
+    main { display:grid; grid-template-columns:minmax(210px,28%) minmax(0,1fr); gap:14px; padding:14px; }
+    .panel { min-width:0; border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden; }
+    .panel h2 { margin:0; padding:10px 14px; font-size:13px; border-bottom:1px solid var(--line); color:var(--muted); }
+    .body { padding:14px; }
+    .btns { display:flex; flex-wrap:wrap; gap:8px; }
+    button { border:1px solid var(--line); border-radius:9px; background:var(--panel); color:var(--ink); padding:8px 12px; font:600 12px inherit; cursor:pointer; }
+    button.primary { color:#fff; background:var(--accent); border-color:var(--accent); }
+    button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    #status { min-height:70px; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--muted); }
+    #log { max-height:280px; overflow:auto; font-size:12px; color:var(--muted); }
+    .row { padding:4px 0; border-bottom:1px dashed var(--line); overflow-wrap:anywhere; }
+    @media (max-width:720px) { main { grid-template-columns:1fr; } }
+    @media (prefers-reduced-motion:no-preference) { button { transition:background-color .12s ease; } }
+  </style>
+</head>
+<body>
+  <header><h1>Pi 生产桥接安装验收</h1><span class="chip">004</span><span class="chip" id="phase">BOOT</span></header>
+  <main>
+    <section class="panel"><h2>事件</h2><div class="body" id="log"><div class="row">等待结构化桥接请求</div></div></section>
+    <section class="panel"><h2>运行时</h2><div class="body">
+      <div class="btns">
+        <button class="primary" id="start">开始观察任务</button>
+        <button id="read">读取摘要</button>
+        <button id="commit">提交临床草稿</button>
+        <button id="approve">批准</button>
+        <button id="pause">暂停</button>
+        <button id="resume">继续</button>
+        <button id="cancel">取消</button>
+        <button id="drift">制造投影漂移</button>
+        <button id="fail-write">下一次写入失败</button>
+        <button id="network">测试拒网</button>
+      </div>
+      <p id="status">桥接初始化中……</p>
+      <div id="long-cn">长中文验证：心镜临床督导工作台通过服务器权威会员投影、来源绑定、确认卡和 durable 回读，任何高风险写入都不会绕过用户确认。</div>
+      <div id="state-fixtures" aria-label="页面状态验证">
+        <span id="empty-state" data-state="empty">空态：暂无待处理任务</span>
+        <span id="loading-state" data-state="loading">加载态：正在读取投影</span>
+        <span id="error-state" data-state="error">错误态：投影暂不可用</span>
+      </div>
+    </div></section>
+  </main>
+  <script>
+  (function () {
+    'use strict';
+    var taskId = 'xj_task_004_runtime';
+    var pendingApprovalId = '';
+    var failNextWrite = false;
+    var seq = 0;
+    var projection = {
+      clientId: 'c_004', sessionId: 's_004',
+      sourceRefs: [{ sourceId: 'src_004', sourceVersion: 1, sourceContentHash: 'sha256:' + 'a'.repeat(64), anchorContentHash: 'sha256:' + 'b'.repeat(64) }],
+      storeProjectionVersion: 7, membershipProjectionVersion: 3,
+    };
+    var reads = {
+      'read.client.summary': { '{"clientId":"c_004"}': { clientId: 'c_004', summary: '合成摘要' } },
+      'read.task.cards': { '{}': { cards: [] } },
+    };
+    var transport = window.__XJ_API__ && window.__XJ_API__.piTransport;
+    var status = document.getElementById('status');
+    var phase = document.getElementById('phase');
+    var logBox = document.getElementById('log');
+    function show(value) { status.textContent = typeof value === 'string' ? value : JSON.stringify(value); }
+    function log(value) { var d = document.createElement('div'); d.className = 'row'; d.textContent = value; logBox.prepend(d); }
+    function setPhase(value) { phase.textContent = value; }
+    function publish() { return transport && transport.publishState({ projection: projection, reads: reads }); }
+    if (transport) {
+      transport.onRequest(function (request) {
+        if (request.kind !== 'durable-write') return transport.reply(request.requestId, { ok: false, code: 'XJ_PI_UNKNOWN_EVENT' });
+        if (failNextWrite) { failNextWrite = false; return transport.reply(request.requestId, { ok: false, code: 'XJ_PI_DIRECT_WRITE_DENIED', message: 'synthetic Store failure' }); }
+        var id = 'session_' + (++seq);
+        return transport.reply(request.requestId, {
+          ok: true, savedObjectId: id, version: Date.now(),
+          object: { snapshotHash: request.payload && request.payload.snapshotHash, version: Date.now(), kind: request.payload && request.payload.kind, id: id },
+        });
+      });
+    }
+    window.__PITEST__ = {
+      publish: publish,
+      projection: function () { return JSON.parse(JSON.stringify(projection)); },
+      start: async function (mode, id) { publish(); return window.__PI__.startTask({ taskId: id || taskId, mode: mode || 'commit', projection: projection }); },
+      read: function () { return window.__PI__.runToolStep(taskId, { tool: 'read.client.summary', args: { clientId: 'c_004' } }); },
+      commit: async function () {
+        var first = await window.__PI__.commitStep(taskId, { kind: 'session', clientId: 'c_004', sessionId: 's_004' }, { note: '合成草稿' });
+        if (first && first.awaiting) { pendingApprovalId = first.pendingApprovalId; }
+        if (first && first.awaiting && pendingApprovalId) {
+          var approval = await window.__PI__.resolveApproval(pendingApprovalId, 'approved', 'local-user');
+          if (!approval || approval.ok === false) return approval;
+          return window.__PI__.commitStep(taskId, { kind: 'session', clientId: 'c_004', sessionId: 's_004' }, { note: '合成草稿' });
+        }
+        return first;
+      },
+      failWrite: function () { failNextWrite = true; return true; },
+      drift: function (id) { projection.storeProjectionVersion += 1; publish(); return window.__PI__.contextCheck(id || taskId); },
+      pauseResumeCancel: async function (id) {
+        id = id || taskId;
+        var p = await window.__PI__.pause(id, 'user');
+        var blocked = await window.__PI__.runToolStep(id, { tool: 'read.task.cards', args: {} });
+        var r = await window.__PI__.resume(id);
+        var c = await window.__PI__.cancel(id, 'user');
+        var after = await window.__PI__.runToolStep(id, { tool: 'read.task.cards', args: {} });
+        return { paused: p, blocked: blocked, resumed: r, cancelled: c, after: after };
+      },
+      network: async function () { try { await fetch('https://example.com'); return 'network-open'; } catch (e) { return 'network-denied'; } },
+      keys: function () { return { pi: Object.keys(window.__PI__ || {}), raw: window.__PI__ && window.__PI__.__raw }; },
+    };
+    publish();
+    setPhase('READY');
+    show({ ok: true, bridge: window.__PITEST__.keys() });
+    document.getElementById('start').onclick = function () { window.__PITEST__.start('commit').then(show); setPhase('INTAKE'); log('task.start'); };
+    document.getElementById('read').onclick = function () { window.__PITEST__.read().then(show); setPhase('TOOL_LOOP'); };
+    document.getElementById('commit').onclick = function () { window.__PITEST__.commit().then(show); setPhase('COMMIT'); };
+    document.getElementById('approve').onclick = function () { window.__PITEST__.commit().then(show); };
+    document.getElementById('pause').onclick = function () { window.__PI__.pause(taskId, 'user').then(show); setPhase('PAUSED'); };
+    document.getElementById('resume').onclick = function () { window.__PI__.resume(taskId).then(show); setPhase('TOOL_LOOP'); };
+    document.getElementById('cancel').onclick = function () { window.__PI__.cancel(taskId, 'user').then(show); setPhase('CANCELLED'); };
+    document.getElementById('drift').onclick = function () { window.__PITEST__.drift().then(show); };
+    document.getElementById('fail-write').onclick = function () { window.__PITEST__.failWrite(); show('下一次 durable 写入将返回 {ok:false}'); };
+    document.getElementById('network').onclick = function () { window.__PITEST__.network().then(show); };
+  }());
+  </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>退出心镜</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f6f1ea;
+    overflow: hidden;
+    user-select: none;
+  }
+  body { display: flex; align-items: center; justify-content: center; }
+  .card {
+    position: relative;
+    width: 330px;
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow: 0 18px 50px rgba(60, 40, 20, 0.22);
+    padding: 26px 26px 22px;
+  }
+  .close-x {
+    position: absolute; top: 14px; right: 14px;
+    width: 30px; height: 30px;
+    border: none; background: transparent;
+    color: #b9b0a4; font-size: 17px; line-height: 1;
+    cursor: pointer; border-radius: 9px;
+    transition: background .15s, color .15s;
+  }
+  .close-x:hover { background: #f1ece4; color: #6b6258; }
+  h2 { font-size: 17px; color: #2b2620; font-weight: 600; margin-bottom: 10px; }
+  p.lead { font-size: 13px; color: #786f64; line-height: 1.65; margin-bottom: 14px; }
+  p.lead b { color: #4a443c; font-weight: 600; }
+  .backup-note {
+    font-size: 11.5px; color: #8a8175; line-height: 1.6;
+    background: #f7f3ec; border: 1px solid #ece3d6; border-radius: 10px;
+    padding: 9px 11px; margin-bottom: 18px;
+  }
+  .backup-note b { color: #6b6258; font-weight: 600; }
+  .btns { display: flex; gap: 12px; }
+  button.act {
+    flex: 1; padding: 11px 0; border: none; border-radius: 11px;
+    font-size: 14px; cursor: pointer; font-weight: 500;
+    transition: transform .08s, filter .15s;
+  }
+  button.act:active { transform: scale(0.97); }
+  .cancel { background: #f1ece4; color: #4a443c; }
+  .cancel:hover { background: #e8e0d4; }
+  .stay { background: #f1ece4; color: #4a443c; }
+  .stay:hover { background: #e8e0d4; }
+  .quit { background: linear-gradient(135deg, #7c6cf0, #5a8df0); color: #fff; }
+  .quit:hover { filter: brightness(1.05); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <button class="close-x" id="x" title="取消退出（保持打开）">&#10005;</button>
+    <h2>要退出心镜吗？</h2>
+    <p class="lead">你可以选择<b>后台常驻</b>（最小化到右下角托盘，随时点开），或<b>完全退出</b>关闭所有进程。</p>
+    <div class="backup-note">完全退出后，你的数据将自动备份至：<br><b>文档\心镜备份\XinJing-时间</b>（及你在设置中自定义的其他位置）。</div>
+    <div class="btns">
+      <button class="act cancel" id="cancel">取消退出</button>
+      <button class="act stay" id="stay">后台常驻</button>
+      <button class="act quit" id="quit">完全退出</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      function go(action) {
+        var api = window.__XJ_CLOSE__;
+        if (api && typeof api.decide === 'function') api.decide(action);
+      }
+      var x = document.getElementById('x');
+      var c = document.getElementById('cancel');
+      var s = document.getElementById('stay');
+      var q = document.getElementById('quit');
+      if (x) x.onclick = function () { go('cancel'); };
+      if (c) c.onclick = function () { go('cancel'); };
+      if (s) s.onclick = function () { go('stay'); };
+      if (q) q.onclick = function () { go('quit'); };
+    })();
+  </script>
+</body>
+</html>

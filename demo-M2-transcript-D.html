@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 逐字稿整理 — 会员版D（差异视图）</title>
+<style>
+:root{--r-shell:14px;--r-card:10px;--r-ctl:8px;--r-sm:6px;--r-btn:8px;--gap:16px;--ease:cubic-bezier(.22,1,.36,1);--serif:"Noto Serif SC","Songti SC","STSong",serif;--sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;--mono:"JetBrains Mono","SF Mono",ui-monospace,monospace}
+:root{--bg:#F6F8FC;--bg-elevated:#FFFFFF;--bg-sunken:#EDF0F7;--border-c:#E2E7F0;--text-c:#2B3140;--text-secondary-c:#646B7D;--text-muted-c:#99A1B3;--accent:#8B93C7;--accent-hover:#777FBC;--accent-soft:#ECEEF9;--success-c:#6FAE8F;--warning-c:#D6A85C;--danger-c:#D98C8C;--shadow-sm:0 1px 3px rgba(43,49,64,.05);--shadow:0 4px 16px rgba(43,49,64,.07);--hover-tint:rgba(43,49,64,.04)}
+:root{--paper:#F6F8FC;--paper-2:#FFFFFF;--sidebar:#EDF0F7;--ink:#2B3140;--ink-2:#646B7D;--ink-3:#99A1B3;--hair:#E2E7F0;--hair-strong:#D2D9E6;--accent-line:#B5BDE0;--green:#6FAE8F;--orange:#D6A85C;--blue:#9DB8D6;--purple:#8B93C7;--red:#D98C8C;--radius:14px;--radius-sm:10px;--border:var(--hair-strong);--text:var(--ink);--card:var(--paper-2);--bg-soft:var(--sidebar);--transition:.2s var(--ease)}
+.xj-lock-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.04);color:var(--ink-3);border:1px solid var(--border);cursor:help}
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
+.xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .sp{flex:1}
+.tp-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.tp-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
+.tp-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.tp-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
+.tp-top .sp{flex:1}
+.tp-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.diff-toolbar{display:flex;align-items:center;gap:12px;padding:6px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-soft);font-size:11px}
+.diff-toolbar .count{padding:2px 8px;border-radius:999px;font-weight:600}
+.diff-toolbar .count.err{background:rgba(217,140,140,.15);color:var(--red)}
+.diff-toolbar .count.fix{background:rgba(111,174,143,.15);color:var(--green)}
+.diff-toolbar .filter-btn{border:1px solid var(--border);background:var(--paper-2);border-radius:6px;padding:3px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
+.diff-toolbar .filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.diff-toolbar .sp{flex:1}
+.tp-body{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0;overflow:hidden}
+.tp-col{display:flex;flex-direction:column;overflow:hidden}
+.tp-col-left{border-right:1px solid var(--border)}
+.tp-col-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--paper-2)}
+.tp-col-head .tch{font-family:var(--serif);font-size:14px;font-weight:600}
+.tp-col-head .tch-badge{font:10px var(--sans);padding:2px 8px;border-radius:5px}
+.tp-col-head .tch-badge.orig{background:rgba(217,140,140,.12);color:var(--red)}
+.tp-col-head .tch-badge.fixed{background:rgba(111,174,143,.12);color:var(--green)}
+.tp-col-body{flex:1;overflow-y:auto;padding:16px}
+.tp-line{display:flex;gap:8px;padding:4px 0;font:13px/1.8 var(--sans);border-radius:4px;transition:background .15s;cursor:pointer}
+.tp-line:hover{background:var(--hover-tint)}
+.tp-line .ln{color:var(--ink-3);font:11px var(--mono);min-width:28px;text-align:right;padding-top:2px}
+.tp-line .speaker{font-weight:600;min-width:32px;color:var(--accent)}
+.tp-line .text{flex:1;color:var(--ink)}
+.tp-line .text .err{background:rgba(217,140,140,.2);border-bottom:2px wavy var(--red);padding:1px 0;border-radius:2px}
+.tp-line .text .fix{background:rgba(111,174,143,.2);border-bottom:2px solid var(--green);padding:1px 0;border-radius:2px;font-weight:500}
+.tp-line .text .fix::after{content:" ✓";font-size:10px;color:var(--green)}
+.tp-stats{display:flex;align-items:center;gap:20px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;font:11px var(--sans);color:var(--ink-3);background:var(--paper-2)}
+.tp-stats .stat b{font-family:var(--serif);color:var(--ink);font-size:12px}
+.tp-stats .sp{flex:1}
+.tp-stats button{border:1px solid var(--border);background:var(--paper-2);border-radius:8px;padding:6px 14px;font:12px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
+.tp-stats button:hover{border-color:var(--accent);color:var(--accent)}
+.tp-stats button:disabled{opacity:.5;cursor:not-allowed}
+.tp-stats button.pri{background:var(--accent);color:#fff;border:none}
+</style>
+</head>
+<body>
+
+<div class="preview-bar">
+  <span>🔒</span>
+  <span>会员预览模式 · 这是 <b>逐字稿差异视图</b> 会员增值页面，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后启用 AI 一键修正+批量差异对比</span>
+  <span class="sp"></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">基础版（方案A）→ <a href="transcript.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<div class="tp-top">
+  <button class="back" onclick="history.back()">← 返回</button>
+  <h2>逐字稿差异视图 <span class="sub">· 会员版D · 原文 vs 修正后</span></h2>
+  <span class="sp"></span>
+  <select><option>林小满 · 第8次咨询</option><option>陈默 · 第3次咨询</option></select>
+  <span class="xj-tier-badge pro">会员</span>
+</div>
+
+<div class="diff-toolbar xj-locked-area">
+  <div class="xj-lock-overlay">🔒 会员功能 · AI 一键修正</div>
+  <span style="color:var(--ink-3);font-weight:600">🔍 筛选：</span>
+  <button class="filter-btn active">全部 8</button>
+  <button class="filter-btn">未修 6</button>
+  <button class="filter-btn">已修 2</button>
+  <span style="width:1px;height:16px;background:var(--border);margin:0 4px"></span>
+  <span class="count err">⚠ 错误 6</span>
+  <span class="count fix">✓ 已修 2</span>
+  <span class="sp"></span>
+  <button class="xj-premium-btn" style="border:1px solid var(--border);background:var(--accent);color:#fff;border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled>全部修正</button>
+  <button style="border:1px solid var(--border);background:var(--paper-2);border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled>全部还原</button>
+</div>
+
+<div class="tp-body">
+  <div class="tp-col tp-col-left">
+    <div class="tp-col-head">
+      <span class="tch">原始文稿</span>
+      <span class="tch-badge orig">6 处待修正</span>
+    </div>
+    <div class="tp-col-body">
+      <div class="tp-line"><span class="ln">01</span><span class="speaker">T</span><span class="text">你好小满，上周你提到和母亲之间有一些摩擦，这周怎么样？</span></div>
+      <div class="tp-line"><span class="ln">02</span><span class="speaker">P</span><span class="text">我试着用你说的<span class="err">保持距离感</span>的方法，但说实话很难。</span></div>
+      <div class="tp-line"><span class="ln">03</span><span class="speaker">T</span><span class="text">嗯，你能说说具体难在哪里吗？</span></div>
+      <div class="tp-line"><span class="ln">04</span><span class="speaker">P</span><span class="text">就是每次她打电话来，我都会<span class="err">矜持</span>，想说又不敢说。</span></div>
+      <div class="tp-line"><span class="ln">05</span><span class="speaker">T</span><span class="text">这种想说又不敢说的感觉，你熟悉吗？</span></div>
+      <div class="tp-line"><span class="ln">06</span><span class="speaker">P</span><span class="text">很熟悉。从小就这样，我妈妈总是很<span class="err">强事</span>，我习惯了忍着。</span></div>
+      <div class="tp-line"><span class="ln">07</span><span class="speaker">T</span><span class="text">习惯了忍着……这句话里好像有很多重量。</span></div>
+      <div class="tp-line"><span class="ln">08</span><span class="speaker">P</span><span class="text">是的，我觉得自己一直在<span class="err">耗好</span>她，但又不甘心。</span></div>
+    </div>
+  </div>
+
+  <div class="tp-col">
+    <div class="tp-col-head">
+      <span class="tch">修正后</span>
+      <span class="tch-badge fixed">2/6 已修正</span>
+    </div>
+    <div class="tp-col-body">
+      <div class="tp-line"><span class="ln">01</span><span class="speaker">T</span><span class="text">你好小满，上周你提到和母亲之间有一些摩擦，这周怎么样？</span></div>
+      <div class="tp-line"><span class="ln">02</span><span class="speaker">P</span><span class="text">我试着用你说的保持距离的方法，但说实话很难。</span></div>
+      <div class="tp-line"><span class="ln">03</span><span class="speaker">T</span><span class="text">嗯，你能说说具体难在哪里吗？</span></div>
+      <div class="tp-line"><span class="ln">04</span><span class="speaker">P</span><span class="text">就是每次她打电话来，我都会<span class="err">矜持</span>，想说又不敢说。</span></div>
+      <div class="tp-line"><span class="ln">05</span><span class="speaker">T</span><span class="text">这种想说又不敢说的感觉，你熟悉吗？</span></div>
+      <div class="tp-line"><span class="ln">06</span><span class="speaker">P</span><span class="text">很熟悉。从小就这样，我妈妈总是很<span class="fix">强势</span>，我习惯了忍着。</span></div>
+      <div class="tp-line"><span class="ln">07</span><span class="speaker">T</span><span class="text">习惯了忍着……这句话里好像有很多重量。</span></div>
+      <div class="tp-line"><span class="ln">08</span><span class="speaker">P</span><span class="text">是的，我觉得自己一直在<span class="fix">讨好</span>她，但又不甘心。</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="tp-stats">
+  <div class="stat">总行：<b>8</b></div>
+  <div class="stat">错误：<b style="color:var(--red)">6</b></div>
+  <div class="stat">已修：<b style="color:var(--green)">2</b></div>
+  <div class="stat">准确率：<b>75%</b></div>
+  <div class="stat">记忆库：<b style="color:var(--accent)">+2 条</b></div>
+  <span class="sp"></span>
+  <button class="pri xj-premium-btn" disabled>💾 保存修正版</button>
+  <button class="xj-premium-btn" disabled>📊 导出 diff 报告</button>
+  <button disabled>返回基础版</button>
+</div>
+
+</body>
+</html>

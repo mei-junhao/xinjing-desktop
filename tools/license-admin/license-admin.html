@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>心镜 · 激活码管理（本地）</title>
+<style>
+  :root{
+    --clay:#9c5a3c; --clay-dark:#7e4830; --ink:#2b2622; --paper:#f6f1ea;
+    --line:rgba(43,38,34,.14); --muted:#8a7f74; --accent-soft:#f3e7da;
+    --green:#3f7d4f; --red:#b23b2e;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--paper);color:var(--ink);padding:28px 20px 60px;line-height:1.6;}
+  .wrap{max-width:880px;margin:0 auto;}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px;flex-wrap:wrap;}
+  h1{font-size:20px;margin:0;letter-spacing:.5px;}
+  .sub{color:var(--muted);font-size:12px;margin:0 0 22px;}
+  .tag{display:inline-block;font-size:11px;padding:3px 10px;border-radius:999px;
+    background:var(--accent-soft);color:var(--clay);font-weight:600;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:18px;}
+  .card h2{font-size:15px;margin:0 0 14px;color:var(--clay-dark);}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:0 0 6px;letter-spacing:.3px;}
+  input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;font:500 14px/1.4 -apple-system,"PingFang SC",sans-serif;color:var(--ink);
+    background:#fcfaf6;outline:none;}
+  input:focus,select:focus,textarea:focus{border-color:var(--clay);box-shadow:0 0 0 3px rgba(156,90,60,.12);}
+  textarea{resize:vertical;min-height:64px;font-family:ui-monospace,Menlo,monospace;letter-spacing:.5px;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+  .row > .fld{flex:1;min-width:200px;}
+  .fld.mc{flex:1.4;}
+  button{font-weight:700;font-size:14px;border:0;border-radius:999px;padding:11px 20px;cursor:pointer;}
+  .btn-pri{background:var(--clay);color:#fff;}
+  .btn-pri:hover{background:var(--clay-dark);}
+  .btn-ghost{background:transparent;color:var(--clay);border:1px solid var(--line);}
+  .btn-sm{padding:6px 14px;font-size:12px;}
+  .msg{margin-top:14px;font-size:13px;min-height:20px;font-weight:600;}
+  .msg.ok{color:var(--green);}
+  .msg.err{color:var(--red);}
+  .result{margin-top:14px;display:none;}
+  .result.show{display:block;}
+  .code-box{font-family:ui-monospace,Menlo,monospace;font-size:15px;letter-spacing:1px;
+    background:var(--accent-soft);border-radius:10px;padding:12px 14px;word-break:break-all;color:var(--clay-dark);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-weight:700;font-size:12px;}
+  td.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all;color:var(--clay-dark);}
+  .ops{display:flex;gap:6px;white-space:nowrap;}
+  .empty{color:var(--muted);font-size:13px;padding:14px 0;text-align:center;}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6;}
+  .warn{background:#fdecea;color:var(--red);border:1px solid #f3c4bd;border-radius:10px;
+    padding:12px 14px;font-size:13px;margin-bottom:18px;display:none;}
+  .warn.show{display:block;}
+  .sec-actions{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>心镜 · 激活码管理</h1>
+      <p class="sub">单文件本地工具 · 双击打开 · 数据不联网 · 激活码与客户端字节兼容</p>
+    </div>
+    <span class="tag">离线出码</span>
+  </header>
+
+  <div class="warn" id="warn"></div>
+
+  <!-- 1. 密钥配置 -->
+  <div class="card">
+    <h2>1 · 密钥配置（LICENSE_SECRET）</h2>
+    <div class="row">
+      <div class="fld mc">
+        <label for="secret">主密钥（与出码端 / 客户端共用同一把）</label>
+        <input id="secret" type="password" placeholder="粘贴你的 LICENSE_SECRET" autocomplete="off" />
+      </div>
+    </div>
+    <div class="sec-actions">
+      <button class="btn-pri btn-sm" id="save-secret">保存密钥到本机浏览器</button>
+      <span id="secret-status" class="sub" style="margin:0;align-self:center;"></span>
+    </div>
+    <p class="hint">密钥仅存于本机浏览器 localStorage，不上传任何服务器。也可不保存，每次生成时临时粘贴。</p>
+  </div>
+
+  <!-- 2. 生成激活码 -->
+  <div class="card">
+    <h2>2 · 生成激活码</h2>
+    <div class="row">
+      <div class="fld mc">
+        <label for="mc">机器码（客户从客户端「激活」页复制发给你）</label>
+        <input id="mc" placeholder="如 7F3A9C21BE541D08" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="fld">
+        <label for="identity">身份 / 邮箱（客户标识，最多 64 字）</label>
+        <input id="identity" placeholder="如 zhang@clinic.com" />
+      </div>
+      <div class="fld">
+        <label for="tier">档位</label>
+        <select id="tier">
+          <option value="pro">pro · 标准付费版</option>
+          <option value="custom">custom · 定制旗舰版</option>
+          <option value="full">full · 兼容旧版（无前缀）</option>
+        </select>
+      </div>
+      <div class="fld">
+        <label for="validity">有效期</label>
+        <select id="validity">
+          <option value="1y">一年（自今天起 365 天）</option>
+          <option value="lifetime">终身</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="fld">
+        <label for="note">备注（仅本地管理，不写入激活码）</label>
+        <input id="note" placeholder="如：张医生 / 2026 续费" />
+      </div>
+    </div>
+    <button class="btn-pri" id="generate">生成激活码</button>
+    <div class="result" id="result">
+      <div class="code-box" id="code-out"></div>
+      <div class="sec-actions" style="margin-top:10px;">
+        <button class="btn-ghost btn-sm" id="copy-code">复制激活码</button>
+      </div>
+    </div>
+    <div class="msg" id="gen-msg"></div>
+  </div>
+
+  <!-- 3. 已发卡管理 -->
+  <div class="card">
+    <h2>3 · 已发卡管理</h2>
+    <div class="sec-actions">
+      <button class="btn-ghost btn-sm" id="import-btn">导入 JSON</button>
+      <button class="btn-ghost btn-sm" id="export-btn">导出 JSON</button>
+      <button class="btn-ghost btn-sm" id="clear-btn">清空列表</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" />
+    </div>
+    <div id="records">
+      <div class="empty">暂无已发卡记录。生成后会自动加入此处；也可用「导出 JSON」备份、「导入 JSON」恢复。</div>
+    </div>
+    <p class="hint">列表同时存于本机浏览器 localStorage，刷新不丢；JSON 导入/导出用于跨设备备份与迁移。</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- 环境检测 ----------
+  var warn = document.getElementById('warn');
+  if (!window.crypto || !crypto.subtle) {
+    warn.classList.add('show');
+    warn.textContent = '当前环境不支持 Web Crypto（crypto.subtle 不可用）。请用最新版 Chrome / Edge / Firefox 直接双击打开本文件；若被浏览器限制，可改用本地静态服务（如 python -m http.server）打开。';
+  }
+
+  // ---------- 本地存储键 ----------
+  var SECRET_KEY = 'xj_admin_secret';
+  var RECORDS_KEY = 'xj_admin_records';
+
+  function loadSecret() {
+    try { return localStorage.getItem(SECRET_KEY) || ''; } catch (e) { return ''; }
+  }
+  function saveSecret(v) {
+    try { localStorage.setItem(SECRET_KEY, v); } catch (e) {}
+  }
+  function loadRecords() {
+    try {
+      var raw = localStorage.getItem(RECORDS_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function saveRecords(arr) {
+    try { localStorage.setItem(RECORDS_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
+  // ---------- base32（与 license-core.js 一致：RFC4648 无填充）----------
+  var B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  function base32Encode(bytes) {
+    var bits = 0, value = 0, out = '';
+    for (var i = 0; i < bytes.length; i++) {
+      value = ((value << 8) | bytes[i]) & 0xffffffff;
+      bits += 8;
+      while (bits >= 5) {
+        out += B32[(value >>> (bits - 5)) & 31];
+        bits -= 5;
+      }
+      value &= (1 << bits) - 1;
+    }
+    if (bits > 0) out += B32[(value << (5 - bits)) & 31];
+    return out;
+  }
+  function group(s) { return s.match(/.{1,4}/g).join('-'); }
+
+  // ---------- HMAC-SHA256（Web Crypto，与 Node crypto.createHmac 字节一致）----------
+  function hmacHex(message, secret) {
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+      .then(function (key) { return crypto.subtle.sign('HMAC', key, enc.encode(message)); })
+      .then(function (buf) {
+        var sig = new Uint8Array(buf), hex = '';
+        for (var i = 0; i < sig.length; i++) hex += sig[i].toString(16).padStart(2, '0');
+        return hex;
+      });
+  }
+
+  // ---------- encodeKey（镜像 license-core.js）----------
+  // 机器码绑定格式：id \n mc \n expiresAt \n sig ；expiresAt=0 表示终身
+  function encodeKey(identity, tier, machineCode, expiresAt, secret) {
+    var id = String(identity || '').trim().slice(0, 64);
+    if (!id) return Promise.reject(new Error('身份标识不能为空'));
+    var t = (tier || '').toLowerCase();
+    if (t === 'pro' || t === 'custom') id = t + ':' + id;
+    var mc = machineCode ? String(machineCode).trim() : '';
+    var exp = (typeof expiresAt === 'number' && expiresAt > 0) ? expiresAt : 0;
+    if (!mc) {
+      return hmacHex(id, secret).then(function (h) {
+        var sig = h.slice(0, 32);
+        var raw = new TextEncoder().encode(id + '\n' + sig);
+        return 'XJ-' + group(base32Encode(raw));
+      });
+    }
+    return hmacHex(id + '|' + mc + '|' + String(exp), secret).then(function (h) {
+      var sig = h.slice(0, 32);
+      var raw = new TextEncoder().encode(id + '\n' + mc + '\n' + String(exp) + '\n' + sig);
+      return 'XJ-' + group(base32Encode(raw));
+    });
+  }
+
+  // ---------- 日期工具 ----------
+  function fmtDate(ms) {
+    if (!ms) return '终身';
+    var d = new Date(ms), p = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function nowStamp() { return new Date().toISOString(); }
+
+  // ---------- DOM ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var secretEl = $('secret'), statusEl = $('secret-status');
+  var mcEl = $('mc'), idEl = $('identity'), tierEl = $('tier'), valEl = $('validity'), noteEl = $('note');
+  var genMsg = $('gen-msg'), resultBox = $('result'), codeOut = $('code-out');
+
+  // 初始化密钥输入
+  secretEl.value = loadSecret();
+  if (secretEl.value) statusEl.textContent = '已读取本机保存的密钥';
+
+  $('save-secret').onclick = function () {
+    var v = secretEl.value.trim();
+    if (!v) { statusEl.textContent = '密钥为空，未保存'; return; }
+    saveSecret(v);
+    statusEl.textContent = '已保存到本机浏览器 ✓';
+  };
+
+  $('generate').onclick = function () {
+    var secret = secretEl.value.trim();
+    if (!secret) { genMsg.className = 'msg err'; genMsg.textContent = '请先填写主密钥（可临时粘贴，或点「保存密钥」）。'; return; }
+    var mc = mcEl.value.trim();
+    if (!mc) { genMsg.className = 'msg err'; genMsg.textContent = '请填写客户机器码。'; return; }
+    var identity = idEl.value.trim();
+    if (!identity) { genMsg.className = 'msg err'; genMsg.textContent = '请填写身份 / 邮箱。'; return; }
+    var tier = tierEl.value;
+    var validity = valEl.value;
+    var expiresAt = (validity === '1y') ? (Date.now() + 365 * 86400000) : 0;
+
+    genMsg.className = 'msg'; genMsg.textContent = '正在生成…';
+    encodeKey(identity, tier, mc, expiresAt, secret).then(function (code) {
+      codeOut.textContent = code;
+      resultBox.classList.add('show');
+      genMsg.className = 'msg ok';
+      genMsg.textContent = '生成成功 ✓ ' + (expiresAt ? ('有效期至 ' + fmtDate(expiresAt)) : '终身有效');
+      // 写入已发卡列表
+      var records = loadRecords();
+      records.unshift({
+        machineCode: mc, identity: identity, tier: tier,
+        validity: validity, expiresAt: expiresAt, note: noteEl.value.trim(),
+        code: code, createdAt: nowStamp()
+      });
+      saveRecords(records);
+      renderRecords();
+      noteEl.value = '';
+    }).catch(function (e) {
+      genMsg.className = 'msg err';
+      genMsg.textContent = '生成失败：' + (e && e.message ? e.message : e);
+    });
+  };
+
+  $('copy-code').onclick = function () {
+    var t = codeOut.textContent;
+    if (!t) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(t);
+    var b = $('copy-code'); b.textContent = '已复制 ✓';
+    setTimeout(function () { b.textContent = '复制激活码'; }, 1200);
+  };
+
+  // ---------- 已发卡列表 ----------
+  function renderRecords() {
+    var box = $('records');
+    var records = loadRecords();
+    if (!records.length) {
+      box.innerHTML = '<div class="empty">暂无已发卡记录。生成后会自动加入此处；也可用「导出 JSON」备份、「导入 JSON」恢复。</div>';
+      return;
+    }
+    var rows = records.map(function (r, i) {
+      var expText = (r.validity === '1y') ? ('一年 · 至 ' + fmtDate(r.expiresAt)) : '终身';
+      var tierLabel = r.tier === 'custom' ? '定制' : (r.tier === 'pro' ? '标准' : (r.tier === 'full' ? '旧版' : r.tier));
+      return '<tr>' +
+        '<td class="mono">' + escapeHtml(r.machineCode) + '</td>' +
+        '<td>' + escapeHtml(r.identity) + '</td>' +
+        '<td>' + tierLabel + '</td>' +
+        '<td>' + expText + '</td>' +
+        '<td>' + escapeHtml(r.note || '') + '</td>' +
+        '<td class="mono">' + escapeHtml((r.code || '').slice(0, 16)) + '…</td>' +
+        '<td class="ops"><button class="btn-ghost btn-sm" data-copy="' + i + '">复制</button>' +
+        '<button class="btn-ghost btn-sm" data-del="' + i + '">删除</button></td>' +
+        '</tr>';
+    }).join('');
+    box.innerHTML = '<table><thead><tr>' +
+      '<th>机器码</th><th>身份</th><th>档位</th><th>有效期</th><th>备注</th><th>激活码</th><th>操作</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+
+  $('records').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.dataset && t.dataset.copy != null) {
+      var r = loadRecords()[+t.dataset.copy];
+      if (r && navigator.clipboard) navigator.clipboard.writeText(r.code);
+      t.textContent = '已复制 ✓'; setTimeout(function () { t.textContent = '复制'; }, 1200);
+    } else if (t.dataset && t.dataset.del != null) {
+      var idx = +t.dataset.del;
+      var arr = loadRecords();
+      arr.splice(idx, 1);
+      saveRecords(arr);
+      renderRecords();
+    }
+  });
+
+  // ---------- 导入 / 导出 / 清空 ----------
+  $('export-btn').onclick = function () {
+    var arr = loadRecords();
+    var blob = new Blob([JSON.stringify(arr, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '心镜激活码记录_' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  };
+  $('import-btn').onclick = function () { $('import-file').click(); };
+  $('import-file').onchange = function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    file.text().then(function (txt) {
+      var data = JSON.parse(txt);
+      if (!Array.isArray(data)) throw new Error('格式错误');
+      saveRecords(data);
+      renderRecords();
+      alert('已导入 ' + data.length + ' 条记录');
+    }).catch(function (err) {
+      alert('导入失败：' + (err && err.message ? err.message : err));
+    });
+    e.target.value = '';
+  };
+  $('clear-btn').onclick = function () {
+    if (!confirm('确定清空本机列表？（可导出的 JSON 备份不受影响）')) return;
+    saveRecords([]);
+    renderRecords();
+  };
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  renderRecords();
+})();
+</script>
+</body>
+</html>

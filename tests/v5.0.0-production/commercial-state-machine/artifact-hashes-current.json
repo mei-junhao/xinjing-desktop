@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-commercial-state-machine-artifact-refreeze-53",
+  "artifacts": [
+    { "path": "app/js/commercial-state-machine.js", "sha256": "919DA1DFE0F7F16C16E2532A4B0582091C802A68C10CEA5E3C07D63E33CCD282" },
+    { "path": "tests/v5.0.0-production/commercial-state-machine/run-contract.js", "sha256": "01A3898AC24791DC555A5BAA383F784A591A307C33607A36AAA01DFC759F48BF" },
+    { "path": "tests/v5.0.0-production/commercial-state-machine/mutation-probes.js", "sha256": "A9DAE149EAD2472E25EAB7CD4052ABCFFB3190CF09D72489971B1BBDD7C50B8B" },
+    { "path": "tests/v5.0.0-production/commercial-state-machine/verify-artifacts-current.js", "sha256": "84191F9B216AB33DD2C663464C90F574BEF4EAA8E3873BE43AF3A5BD15209425" },
+    { "path": "docs/agent-coordination/v5.0.0/contracts/v5.0-commercial-domain-state-machine-v1.md", "sha256": "FCE236E827C5853C781CFD07E7F2898A1BF2BE58239D9D86E80ECFCA10C5C08A" },
+    { "path": "docs/agent-coordination/v5.0.0/contracts/v5.0-commercial-domain-state-machine-current-protected-files-manifest.json", "sha256": "7155B4BE7D1B66AA334D9F9EC67368C80EF38E75207F628BAFA828AE427A826A" }
+  ]
+}

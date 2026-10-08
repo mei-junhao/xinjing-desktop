@@ -1,0 +1,370 @@
+{
+  "task_id": "XJ-5.0.0-external-g8-visual-matrix",
+  "electron": "43.2.0",
+  "acceptance_mode": "1",
+  "units_total": 20,
+  "units_overflow": 0,
+  "console_errors": [],
+  "units": [
+    {
+      "unit": "1024x700",
+      "skin": "clinical",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 960,
+      "screenshot": {
+        "file": "1024x700-clinical-light.png",
+        "bytes": 68952,
+        "sha256": "EB6DEDA001024EFCB1DD0B0D10B029E19B21C5B719ECA25F269861687A79F765"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1024x700",
+      "skin": "clinical",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 960,
+      "screenshot": {
+        "file": "1024x700-clinical-dark.png",
+        "bytes": 65143,
+        "sha256": "08D3CA6050E6C332C9EA51660E16DAD0D11AFF5E23D86E7685E8D8BA9EF99C16"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1024x700",
+      "skin": "theatre",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 960,
+      "screenshot": {
+        "file": "1024x700-theatre-light.png",
+        "bytes": 69970,
+        "sha256": "FB9D4AE01548A8A0EF26FDD26FE21DA15D3B711E52185F637B657BE0D369BDCB"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1024x700",
+      "skin": "theatre",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 960,
+      "screenshot": {
+        "file": "1024x700-theatre-dark.png",
+        "bytes": 65553,
+        "sha256": "B4B7AAE6AAAB48F296792A27A2C135C245994EAD439744E806E23939A5EB2F24"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1024x700",
+      "skin": "observatory",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 960,
+      "screenshot": {
+        "file": "1024x700-observatory-light.png",
+        "bytes": 68802,
+        "sha256": "9DA504829BED64D069C794372B7D86DA22CA57769C92CB8927CB8E5956EDAD2E"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1024x700",
+      "skin": "observatory",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 960,
+      "screenshot": {
+        "file": "1024x700-observatory-dark.png",
+        "bytes": 64766,
+        "sha256": "1C5216BA658BF0F6BC7D4292D00B051761CC2D6B62B88D6CC4AAEBCC10825970"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1366x768",
+      "skin": "clinical",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1366,
+      "clientWidth": 1366,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1366x768-clinical-light.png",
+        "bytes": 77775,
+        "sha256": "817B6C410031B3DB7962B9ECF094D1C5F1E7DD1AB0DF420AB6455F8200CF1E5B"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1366x768",
+      "skin": "clinical",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1366,
+      "clientWidth": 1366,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1366x768-clinical-dark.png",
+        "bytes": 73959,
+        "sha256": "3082D57DF5C7EF973C6C1687ECCD48CD54034366DE08A6F68917DB1A5094EAB2"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1366x768",
+      "skin": "theatre",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1366,
+      "clientWidth": 1366,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1366x768-theatre-light.png",
+        "bytes": 78693,
+        "sha256": "2BD3DF09932E5B611B4A5EEA825AF190CD22615709FE3EFDF2CE15FA159BE900"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1366x768",
+      "skin": "theatre",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1366,
+      "clientWidth": 1366,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1366x768-theatre-dark.png",
+        "bytes": 74339,
+        "sha256": "50FD4434F96C3E376D48E131EDE8FA7542804B595CB79390FED4AF670B507C0F"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1366x768",
+      "skin": "observatory",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1366,
+      "clientWidth": 1366,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1366x768-observatory-light.png",
+        "bytes": 77155,
+        "sha256": "7D29B4A53EC693AFA30A57E9744BC016F48F5E0F040CFFA3149DA4FC1175679D"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1366x768",
+      "skin": "observatory",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1366,
+      "clientWidth": 1366,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1366x768-observatory-dark.png",
+        "bytes": 73210,
+        "sha256": "D61CF8F74787B4AAA5368B3092D8E3F85B3352DEE6A0BE9AC2C0554EED264C26"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1920x1080",
+      "skin": "clinical",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1920,
+      "clientWidth": 1920,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1920x1080-clinical-light.png",
+        "bytes": 87420,
+        "sha256": "8C84FB5FDDB1CAA77BB6C30240E80A8D6F6E511248A2A55043D8C53D8DE15ABA"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1920x1080",
+      "skin": "clinical",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1920,
+      "clientWidth": 1920,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1920x1080-clinical-dark.png",
+        "bytes": 81946,
+        "sha256": "4A8D52ACD81199E00BB2D3E72FE47CFA6B32442E8DA84A9F1EC441895BF68496"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1920x1080",
+      "skin": "theatre",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1920,
+      "clientWidth": 1920,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1920x1080-theatre-light.png",
+        "bytes": 88228,
+        "sha256": "15FA2725FFF8B5514290ADE1934CAF154C8E65935D8381721BFE24F223EA0327"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1920x1080",
+      "skin": "theatre",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1920,
+      "clientWidth": 1920,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1920x1080-theatre-dark.png",
+        "bytes": 82723,
+        "sha256": "81040276F43F398699AAB89FED36A9B16DF440CD02017D5F32B938A3AC639C2F"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1920x1080",
+      "skin": "observatory",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1920,
+      "clientWidth": 1920,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1920x1080-observatory-light.png",
+        "bytes": 87179,
+        "sha256": "63B7AB73B56FB7997D706D709C6BFDE62083561DB1492310599F5A8913CCAB9D"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "1920x1080",
+      "skin": "observatory",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1920,
+      "clientWidth": 1920,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 966,
+      "screenshot": {
+        "file": "1920x1080-observatory-dark.png",
+        "bytes": 81998,
+        "sha256": "4063209329AA63A6A3143C628FEB1A2DD918ECE4A0EFD65DEA9DA0280810CB0D"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "settings-1024x700",
+      "skin": "clinical",
+      "mode": "light",
+      "dark": false,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 1367,
+      "screenshot": {
+        "file": "settings-1024x700-clinical-light.png",
+        "bytes": 54970,
+        "sha256": "C29084ECB4589587D04D3C58EB348AAD330C4EF963EB691A52DB97AA1AE2C639"
+      },
+      "consoleErrors": []
+    },
+    {
+      "unit": "settings-1024x700",
+      "skin": "clinical",
+      "mode": "dark",
+      "dark": true,
+      "scrollWidth": 1024,
+      "clientWidth": 1024,
+      "overflow": false,
+      "widest": null,
+      "longChinese": true,
+      "bodyChars": 1367,
+      "screenshot": {
+        "file": "settings-1024x700-clinical-dark.png",
+        "bytes": 54058,
+        "sha256": "33B7C854ECA944CEC58CE6788EAB816A66DEBBF71A41C0B09A73C3B2D99807F3"
+      },
+      "consoleErrors": []
+    }
+  ]
+}

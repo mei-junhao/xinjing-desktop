@@ -1,0 +1,85 @@
+{
+  "suite": "mutation-probes",
+  "total": 11,
+  "killed": 11,
+  "survived": 0,
+  "ledger": [
+    {
+      "id": "M01-registry-required-field",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: registry id must equal its stable key | + actual - expected | "
+    },
+    {
+      "id": "M02-cross-client-admission",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: | + actual - expected | "
+    },
+    {
+      "id": "M03-preview-only-boundary",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: |  | false !== true"
+    },
+    {
+      "id": "M04-cross-label-knowledge-key",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: cross-label duplicate must have one accepted identity |  | 2 !== 1"
+    },
+    {
+      "id": "M05-source-hash-admission",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: | + actual - expected | "
+    },
+    {
+      "id": "M06-output-schema-strictness",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: | + actual - expected | "
+    },
+    {
+      "id": "M07-async-await-projection",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: |  | false !== true"
+    },
+    {
+      "id": "M09-source-client-missing-relaxed",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: transcript/all-sources-clientId-cleared must reject with a missing-context reason, got: source-client-mismatch |     at run (D:\\xinjing-electron\\docs\\agent-coordination\\v5.0.0\\cli-coordination\\runs\\XJ-5.0.0-cli-reasonix-v4.4-trusted-ai-source-context-fail-closed-repair-294\\workspace\\tests\\source-context-fail-closed-contract.js:168:14) | "
+    },
+    {
+      "id": "M10-source-session-missing-relaxed",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: transcript/all-sources-sessionId-cleared must reject with a missing-context reason, got: source-session-mismatch |     at run (D:\\xinjing-electron\\docs\\agent-coordination\\v5.0.0\\cli-coordination\\runs\\XJ-5.0.0-cli-reasonix-v4.4-trusted-ai-source-context-fail-closed-repair-294\\workspace\\tests\\source-context-fail-closed-contract.js:168:14) | "
+    },
+    {
+      "id": "M11-source-context-guard-fully-reverted",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "AssertionError [ERR_ASSERTION]: transcript/all-sources-clientId-cleared must reject with a missing-context reason, got: source-client-mismatch |     at run (D:\\xinjing-electron\\docs\\agent-coordination\\v5.0.0\\cli-coordination\\runs\\XJ-5.0.0-cli-reasonix-v4.4-trusted-ai-source-context-fail-closed-repair-294\\workspace\\tests\\source-context-fail-closed-contract.js:168:14) | "
+    },
+    {
+      "id": "M08-live-project-test-read",
+      "applied": true,
+      "killed": true,
+      "exitCode": 1,
+      "stderrHead": "task-local boundary scanner"
+    }
+  ]
+}

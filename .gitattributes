@@ -1,0 +1,2 @@
+# macOS/CI 构建要求 checkout 与仓库 blob 字节一致（LF）
+* text=auto eol=lf

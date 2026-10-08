@@ -1,0 +1,15 @@
+'use strict';
+const fs = require('fs'); const path = require('path'); const crypto = require('crypto');
+const ROOT = 'D:/xinjing-electron';
+const P026 = path.join(ROOT, 'qa/task-scratch/XJ-5.1.1-model-session-recovery-runtime-evidence-verifier-symlink-probe-per-case-raw-ledger-rework-026');
+const sha = b => crypto.createHash('sha256').update(b).digest('hex').toUpperCase();
+const ledger = JSON.parse(fs.readFileSync(path.join(P026, 'ledger-026.json'), 'utf8'));
+const e = ledger.entries[0];
+console.log('entry0:', JSON.stringify(e));
+const mp = path.resolve(P026, e.metaPath);
+console.log('metaPath:', mp, 'exists:', fs.existsSync(mp));
+const meta = JSON.parse(fs.readFileSync(mp, 'utf8'));
+console.log('meta keys:', Object.keys(meta).join(','));
+console.log('entry.exitCode:', e.exitCode, 'meta.exitCode:', meta.exitCode);
+console.log('entry.verdict:', e.verdict, 'meta.verdict:', meta.verdict);
+console.log('meta.cwd:', JSON.stringify(meta.cwd));

@@ -1,0 +1,92 @@
+{
+  "corpus_version": "v4.4-fixture-v1",
+  "description": "Deterministic synthetic evaluation corpus for XJ-5.0.0-agent-a-ai-evaluation-fixture-01. No real clinical text, personal data, or provider keys.",
+  "scenarios": [
+    {
+      "case_id": "synth-001",
+      "label": "cited_success",
+      "expected_claim_ids": ["claim-A", "claim-B"],
+      "admissible_source_ids": ["src-alpha", "src-beta"],
+      "output": {
+        "claims": ["claim-A", "claim-B"],
+        "citations": ["src-alpha", "src-beta"]
+      },
+      "metadata": {
+        "cost": 0.0042,
+        "latency_ms": 320,
+        "succeeded": true
+      }
+    },
+    {
+      "case_id": "synth-002",
+      "label": "missing_citation",
+      "expected_claim_ids": ["claim-C"],
+      "admissible_source_ids": ["src-gamma"],
+      "output": {
+        "claims": ["claim-C"],
+        "citations": []
+      },
+      "metadata": {
+        "cost": 0.0038,
+        "latency_ms": 280,
+        "succeeded": true
+      }
+    },
+    {
+      "case_id": "synth-003",
+      "label": "incorrect_claim",
+      "expected_claim_ids": ["claim-D"],
+      "admissible_source_ids": ["src-delta"],
+      "output": {
+        "claims": ["claim-X"],
+        "citations": ["src-delta"]
+      },
+      "metadata": {
+        "cost": 0.0051,
+        "latency_ms": 410,
+        "succeeded": true
+      }
+    },
+    {
+      "case_id": "synth-004",
+      "label": "timeout_failure",
+      "expected_claim_ids": ["claim-E"],
+      "admissible_source_ids": ["src-epsilon"],
+      "output": {
+        "claims": [],
+        "citations": []
+      },
+      "metadata": {
+        "cost": 0.0000,
+        "latency_ms": 5000,
+        "succeeded": false,
+        "failure_reason": "synthetic_timeout"
+      }
+    },
+    {
+      "case_id": "synth-005",
+      "label": "baseline_vs_candidate",
+      "expected_claim_ids": ["claim-F", "claim-G"],
+      "admissible_source_ids": ["src-zeta", "src-eta"],
+      "baseline": {
+        "claims": ["claim-F"],
+        "citations": ["src-zeta"],
+        "cost": 0.0060,
+        "latency_ms": 500,
+        "succeeded": true
+      },
+      "candidate": {
+        "claims": ["claim-F", "claim-G"],
+        "citations": ["src-zeta", "src-eta"],
+        "cost": 0.0045,
+        "latency_ms": 350,
+        "succeeded": true
+      },
+      "metadata": {
+        "cost": 0.0045,
+        "latency_ms": 350,
+        "succeeded": true
+      }
+    }
+  ]
+}

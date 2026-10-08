@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-commercial-domain-state-machine-06",
+  "artifacts": [
+    {
+      "path": "app/js/commercial-state-machine.js",
+      "sha256": "919DA1DFE0F7F16C16E2532A4B0582091C802A68C10CEA5E3C07D63E33CCD282"
+    },
+    {
+      "path": "tests/v5.0.0-production/commercial-state-machine/run-contract.js",
+      "sha256": "01A3898AC24791DC555A5BAA383F784A591A307C33607A36AAA01DFC759F48BF"
+    },
+    {
+      "path": "tests/v5.0.0-production/commercial-state-machine/mutation-probes.js",
+      "sha256": "A9DAE149EAD2472E25EAB7CD4052ABCFFB3190CF09D72489971B1BBDD7C50B8B"
+    },
+    {
+      "path": "tests/v5.0.0-production/commercial-state-machine/verify-artifacts.js",
+      "sha256": "F7DC034F6DBBA9814CA2880B79CBE2D86FBF959A676E4D676368322744E83AD4"
+    },
+    {
+      "path": "docs/agent-coordination/v5.0.0/contracts/v5.0-commercial-domain-state-machine-v1.md",
+      "sha256": "FCE236E827C5853C781CFD07E7F2898A1BF2BE58239D9D86E80ECFCA10C5C08A"
+    },
+    {
+      "path": "docs/agent-coordination/v5.0.0/contracts/v5.0-commercial-domain-state-machine-protected-files-manifest.json",
+      "sha256": "2A95B06E278CD62392C840AB9B949FD2BE64CD278A555F264D1912D5E527FA39"
+    },
+    {
+      "path": "docs/agent-coordination/v5.0.0/tasks/XJ-5.0.0-codex-commercial-domain-state-machine-06.md",
+      "sha256": "7201C214F676304929541BC5D40E6B49673993F670F51AD50F62EDACD6F73246"
+    }
+  ]
+}

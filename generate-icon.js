@@ -1,86 +1,92 @@
 'use strict';
 
-// 纯 JS 生成「心镜」图标：陶土色镜面圆盘 + 高光
-// 依赖：pngjs（PNG 编码）、png-to-ico（转 .ico）
+// Windows desktop mark: a calm clinical mirror aperture, legible down to 16px.
 const fs = require('fs');
 const path = require('path');
 const { PNG } = require('pngjs');
 const pngToIco = require('png-to-ico').default;
 
-const S = 256;
-const png = new PNG({ width: S, height: S });
+const size = 256;
+const png = new PNG({ width: size, height: size });
 
-function clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
+function clamp(value) { return Math.max(0, Math.min(255, Math.round(value))); }
+function lerp(start, end, amount) { return start + (end - start) * amount; }
 
-function setPx(x, y, r, g, b, a) {
-  if (x < 0 || y < 0 || x >= S || y >= S || a <= 0) return;
-  const idx = (S * y + x) << 2;
-  const ea = png.data[idx + 3] / 255;
-  const na = (a / 255) * (1 - ea) + ea;
-  if (na <= 0) return;
-  png.data[idx] = clamp((r * (a / 255) * (1 - ea) + png.data[idx] * ea) / na);
-  png.data[idx + 1] = clamp((g * (a / 255) * (1 - ea) + png.data[idx + 1] * ea) / na);
-  png.data[idx + 2] = clamp((b * (a / 255) * (1 - ea) + png.data[idx + 2] * ea) / na);
-  png.data[idx + 3] = Math.round(na * 255);
+function blend(x, y, color, alpha) {
+  if (x < 0 || y < 0 || x >= size || y >= size || alpha <= 0) return;
+  const index = (size * y + x) << 2;
+  const existing = png.data[index + 3] / 255;
+  const next = alpha + existing * (1 - alpha);
+  if (!next) return;
+  png.data[index] = clamp((color[0] * alpha + png.data[index] * existing * (1 - alpha)) / next);
+  png.data[index + 1] = clamp((color[1] * alpha + png.data[index + 1] * existing * (1 - alpha)) / next);
+  png.data[index + 2] = clamp((color[2] * alpha + png.data[index + 2] * existing * (1 - alpha)) / next);
+  png.data[index + 3] = clamp(next * 255);
 }
 
-function lerp(a, b, t) { return a + (b - a) * t; }
+function roundedRectDistance(x, y, left, top, right, bottom, radius) {
+  const px = Math.max(left + radius - x, 0, x - (right - radius));
+  const py = Math.max(top + radius - y, 0, y - (bottom - radius));
+  return Math.sqrt(px * px + py * py) - radius;
+}
 
-const cx = 128, cy = 128, R = 112;
+// Rounded square material.
+for (let y = 0; y < size; y++) {
+  for (let x = 0; x < size; x++) {
+    const distance = roundedRectDistance(x, y, 12, 12, 244, 244, 54);
+    if (distance > 1.2) continue;
+    const alpha = distance > 0 ? 1 - distance / 1.2 : 1;
+    const diagonal = (x + y) / (size * 2);
+    const radial = Math.max(0, 1 - Math.hypot(x - 84, y - 62) / 220);
+    blend(x, y, [lerp(10, 28, diagonal), lerp(89, 143, radial), lerp(79, 128, radial)], alpha);
+  }
+}
 
-// 1) 陶土色圆盘（顶亮底暗渐变 + 柔边）
-for (let y = 0; y < S; y++) {
-  for (let x = 0; x < S; x++) {
-    const dx = x - cx, dy = y - cy;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d <= R) {
-      const t = (y - (cy - R)) / (2 * R);
-      const r = Math.round(lerp(198, 140, t));
-      const g = Math.round(lerp(118, 72, t));
-      const b = Math.round(lerp(86, 50, t));
-      let a = 255;
-      if (d > R - 2) a = Math.round(((R - d) / 2) * 255);
-      setPx(x, y, r, g, b, a);
+// Inset mirror body and a quiet rim.
+for (let y = 0; y < size; y++) {
+  for (let x = 0; x < size; x++) {
+    const dx = (x - 128) / 76;
+    const dy = (y - 128) / 76;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance <= 1 && distance >= .82) {
+      blend(x, y, [188, 226, 218], Math.max(.12, 1 - (distance - .82) / .18) * .8);
+    }
+    if (distance < .82) {
+      const sheen = Math.max(0, 1 - Math.hypot(x - 102, y - 95) / 94);
+      blend(x, y, [lerp(13, 46, sheen), lerp(58, 113, sheen), lerp(53, 102, sheen)], .94);
     }
   }
 }
 
-// 2) 内侧镜面环（左上提亮，模拟镜面反光）
-const Ri = 74;
-for (let y = 0; y < S; y++) {
-  for (let x = 0; x < S; x++) {
-    const dx = x - cx, dy = y - cy;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d <= Ri) {
-      const sx = dx / Ri, sy = dy / Ri;
-      const sheen = Math.max(0, -(sx + sy)) / 2; // 左上为正
-      const r = Math.round(lerp(150, 214, sheen));
-      const g = Math.round(lerp(96, 156, sheen));
-      const b = Math.round(lerp(70, 122, sheen));
-      setPx(x, y, r, g, b, 95);
+// A vertical aperture: the mirror's opening, not a literal letterform.
+for (let y = 0; y < size; y++) {
+  for (let x = 0; x < size; x++) {
+    const dx = (x - 128) / 20;
+    const dy = (y - 128) / 51;
+    const aperture = dx * dx + dy * dy;
+    if (aperture <= 1) {
+      const sheen = Math.max(0, 1 - Math.hypot(x - 122, y - 96) / 68);
+      blend(x, y, [lerp(224, 246, sheen), lerp(241, 252, sheen), lerp(237, 249, sheen)], .96);
     }
   }
 }
 
-// 3) 左上高光点
-for (let y = 0; y < S; y++) {
-  for (let x = 0; x < S; x++) {
-    const dx = x - (cx - 40), dy = y - (cy - 44);
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d < 28) setPx(x, y, 255, 246, 236, Math.round((1 - d / 28) * 160));
+// Single optical highlight for dimensionality.
+for (let y = 0; y < size; y++) {
+  for (let x = 0; x < size; x++) {
+    const distance = Math.hypot(x - 91, y - 77);
+    if (distance < 18) blend(x, y, [255, 255, 255], (1 - distance / 18) * .28);
   }
 }
 
 fs.mkdirSync(path.join(__dirname, 'build'), { recursive: true });
-const outPng = path.join(__dirname, 'build', 'icon.png');
-png.pack().pipe(fs.createWriteStream(outPng)).on('finish', () => {
-  pngToIco(outPng)
-    .then((ico) => {
-      fs.writeFileSync(path.join(__dirname, 'build', 'icon.ico'), ico);
-      console.log('图标已生成: build/icon.png, build/icon.ico');
-    })
-    .catch((e) => {
-      console.error('生成 .ico 失败:', e.message);
-      process.exit(1);
-    });
+const pngPath = path.join(__dirname, 'build', 'icon.png');
+png.pack().pipe(fs.createWriteStream(pngPath)).on('finish', function () {
+  pngToIco(pngPath).then(function (ico) {
+    fs.writeFileSync(path.join(__dirname, 'build', 'icon.ico'), ico);
+    console.log('Generated build/icon.png and build/icon.ico');
+  }).catch(function (error) {
+    console.error('Unable to generate icon.ico:', error.message);
+    process.exit(1);
+  });
 });

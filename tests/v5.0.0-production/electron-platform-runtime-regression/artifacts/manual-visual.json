@@ -1,0 +1,30 @@
+{
+  "task_id": "XJ-5.0.0-codex-g7-electron-runtime-current-20260808",
+  "status": "confirmed",
+  "observed_at": "2026-07-27T10:03:41+08:00",
+  "synthetic_profile_only": true,
+  "file_picker_cancelled": true,
+  "print_dialog_cancelled": true,
+  "window_usable_after_cancel": true,
+  "tray_visible": true,
+  "tray_evidence": {
+    "production_main_loaded": true,
+    "tray_constructed": true,
+    "tray_tooltip": "心镜 XinJing",
+    "tray_menu_opened": true,
+    "login_item_call_intercepted": true,
+    "temporary_profile_removed": true,
+    "runtime_record": "artifacts/tray-runtime-session.json",
+    "runtime_record_sha256": "D423B7C0BA1EED5F1861BA070D52CE05A63B12D1FF1DE115B0943FEAA1350A31",
+    "menu_screenshot": "artifacts/tray-menu-visual.png",
+    "menu_screenshot_sha256": "E02663B5263DDF743F6DB4D3D43D9F36FC365853D31A049F77CFB2286FA00FE0",
+    "desktop_screenshot": "artifacts/tray-desktop-visual.png",
+    "desktop_screenshot_sha256": "2C2FAE3C8C9BCA508D82E362D630AE7DAE98615A58B12424FA7B419F7A605219"
+  },
+  "limits": [
+    "No file was selected or read.",
+    "No print, save, upload, package, signing, push, or publish action occurred.",
+    "The tray-only wrapper redirected appData to a system temporary directory and intercepted setLoginItemSettings before loading the real main.js.",
+    "The controlled tray evidence does not prove packaged updater, installer, upgrade, rollback, or production startup behavior."
+  ]
+}

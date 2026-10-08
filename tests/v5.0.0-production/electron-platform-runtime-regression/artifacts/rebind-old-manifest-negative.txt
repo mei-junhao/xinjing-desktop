@@ -1,0 +1,19 @@
+[PASS] runtime summary exists
+[PASS] manual visual record exists
+[PASS] tray runtime record exists
+D:\xinjing-electron\tests\v5.0.0-production\electron-platform-runtime-regression\verify-artifacts.js:20
+  if (!condition) throw new Error(label);
+                  ^
+
+Error: runtime summary is bound to the selected task
+    at requireCondition (D:\xinjing-electron\tests\v5.0.0-production\electron-platform-runtime-regression\verify-artifacts.js:20:25)
+    at Object.<anonymous> (D:\xinjing-electron\tests\v5.0.0-production\electron-platform-runtime-regression\verify-artifacts.js:35:1)
+    at Module._compile (node:internal/modules/cjs/loader:1854:14)
+    at Object..js (node:internal/modules/cjs/loader:1985:10)
+    at Module.load (node:internal/modules/cjs/loader:1577:32)
+    at Module._load (node:internal/modules/cjs/loader:1379:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v24.16.0

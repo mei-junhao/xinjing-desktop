@@ -1,0 +1,428 @@
+{
+  "task_id": "XJ-5.0.0-codex-vechooool-structure-production-integration-01",
+  "checks": [
+    {
+      "id": "E1",
+      "label": "controlled Electron serves loopback page",
+      "pass": true,
+      "detail": "http://127.0.0.1:8136/index.html"
+    },
+    {
+      "id": "E2",
+      "label": "reduced motion is active",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E3",
+      "label": "synthetic client/session/material seed succeeds in temporary profile",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E12-CLOCK",
+      "label": "chat uses the installed progressing synthetic clock with Asia/Shanghai provenance",
+      "pass": true,
+      "detail": "{\"installed\":true,\"mode\":\"synthetic-progressing\",\"startIso\":\"2026-08-09T12:00:00+08:00\",\"timezone\":\"Asia/Shanghai\",\"offsetMinutes\":480,\"injection\":\"Page.addScriptToEvaluateOnNewDocument\",\"localDate\":\"2026-08-09\",\"dateNow\":1786248000685,\"parsed\":1786248000000,\"utc\":1786248000000,\"dateCall\":true,\"instance\":true,\"nativePrototype\":\"[object Date]\",\"greeting\":true}"
+    },
+    {
+      "id": "E12-CLOCK-PROGRESS",
+      "label": "synthetic clock advances with real elapsed milliseconds",
+      "pass": true,
+      "detail": "{\"before\":1786248000686,\"after\":1786248000733}"
+    },
+    {
+      "id": "E4",
+      "label": "chat workspace exposes history, search and clinical context",
+      "pass": true,
+      "detail": "{\"history\":true,\"context\":true,\"search\":true,\"focusable\":true}"
+    },
+    {
+      "id": "E4A",
+      "label": "chat renders a real CaseSpace-admitted source without original body text",
+      "pass": true,
+      "detail": "{\"projected\":true,\"title\":true,\"bodyHidden\":true}"
+    },
+    {
+      "id": "E4B",
+      "label": "chat rejects a status-only fake source only after a whole-object CaseSpace wrapper is installed, then restores the real source",
+      "pass": true,
+      "detail": "{\"originalFrozen\":true,\"installed\":true,\"calls\":1,\"rejected\":true,\"text\":\"当前会谈没有通过来源校验的材料。小镜不会把未验证内容作为本轮来源。\",\"deniedCalls\":1,\"denied\":true,\"deniedText\":\"来源投影不可用，未显示任何可能过期的材料。\",\"restored\":true,\"restoredText\":\"合成已验证材料\\nsr:sha256:259afc89b7c8ae0f2a1c0799f407ca06ea49056e52ab16d8bfe5337f228a2949 · 定位有效\\n已确认\"}"
+    },
+    {
+      "id": "E4C",
+      "label": "chat preserves the fail-closed error state when CaseSpace returns ok:false instead of swallowing it",
+      "pass": true,
+      "detail": "{\"originalFrozen\":true,\"installed\":true,\"calls\":1,\"rejected\":true,\"text\":\"当前会谈没有通过来源校验的材料。小镜不会把未验证内容作为本轮来源。\",\"deniedCalls\":1,\"denied\":true,\"deniedText\":\"来源投影不可用，未显示任何可能过期的材料。\",\"restored\":true,\"restoredText\":\"合成已验证材料\\nsr:sha256:259afc89b7c8ae0f2a1c0799f407ca06ea49056e52ab16d8bfe5337f228a2949 · 定位有效\\n已确认\"}"
+    },
+    {
+      "id": "E4D-1024x700",
+      "label": "chat composer remains visible at 1024x700 in the same restored E4A source state",
+      "pass": true,
+      "detail": "{\"bodyPage\":\"workbench\",\"layoutSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell)\",\"mainSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell) > .xj-auto-main\",\"layoutMatches\":true,\"mainMatches\":true,\"layoutMinHeight\":\"0px\",\"mainMinHeight\":\"0px\",\"sourceRestored\":true,\"clientId\":\"c_msmpypf3_dksi\",\"sessionId\":\"s_msmpypf3_8ipb\",\"innerHeight\":700,\"scrollY\":0,\"row\":{\"top\":636,\"bottom\":700,\"height\":64},\"input\":{\"top\":645,\"bottom\":685,\"height\":40},\"send\":{\"top\":653,\"bottom\":691,\"height\":38},\"overflow\":{\"html\":{\"visible\":true,\"clientWidth\":1024,\"scrollWidth\":1024,\"overflowX\":\"hidden\"},\"layout\":{\"visible\":true,\"clientWidth\":1024,\"scrollWidth\":1024,\"overflowX\":\"visible\"},\"main\":{\"visible\":true,\"clientWidth\":820,\"scrollWidth\":820,\"overflowX\":\"hidden\"},\"history\":{\"visible\":true,\"clientWidth\":203,\"scrollWidth\":203,\"overflowX\":\"auto\"},\"context\":{\"visible\":false,\"clientWidth\":0,\"scrollWidth\":0,\"overflowX\":\"auto\"}},\"overflowPass\":true,\"focused\":true,\"visible\":{\"row\":true,\"input\":true,\"send\":true}}"
+    },
+    {
+      "id": "E4D-1366x768",
+      "label": "chat composer remains visible at 1366x768 in the same restored E4A source state",
+      "pass": true,
+      "detail": "{\"bodyPage\":\"workbench\",\"layoutSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell)\",\"mainSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell) > .xj-auto-main\",\"layoutMatches\":true,\"mainMatches\":true,\"layoutMinHeight\":\"0px\",\"mainMinHeight\":\"0px\",\"sourceRestored\":true,\"clientId\":\"c_msmpypf3_dksi\",\"sessionId\":\"s_msmpypf3_8ipb\",\"innerHeight\":768,\"scrollY\":0,\"row\":{\"top\":704,\"bottom\":768,\"height\":64},\"input\":{\"top\":713,\"bottom\":753,\"height\":40},\"send\":{\"top\":721,\"bottom\":759,\"height\":38},\"overflow\":{\"html\":{\"visible\":true,\"clientWidth\":1366,\"scrollWidth\":1366,\"overflowX\":\"hidden\"},\"layout\":{\"visible\":true,\"clientWidth\":1366,\"scrollWidth\":1366,\"overflowX\":\"visible\"},\"main\":{\"visible\":true,\"clientWidth\":1142,\"scrollWidth\":1142,\"overflowX\":\"hidden\"},\"history\":{\"visible\":true,\"clientWidth\":225,\"scrollWidth\":225,\"overflowX\":\"auto\"},\"context\":{\"visible\":true,\"clientWidth\":273,\"scrollWidth\":273,\"overflowX\":\"auto\"}},\"overflowPass\":true,\"focused\":true,\"visible\":{\"row\":true,\"input\":true,\"send\":true}}"
+    },
+    {
+      "id": "E4D-1920x1080",
+      "label": "chat composer remains visible at 1920x1080 in the same restored E4A source state",
+      "pass": true,
+      "detail": "{\"bodyPage\":\"workbench\",\"layoutSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell)\",\"mainSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell) > .xj-auto-main\",\"layoutMatches\":true,\"mainMatches\":true,\"layoutMinHeight\":\"0px\",\"mainMinHeight\":\"0px\",\"sourceRestored\":true,\"clientId\":\"c_msmpypf3_dksi\",\"sessionId\":\"s_msmpypf3_8ipb\",\"innerHeight\":1080,\"scrollY\":0,\"row\":{\"top\":1016,\"bottom\":1080,\"height\":64},\"input\":{\"top\":1025,\"bottom\":1065,\"height\":40},\"send\":{\"top\":1033,\"bottom\":1071,\"height\":38},\"overflow\":{\"html\":{\"visible\":true,\"clientWidth\":1920,\"scrollWidth\":1920,\"overflowX\":\"hidden\"},\"layout\":{\"visible\":true,\"clientWidth\":1920,\"scrollWidth\":1920,\"overflowX\":\"visible\"},\"main\":{\"visible\":true,\"clientWidth\":1696,\"scrollWidth\":1696,\"overflowX\":\"hidden\"},\"history\":{\"visible\":true,\"clientWidth\":225,\"scrollWidth\":225,\"overflowX\":\"auto\"},\"context\":{\"visible\":true,\"clientWidth\":273,\"scrollWidth\":273,\"overflowX\":\"auto\"}},\"overflowPass\":true,\"focused\":true,\"visible\":{\"row\":true,\"input\":true,\"send\":true}}"
+    },
+    {
+      "id": "M-E4D-100VH",
+      "label": "runtime 100vh mutation reintroduces composer overflow and removal restores the real route selector layout",
+      "pass": true,
+      "detail": "{\"mutant\":{\"bodyPage\":\"workbench\",\"layoutSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell)\",\"mainSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell) > .xj-auto-main\",\"layoutMatches\":true,\"mainMatches\":true,\"layoutMinHeight\":\"768px\",\"mainMinHeight\":\"768px\",\"sourceRestored\":true,\"clientId\":\"c_msmpypf3_dksi\",\"sessionId\":\"s_msmpypf3_8ipb\",\"innerHeight\":768,\"scrollY\":0,\"row\":{\"top\":760,\"bottom\":824,\"height\":64},\"input\":{\"top\":769,\"bottom\":809,\"height\":40},\"send\":{\"top\":777,\"bottom\":815,\"height\":38},\"overflow\":{\"html\":{\"visible\":true,\"clientWidth\":1366,\"scrollWidth\":1366,\"overflowX\":\"hidden\"},\"layout\":{\"visible\":true,\"clientWidth\":1366,\"scrollWidth\":1366,\"overflowX\":\"visible\"},\"main\":{\"visible\":true,\"clientWidth\":1142,\"scrollWidth\":1142,\"overflowX\":\"hidden\"},\"history\":{\"visible\":true,\"clientWidth\":225,\"scrollWidth\":225,\"overflowX\":\"auto\"},\"context\":{\"visible\":true,\"clientWidth\":273,\"scrollWidth\":273,\"overflowX\":\"auto\"}},\"overflowPass\":true,\"focused\":true,\"visible\":{\"row\":false,\"input\":false,\"send\":false}},\"recovered\":{\"bodyPage\":\"workbench\",\"layoutSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell)\",\"mainSelector\":\"body[data-xj-page=\\\"workbench\\\"] > .layout.xj-auto-layout:has(> .xj-auto-main > .chat-structure-shell) > .xj-auto-main\",\"layoutMatches\":true,\"mainMatches\":true,\"layoutMinHeight\":\"0px\",\"mainMinHeight\":\"0px\",\"sourceRestored\":true,\"clientId\":\"c_msmpypf3_dksi\",\"sessionId\":\"s_msmpypf3_8ipb\",\"innerHeight\":768,\"scrollY\":0,\"row\":{\"top\":704,\"bottom\":768,\"height\":64},\"input\":{\"top\":713,\"bottom\":753,\"height\":40},\"send\":{\"top\":721,\"bottom\":759,\"height\":38},\"overflow\":{\"html\":{\"visible\":true,\"clientWidth\":1366,\"scrollWidth\":1366,\"overflowX\":\"hidden\"},\"layout\":{\"visible\":true,\"clientWidth\":1366,\"scrollWidth\":1366,\"overflowX\":\"visible\"},\"main\":{\"visible\":true,\"clientWidth\":1142,\"scrollWidth\":1142,\"overflowX\":\"hidden\"},\"history\":{\"visible\":true,\"clientWidth\":225,\"scrollWidth\":225,\"overflowX\":\"auto\"},\"context\":{\"visible\":true,\"clientWidth\":273,\"scrollWidth\":273,\"overflowX\":\"auto\"}},\"overflowPass\":true,\"focused\":true,\"visible\":{\"row\":true,\"input\":true,\"send\":true}}}"
+    },
+    {
+      "id": "E5",
+      "label": "chat history search renders an explicit empty state",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E6",
+      "label": "chat composer focus keeps the clinical shell and history brand in view at 1024 and 1366",
+      "pass": true,
+      "detail": "[{\"scrollY\":0,\"brandVisible\":true,\"shellVisible\":true,\"inputVisible\":true,\"focused\":true},{\"scrollY\":0,\"brandVisible\":true,\"shellVisible\":true,\"inputVisible\":true,\"focused\":true}]"
+    },
+    {
+      "id": "E7",
+      "label": "Atlas projects a real ready material into a selected node and inspector without source body",
+      "pass": true,
+      "detail": "{\"projected\":true,\"nodeCount\":1,\"selected\":1,\"inspector\":true,\"hidden\":true,\"refresh\":true,\"filter\":true}"
+    },
+    {
+      "id": "E8",
+      "label": "Atlas drawer removes inert when opened, restores it on Escape, and returns focus to the source node",
+      "pass": true,
+      "detail": "{\"ready\":true,\"opened\":true,\"closed\":true,\"focus\":\"atlas-node-node-material-c_msmpypf3_dksi-mat_msmpypf3_uayc\"}"
+    },
+    {
+      "id": "E9",
+      "label": "growth page states the preview-only human-confirmation boundary",
+      "pass": true,
+      "detail": "{\"boundary\":true,\"gate\":true}"
+    },
+    {
+      "id": "E10",
+      "label": "growth feature entitlement and AI compute remain independently fail-closed",
+      "pass": true,
+      "detail": "{\"free\":\"feature-locked\",\"compute\":\"compute-unavailable\"}"
+    },
+    {
+      "id": "V-clinical-light-1024x700",
+      "label": "growth structure has no overflow and deterministic clock in clinical light 1024x700",
+      "pass": true,
+      "detail": "{\"skin\":\"clinical\",\"mode\":\"light\",\"width\":1024,\"height\":700,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:01 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-clinical-light-1366x768",
+      "label": "growth structure has no overflow and deterministic clock in clinical light 1366x768",
+      "pass": true,
+      "detail": "{\"skin\":\"clinical\",\"mode\":\"light\",\"width\":1366,\"height\":768,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:01 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-clinical-light-1920x1080",
+      "label": "growth structure has no overflow and deterministic clock in clinical light 1920x1080",
+      "pass": true,
+      "detail": "{\"skin\":\"clinical\",\"mode\":\"light\",\"width\":1920,\"height\":1080,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:01 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-clinical-dark-1024x700",
+      "label": "growth structure has no overflow and deterministic clock in clinical dark 1024x700",
+      "pass": true,
+      "detail": "{\"skin\":\"clinical\",\"mode\":\"dark\",\"width\":1024,\"height\":700,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:01 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-clinical-dark-1366x768",
+      "label": "growth structure has no overflow and deterministic clock in clinical dark 1366x768",
+      "pass": true,
+      "detail": "{\"skin\":\"clinical\",\"mode\":\"dark\",\"width\":1366,\"height\":768,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:01 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-clinical-dark-1920x1080",
+      "label": "growth structure has no overflow and deterministic clock in clinical dark 1920x1080",
+      "pass": true,
+      "detail": "{\"skin\":\"clinical\",\"mode\":\"dark\",\"width\":1920,\"height\":1080,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:02 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-theatre-light-1024x700",
+      "label": "growth structure has no overflow and deterministic clock in theatre light 1024x700",
+      "pass": true,
+      "detail": "{\"skin\":\"theatre\",\"mode\":\"light\",\"width\":1024,\"height\":700,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:02 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-theatre-light-1366x768",
+      "label": "growth structure has no overflow and deterministic clock in theatre light 1366x768",
+      "pass": true,
+      "detail": "{\"skin\":\"theatre\",\"mode\":\"light\",\"width\":1366,\"height\":768,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:02 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-theatre-light-1920x1080",
+      "label": "growth structure has no overflow and deterministic clock in theatre light 1920x1080",
+      "pass": true,
+      "detail": "{\"skin\":\"theatre\",\"mode\":\"light\",\"width\":1920,\"height\":1080,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:02 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-theatre-dark-1024x700",
+      "label": "growth structure has no overflow and deterministic clock in theatre dark 1024x700",
+      "pass": true,
+      "detail": "{\"skin\":\"theatre\",\"mode\":\"dark\",\"width\":1024,\"height\":700,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:03 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-theatre-dark-1366x768",
+      "label": "growth structure has no overflow and deterministic clock in theatre dark 1366x768",
+      "pass": true,
+      "detail": "{\"skin\":\"theatre\",\"mode\":\"dark\",\"width\":1366,\"height\":768,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:03 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-theatre-dark-1920x1080",
+      "label": "growth structure has no overflow and deterministic clock in theatre dark 1920x1080",
+      "pass": true,
+      "detail": "{\"skin\":\"theatre\",\"mode\":\"dark\",\"width\":1920,\"height\":1080,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:03 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-observatory-light-1024x700",
+      "label": "growth structure has no overflow and deterministic clock in observatory light 1024x700",
+      "pass": true,
+      "detail": "{\"skin\":\"observatory\",\"mode\":\"light\",\"width\":1024,\"height\":700,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:03 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-observatory-light-1366x768",
+      "label": "growth structure has no overflow and deterministic clock in observatory light 1366x768",
+      "pass": true,
+      "detail": "{\"skin\":\"observatory\",\"mode\":\"light\",\"width\":1366,\"height\":768,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:04 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-observatory-light-1920x1080",
+      "label": "growth structure has no overflow and deterministic clock in observatory light 1920x1080",
+      "pass": true,
+      "detail": "{\"skin\":\"observatory\",\"mode\":\"light\",\"width\":1920,\"height\":1080,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:04 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-observatory-dark-1024x700",
+      "label": "growth structure has no overflow and deterministic clock in observatory dark 1024x700",
+      "pass": true,
+      "detail": "{\"skin\":\"observatory\",\"mode\":\"dark\",\"width\":1024,\"height\":700,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:04 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-observatory-dark-1366x768",
+      "label": "growth structure has no overflow and deterministic clock in observatory dark 1366x768",
+      "pass": true,
+      "detail": "{\"skin\":\"observatory\",\"mode\":\"dark\",\"width\":1366,\"height\":768,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:04 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "V-observatory-dark-1920x1080",
+      "label": "growth structure has no overflow and deterministic clock in observatory dark 1920x1080",
+      "pass": true,
+      "detail": "{\"skin\":\"observatory\",\"mode\":\"dark\",\"width\":1920,\"height\":1080,\"overflow\":true,\"longChinese\":true,\"reduced\":true,\"clockLocalDate\":\"2026-08-09\",\"clockDateText\":\"Sun Aug 09 2026 12:00:05 GMT+0800 (中国标准时间)\",\"clockDateTextHasYear\":true}"
+    },
+    {
+      "id": "E11",
+      "label": "renderer console error list is empty",
+      "pass": true,
+      "detail": "[]"
+    },
+    {
+      "id": "E12-PNG-INVENTORY",
+      "label": "runtime evidence PNG basenames exactly match bound screenshot inventory",
+      "pass": true,
+      "detail": "{\"actualCount\":24,\"boundCount\":24,\"actualNames\":[\"atlas-clinical-light-1366x768.png\",\"chat-e4d-mutant-100vh-1366x768.png\",\"chat-e4d-restored-1024x700.png\",\"chat-e4d-restored-1366x768.png\",\"chat-e4d-restored-1920x1080.png\",\"chat-focus-clinical-light-1366x768.png\",\"growth-clinical-dark-1024x700.png\",\"growth-clinical-dark-1366x768.png\",\"growth-clinical-dark-1920x1080.png\",\"growth-clinical-light-1024x700.png\",\"growth-clinical-light-1366x768.png\",\"growth-clinical-light-1920x1080.png\",\"growth-observatory-dark-1024x700.png\",\"growth-observatory-dark-1366x768.png\",\"growth-observatory-dark-1920x1080.png\",\"growth-observatory-light-1024x700.png\",\"growth-observatory-light-1366x768.png\",\"growth-observatory-light-1920x1080.png\",\"growth-theatre-dark-1024x700.png\",\"growth-theatre-dark-1366x768.png\",\"growth-theatre-dark-1920x1080.png\",\"growth-theatre-light-1024x700.png\",\"growth-theatre-light-1366x768.png\",\"growth-theatre-light-1920x1080.png\"],\"boundNames\":[\"atlas-clinical-light-1366x768.png\",\"chat-e4d-mutant-100vh-1366x768.png\",\"chat-e4d-restored-1024x700.png\",\"chat-e4d-restored-1366x768.png\",\"chat-e4d-restored-1920x1080.png\",\"chat-focus-clinical-light-1366x768.png\",\"growth-clinical-dark-1024x700.png\",\"growth-clinical-dark-1366x768.png\",\"growth-clinical-dark-1920x1080.png\",\"growth-clinical-light-1024x700.png\",\"growth-clinical-light-1366x768.png\",\"growth-clinical-light-1920x1080.png\",\"growth-observatory-dark-1024x700.png\",\"growth-observatory-dark-1366x768.png\",\"growth-observatory-dark-1920x1080.png\",\"growth-observatory-light-1024x700.png\",\"growth-observatory-light-1366x768.png\",\"growth-observatory-light-1920x1080.png\",\"growth-theatre-dark-1024x700.png\",\"growth-theatre-dark-1366x768.png\",\"growth-theatre-dark-1920x1080.png\",\"growth-theatre-light-1024x700.png\",\"growth-theatre-light-1366x768.png\",\"growth-theatre-light-1920x1080.png\"],\"missing\":[],\"extra\":[]}"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\chat-e4d-restored-1024x700.png",
+      "bytes": 64732,
+      "sha256": "1F05CE7D110BD65CF9723EC2C3E4295383B1CF8D9F96FC64947A2701ED140ECF"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\chat-e4d-restored-1366x768.png",
+      "bytes": 78315,
+      "sha256": "6C00608C35A83FFD27F4B8A262ACAB5956CAA353822D0C98B28C6FF5CC581A05"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\chat-e4d-restored-1920x1080.png",
+      "bytes": 86852,
+      "sha256": "E5BD7C765E4FD753EB05842517538E0F4DC837942C0C742B2E0806B240F04210"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\chat-e4d-mutant-100vh-1366x768.png",
+      "bytes": 74584,
+      "sha256": "17780957FC29AD6FB07BCC9CE9578A65FF89FA5346FCD9085787296302A9ECA1"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\chat-focus-clinical-light-1366x768.png",
+      "bytes": 76125,
+      "sha256": "B640F75941A9C8D60AEE549F00371DAF3C47F0DBA89D210479DCAE94F04F927A"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\atlas-clinical-light-1366x768.png",
+      "bytes": 71595,
+      "sha256": "D6380C75E43A4BF7395633DE2FC7980F476F2172E78EEB95D00E9EB653F6F5B8"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-clinical-light-1024x700.png",
+      "bytes": 65711,
+      "sha256": "5EDAC03E3662AF984C4A4F398A30140AEF92EB3DA252CE058AB05D106B394FBE"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-clinical-light-1366x768.png",
+      "bytes": 79568,
+      "sha256": "CC77E144233185CDB6772489AC7586CCE8DED7FFAE400A18A4DADABB4DDF1B34"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-clinical-light-1920x1080.png",
+      "bytes": 89095,
+      "sha256": "17AC90D2C116265584BD31E7877C04D8ED9A9326361552D2404B24752C8926D9"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-clinical-dark-1024x700.png",
+      "bytes": 66264,
+      "sha256": "8AD79DC4795364FA2FB7BDEC1F52250252AFBF395BD32A4356C0CE4234B23710"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-clinical-dark-1366x768.png",
+      "bytes": 80644,
+      "sha256": "ACF87506515C50DB5FE251922B25C20D2190D601B515791C296766AFDD5D4ED2"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-clinical-dark-1920x1080.png",
+      "bytes": 90805,
+      "sha256": "CE4F0079B8E34BFE169F53F73166CF9C1F06EA31F23FC0682ADCA1C017FAA72D"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-theatre-light-1024x700.png",
+      "bytes": 66035,
+      "sha256": "12E5237867BF95F643D9056545229084AD33F56AEFD9BB8B86346755DFF7AFE2"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-theatre-light-1366x768.png",
+      "bytes": 79809,
+      "sha256": "5BB2342875177205C78A4EA468378845B14602EE7D089E450BFCC489AB7BA0E4"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-theatre-light-1920x1080.png",
+      "bytes": 89391,
+      "sha256": "420AD7F7735EB575F56044D0BE412C92C5E574DD6BFF2568C54400752D9BBBE8"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-theatre-dark-1024x700.png",
+      "bytes": 66294,
+      "sha256": "48768E03FF7C7432934C058870E57F6699973BF0880AEAA92DD5BC4859DDB225"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-theatre-dark-1366x768.png",
+      "bytes": 80602,
+      "sha256": "3B6677204399C60E9CC1B00972FAFD1F1F9F762BB093E298EE9680D6A8900C0E"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-theatre-dark-1920x1080.png",
+      "bytes": 90622,
+      "sha256": "3AFBF9876068FD01C7E32B70B1FB7A3269AC2B479EAF1BDB4E9544CA48301EF2"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-observatory-light-1024x700.png",
+      "bytes": 65553,
+      "sha256": "5C023366EAB9C2BC9F29C57DFC84ADD579381C253C0442807BE5ED42D046062A"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-observatory-light-1366x768.png",
+      "bytes": 79697,
+      "sha256": "3093F99C9485169DB84C51AC1BD319B055295C6BE8B590335B06AC677F410E84"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-observatory-light-1920x1080.png",
+      "bytes": 89301,
+      "sha256": "80756A545C12C04318D40E5D8E5C63A90CF50BC06D45A614F764E4880DB036B4"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-observatory-dark-1024x700.png",
+      "bytes": 66263,
+      "sha256": "625A3626DE185C8A50D94F10B219B7BC18ABF9C27BE7BE83E01A2BACC137FAF8"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-observatory-dark-1366x768.png",
+      "bytes": 80688,
+      "sha256": "9F9C69AF2FB66710D3B749ABB6130ECC1370FDA01C869D8FD0B13C1BE71D7B6B"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0-ui-structure-integration\\evidence\\growth-observatory-dark-1920x1080.png",
+      "bytes": 90720,
+      "sha256": "BD26832DEF118FB3CF7EB159F29C65FDFAD335C54B32FDB119C9AD78E3B542B6"
+    }
+  ],
+  "inventory": {
+    "actualCount": 24,
+    "boundCount": 24,
+    "actualNames": [
+      "atlas-clinical-light-1366x768.png",
+      "chat-e4d-mutant-100vh-1366x768.png",
+      "chat-e4d-restored-1024x700.png",
+      "chat-e4d-restored-1366x768.png",
+      "chat-e4d-restored-1920x1080.png",
+      "chat-focus-clinical-light-1366x768.png",
+      "growth-clinical-dark-1024x700.png",
+      "growth-clinical-dark-1366x768.png",
+      "growth-clinical-dark-1920x1080.png",
+      "growth-clinical-light-1024x700.png",
+      "growth-clinical-light-1366x768.png",
+      "growth-clinical-light-1920x1080.png",
+      "growth-observatory-dark-1024x700.png",
+      "growth-observatory-dark-1366x768.png",
+      "growth-observatory-dark-1920x1080.png",
+      "growth-observatory-light-1024x700.png",
+      "growth-observatory-light-1366x768.png",
+      "growth-observatory-light-1920x1080.png",
+      "growth-theatre-dark-1024x700.png",
+      "growth-theatre-dark-1366x768.png",
+      "growth-theatre-dark-1920x1080.png",
+      "growth-theatre-light-1024x700.png",
+      "growth-theatre-light-1366x768.png",
+      "growth-theatre-light-1920x1080.png"
+    ],
+    "boundNames": [
+      "atlas-clinical-light-1366x768.png",
+      "chat-e4d-mutant-100vh-1366x768.png",
+      "chat-e4d-restored-1024x700.png",
+      "chat-e4d-restored-1366x768.png",
+      "chat-e4d-restored-1920x1080.png",
+      "chat-focus-clinical-light-1366x768.png",
+      "growth-clinical-dark-1024x700.png",
+      "growth-clinical-dark-1366x768.png",
+      "growth-clinical-dark-1920x1080.png",
+      "growth-clinical-light-1024x700.png",
+      "growth-clinical-light-1366x768.png",
+      "growth-clinical-light-1920x1080.png",
+      "growth-observatory-dark-1024x700.png",
+      "growth-observatory-dark-1366x768.png",
+      "growth-observatory-dark-1920x1080.png",
+      "growth-observatory-light-1024x700.png",
+      "growth-observatory-light-1366x768.png",
+      "growth-observatory-light-1920x1080.png",
+      "growth-theatre-dark-1024x700.png",
+      "growth-theatre-dark-1366x768.png",
+      "growth-theatre-dark-1920x1080.png",
+      "growth-theatre-light-1024x700.png",
+      "growth-theatre-light-1366x768.png",
+      "growth-theatre-light-1920x1080.png"
+    ],
+    "missing": [],
+    "extra": []
+  },
+  "clock": {
+    "mode": "synthetic-progressing",
+    "startIso": "2026-08-09T12:00:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "offsetMinutes": 480,
+    "injection": "Page.addScriptToEvaluateOnNewDocument",
+    "registrationId": "1"
+  },
+  "consoleErrors": []
+}

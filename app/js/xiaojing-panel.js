@@ -1,0 +1,776 @@
+/* ============================================================
+ * 心镜 XinJing — 小镜面板（v4.0.0）
+ * 接入 AgentCore 工具调用 + 多轮对话记忆 + 语音输入
+ * 设计原则：动画只走 transform + opacity，避免布局重排卡顿
+ * ============================================================ */
+'use strict';
+
+const XiaojingPanel = (() => {
+  var panelEl = null;
+  var bodyEl = null;
+  var inputEl = null;
+  var isOpen = false;
+  var hasNewHint = false;
+  var hintDotEl = null;
+  var busy = false;
+
+  var messages = [];
+  var MEM_KEY = 'xj_xiaojing_messages_v1';
+  var MEM_MAX = 30;
+
+  var lastWriteAction = null;
+
+  var XIAOJING_IDENTITY = '你是心镜（XinJing）的助手「小镜」，身份设定：\n' +
+    '- 你是心理咨询师的专业助理，不是AI督导，也不是大师。\n' +
+    '- 你的职责是帮助管理日常工作：查看来访者信息、记账、提醒待办、回答关于app功能的问题。\n' +
+    '- 你绝对不能说没有来源的话。如果用户问数据问题，你必须先查实时数据再回答，不能编造。\n' +
+    '- 如果用户问的专业问题超出你的知识范围，诚实地说"这个需要请教AI督导或真人督导"。\n' +
+    '- 回复简洁专业，用中文，语气温暖有边界。\n' +
+    '- 你可以引导用户去各个页面：咨询记录、逐字稿整理、撰写报告、AI督导、真人督导、文档中心、账单、大师对话、设置、咨询日历、资料库。';
+
+  function money(n) { return '¥' + Number(n || 0).toLocaleString('zh-CN'); }
+
+  function escapeHtml(s) {
+    if (typeof App !== 'undefined' && App.escapeHtml) return App.escapeHtml(s);
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function saveMemory() {
+    try {
+      var chat = messages.filter(function (m) { return m.role !== 'system'; });
+      if (chat.length > MEM_MAX) chat = chat.slice(-MEM_MAX);
+      localStorage.setItem(MEM_KEY, JSON.stringify(chat));
+    } catch (e) { /* ignore */ }
+  }
+
+  function restoreMemory() {
+    try {
+      var saved = localStorage.getItem(MEM_KEY);
+      if (saved) {
+        var chat = JSON.parse(saved);
+        if (Array.isArray(chat) && chat.length > 0) {
+          for (var i = 0; i < chat.length; i++) {
+            messages.push(chat[i]);
+            if (chat[i].role === 'user') appendUserMsgRaw(chat[i].content);
+            else if (chat[i].role === 'assistant') appendAiMsgRaw(chat[i].content);
+          }
+          var note = document.createElement('div');
+          note.style.cssText = 'font-size:11px;color:var(--ink-3);text-align:center;margin:4px 0';
+          note.textContent = '↩ 已恢复跨页对话记忆（' + chat.length + ' 条）';
+          if (bodyEl) bodyEl.appendChild(note);
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function ensureSystemPrompt() {
+    if (!messages.length || messages[0].role !== 'system') {
+      var sys = buildSystemPrompt();
+      messages.unshift({ role: 'system', content: sys });
+    } else {
+      messages[0].content = buildSystemPrompt();
+    }
+  }
+
+  function queryLocal(text) {
+    var q = text.toLowerCase();
+    var clients, sessions;
+    try {
+      if (typeof Store === 'undefined') return null;
+      clients = Store.getClients();
+      sessions = Store.getSessions();
+    } catch (e) { return null; }
+    var results = [];
+
+    if (q.indexOf('欠费') >= 0 || q.indexOf('没付') >= 0 || q.indexOf('未收') >= 0) {
+      clients.forEach(function (c) {
+        var ss = Store.getSessionsByClient(c.id);
+        var unpaid = ss.filter(function (s) { return s.billing && s.billing.fee > 0 && !s.billing.paid; });
+        if (unpaid.length) {
+          var total = unpaid.reduce(function (s, x) { return s + (x.billing.fee || 0); }, 0);
+          results.push(c.name + '：' + unpaid.length + '节未付，共' + money(total));
+        }
+      });
+      if (results.length) return { type: 'text', content: '📊 欠费明细：\n' + results.join('\n') };
+      return { type: 'text', content: '✅ 目前没有来访者有欠费。' };
+    }
+
+    if (q.indexOf('来访者') >= 0 || q.indexOf('客户') >= 0 || q.indexOf('人数') >= 0) {
+      var active = clients.filter(function (c) { return c.status !== 'ended'; });
+      return { type: 'text', content: '👥 共有 ' + clients.length + ' 位来访者（活跃 ' + active.length + ' 位）。' };
+    }
+
+    if ((q.indexOf('收入') >= 0 || q.indexOf('本月') >= 0) && q.indexOf('收') >= 0) {
+      var todayStr = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
+      var ym = todayStr.slice(0, 7);
+      var total = 0, paid = 0;
+      sessions.forEach(function (s) {
+        if (s.date && s.date.slice(0, 7) === ym && s.billing && s.billing.fee > 0) {
+          total += s.billing.fee;
+          if (s.billing.paid) paid += s.billing.fee;
+        }
+      });
+      return { type: 'text', content: '💰 本月收入：' + money(total) + '（已收 ' + money(paid) + '，待收 ' + money(total - paid) + '）' };
+    }
+
+    if (q.indexOf('今天') >= 0 || q.indexOf('今日') >= 0) {
+      var today = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
+      var todayS = sessions.filter(function (s) { return s.date === today; });
+      return { type: 'text', content: '📅 今天有 ' + todayS.length + ' 节咨询。' + (todayS.length ? todayS.map(function (s) {
+        var c = Store.getClient(s.clientId);
+        return '  · ' + (c ? c.name : '?') + ' 第' + (s.sessionNumber || '?') + '节' + (s.billing && s.billing.fee ? ' ¥' + s.billing.fee : '');
+      }).join('\n') : '') };
+    }
+
+    return null;
+  }
+
+  function buildPanelHtml() {
+    return '<div class="xj-panel-v3" id="xj-panel-v3">' +
+        '<div class="xj3-overlay" id="xj3-overlay"></div>' +
+        '<div class="xj3-drawer">' +
+          '<div class="xj3-head">' +
+            '<div class="xj3-avatar">小</div>' +
+            '<div class="xj3-head-info">' +
+              '<div class="xj3-name">小镜 <span class="xj3-badge">AI 助手</span></div>' +
+              '<div class="xj3-sub" id="xj3-sub">工作台助手</div>' +
+            '</div>' +
+            '<button class="xj3-close" id="xj3-close" title="收起">×</button>' +
+          '</div>' +
+          '<div class="xj3-body" id="xj3-body"></div>' +
+          '<div class="xj3-input-row">' +
+            '<input id="xj3-input" placeholder="问点什么……" autocomplete="off">' +
+            '<button id="xj3-voice" title="语音输入">🎤</button>' +
+            '<button id="xj3-send">发送</button>' +
+          '</div>' +
+        '</div>' +
+        '<button class="xj3-fab docked" id="xj3-fab" title="小镜">' +
+          '<span class="xj3-fab-icon">小</span>' +
+          '<span class="xj3-fab-dot" id="xj3-fab-dot"></span>' +
+        '</button>' +
+      '</div>';
+  }
+
+  function build() {
+    if (panelEl) return panelEl;
+
+    // 若 xinjing-chat.js 已加载，则由它统一接管面板（避免双悬浮球）
+    if (window.XinJingChat && typeof window.XinJingChat.build === 'function' && document.getElementById('xj-panel-v3')) {
+      panelEl = document.getElementById('xj-panel-v3');
+      bodyEl = panelEl.querySelector('#xj3-body');
+      inputEl = panelEl.querySelector('#xj3-input');
+      hintDotEl = panelEl.querySelector('#xj3-fab-dot');
+      try { window.XinJingChat.build(); } catch (e) {}
+      return panelEl;
+    }
+
+    var style = document.createElement('style');
+    style.textContent = '' +
+      // 2026-09-12（XJ-512-009 缺陷2）：与 xinjing-chat.js 的同名规则保持一致。
+      // 此文件是降级路径（xinjing-chat.js 未接管时生效），两处样式漂移会导致行为不一致。
+      '.xj-panel-v3{position:fixed;top:0;right:0;width:0;height:100vh;z-index:9999;pointer-events:none;overflow:visible}' +
+      // 遮罩保留点击命中面但改透明，面板呈现为右侧抽屉而非整屏黑幕
+      '.xj3-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;' +
+        'background:transparent;opacity:1;pointer-events:none;' +
+        'will-change:opacity;transition:opacity .3s cubic-bezier(.4,0,.2,1)}' +
+      '.xj-panel-v3.open .xj3-overlay{opacity:1;pointer-events:auto}' +
+      '.xj3-fab{position:fixed;right:20px;bottom:24px;width:52px;height:52px;border-radius:50%;border:none;' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font-size:20px;font-weight:700;font-family:var(--serif);' +
+        'cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.15);pointer-events:auto;' +
+        'will-change:transform,opacity;transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .2s ease;' +
+        'display:flex;align-items:center;justify-content:center}' +
+      '.xj3-fab.docked{transform:translateX(42px)}' +
+      '.xj3-fab:hover{transform:translateX(0) scale(1.06)}' +
+      '.xj3-fab:active{transform:translateX(0) scale(.95)}' +
+      // open 时 fab 收起为贴边竖条但保持可点，用户随时可点它收起面板
+      '.xj-panel-v3.open .xj3-fab{transform:translateX(42px);opacity:1;pointer-events:auto}' +
+      '.xj3-fab-icon{line-height:1}' +
+      '.xj3-fab-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;' +
+        'background:var(--danger,#ff5252);border:2px solid var(--accent);display:none}' +
+      '.xj3-fab-dot.show{display:block}' +
+      '.xj3-drawer{position:fixed;top:0;right:0;width:360px;height:100vh;' +
+        'background:var(--paper-2,#fff);border-left:1px solid var(--border);' +
+        'display:flex;flex-direction:column;pointer-events:auto;' +
+        'will-change:transform;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);' +
+        'box-shadow:-4px 0 24px rgba(0,0,0,.08)}' +
+      '.xj-panel-v3.open .xj3-drawer{transform:translateX(0)}' +
+      '.xj3-head{display:flex;align-items:center;gap:10px;padding:14px 16px;' +
+        'border-bottom:1px solid var(--border);flex-shrink:0}' +
+      '.xj3-avatar{width:40px;height:40px;border-radius:50%;background:var(--accent-soft);' +
+        'color:var(--accent);display:flex;align-items:center;justify-content:center;' +
+        'font-family:var(--serif);font-weight:700;font-size:18px;flex-shrink:0}' +
+      '.xj3-head-info{flex:1;min-width:0}' +
+      '.xj3-name{font-family:var(--serif);font-size:15px;font-weight:600}' +
+      '.xj3-badge{font-size:9px;padding:1px 6px;border-radius:999px;background:var(--accent-soft);' +
+        'color:var(--accent);font-weight:500;margin-left:6px;vertical-align:middle}' +
+      '.xj3-sub{font-size:11px;color:var(--ink-3);margin-top:2px}' +
+      '.xj3-close{border:none;background:none;font-size:22px;color:var(--ink-3);cursor:pointer;' +
+        'padding:4px 8px;border-radius:6px;line-height:1}' +
+      '.xj3-close:hover{background:var(--bg);color:var(--ink)}' +
+      '.xj3-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}' +
+      '.xj3-msg{max-width:88%;padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.7;word-break:break-word}' +
+      '.xj3-msg.ai{background:var(--accent-soft);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}' +
+      '.xj3-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}' +
+      '.xj3-msg.typing{opacity:.6;font-style:italic}' +
+      '.xj3-msg.system{background:transparent;color:var(--ink-3);font-size:11px;align-self:center;padding:4px 8px}' +
+      '.xj3-hint-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:2px}' +
+      '.xj3-hint-card .h-title{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}' +
+      '.xj3-hint-card ul{margin:0;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.9}' +
+      '.xj3-hint-card li{cursor:pointer}' +
+      '.xj3-hint-card li:hover{color:var(--accent)}' +
+      '.xj3-quick-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}' +
+      '.xj3-quick-actions button{border:1px solid var(--border);background:var(--paper,#fff);' +
+        'border-radius:999px;padding:5px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);' +
+        'transition:transform .15s ease,border-color .15s ease,color .15s ease;will-change:transform}' +
+      '.xj3-quick-actions button:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}' +
+      '.xj3-input-row{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}' +
+      '.xj3-input-row input{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 12px;' +
+        'font:13px var(--sans);outline:none;background:var(--bg);transition:border-color .15s ease}' +
+      '.xj3-input-row input:focus{border-color:var(--accent)}' +
+      '.xj3-input-row button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;' +
+        'padding:0 16px;font:600 13px var(--sans);cursor:pointer;transition:opacity .15s ease}' +
+      '.xj3-input-row button:hover{opacity:.9}' +
+      '.xj3-input-row button:active{opacity:.8}' +
+      '.xj3-input-row #xj3-voice{background:none;border:none;font-size:16px;color:var(--ink-3);cursor:pointer;padding:0 8px;border-radius:8px;transition:color .15s ease}' +
+      '.xj3-input-row #xj3-voice:hover{color:var(--accent)}' +
+      '.xj3-input-row #xj3-voice.recording{color:#ff5252;animation:pulse 1.5s infinite}' +
+      '.xj3-confirm-card{background:var(--paper,#fff);border:1px solid var(--danger,#ff5252);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch;box-shadow:0 2px 8px rgba(255,82,82,.1)}' +
+      '.xj3-confirm-title{font-size:12px;font-weight:600;color:var(--danger,#ff5252);margin-bottom:8px}' +
+      '.xj3-confirm-tool{font-size:11px;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-confirm-preview{font-size:12px;color:var(--ink);margin-bottom:10px;line-height:1.6}' +
+      '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
+      '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
+      '.xj3-confirm-actions .xj3-ok{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}' +
+      '.xj3-progress{font-size:11px;color:var(--ink-3);padding:4px 8px;align-self:flex-start}' +
+      '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:10px 12px;margin:2px 0;align-self:stretch}' +
+      '.xj3-followup-head{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-followup-item{font-size:12px;color:var(--ink-2);line-height:1.8;padding-left:12px;position:relative}' +
+      '.xj3-followup-item:before{content:"•";position:absolute;left:0;color:var(--accent)}' +
+      '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}';
+    document.head.appendChild(style);
+
+    panelEl = document.createElement('div');
+    panelEl.innerHTML = buildPanelHtml();
+    document.body.appendChild(panelEl);
+    panelEl = document.getElementById('xj-panel-v3');
+
+    bodyEl = panelEl.querySelector('#xj3-body');
+    inputEl = panelEl.querySelector('#xj3-input');
+    hintDotEl = panelEl.querySelector('#xj3-fab-dot');
+
+    panelEl.querySelector('#xj3-fab').addEventListener('click', toggle);
+    panelEl.querySelector('#xj3-close').addEventListener('click', toggle);
+    panelEl.querySelector('#xj3-overlay').addEventListener('click', toggle);
+    // 2026-09-12（XJ-512-009 缺陷2）：补 Escape 关闭（降级路径，xinjing-chat.js 未接管时生效）
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' && e.key !== 'Esc') return;
+      if (!panelEl || !panelEl.classList.contains('open')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }, true);
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') send();
+    });
+    panelEl.querySelector('#xj3-send').addEventListener('click', send);
+    panelEl.querySelector('#xj3-voice').addEventListener('click', toggleVoice);
+
+    bodyEl.addEventListener('click', function (e) {
+      var li = e.target.closest('#xj3-hint-list li');
+      if (li) {
+        var hint = li.getAttribute('data-hint');
+        if (hint) askHint(hint);
+      }
+      var fi = e.target.closest('.xj3-followup-item');
+      if (fi) {
+        var txt = fi.textContent.trim();
+        if (txt) quickQuery(txt);
+      }
+    });
+
+    ensureSystemPrompt();
+    renderGreeting();
+    restoreMemory();
+    return panelEl;
+  }
+
+  function renderGreeting() {
+    if (!bodyEl) return;
+    var profile = (typeof Memory !== 'undefined' && Memory.getProfile) ? Memory.getProfile() : {};
+    var userName = (profile && profile.name) || '梅';
+
+    var hintList = [];
+    try {
+      if (typeof PageHints !== 'undefined' && PageHints.getHints) {
+        hintList = PageHints.getHints(location.pathname);
+      }
+    } catch (e) { /* ignore */ }
+
+    var hasMemory = false;
+    try {
+      var saved = localStorage.getItem(MEM_KEY);
+      if (saved) {
+        var chat = JSON.parse(saved);
+        hasMemory = Array.isArray(chat) && chat.length > 0;
+      }
+    } catch (e) {}
+
+    if (hasMemory) return;
+
+    var html = '';
+    html += '<div class="xj3-msg ai">你好，' + escapeHtml(userName) + '。<br>' +
+      '我是小镜，你的工作台助手。有什么可以帮你的？</div>';
+
+    if (hintList.length) {
+      html += '<div class="xj3-hint-card" id="xj3-hint-list"><div class="h-title">📌 今日提醒</div><ul>';
+      hintList.forEach(function (h) {
+        html += '<li data-hint="' + escapeHtml(h) + '">' + escapeHtml(h) + '</li>';
+      });
+      html += '</ul></div>';
+    }
+
+    var pageCtx = getPageContext();
+    if (pageCtx && pageCtx.capabilities && pageCtx.capabilities.length) {
+      html += '<div class="xj3-hint-card"><div class="h-title">💡 ' + escapeHtml(pageCtx.title || '本页功能') + '</div><ul>';
+      pageCtx.capabilities.forEach(function (c) {
+        html += '<li>' + escapeHtml(c) + '</li>';
+      });
+      html += '</ul></div>';
+    }
+
+    html += '<div class="xj3-quick-actions">' +
+      '<button onclick="XiaojingPanel.quickQuery(\'今天有几节咨询\')">今日安排</button>' +
+      '<button onclick="XiaojingPanel.quickQuery(\'谁欠费\')">欠费查询</button>' +
+      '<button onclick="XiaojingPanel.quickQuery(\'本月收入\')">本月收入</button>' +
+      '<button onclick="XiaojingPanel.quickQuery(\'有多少来访者\')">来访者</button>' +
+      '</div>';
+
+    bodyEl.innerHTML = html;
+    bodyEl.scrollTop = 0;
+  }
+
+  function getPageContext() {
+    if (typeof window !== 'undefined' && window.__XJ_PAGE__) return window.__XJ_PAGE__;
+    return null;
+  }
+
+  function appendUserMsg(text) {
+    appendUserMsgRaw(text);
+    messages.push({ role: 'user', content: text });
+  }
+  function appendUserMsgRaw(text) {
+    if (!bodyEl) return;
+    var div = document.createElement('div');
+    div.className = 'xj3-msg user';
+    div.textContent = text;
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function appendAiMsg(text, isTyping) {
+    var div = appendAiMsgRaw(text, isTyping);
+    if (!isTyping) messages.push({ role: 'assistant', content: text });
+    return div;
+  }
+  function appendAiMsgRaw(text, isTyping) {
+    if (!bodyEl) return null;
+    var div = document.createElement('div');
+    div.className = 'xj3-msg ai' + (isTyping ? ' typing' : '');
+    div.innerHTML = escapeHtml(text || '').replace(/\n/g, '<br>');
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+    return div;
+  }
+
+  function updateAiMsg(div, text) {
+    if (!div) return;
+    div.classList.remove('typing');
+    div.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
+    if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function appendSystemMsg(text) {
+    if (!bodyEl) return;
+    var div = document.createElement('div');
+    div.className = 'xj3-msg system';
+    div.textContent = text;
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function appendProgress(text) {
+    if (!bodyEl) return;
+    var div = document.createElement('div');
+    div.className = 'xj3-progress';
+    div.textContent = text;
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+    return div;
+  }
+
+  function buildSystemPrompt() {
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.registerPrompt) {
+      PromptGovernance.registerPrompt({
+        id: 'xiaojing.panel.system',
+        version: '4.4.0',
+        task: 'assistant-navigation',
+        model: 'chat-completions-compatible',
+        author: 'XinJing product team',
+        source: 'app/js/xiaojing-panel.js',
+        changeLog: ['4.4.0: registered Xiaojing panel identity; live page context remains outside the manifest hash.'],
+        content: XIAOJING_IDENTITY,
+      });
+    }
+    var preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
+    var ctx = '';
+    try {
+      if (typeof Store !== 'undefined') {
+        var clients = Store.getClients();
+        var sessions = Store.getSessions();
+        var todayStr = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
+        var todayS = sessions.filter(function (s) { return s.date === todayStr; });
+        var owingCount = clients.filter(function (c) {
+          return Store.getSessionsByClient(c.id).some(function (s) { return s.billing && s.billing.fee > 0 && !s.billing.paid; });
+        }).length;
+        var ym = todayStr.slice(0, 7);
+        var monthIncome = sessions.filter(function (s) {
+          return s.date && s.date.slice(0, 7) === ym && s.billing && s.billing.fee > 0;
+        }).reduce(function (s, x) { return s + (x.billing.fee || 0); }, 0);
+        ctx = '【当前真实数据概览】\n' +
+          '今日咨询：' + todayS.length + '节\n' +
+          '来访者总数：' + clients.length + '位\n' +
+          '有欠费的来访者：' + owingCount + '位\n' +
+          '本月收入：' + money(monthIncome) + '\n\n' +
+          '【重要规则】\n' +
+          '- 如果用户问数据问题，你可以引用上面这个数据概览回答。\n' +
+          '- 如果需要更详细的数据或写入操作，使用提供的工具。\n' +
+          '- 如果用户问的专业问题超出你的能力范围，诚实地让对方去AI督导页面。';
+      }
+    } catch (e) { /* ignore */ }
+
+    var pageCtx = getPageContext();
+    if (pageCtx && pageCtx.title) {
+      ctx += '\n\n【当前页面】' + pageCtx.title;
+      if (pageCtx.capabilities) ctx += '\n本页能力：' + pageCtx.capabilities.join('、');
+    }
+
+    return (preamble ? preamble + '\n\n' : '') + XIAOJING_IDENTITY + '\n\n' + ctx;
+  }
+
+  function requestConfirm(toolCall, args) {
+    return new Promise(function (resolve) {
+      if (!bodyEl) { resolve({ ok: false }); return; }
+      var card = document.createElement('div');
+      card.className = 'xj3-confirm-card';
+      var toolName = (toolCall && toolCall.function && toolCall.function.name) || '';
+      var previewHtml = '';
+      try {
+        previewHtml = renderConfirmPreview(toolName, args);
+      } catch (e) { previewHtml = '<div style="font-size:12px;color:var(--ink-3)">参数：' + escapeHtml(JSON.stringify(args)) + '</div>'; }
+      card.innerHTML =
+        '<div class="xj3-confirm-title">⚠ 即将执行写入操作</div>' +
+        '<div class="xj3-confirm-tool">工具：' + escapeHtml(toolName) + '</div>' +
+        '<div class="xj3-confirm-preview">' + previewHtml + '</div>' +
+        '<div class="xj3-confirm-actions">' +
+          '<button class="xj3-cancel">取消</button>' +
+          '<button class="xj3-ok">确认执行</button>' +
+        '</div>';
+      bodyEl.appendChild(card);
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+      card.querySelector('.xj3-ok').addEventListener('click', function () {
+        card.remove();
+        resolve({ ok: true });
+      });
+      card.querySelector('.xj3-cancel').addEventListener('click', function () {
+        card.remove();
+        resolve({ ok: false });
+      });
+    });
+  }
+
+  function renderConfirmPreview(toolName, args) {
+    if (toolName === 'billing_add_record' && Array.isArray(args.records)) {
+      var rows = args.records.map(function (r, i) {
+        return '<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">' +
+          (i + 1) + '. 来访者：<b>' + escapeHtml(r.clientName || r.clientId || '') + '</b> ' +
+          '日期：<b>' + escapeHtml(r.date || '') + '</b> ' +
+          '费用：<b>¥' + escapeHtml(String(r.fee || 0)) + '</b> ' +
+          (r.settleType ? escapeHtml(r.settleType) + '·' : '') +
+          (r.paid ? '已收' : '未收') +
+        '</div>';
+      }).join('');
+      return rows;
+    }
+    if (toolName === 'billing_monthly_settle') {
+      return '<div style="font-size:12px">来访者：<b>' + escapeHtml(args.clientName || args.clientId || '') + '</b> 月份：<b>' + escapeHtml(args.month || '') + '</b> 金额：<b>¥' + escapeHtml(String(args.amount || 0)) + '</b></div>';
+    }
+    if (toolName === 'client_update') {
+      var keys = Object.keys(args.patch || {}).join(', ');
+      return '<div style="font-size:12px">来访者 ID：<b>' + escapeHtml(args.clientId || '') + '</b><br>修改字段：<b>' + escapeHtml(keys) + '</b></div>';
+    }
+    return '<div style="font-size:12px;color:var(--ink-3)">参数：' + escapeHtml(JSON.stringify(args)) + '</div>';
+  }
+
+  function renderFollowupCard(items) {
+    if (!bodyEl || !Array.isArray(items) || !items.length) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'xj3-followup-card';
+    var head = document.createElement('div');
+    head.className = 'xj3-followup-head';
+    head.textContent = '💡 跟进提示';
+    wrap.appendChild(head);
+    items.forEach(function (t) {
+      var it = document.createElement('div');
+      it.className = 'xj3-followup-item';
+      it.textContent = t;
+      wrap.appendChild(it);
+    });
+    bodyEl.appendChild(wrap);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function recordWriteAction(toolName, args, result) {
+    lastWriteAction = { toolName: toolName, args: args, result: result, ts: Date.now() };
+  }
+
+  async function send() {
+    if (busy) return;
+    if (!inputEl) return;
+    var text = (inputEl.value || '').trim();
+    if (!text) return;
+    inputEl.value = '';
+    build();
+    appendUserMsg(text);
+
+    var local = queryLocal(text);
+    if (local) {
+      appendAiMsg(local.content);
+      saveMemory();
+      return;
+    }
+
+    var unlocked = true;
+    try {
+      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') unlocked = App.aiUnlocked();
+    } catch (e) { /* ignore */ }
+    if (!unlocked) {
+      appendAiMsg('小镜需激活后才能使用 AI 对话。请先在设置中配置 AI 密钥。');
+      saveMemory();
+      return;
+    }
+
+    var hasAgentCore = typeof AgentCore !== 'undefined' && typeof AgentCore.runRound === 'function';
+    var hasTools = typeof AgentTools !== 'undefined';
+    busy = true;
+    var typingDiv = appendAiMsg('思考中…', true);
+
+    try {
+      ensureSystemPrompt();
+      if (hasAgentCore && hasTools) {
+        var result = await AgentCore.runRound(messages, requestConfirm, function (name, status, data) {
+          updateAiMsg(typingDiv, '');
+          if (status === 'executing') appendProgress('正在执行：' + name + '…');
+          else if (status === 'done') {
+            if (data && data.card && data.card.kind === 'navigate_hint') {
+              appendFollowupCard([data.card.label || '去看看']);
+              return;
+            }
+            if (data) {
+              var summary = data.added !== undefined ? ('✓ 已新增 ' + data.added + ' 条记录' + (data.skipped ? '，跳过 ' + data.skipped + ' 条' : ''))
+                : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
+                : '✓ 已完成');
+              appendProgress(summary);
+              if (data.added !== undefined && data.sessionIds && data.sessionIds.length) {
+                recordWriteAction(name, {}, data);
+              }
+            }
+          }
+        }, function (evt) {
+          if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
+            renderFollowupCard(evt.items);
+          }
+        }, function (piece, fullText) { updateAiMsg(typingDiv, fullText || piece || '');
+        });
+        if (result.error) {
+          updateAiMsg(typingDiv, '⚠ ' + result.error);
+        } else if (result.reply) {
+          updateAiMsg(typingDiv, result.reply);
+          messages.push({ role: 'assistant', content: result.reply });
+        } else {
+          updateAiMsg(typingDiv, '（已完成）');
+          messages.push({ role: 'assistant', content: '已完成。' });
+        }
+      } else {
+        if (typeof AI !== 'undefined' && AI.send) {
+          var sys = buildSystemPrompt();
+          AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+            if (res && res.error) {
+              updateAiMsg(typingDiv, '出错：' + res.error);
+            } else {
+              var content = (res && res.content) || '（未获得回复）';
+              updateAiMsg(typingDiv, content);
+              messages.push({ role: 'assistant', content: content });
+            }
+            busy = false;
+            saveMemory();
+          }, { onDelta: function (piece, fullText) { updateAiMsg(typingDiv, fullText); } });
+          return;
+        } else {
+          updateAiMsg(typingDiv, 'AI 模块未就绪，请重启应用。');
+        }
+      }
+    } catch (e) {
+      updateAiMsg(typingDiv, '出错：' + (e.message || '未知错误'));
+    }
+    busy = false;
+    saveMemory();
+  }
+
+  function quickQuery(text) {
+    if (!inputEl) return;
+    inputEl.value = text;
+    send();
+  }
+
+  function askHint(hint) {
+    if (!inputEl) return;
+    inputEl.value = hint;
+    send();
+  }
+
+  var voiceRecognition = null;
+  var isRecording = false;
+
+  function toggleVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      appendAiMsg('当前浏览器不支持语音输入');
+      return;
+    }
+    var voiceBtn = panelEl.querySelector('#xj3-voice');
+    if (!voiceBtn) return;
+
+    if (!voiceRecognition) {
+      voiceRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      voiceRecognition.lang = 'zh-CN';
+      voiceRecognition.interimResults = true;
+      voiceRecognition.onresult = function (e) {
+        var interim = '';
+        var final = '';
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
+        }
+        if (inputEl) inputEl.value = final + interim;
+      };
+      voiceRecognition.onend = function () {
+        isRecording = false;
+        if (voiceBtn) voiceBtn.classList.remove('recording');
+        voiceBtn.textContent = '🎤';
+      };
+      voiceRecognition.onerror = function (e) {
+        isRecording = false;
+        if (voiceBtn) voiceBtn.classList.remove('recording');
+        voiceBtn.textContent = '🎤';
+        appendAiMsg('语音输入出错：' + (e.error || '未知错误'));
+      };
+    }
+
+    if (isRecording) {
+      voiceRecognition.stop();
+    } else {
+      voiceRecognition.start();
+      isRecording = true;
+      voiceBtn.classList.add('recording');
+      voiceBtn.textContent = '⏹';
+    }
+  }
+
+  function applyOpenClass(shouldOpen) {
+    if (!panelEl) return;
+    var fab = panelEl.querySelector('#xj3-fab');
+    if (shouldOpen) {
+      panelEl.classList.add('open');
+      if (fab) fab.classList.remove('docked');
+    } else {
+      panelEl.classList.remove('open');
+      if (fab) fab.classList.add('docked');
+    }
+  }
+
+  function toggle() {
+    build();
+    isOpen = !isOpen;
+    applyOpenClass(isOpen);
+    if (isOpen) {
+      clearNewHint();
+      setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
+    }
+  }
+
+  function open() {
+    build();
+    if (!isOpen) {
+      isOpen = true;
+      applyOpenClass(true);
+      clearNewHint();
+      setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
+    }
+  }
+
+  function close() {
+    if (isOpen && panelEl) {
+      isOpen = false;
+      applyOpenClass(false);
+    }
+  }
+  // 2026-09-12（XJ-512-009 缺陷2）：当 xinjing-chat.js 接管面板时，DOM 上的 .open 类由它维护，
+  // 本模块的 isOpen 会与之漂移。向外暴露状态同步入口，避免两套状态互相翻转。
+  function syncOpenState(next) {
+    isOpen = !!next;
+  }
+
+  function showNewHint() {
+    build();
+    hasNewHint = true;
+    if (hintDotEl) hintDotEl.classList.add('show');
+  }
+
+  function clearNewHint() {
+    hasNewHint = false;
+    if (hintDotEl) hintDotEl.classList.remove('show');
+  }
+
+  function updateSub(text) {
+    build();
+    var sub = panelEl.querySelector('#xj3-sub');
+    if (sub) sub.textContent = text || '工作台助手';
+  }
+
+  function refresh() {
+    build();
+    messages = [];
+    ensureSystemPrompt();
+    renderGreeting();
+  }
+
+  if (typeof window !== 'undefined') {
+    window.XiaojingPanel = {
+      build: build, toggle: toggle, open: open, close: close,
+      send: send, quickQuery: quickQuery, askHint: askHint,
+      showNewHint: showNewHint, clearNewHint: clearNewHint,
+      updateSub: updateSub, refresh: refresh, syncOpenState: syncOpenState
+    };
+    window.toggleXiaojing = toggle;
+  }
+
+  return {
+    build: build, toggle: toggle, open: open, close: close,
+    send: send, quickQuery: quickQuery, askHint: askHint,
+    showNewHint: showNewHint, clearNewHint: clearNewHint,
+    updateSub: updateSub, refresh: refresh, syncOpenState: syncOpenState
+  };
+})();

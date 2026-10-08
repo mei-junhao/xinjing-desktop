@@ -1,0 +1,15 @@
+{
+  "manifestCount": 16,
+  "manifestDrift": [],
+  "allCommandExitZero": true,
+  "electronOk": true,
+  "mutation": {
+    "baselineExit": 0,
+    "killed": 20,
+    "survived": 0,
+    "blocked": 0
+  },
+  "strictReportLastLine": true,
+  "protectedCandidateFilesAbsent": true,
+  "pass": true
+}

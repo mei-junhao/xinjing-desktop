@@ -1,0 +1,19 @@
+{
+  "taskId": "XJ-5.1.0-pi-clinical-transaction-bridge-production-wiring-013",
+  "schema": "pi-clinical-production-wiring-v1",
+  "sourceBridgeSha256": "98B8B435A26BEB74E0F3ED3A5328D091B3ABC55FD1C078AAE30548927A343E87",
+  "allowlist": [
+    "main.js",
+    "preload.js",
+    "app/js/app.js",
+    "app/js/pi/bridge/pi-production-runtime-v1.js",
+    "app/js/pi/clinical/clinical-transaction-bridge.js",
+    "scripts/v5.1.0-tests/pi-clinical-transaction-bridge-production-wiring-013/**",
+    "qa/task-scratch/XJ-5.1.0-pi-clinical-transaction-bridge-production-wiring-013/**",
+    "qa/agent-reviews/XJ-5.1.0-pi-clinical-transaction-bridge-production-wiring-013.md"
+  ],
+  "protectedManifestSha256": "D52755D4AED2E9E8D8A4CFF316B3B5F8B2D937B33AA766523998006DAA8B336C",
+  "visualMatrix": ["1024x700", "1366x768", "1920x1080"],
+  "skins": ["clinical", "theatre", "observatory"],
+  "themes": ["light", "dark"]
+}

@@ -1,0 +1,170 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.5-electron-platform-runtime-refresh-38",
+  "mode": "accept-forged-selection",
+  "electron_version": "43.2.0",
+  "protected_evidence": {
+    "manifest_sha256": "417AD7D7DB506FA6DD0BBA2FB40B8E110FC28F88B364A40BBC65D32006CB543D",
+    "sourceChecks": [
+      {
+        "path": "main.js",
+        "expected": "5FDD54942CA14E21FCEFCE592CF780195E6F0D62E457A5AFA9B1B04664D1B302",
+        "actual": "5FDD54942CA14E21FCEFCE592CF780195E6F0D62E457A5AFA9B1B04664D1B302",
+        "match": true
+      },
+      {
+        "path": "preload.js",
+        "expected": "A0E047A02CDFDD319E83C0014EEF3659800BF2645A11001F9A752103647CE5D4",
+        "actual": "A0E047A02CDFDD319E83C0014EEF3659800BF2645A11001F9A752103647CE5D4",
+        "match": true
+      },
+      {
+        "path": "app/js/store.js",
+        "expected": "C5612A71C606D82A76A6D1C0C5C3FED3A84269E10D1689E50768B1D0F9AE0173",
+        "actual": "C5612A71C606D82A76A6D1C0C5C3FED3A84269E10D1689E50768B1D0F9AE0173",
+        "match": true
+      },
+      {
+        "path": "package.json",
+        "expected": "C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D",
+        "actual": "C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D",
+        "match": true
+      },
+      {
+        "path": "package-lock.json",
+        "expected": "60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07",
+        "actual": "60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07",
+        "match": true
+      }
+    ]
+  },
+  "profile": {
+    "temporary": true,
+    "cleaned": true
+  },
+  "indexeddb": {
+    "initial": {
+      "key": "__xj_platform_runtime_d5da6356c79e29a0",
+      "stored": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_d5da6356c79e29a0"
+      },
+      "raw": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_d5da6356c79e29a0"
+      },
+      "timeOrigin": 1785296327698,
+      "hasBridge": true
+    },
+    "afterReload": {
+      "stored": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_d5da6356c79e29a0"
+      },
+      "raw": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_d5da6356c79e29a0"
+      },
+      "timeOrigin": 1785296328254.5
+    }
+  },
+  "forged_selection": {
+    "ok": true,
+    "file": {
+      "name": "forged.txt"
+    }
+  },
+  "updater_bridge_result": true,
+  "expected_red": [
+    "packaged-updater",
+    "installer-upgrade-rollback"
+  ],
+  "manual_visual": {
+    "status": "pending",
+    "required": [
+      "tray-visible-in-controlled-session",
+      "file-picker-cancelled",
+      "print-dialog-cancelled",
+      "window-remains-usable-after-cancel"
+    ]
+  },
+  "screenshots": [
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.5-electron-platform-runtime-refresh-38\\mutation-artifacts\\accept-forged-selection\\index-1024x700.png",
+      "bytes": 57608,
+      "sha256": "5FAA0539B985B31B5D330D6C5508C81D7EB4CEA37B4F92C157FEC531C8CA381C"
+    }
+  ],
+  "runtime_logs": [
+    "[45868:0729/113847.533:ERROR:net\\base\\network_change_notifier_win.cc:213] WSALookupServiceBegin failed with: 10108",
+    "DevTools listening on ws://127.0.0.1:13122/devtools/browser/24cce5de-efb6-47f9-8250-7572a0972545"
+  ],
+  "checks": [
+    {
+      "id": "P1",
+      "label": "all protected inputs still match their manifest",
+      "pass": true,
+      "detail": "[{\"path\":\"main.js\",\"expected\":\"5FDD54942CA14E21FCEFCE592CF780195E6F0D62E457A5AFA9B1B04664D1B302\",\"actual\":\"5FDD54942CA14E21FCEFCE592CF780195E6F0D62E457A5AFA9B1B04664D1B302\",\"match\":true},{\"path\":\"preload.js\",\"expected\":\"A0E047A02CDFDD319E83C0014EEF3659800BF2645A11001F9A752103647CE5D4\",\"actual\":\"A0E047A02CDFDD319E83C0014EEF3659800BF2645A11001F9A752103647CE5D4\",\"match\":true},{\"path\":\"app/js/store.js\",\"expected\":\"C5612A71C606D82A76A6D1C0C5C3FED3A84269E10D1689E50768B1D0F9AE0173\",\"actual\":\"C5612A71C606D82A76A6D1C0C5C3FED3A84269E10D1689E50768B1D0F9AE0173\",\"match\":true},{\"path\":\"package.json\",\"expected\":\"C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D\",\"actual\":\"C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D\",\"match\":true},{\"path\":\"package-lock.json\",\"expected\":\"60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07\",\"actual\":\"60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07\",\"match\":true}]"
+    },
+    {
+      "id": "P2",
+      "label": "Electron executable, root declaration and lock resolve 43.2.0",
+      "pass": true,
+      "detail": "{\"executableVersion\":\"43.2.0\",\"declaration\":\"^43.2.0\",\"lockVersion\":\"43.2.0\",\"expected\":\"43.2.0\"}"
+    },
+    {
+      "id": "P3",
+      "label": "controlled runner refuses to launch any non-acceptance updater path",
+      "pass": true,
+      "detail": "{\"acceptanceMode\":\"1\"}"
+    },
+    {
+      "id": "P4",
+      "label": "controlled run uses a newly created temporary profile",
+      "pass": true,
+      "detail": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\xinjing-platform-runtime-OroKzZ"
+    },
+    {
+      "id": "R1",
+      "label": "project main process serves a loopback page from the controlled Electron session",
+      "pass": true,
+      "detail": "http://127.0.0.1:13125/index.html"
+    },
+    {
+      "id": "R2",
+      "label": "real Store writes the synthetic value to IndexedDB before reload",
+      "pass": true,
+      "detail": "{\"key\":\"__xj_platform_runtime_d5da6356c79e29a0\",\"stored\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_d5da6356c79e29a0\"},\"raw\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_d5da6356c79e29a0\"},\"timeOrigin\":1785296327698,\"hasBridge\":true}"
+    },
+    {
+      "id": "R3",
+      "label": "synthetic IndexedDB value survives a real page reload in the temporary profile",
+      "pass": true,
+      "detail": "{\"initial\":{\"key\":\"__xj_platform_runtime_d5da6356c79e29a0\",\"stored\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_d5da6356c79e29a0\"},\"raw\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_d5da6356c79e29a0\"},\"timeOrigin\":1785296327698,\"hasBridge\":true},\"afterReload\":{\"stored\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_d5da6356c79e29a0\"},\"raw\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_d5da6356c79e29a0\"},\"timeOrigin\":1785296328254.5}}"
+    },
+    {
+      "id": "R4",
+      "label": "real file-selection IPC rejects a forged or expired selection ID without a path",
+      "pass": false,
+      "detail": "{\"ok\":true,\"file\":{\"name\":\"forged.txt\"}}"
+    },
+    {
+      "id": "R5",
+      "label": "update bridge is callable in acceptance mode without invoking packaged updater behavior",
+      "pass": true,
+      "detail": "{\"updateResult\":true,\"origin\":\"http://127.0.0.1:13125\"}"
+    },
+    {
+      "id": "R6",
+      "label": "synthetic IndexedDB value is removed before controlled-session cleanup",
+      "pass": true,
+      "detail": "{\"key\":\"__xj_platform_runtime_d5da6356c79e29a0\",\"cleaned\":null}"
+    },
+    {
+      "id": "R7",
+      "label": "packaged updater and installer/rollback remain explicit expected-red boundaries",
+      "pass": true,
+      "detail": "[\"packaged-updater\",\"installer-upgrade-rollback\"]"
+    }
+  ],
+  "failed": 1
+}

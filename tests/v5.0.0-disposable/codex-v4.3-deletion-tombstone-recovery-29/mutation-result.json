@@ -1,0 +1,117 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.3-deletion-tombstone-recovery-29",
+  "determinism": "no volatile fields; hash-stable across healthy runs",
+  "total": 12,
+  "killed": 12,
+  "survived": 0,
+  "mutations": [
+    {
+      "id": "M01_ACTIVE_CLIENT_PROJECTION",
+      "description": "return tombstoned clients from the active projection",
+      "mutated_sha256": "688D8392828CEEF4AA5894C1F63C42D21B27727B26C93BBFDE845DFC6C57A812",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 1,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M02_ACTIVE_SESSION_PROJECTION",
+      "description": "return tombstoned sessions from the active projection",
+      "mutated_sha256": "89CCDC599614F1E1272247FD0DD252517CEC045388FE2B2CCBBD444BA3362DAF",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 2,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M03_STALE_PREVIEW_ACCEPTED",
+      "description": "accept a stale preview hash",
+      "mutated_sha256": "26DDDC0C5F9CB5EC4C04DB2B4F08B6D0F847E754AF17A13A539C049E3C63794C",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 9,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M04_BATCH_NOT_RECORDED",
+      "description": "omit the new batch from the durable batch array",
+      "mutated_sha256": "B659D152724B9E3881BC0DAD6AFB5A4398EF2BD97804F2B3601B596BBE69E7AC",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 8,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M05_CLIENT_NOT_TOMBSTONED",
+      "description": "leave the client active after applying a batch",
+      "mutated_sha256": "150DE5D9F87A56879B7503D72A99CDD55292C6174149456E62BEDD6E15C42E65",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 4,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M06_SESSION_NOT_TOMBSTONED",
+      "description": "leave sessions active after applying a client batch",
+      "mutated_sha256": "6C1FD1232A3AD37C72F3F1D6795207FEA15848C29E6502A1004F21C475513664",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 4,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M07_RESTORE_DOES_NOT_CLEAR_MARKER",
+      "description": "keep the tombstone marker during restore",
+      "mutated_sha256": "B9A6FC801AAC475C9EF91A93183430BB5204067AE83FE1180A9E0FE1F26F5ECE",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 4,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M08_EXPORT_DROPS_BATCHES",
+      "description": "drop tombstone batches from backup export",
+      "mutated_sha256": "A17856B2D5E6BA838979748CAF677B5C395D2078564A81BDFC3BEAB4F594113D",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 1,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M09_HYDRATE_DROPS_BATCHES",
+      "description": "drop persisted tombstones during hydration",
+      "mutated_sha256": "078ACB0D8BE5305CE84DDC99F23063695BA28144C81830DBF095064BDA373875",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 2,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M10_PERSISTENCE_FAILURE_FALLBACK_SUCCESS",
+      "description": "allow fallback persistence for a deletion batch",
+      "mutated_sha256": "BAC80BAEBC95A42ABCE350B12F5B0B7F38DBA15C366E472B137BD3D54655718F",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 2,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M11_REVISION_CONSTANT",
+      "description": "stop relevant writes from changing the preview revision",
+      "mutated_sha256": "4A46692C9DC39A31654334D72C9E141BF3BE3E6F85F25971114B3C426B50C5D3",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 2,
+      "evidence": "focused semantic check failed"
+    },
+    {
+      "id": "M12_RESTORE_PHYSICALLY_LOST",
+      "description": "replace restored objects with null instead of restoring identity",
+      "mutated_sha256": "D664AB4FDA977B57F14DC2211BDF518AE6A0E5E40B1BBD761F45720E29607E4A",
+      "exit_code": 1,
+      "killed": true,
+      "failed_checks": 7,
+      "evidence": "focused semantic check failed"
+    }
+  ]
+}

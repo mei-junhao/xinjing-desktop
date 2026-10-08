@@ -1,0 +1,1440 @@
+/* ============================================================
+ * 心镜 XinJing — 统一对话面板（v4.0.0）
+ * 整合 AgentShell + XiaojingPanel 全部能力
+ *   - 侧滑面板 + FAB 悬浮球（XiaojingPanel 风格 UI）
+ *   - AgentCore function-calling 完整工具链
+ *   - 档位横幅 / 授权门控 / 撤销 / 导航卡 / API 配置对话
+ *   - 语音输入 / 页面上下文 / 快捷操作 / 每日提醒
+ *   - 统一跨页多轮对话记忆
+ *
+ * 兼容旧 API：
+ *   window.AgentOpen() / AgentSend() / AgentClose() / AgentUndo
+ *   window.XiaojingPanel.* / window.toggleXiaojing
+ *
+ * 推荐新 API：
+ *   window.XinJingChat.open() / close() / send(text) / undo()
+ * ============================================================ */
+'use strict';
+
+const XinJingChat = (() => {
+  var panelEl = null;
+  var bodyEl = null;
+  var inputEl = null;
+  var isOpen = false;
+  var hasNewHint = false;
+  var hintDotEl = null;
+  var busy = false;
+
+  var messages = [];
+  var MEM_KEY = 'xj_xinjing_chat_v1';
+  var MEM_MAX = 50; // 2026-09-11 与 chat-home 统一（原 30）
+
+  var lastWriteAction = null;
+  var undoPending = false;
+
+  var sendUndoState = null;   // 方案 B：最近一次发送的待撤销状态 { userEl, userObj }
+  var sendUndoTimer = null;   // 方案 B：3 秒自动失效计时器
+  var undoToastEl = null;     // 方案 B：撤销提示条 DOM
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('xj:model-selection-changed', function () {
+      try { refreshTierUI(); } catch (_) {}
+    });
+  }
+
+  var XIAOJING_IDENTITY = '你是心镜（XinJing）的助手「小镜」，身份设定：\n' +
+    '- 你是心理咨询师的专业助理，不是AI督导，也不是大师。\n' +
+    '- 你的职责是帮助管理日常工作：查看来访者信息、记账、提醒待办、回答关于app功能的问题。\n' +
+    '- 你绝对不能说没有来源的话。如果用户问数据问题，你必须先查实时数据再回答，不能编造。\n' +
+    '- 如果用户问的专业问题超出你的知识范围，诚实地说"这个需要请教AI督导或真人督导"。\n' +
+    '- 回复简洁专业，用中文，语气温暖有边界。\n' +
+    '- 你可以引导用户去各个页面：咨询记录、逐字稿整理、撰写报告、AI督导、真人督导、文档中心、账单、大师对话、设置、咨询日历、资料库。';
+
+  function money(n) { return '¥' + Number(n || 0).toLocaleString('zh-CN'); }
+
+  function esc(s) {
+    if (typeof App !== 'undefined' && App.escapeHtml) return App.escapeHtml(s);
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- 记忆 ----------
+  function saveMemory() {
+    try {
+      var chat = messages.filter(function (m) { return m.role !== 'system'; });
+      if (chat.length > MEM_MAX) chat = chat.slice(-MEM_MAX);
+      // 截断后丢弃开头孤儿 tool 消息（其配对 assistant.tool_calls 已被截掉），
+      // 避免孤儿 tool 污染历史导致模型上下文错乱、退化短答（2026-09-11 Hermes 实测定位）
+      while (chat.length && chat[0].role === 'tool') chat.shift();
+      localStorage.setItem(MEM_KEY, JSON.stringify(chat));
+    } catch (e) { /* ignore */ }
+  }
+
+  function restoreMemory() {
+    try {
+      var saved = localStorage.getItem(MEM_KEY);
+      if (saved) {
+        var chat = JSON.parse(saved);
+        if (Array.isArray(chat) && chat.length > 0) {
+          for (var i = 0; i < chat.length; i++) {
+            // 恢复时跳过 tool 消息及其配对 tool_calls（仅保留纯文本对话），
+            // 防止旧存储中的孤儿 tool / 悬空 tool_calls 污染上下文（2026-09-11 修复）
+            if (chat[i].role === 'tool') continue;
+            if (chat[i].role === 'assistant' && Array.isArray(chat[i].tool_calls)) {
+              messages.push({ role: 'assistant', content: chat[i].content || '' });
+              if (chat[i].content) appendAiMsgRaw(chat[i].content);
+              continue;
+            }
+            messages.push(chat[i]);
+            if (chat[i].role === 'user') appendUserMsgRaw(chat[i].content);
+            else if (chat[i].role === 'assistant') appendAiMsgRaw(chat[i].content);
+          }
+          var note = document.createElement('div');
+          note.className = 'xj3-msg system';
+          note.textContent = '↩ 已恢复跨页对话记忆（' + chat.length + ' 条）';
+          if (bodyEl) bodyEl.appendChild(note);
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function ensureSystemPrompt() {
+    if (!messages.length || messages[0].role !== 'system') {
+      var sys = buildSystemPrompt();
+      messages.unshift({ role: 'system', content: sys });
+    } else {
+      messages[0].content = buildSystemPrompt();
+    }
+  }
+
+  // ---------- 本地快速查询 ----------
+  // Z6（XJ519-Z6）：本地检索只响应「明确的统计/数据问句」。
+  // 材料复述、临床提问即使包含「来访者」等词也必须交给所选模型，禁止宽关键词劫持。
+  function queryLocal(text) {
+    var q = text.toLowerCase();
+    var clients, sessions;
+    try {
+      if (typeof Store === 'undefined') return null;
+      clients = Store.getClients();
+      sessions = Store.getSessions();
+    } catch (e) { return null; }
+    var results = [];
+
+    var LOCAL_NOTE = '\n（本地检索 · 未调用模型）';
+
+    if ((q.indexOf('欠费') >= 0 || q.indexOf('未付') >= 0 || q.indexOf('未收') >= 0)
+        && /(谁|哪些|名单|明细|统计|汇总|多少)/.test(q)) {
+      clients.forEach(function (c) {
+        var ss = Store.getSessionsByClient(c.id);
+        var unpaid = ss.filter(function (s) { return s.billing && s.billing.fee > 0 && !s.billing.paid; });
+        if (unpaid.length) {
+          var total = unpaid.reduce(function (s, x) { return s + (x.billing.fee || 0); }, 0);
+          results.push(c.name + '：' + unpaid.length + '节未付，共' + money(total));
+        }
+      });
+      if (results.length) return { content: '📊 欠费明细：\n' + results.join('\n') + LOCAL_NOTE };
+      return { content: '✅ 目前没有来访者有欠费。' + LOCAL_NOTE };
+    }
+
+    // 来访者/客户统计：计数词必须与「来访者/客户/个案」紧邻，材料复述不再命中
+    if (/(来访者|客户|个案)(?:有)?(?:的)?(人数|多少|数量)|(多少|数量)(?:位|名|个)?(?:来访者|客户|个案)|来访者人数|客户人数/.test(q)) {
+      var active = clients.filter(function (c) { return c.status !== 'ended'; });
+      return { content: '👥 共有 ' + clients.length + ' 位来访者（活跃 ' + active.length + ' 位）。' + LOCAL_NOTE };
+    }
+
+    // 月度收入：月份词紧邻「收入」，或「收入+多少/情况/汇总」；临床叙述不命中
+    if (/(?:本月|这个月|当月|上月)的?收入/.test(q) || /收入(?:情况|汇总|统计|是多少|多少)/.test(q)) {
+      var todayStr = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
+      var ym = todayStr.slice(0, 7);
+      var total = 0, paid = 0;
+      sessions.forEach(function (s) {
+        if (s.date && s.date.slice(0, 7) === ym && s.billing && s.billing.fee > 0) {
+          total += s.billing.fee;
+          if (s.billing.paid) paid += s.billing.fee;
+        }
+      });
+      return { content: '💰 本月收入：' + money(total) + '（已收 ' + money(paid) + '，待收 ' + money(total - paid) + '）' + LOCAL_NOTE };
+    }
+
+    if (/(今天|今日)/.test(q) && /(几节|几场|多少|有什么|安排|日程)/.test(q)) {
+      var today = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
+      var todayS = sessions.filter(function (s) { return s.date === today; });
+      return { content: '📅 今天有 ' + todayS.length + ' 节咨询。' + (todayS.length ? todayS.map(function (s) {
+        var c = Store.getClient(s.clientId);
+        return '  · ' + (c ? c.name : '?') + ' 第' + (s.sessionNumber || '?') + '节' + (s.billing && s.billing.fee ? ' ¥' + s.billing.fee : '');
+      }).join('\n') : '') + LOCAL_NOTE };
+    }
+
+    return null;
+  }
+
+  // ---------- 档位 / 授权 ----------
+  function tierInfo() {
+    try {
+      if (typeof AI !== 'undefined' && AI.getTier) return AI.getTier();
+    } catch (e) { /* ignore */ }
+    return 'builtin';
+  }
+
+  function isUnlocked() {
+    try {
+      if (typeof App !== 'undefined' && typeof App.aiUnlocked === 'function') return App.aiUnlocked();
+    } catch (e) { /* ignore */ }
+    return true;
+  }
+
+  function refreshLock() {
+    if (!panelEl) return;
+    var unlocked = isUnlocked();
+    var inputRow = panelEl.querySelector('.xj3-input-row');
+    var lockBanner = panelEl.querySelector('.xj3-lock-banner');
+    if (unlocked) {
+      if (lockBanner) lockBanner.remove();
+      if (inputRow) inputRow.style.display = '';
+      refreshTierUI();
+    } else {
+      var tierBanner = panelEl.querySelector('.xj3-tier-banner');
+      if (tierBanner) tierBanner.remove();
+      if (inputRow) inputRow.style.display = 'none';
+      if (!lockBanner && bodyEl) {
+        lockBanner = document.createElement('div');
+        lockBanner.className = 'xj3-lock-banner';
+        lockBanner.innerHTML = '<div class="xj3-lock-inner">⚠ 小镜需激活后才能使用 AI 对话。<br><button class="xj3-activate-btn">输入激活码</button></div>';
+        bodyEl.insertBefore(lockBanner, bodyEl.firstChild);
+        lockBanner.querySelector('.xj3-activate-btn').addEventListener('click', function () {
+          if (window.__XJ_API__ && typeof window.__XJ_API__.openActivation === 'function') {
+            window.__XJ_API__.openActivation();
+          }
+        });
+      }
+    }
+  }
+
+  function refreshTierUI() {
+    if (!panelEl || !bodyEl) return;
+    var tier = tierInfo();
+    var banner = panelEl.querySelector('.xj3-tier-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'xj3-tier-banner';
+      bodyEl.insertBefore(banner, bodyEl.firstChild);
+    }
+    banner.className = 'xj3-tier-banner ' + (tier === 'user' ? 'tier-user' : 'tier-builtin');
+    if (tier === 'user') {
+      banner.textContent = '已接入高性能模型 · 操作边界不变';
+    } else {
+      var selectedModel = 'deepseek-v4-pro';
+      try { if (typeof AI !== 'undefined' && AI.getTrialModel) selectedModel = AI.getTrialModel(); } catch (e) {}
+      var selectedLabel = selectedModel === 'gpt-5.6' ? 'GPT Terra（主力模型）' : (selectedModel === 'deepseek-v4-flash' ? 'DeepSeek V4 Flash（主力模型）' : 'DeepSeek V4 Pro（主力模型）');
+      banner.innerHTML = '🌱 免费试用 · <span class="xj3-quota-name">' + selectedLabel + '</span>' +
+        '<span class="xj3-quota-pct"></span>';
+    }
+    updateQuotaBadge();
+  }
+
+  function updateQuotaBadge() {
+    if (!panelEl) return;
+    var pctEl = panelEl.querySelector('.xj3-quota-pct');
+    var qEl = panelEl.querySelector('.xj3-quota-name');
+    if (!pctEl && !qEl) return;
+    var tier = 'builtin';
+    try { if (typeof AI !== 'undefined' && AI.getTier) tier = AI.getTier(); } catch (e) {}
+    if (tier === 'user') return;
+    var q = (typeof AI !== 'undefined' && AI.getQuota) ? AI.getQuota() : null;
+    if (pctEl) pctEl.textContent = (q && q.percent != null) ? ('剩余 ' + q.percent + '%') : '';
+    if (qEl) {
+      var selectedModel = 'deepseek-v4-pro';
+      try { if (typeof AI !== 'undefined' && AI.getTrialModel) selectedModel = AI.getTrialModel(); } catch (e) {}
+      qEl.textContent = selectedModel === 'gpt-5.6' ? 'GPT Terra（主力模型）' : (selectedModel === 'deepseek-v4-flash' ? 'DeepSeek V4 Flash（主力模型）' : 'DeepSeek V4 Pro（主力模型）');
+    }
+  }
+
+  // ---------- UI 构建 ----------
+  function buildPanelHtml() {
+    return '<div class="xj-panel-v3" id="xj-panel-v3">' +
+        '<div class="xj3-overlay" id="xj3-overlay"></div>' +
+        '<div class="xj3-drawer">' +
+          '<div class="xj3-head">' +
+            '<div class="xj3-avatar">小</div>' +
+            '<div class="xj3-head-info">' +
+              '<div class="xj3-name">小镜 <span class="xj3-badge">AI 助手</span></div>' +
+              '<div class="xj3-sub" id="xj3-sub">工作台助手</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:2px;align-items:center">' +
+              '<button class="xj3-undo" title="撤销" style="border:none;background:transparent;color:var(--ink-3);font-size:14px;cursor:pointer;padding:4px 8px;border-radius:6px">↶</button>' +
+              '<button class="xj3-close" id="xj3-close" title="收起">×</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="xj3-body" id="xj3-body"></div>' +
+          '<div class="xj3-input-row">' +
+            '<input id="xj3-input" placeholder="问点什么……" autocomplete="off">' +
+            '<button id="xj3-voice" title="语音输入">🎤</button>' +
+            '<button id="xj3-send">发送</button>' +
+          '</div>' +
+        '</div>' +
+        '<button class="xj3-fab docked" id="xj3-fab" title="小镜">' +
+          '<span class="xj3-fab-icon">小</span>' +
+          '<span class="xj3-fab-dot" id="xj3-fab-dot"></span>' +
+        '</button>' +
+      '</div>';
+  }
+
+  function injectStyles() {
+    var style = document.createElement('style');
+    style.textContent = '' +
+      // The fixed drawer is nested in this shell; a zero-width containing block
+      // places it outside the viewport in Electron. Keep the shell inert while
+      // giving fixed descendants the full viewport containing block.
+      // 2026-09-12（XJ-512-009 缺陷2）：shell 仍保留全视口尺寸以维持 Electon 内 fixed 子元素的
+      // 包含块语义，但 pointer-events 恒为 none，且溢出可见性收敛，避免整屏拦截下层交互。
+      '.xj-panel-v3{position:fixed;top:0;right:0;width:100vw;height:100vh;z-index:2147483647;pointer-events:none;overflow:visible}' +
+      // 2026-09-12（XJ-512-009 缺陷2）：遮罩维持"点击关闭"的命中面（pointer-events:auto），
+      // 但不再做半透明全屏黑幕。原 rgba(0,0,0,.35) 会压暗整页并让用户以为页面被接管；
+      // 改为透明后，面板表现为右侧抽屉，视觉上不再"覆盖在其他页面上层"。
+      '.xj3-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;' +
+        'background:transparent;opacity:1;pointer-events:none;' +
+        'will-change:opacity;transition:opacity .3s cubic-bezier(.4,0,.2,1)}' +
+      '.xj-panel-v3.open .xj3-overlay{opacity:1;pointer-events:auto}' +
+      '.xj3-fab{position:fixed;right:20px;bottom:24px;width:52px;height:52px;border-radius:50%;border:none;' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font-size:20px;font-weight:700;font-family:var(--serif);' +
+        'cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.15);pointer-events:auto;' +
+        'will-change:transform,opacity;transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .2s ease;' +
+        'display:flex;align-items:center;justify-content:center}' +
+      '.xj3-fab.docked{transform:translateX(42px)}' +
+      '.xj3-fab:hover{transform:translateX(0) scale(1.06)}' +
+      '.xj3-fab:active{transform:translateX(0) scale(.95)}' +
+      // 2026-09-12（XJ-512-009 缺陷2）：open 时 fab 不再隐藏。原规则 translateX(-360px) scale(0)
+      // + pointer-events:none 让面板打开后唯一关闭入口只剩抽屉右上角「×」，用户找不到关不掉的路径。
+      // 改为：open 时 fab 收起为贴边竖条（translateX(42px)），保持可点，点它即收起面板。
+      '.xj-panel-v3.open .xj3-fab{transform:translateX(42px);opacity:1;pointer-events:auto}' +
+      '.xj3-fab-icon{line-height:1}' +
+      '.xj3-fab-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;' +
+        'background:var(--danger,#ff5252);border:2px solid var(--accent);display:none}' +
+      '.xj3-fab-dot.show{display:block}' +
+      '.xj3-drawer{position:fixed;top:0;right:0;width:360px;height:100vh;' +
+        'background:var(--paper-2,#fff);border-left:1px solid var(--border);' +
+        'display:flex;flex-direction:column;pointer-events:auto;' +
+        'will-change:transform;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);' +
+        'box-shadow:-4px 0 24px rgba(0,0,0,.08)}' +
+      '.xj-panel-v3.open .xj3-drawer{transform:translateX(0)}' +
+      '.xj3-head{display:flex;align-items:center;gap:10px;padding:14px 16px;' +
+        'border-bottom:1px solid var(--border);flex-shrink:0}' +
+      '.xj3-avatar{width:40px;height:40px;border-radius:50%;background:var(--accent-soft);' +
+        'color:var(--accent);display:flex;align-items:center;justify-content:center;' +
+        'font-family:var(--serif);font-weight:700;font-size:18px;flex-shrink:0}' +
+      '.xj3-head-info{flex:1;min-width:0}' +
+      '.xj3-name{font-family:var(--serif);font-size:15px;font-weight:600}' +
+      '.xj3-badge{font-size:9px;padding:1px 6px;border-radius:999px;background:var(--accent-soft);' +
+        'color:var(--accent);font-weight:500;margin-left:6px;vertical-align:middle}' +
+      '.xj3-sub{font-size:11px;color:var(--ink-3);margin-top:2px}' +
+      '.xj3-close,.xj3-undo{border:none;background:none;font-size:20px;color:var(--ink-3);cursor:pointer;' +
+        'padding:4px 8px;border-radius:6px;line-height:1}' +
+      '.xj3-close:hover,.xj3-undo:hover{background:var(--bg);color:var(--ink)}' +
+      '.xj3-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}' +
+      '.xj3-msg{max-width:88%;padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.7;word-break:break-word}' +
+      '.xj3-msg.ai{background:var(--accent-soft);color:var(--ink);align-self:flex-start;border-bottom-left-radius:4px}' +
+      '.xj3-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}' +
+      '.xj3-msg.typing{opacity:.6;font-style:italic}' +
+      '.xj3-msg.system{background:transparent;color:var(--ink-3);font-size:11px;align-self:center;padding:4px 8px}' +
+      // 2026-09-11：DeepSeek 思考过程折叠区样式
+      '.xj3-thinking{max-width:88%;align-self:flex-start;margin:2px 0 6px;border:1px dashed rgba(128,128,128,.4);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--ink-3);background:rgba(128,128,128,.05)}' +
+      '.xj3-thinking summary{cursor:pointer;font-weight:600;user-select:none;outline:none}' +
+      '.xj3-thinking-body{margin-top:6px;white-space:pre-wrap;word-break:break-word;line-height:1.6}' +
+      '.xj3-msg.progress{background:transparent;color:var(--ink-3);font-size:11px;align-self:flex-start;padding:2px 4px}' +
+      '.xj3-tier-banner{font-size:11px;padding:8px 12px;border-radius:8px;margin-bottom:4px;text-align:center}' +
+      '.xj3-tier-banner.tier-user{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}' +
+      '.xj3-tier-banner.tier-builtin{background:var(--bg);color:var(--ink-2);border:1px solid var(--border)}' +
+      '.xj3-tier-banner .xj3-quota-pct{float:right;opacity:.85}' +
+      '.xj3-lock-banner{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center;margin-bottom:8px}' +
+      '.xj3-lock-inner{font-size:12px;color:var(--ink-2)}' +
+      '.xj3-activate-btn{margin-top:8px;padding:6px 14px;border:1px solid var(--accent);border-radius:8px;' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font:500 12px var(--sans);cursor:pointer}' +
+      '.xj3-hint-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:2px}' +
+      '.xj3-hint-card .h-title{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}' +
+      '.xj3-hint-card ul{margin:0;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.9}' +
+      '.xj3-hint-card li{cursor:pointer}' +
+      '.xj3-hint-card li:hover{color:var(--accent)}' +
+      '.xj3-quick-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}' +
+      '.xj3-quick-actions button{border:1px solid var(--border);background:var(--paper,#fff);' +
+        'border-radius:999px;padding:5px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);' +
+        'transition:transform .15s ease,border-color .15s ease,color .15s ease;will-change:transform}' +
+      '.xj3-quick-actions button:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}' +
+      '.xj3-input-row{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0}' +
+      '.xj3-input-row input{flex:1;border:1px solid var(--border);border-radius:10px;padding:9px 12px;' +
+        'font:13px var(--sans);outline:none;background:var(--bg);transition:border-color .15s ease}' +
+      '.xj3-input-row input:focus{border-color:var(--accent)}' +
+      '.xj3-input-row button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:10px;' +
+        'padding:0 16px;font:600 13px var(--sans);cursor:pointer;transition:opacity .15s ease}' +
+      '.xj3-input-row button:hover{opacity:.9}' +
+      '.xj3-input-row button:active{opacity:.8}' +
+      '.xj3-input-row #xj3-voice{background:none;border:none;font-size:16px;color:var(--ink-3);cursor:pointer;padding:0 8px;border-radius:8px;transition:color .15s ease}' +
+      '.xj3-input-row #xj3-voice:hover{color:var(--accent)}' +
+      '.xj3-input-row #xj3-voice.recording{color:#ff5252;animation:pulse 1.5s infinite}' +
+      '.xj3-confirm-card{background:var(--paper,#fff);border:1px solid var(--danger,#ff5252);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch;box-shadow:0 2px 8px rgba(255,82,82,.1)}' +
+      '.xj3-confirm-title{font-size:12px;font-weight:600;color:var(--danger,#ff5252);margin-bottom:8px}' +
+      '.xj3-confirm-tool{font-size:11px;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-confirm-preview{font-size:12px;color:var(--ink);margin-bottom:10px;line-height:1.6}' +
+      '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
+      '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
+      '.xj3-confirm-actions .xj3-ok{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}' +
+      '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:10px 12px;margin:2px 0;align-self:stretch}' +
+      '.xj3-followup-head{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-followup-item{font-size:12px;color:var(--ink-2);line-height:1.8;padding-left:12px;position:relative;cursor:pointer}' +
+      '.xj3-followup-item:before{content:"•";position:absolute;left:0;color:var(--accent)}' +
+      '.xj3-followup-item:hover{color:var(--accent)}' +
+      '.xj3-nav-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch}' +
+      '.xj3-nav-head{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px}' +
+      '.xj3-nav-reason{font-size:11px;color:var(--ink-3);margin-bottom:8px}' +
+      '.xj3-nav-go{padding:6px 14px;border-radius:8px;border:1px solid var(--accent);' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font:500 12px var(--sans);cursor:pointer}' +
+      '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}';
+    document.head.appendChild(style);
+  }
+
+  // 复用 xiaojing-panel.js 已建好的面板时，只补齐扩展样式（undo、确认卡、跟进制）
+  function injectExtensionStyles() {
+    if (document.getElementById('xj3-ext-styles')) return;
+    var s = document.createElement('style');
+    s.id = 'xj3-ext-styles';
+    s.textContent = '' +
+      '.xj3-undo-btn{position:absolute;top:14px;right:48px;border:1px solid var(--border);' +
+        'background:var(--paper,#fff);color:var(--ink-2);font:11px var(--sans);border-radius:6px;' +
+        'padding:3px 8px;cursor:pointer}' +
+      '.xj3-undo-btn:hover{border-color:var(--accent);color:var(--accent)}' +
+      '.xj3-undo-btn:disabled{opacity:.4;cursor:not-allowed}' +
+      '.xj3-confirm-card{background:var(--paper,#fff);border:1px solid var(--danger,#ff5252);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch;box-shadow:0 2px 8px rgba(255,82,82,.1)}' +
+      '.xj3-confirm-title{font-size:12px;font-weight:600;color:var(--danger,#ff5252);margin-bottom:8px}' +
+      '.xj3-confirm-tool{font-size:11px;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-confirm-preview{font-size:12px;color:var(--ink);margin-bottom:10px;line-height:1.6}' +
+      '.xj3-confirm-actions{display:flex;gap:8px;justify-content:flex-end}' +
+      '.xj3-confirm-actions button{padding:6px 14px;border-radius:8px;font:12px var(--sans);cursor:pointer;border:1px solid var(--border);background:var(--paper,#fff);color:var(--ink-2)}' +
+      '.xj3-confirm-actions .xj3-ok{background:var(--cta-bg,var(--accent));color:#fff;border-color:var(--cta-bg,var(--accent))}' +
+      '.xj3-progress{font-size:11px;color:var(--ink-3);padding:4px 8px;align-self:flex-start}' +
+      '.xj3-followup-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:10px 12px;margin:2px 0;align-self:stretch}' +
+      '.xj3-followup-head{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:6px}' +
+      '.xj3-followup-item{font-size:12px;color:var(--ink-2);line-height:1.8;padding-left:12px;position:relative;cursor:pointer}' +
+      '.xj3-followup-item:before{content:"•";position:absolute;left:0;color:var(--accent)}' +
+      '.xj3-followup-item:hover{color:var(--accent)}' +
+      '.xj3-nav-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;' +
+        'padding:12px;margin:4px 0;align-self:stretch}' +
+      '.xj3-nav-head{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:4px}' +
+      '.xj3-nav-reason{font-size:11px;color:var(--ink-3);margin-bottom:8px}' +
+      '.xj3-nav-go{padding:6px 14px;border-radius:8px;border:1px solid var(--accent);' +
+        'background:var(--cta-bg,var(--accent));color:#fff;font:500 12px var(--sans);cursor:pointer}' +
+      '.xj3-lock-banner{background:linear-gradient(135deg,#fff5f0,#fff);border:1px solid #ffb38a;' +
+        'border-radius:10px;padding:12px;margin:4px 0;align-self:stretch}' +
+      '.xj3-lock-title{font-size:12px;font-weight:600;color:#c44a00;margin-bottom:6px}' +
+      '.xj3-lock-desc{font-size:11px;color:var(--ink-2);margin-bottom:8px;line-height:1.5}' +
+      '.xj3-lock-go{padding:6px 14px;border-radius:8px;border:1px solid #ff8a4c;background:#ff8a4c;' +
+        'color:#fff;font:12px var(--sans);cursor:pointer}';
+    document.head.appendChild(s);
+  }
+
+  // 复用模式下，绑定 xiaojing-panel.js 未提供的事件（undo 按钮、followup 点击等）
+  function bindExtEvents() {
+    if (!panelEl) return;
+    // 1) 注入 undo 按钮到头部
+    var head = panelEl.querySelector('.xj3-head');
+    if (head && !panelEl.querySelector('.xj3-undo-btn')) {
+      var undo = document.createElement('button');
+      undo.className = 'xj3-undo-btn';
+      undo.textContent = '↺ 撤销';
+      undo.title = '撤销最近一次写入';
+      undo.disabled = !lastWriteAction;
+      head.appendChild(undo);
+      undo.addEventListener('click', async function () {
+        undo.disabled = true;
+        await undoLastWrite();
+        undo.disabled = !lastWriteAction;
+      });
+    }
+    // 2) 事件代理：followup / confirm / nav
+    bodyEl.addEventListener('click', function (e) {
+      var fu = e.target.closest('.xj3-followup-item');
+      if (fu) { var t = fu.textContent.replace(/^[•\s]+/, ''); if (t) quickQuery(t); return; }
+      var ok = e.target.closest('.xj3-confirm-actions .xj3-ok');
+      if (ok) {
+        var card = ok.closest('.xj3-confirm-card');
+        var cb = card && card._resolveOk;
+        if (cb) cb({ ok: true });
+        if (card) card.remove();
+        return;
+      }
+      var cancel = e.target.closest('.xj3-confirm-actions button:not(.xj3-ok)');
+      if (cancel) {
+        var card2 = cancel.closest('.xj3-confirm-card');
+        var cb2 = card2 && card2._resolveOk;
+        if (cb2) cb2({ ok: false });
+        if (card2) card2.remove();
+        return;
+      }
+      var nav = e.target.closest('.xj3-nav-go');
+      if (nav) {
+        var nc = nav.closest('.xj3-nav-card');
+        var href = nc && nc.getAttribute('data-href');
+        if (href) location.href = href;
+      }
+    });
+  }
+
+  function bindCloseControls() {
+    if (!panelEl || panelEl.dataset.xjCloseBound === '1') return;
+    panelEl.dataset.xjCloseBound = '1';
+    // 捕获阶段兜底，覆盖旧面板、SVG 图标命中和其他脚本的冒泡监听。
+    panelEl.addEventListener('click', function (event) {
+      var closeButton = panelEl.querySelector('#xj3-close');
+      var overlay = panelEl.querySelector('#xj3-overlay');
+      var hitClose = !!(closeButton && (event.target === closeButton || closeButton.contains(event.target)));
+      var hitOverlay = !!(overlay && event.target === overlay);
+      if (!hitClose && !hitOverlay) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }, true);
+    // 2026-09-12（XJ-512-009 缺陷2）：补 Escape 关闭。此前全站仅支持点「×」关闭，
+    // 遮罩点击在实际链路中又被面板 shell 的命中语义削弱，用户缺少符合直觉的退出方式。
+    // 用捕获阶段 + 仅面板打开时生效，避免抢占输入框与其他页面的 Esc 语义。
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape' && event.key !== 'Esc') return;
+      if (!panelEl || !panelEl.classList.contains('open')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    }, true);
+  }
+
+  function build() {
+    if (panelEl) return panelEl;
+
+    // 如果页面里 xiaojing-panel.js 已经创建了面板（#xj-panel-v3），
+    // 则复用其 DOM 与 FAB，避免双悬浮球。但需要把 xiaojing-panel.js
+    // 已经绑定的 click 监听器清掉（用 cloneNode 替换关键元素），
+    // 再由 xinjing-chat 重新绑定。
+    var existing = document.getElementById('xj-panel-v3');
+    if (existing) {
+      // 替换 fab / close / overlay / send / voice / input，剥离旧事件
+      var fabOld = existing.querySelector('#xj3-fab');
+      var closeOld = existing.querySelector('#xj3-close');
+      var overlayOld = existing.querySelector('#xj3-overlay');
+      var sendOld = existing.querySelector('#xj3-send');
+      var voiceOld = existing.querySelector('#xj3-voice');
+      var inputOld = existing.querySelector('#xj3-input');
+      function rebind(orig, key) {
+        if (!orig) return null;
+        var fresh = orig.cloneNode(true);
+        orig.parentNode.replaceChild(fresh, orig);
+        return existing.querySelector(key);
+      }
+      rebind(fabOld, '#xj3-fab');
+      rebind(closeOld, '#xj3-close');
+      rebind(overlayOld, '#xj3-overlay');
+      rebind(sendOld, '#xj3-send');
+      rebind(voiceOld, '#xj3-voice');
+      rebind(inputOld, '#xj3-input');
+
+      panelEl = existing;
+      bindCloseControls();
+      bodyEl = panelEl.querySelector('#xj3-body');
+      inputEl = panelEl.querySelector('#xj3-input');
+      hintDotEl = panelEl.querySelector('#xj3-fab-dot');
+      try {
+        var fab = panelEl.querySelector('#xj3-fab');
+        if (fab) fab.addEventListener('click', toggle);
+        var closeBtn = panelEl.querySelector('#xj3-close');
+        if (closeBtn) closeBtn.addEventListener('click', close);
+        var ov = panelEl.querySelector('#xj3-overlay');
+        if (ov) ov.addEventListener('click', close);
+        if (inputEl) inputEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+        });
+        var sendBtn = panelEl.querySelector('#xj3-send');
+        if (sendBtn) sendBtn.addEventListener('click', send);
+        var voiceBtn = panelEl.querySelector('#xj3-voice');
+        if (voiceBtn) voiceBtn.addEventListener('click', toggleVoice);
+      } catch (e) { /* ignore */ }
+      injectExtensionStyles();
+      ensureSystemPrompt();
+      refreshLock();
+      renderGreeting();
+      restoreMemory();
+      bindExtEvents();
+      try {
+        if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+          window.__XJ_API__.onLicenseState(function () { refreshLock(); });
+        }
+      } catch (e) { /* ignore */ }
+      try {
+        if (typeof AI !== 'undefined' && AI.onQuotaChange) {
+          AI.onQuotaChange(function () { updateQuotaBadge(); });
+        }
+      } catch (e) { /* ignore */ }
+      return panelEl;
+    }
+
+    injectStyles();
+    panelEl = document.createElement('div');
+    panelEl.innerHTML = buildPanelHtml();
+    document.body.appendChild(panelEl);
+    panelEl = document.getElementById('xj-panel-v3');
+    bindCloseControls();
+
+    bodyEl = panelEl.querySelector('#xj3-body');
+    inputEl = panelEl.querySelector('#xj3-input');
+    hintDotEl = panelEl.querySelector('#xj3-fab-dot');
+
+    panelEl.querySelector('#xj3-fab').addEventListener('click', toggle);
+    panelEl.querySelector('#xj3-close').addEventListener('click', close);
+    panelEl.querySelector('#xj3-overlay').addEventListener('click', close);
+    panelEl.querySelector('.xj3-undo').addEventListener('click', undoLastWrite);
+    inputEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    panelEl.querySelector('#xj3-send').addEventListener('click', send);
+    panelEl.querySelector('#xj3-voice').addEventListener('click', toggleVoice);
+
+    bodyEl.addEventListener('click', function (e) {
+      var li = e.target.closest('#xj3-hint-list li');
+      if (li) {
+        var hint = li.getAttribute('data-hint');
+        if (hint) askHint(hint);
+      }
+      var fi = e.target.closest('.xj3-followup-item');
+      if (fi) {
+        var txt = fi.textContent.trim();
+        if (txt) quickQuery(txt);
+      }
+    });
+
+    ensureSystemPrompt();
+    refreshLock();
+    renderGreeting();
+    restoreMemory();
+
+    try {
+      if (window.__XJ_API__ && typeof window.__XJ_API__.onLicenseState === 'function') {
+        window.__XJ_API__.onLicenseState(function () { refreshLock(); });
+      }
+    } catch (e) { /* ignore */ }
+    try {
+      if (typeof AI !== 'undefined' && AI.onQuotaChange) {
+        AI.onQuotaChange(function () { updateQuotaBadge(); });
+      }
+    } catch (e) { /* ignore */ }
+
+    dailyCheck();
+    return panelEl;
+  }
+
+  // ---------- 欢迎语 ----------
+  function renderGreeting() {
+    if (!bodyEl) return;
+    var hasMemory = false;
+    try {
+      var saved = localStorage.getItem(MEM_KEY);
+      if (saved) {
+        var chat = JSON.parse(saved);
+        hasMemory = Array.isArray(chat) && chat.length > 0;
+      }
+    } catch (e) {}
+    if (hasMemory) return;
+
+    var profile = (typeof Memory !== 'undefined' && Memory.getProfile) ? Memory.getProfile() : {};
+    var userName = (profile && profile.name) || '梅';
+
+    var hintList = [];
+    try {
+      if (typeof PageHints !== 'undefined' && PageHints.getHints) {
+        hintList = PageHints.getHints(location.pathname);
+      }
+    } catch (e) { /* ignore */ }
+
+    var html = '';
+    html += '<div class="xj3-msg ai">你好，' + esc(userName) + '。<br>' +
+      '我是小镜，你的工作台助手。有什么可以帮你的？</div>';
+
+    if (hintList.length) {
+      html += '<div class="xj3-hint-card" id="xj3-hint-list"><div class="h-title">📌 今日提醒</div><ul>';
+      hintList.forEach(function (h) {
+        html += '<li data-hint="' + esc(h) + '">' + esc(h) + '</li>';
+      });
+      html += '</ul></div>';
+    }
+
+    var pageCtx = getPageContext();
+    if (pageCtx && pageCtx.capabilities && pageCtx.capabilities.length) {
+      html += '<div class="xj3-hint-card"><div class="h-title">💡 ' + esc(pageCtx.title || '本页功能') + '</div><ul>';
+      pageCtx.capabilities.forEach(function (c) {
+        html += '<li>' + esc(c) + '</li>';
+      });
+      html += '</ul></div>';
+    }
+
+    html += '<div class="xj3-quick-actions">' +
+      '<button onclick="XinJingChat.quickQuery(\'今天有几节咨询\')">今日安排</button>' +
+      '<button onclick="XinJingChat.quickQuery(\'谁欠费\')">欠费查询</button>' +
+      '<button onclick="XinJingChat.quickQuery(\'本月收入\')">本月收入</button>' +
+      '<button onclick="XinJingChat.quickQuery(\'有多少来访者\')">来访者</button>' +
+      '</div>';
+
+    bodyEl.innerHTML = html;
+    bodyEl.scrollTop = 0;
+  }
+
+  function getPageContext() {
+    if (typeof window !== 'undefined' && window.__XJ_PAGE__) return window.__XJ_PAGE__;
+    return null;
+  }
+
+  // ---------- 消息渲染 ----------
+  // Z10（XJ519-Z10）：历史遗留数据里的「模型调用失败：模型调用失败：…」双前缀，渲染层统一去重
+  function dedupeErrorPrefix(text) {
+    return String(text || '').replace(/(?:模型调用失败\s*[:：]\s*){2,}/g, '模型调用失败：');
+  }
+  function appendUserMsg(text) {
+    var div = appendUserMsgRaw(text);
+    messages.push({ role: 'user', content: text });
+    return div;
+  }
+  function appendUserMsgRaw(text) {
+    if (!bodyEl) return;
+    var div = document.createElement('div');
+    div.className = 'xj3-msg user';
+    div.textContent = text;
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function appendAiMsg(text, isTyping) {
+    var div = appendAiMsgRaw(text, isTyping);
+    if (!isTyping) messages.push({ role: 'assistant', content: text });
+    return div;
+  }
+  function appendAiMsgRaw(text, isTyping) {
+    if (!bodyEl) return null;
+    var div = document.createElement('div');
+    div.className = 'xj3-msg ai' + (isTyping ? ' typing' : '');
+    div.innerHTML = esc(dedupeErrorPrefix(text || '')).replace(/\n/g, '<br>');
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+    return div;
+  }
+
+  function updateAiMsg(div, text) {
+    if (!div) return;
+    div.classList.remove('typing');
+    div.innerHTML = esc(dedupeErrorPrefix(text)).replace(/\n/g, '<br>');
+    if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function appendSystemMsg(text) {
+    if (!bodyEl) return;
+    var div = document.createElement('div');
+    div.className = 'xj3-msg system';
+    div.textContent = text;
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function appendProgress(text) {
+    if (!bodyEl) return;
+    var div = document.createElement('div');
+    div.className = 'xj3-msg progress';
+    div.textContent = text;
+    bodyEl.appendChild(div);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+    return div;
+  }
+
+  // ---------- System Prompt ----------
+  function buildSystemPrompt() {
+    if (typeof PromptGovernance !== 'undefined' && PromptGovernance.registerPrompt) {
+      PromptGovernance.registerPrompt({
+        id: 'xiaojing.chat.system',
+        version: '4.4.0',
+        task: 'assistant-navigation',
+        model: 'chat-completions-compatible',
+        author: 'XinJing product team',
+        source: 'app/js/xinjing-chat.js',
+        changeLog: ['4.4.0: registered Xiaojing chat identity; live dashboard values remain outside the manifest hash.'],
+        content: XIAOJING_IDENTITY,
+      });
+    }
+    var preamble = (typeof PersonaPreamble !== 'undefined' && PersonaPreamble.build) ? PersonaPreamble.build() : '';
+    var ctx = '';
+    try {
+      if (typeof Store !== 'undefined') {
+        var clients = Store.getClients();
+        var sessions = Store.getSessions();
+        var todayStr = (typeof App !== 'undefined' && App.todayStr) ? App.todayStr() : new Date().toISOString().slice(0, 10);
+        var todayS = sessions.filter(function (s) { return s.date === todayStr; });
+        var owingCount = clients.filter(function (c) {
+          return Store.getSessionsByClient(c.id).some(function (s) { return s.billing && s.billing.fee > 0 && !s.billing.paid; });
+        }).length;
+        var ym = todayStr.slice(0, 7);
+        var monthIncome = sessions.filter(function (s) {
+          return s.date && s.date.slice(0, 7) === ym && s.billing && s.billing.fee > 0;
+        }).reduce(function (s, x) { return s + (x.billing.fee || 0); }, 0);
+        ctx = '【当前真实数据概览】\n' +
+          '今日咨询：' + todayS.length + '节\n' +
+          '来访者总数：' + clients.length + '位\n' +
+          '有欠费的来访者：' + owingCount + '位\n' +
+          '本月收入：' + money(monthIncome) + '\n\n' +
+          '【重要规则】\n' +
+          '- 如果用户问数据问题，你可以引用上面这个数据概览回答。\n' +
+          '- 如果需要更详细的数据或写入操作，使用提供的工具。\n' +
+          '- 如果用户问的专业问题超出你的能力范围，诚实地让对方去AI督导页面。';
+      }
+    } catch (e) { /* ignore */ }
+
+    var pageCtx = getPageContext();
+    if (pageCtx && pageCtx.title) {
+      ctx += '\n\n【当前页面】' + pageCtx.title;
+      if (pageCtx.capabilities) ctx += '\n本页能力：' + pageCtx.capabilities.join('、');
+    }
+
+    return (preamble ? preamble + '\n\n' : '') + XIAOJING_IDENTITY + '\n\n' + ctx;
+  }
+
+  // ---------- 确认卡 ----------
+  function requestConfirm(toolCall, args) {
+    return new Promise(function (resolve) {
+      if (!bodyEl) { resolve({ ok: false }); return; }
+      var card = document.createElement('div');
+      card.className = 'xj3-confirm-card';
+      var toolName = (toolCall && toolCall.function && toolCall.function.name) || '';
+      var previewHtml = '';
+      try {
+        previewHtml = renderConfirmPreview(toolName, args);
+      } catch (e) { previewHtml = '<div style="font-size:12px;color:var(--ink-3)">参数：' + esc(JSON.stringify(args)) + '</div>'; }
+      card.innerHTML =
+        '<div class="xj3-confirm-title">⚠ 即将执行写入操作</div>' +
+        '<div class="xj3-confirm-tool">工具：' + esc(toolName) + '</div>' +
+        '<div class="xj3-confirm-preview">' + previewHtml + '</div>' +
+        '<div class="xj3-confirm-actions">' +
+          '<button class="xj3-cancel">取消</button>' +
+          '<button class="xj3-ok">确认执行</button>' +
+        '</div>';
+      bodyEl.appendChild(card);
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+      card.querySelector('.xj3-ok').addEventListener('click', function () {
+        card.remove();
+        resolve({ ok: true });
+      });
+      card.querySelector('.xj3-cancel').addEventListener('click', function () {
+        card.remove();
+        resolve({ ok: false });
+      });
+    });
+  }
+
+  function renderConfirmPreview(toolName, args) {
+    var tn = toolName.replace(/_/g, '.');
+    if ((toolName === 'billing_add_record' || tn === 'billing.add_record') && Array.isArray(args.records)) {
+      var rows = args.records.map(function (r, i) {
+        return '<div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">' +
+          (i + 1) + '. 来访者：<b>' + esc(r.clientName || r.clientId || '') + '</b> ' +
+          '日期：<b>' + esc(r.date || '') + '</b> ' +
+          '费用：<b>¥' + esc(String(r.fee || 0)) + '</b> ' +
+          (r.settleType ? esc(r.settleType) + '·' : '') +
+          (r.paid ? '已收' : '未收') +
+        '</div>';
+      }).join('');
+      return rows;
+    }
+    if (toolName === 'billing_monthly_settle' || tn === 'billing.monthly_settle') {
+      return '<div style="font-size:12px">来访者：<b>' + esc(args.clientName || args.clientId || '') + '</b> 月份：<b>' + esc(args.month || '') + '</b> 金额：<b>¥' + esc(String(args.amount || 0)) + '</b></div>';
+    }
+    if (toolName === 'client_update' || tn === 'client.update') {
+      var keys = Object.keys(args.patch || {}).join(', ');
+      return '<div style="font-size:12px">来访者 ID：<b>' + esc(args.clientId || '') + '</b><br>修改字段：<b>' + esc(keys) + '</b></div>';
+    }
+    if (toolName === 'supervision_start' || tn === 'supervision.start') {
+      var modeName = args.supervisorName === 'cangjie' ? '仓颉版' : '女娲版';
+      var materialPreview = String(args.material || '').slice(0, 200) + (String(args.material || '').length > 200 ? '…' : '');
+      return '<div style="font-size:12px">' +
+        '督导师：<b>' + esc(modeName) + '</b><br>' +
+        '来访者：<b>' + esc(args.clientName || args.clientId || '') + '</b><br>' +
+        '材料预览：<span style="font-size:11px;color:var(--ink-3)">' + esc(materialPreview) + '</span>' +
+      '</div>';
+    }
+    return '<div style="font-size:12px;color:var(--ink-3)">参数：' + esc(JSON.stringify(args)) + '</div>';
+  }
+
+  // ---------- 跟进卡 / 导航卡 ----------
+  function renderFollowupCard(items) {
+    if (!bodyEl || !Array.isArray(items) || !items.length) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'xj3-followup-card';
+    var head = document.createElement('div');
+    head.className = 'xj3-followup-head';
+    head.textContent = '💡 跟进提示';
+    wrap.appendChild(head);
+    items.forEach(function (t) {
+      var it = document.createElement('div');
+      it.className = 'xj3-followup-item';
+      it.textContent = t;
+      wrap.appendChild(it);
+    });
+    bodyEl.appendChild(wrap);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function renderNavCard(card) {
+    if (!bodyEl || !card) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'xj3-nav-card';
+    var reason = card.reason ? ('<div class="xj3-nav-reason">' + esc(card.reason) + '</div>') : '';
+    wrap.innerHTML =
+      '<div class="xj3-nav-head">💡 建议前往「' + esc(card.label || '') + '」</div>' +
+      reason +
+      '<button class="xj3-nav-go">' + esc(card.label || '去看看') + ' →</button>';
+    wrap.querySelector('.xj3-nav-go').addEventListener('click', function () {
+      if (card.href) location.href = card.href;
+    });
+    bodyEl.appendChild(wrap);
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+
+  function toast(msg, type) {
+    if (typeof App !== 'undefined' && typeof App.showToast === 'function') {
+      App.showToast(msg, type || 'success');
+    }
+  }
+
+  // ---------- 撤销 ----------
+  function recordWriteAction(toolName, args, result) {
+    lastWriteAction = { toolName: toolName, args: args, result: result, ts: Date.now() };
+  }
+
+  async function undoLastWrite() {
+    if (undoPending) return;
+    if (!lastWriteAction) {
+      toast('没有可撤销的操作', 'info');
+      return;
+    }
+    var w = lastWriteAction;
+    if ((w.toolName === 'billing.add_record' || w.toolName === 'billing_add_record') && w.result && w.result.sessionIds) {
+      undoPending = true;
+      try {
+        var result = await Store.deleteSessionsDurable(w.result.sessionIds);
+        if (!result || !result.ok) throw new Error((result && result.error && result.error.message) || 'data was not persisted');
+        toast('已撤销 ' + w.result.sessionIds.length + ' 条记账记录', 'success');
+        lastWriteAction = null;
+      } catch (e) {
+        toast('撤销失败：' + (e.message || ''), 'error');
+      } finally {
+        undoPending = false;
+      }
+    } else {
+      toast('该操作不支持撤销', 'info');
+    }
+  }
+
+  // ---------- 发送 ----------
+  async function send() {
+    if (busy) return;
+    // Z5（XJ519-Z5）：面板 DOM 可能被外部重建，失联引用会导致消息写进游离节点后静默丢失；
+    // 发送前校验引用仍挂在文档上，失联则重置并让 build() 重新接管。
+    if (panelEl && typeof document !== 'undefined' && !document.contains(panelEl)) {
+      panelEl = null; bodyEl = null; inputEl = null; hintDotEl = null;
+    }
+    build();
+    refreshLock();
+    if (!inputEl) return;
+    var text = (inputEl.value || '').trim();
+    if (!text) return;
+    // Z5：先持久化（messages.push + DOM 挂载）再清空输入——首条发送必须可见，后续失败不再静默丢消息。
+    var userEl = appendUserMsg(text);
+    inputEl.value = '';
+    // 方案 B：记录刚发送的用户消息，供 3 秒内撤销（数据层即 localStorage 跨页记忆）
+    var userObj = messages[messages.length - 1];
+    setSendUndo(userEl, userObj);
+
+    var local = queryLocal(text);
+    if (local) {
+      appendAiMsg(local.content);
+      saveMemory();
+      return;
+    }
+
+    if (!isUnlocked()) {
+      appendAiMsg('小镜需激活后才能使用 AI 对话。请先在设置中配置 AI 密钥。');
+      saveMemory();
+      return;
+    }
+
+    var hasAgentCore = typeof AgentCore !== 'undefined' && typeof AgentCore.runRound === 'function';
+    var hasTools = typeof AgentTools !== 'undefined';
+    busy = true;
+    var typingDiv = appendAiMsg('思考中…', true);
+    // 2026-09-11：DeepSeek 思考过程（reasoning_content）渲染为可折叠"思考过程"区
+    var thinkingDiv = null;
+    function handleReasoning(piece, full) {
+      if (!full) return;
+      if (!thinkingDiv && bodyEl && typingDiv) {
+        thinkingDiv = document.createElement('details');
+        thinkingDiv.className = 'xj3-thinking';
+        var sumEl = document.createElement('summary');
+        sumEl.textContent = '思考过程';
+        var bodyEl2 = document.createElement('div');
+        bodyEl2.className = 'xj3-thinking-body';
+        thinkingDiv.appendChild(sumEl);
+        thinkingDiv.appendChild(bodyEl2);
+        bodyEl.insertBefore(thinkingDiv, typingDiv);
+      }
+      if (thinkingDiv) {
+        var tb = thinkingDiv.querySelector('.xj3-thinking-body');
+        if (tb) tb.textContent = full;
+      }
+    }
+
+    try {
+      ensureSystemPrompt();
+      if (hasAgentCore && hasTools) {
+        var result = await AgentCore.runRound(messages, requestConfirm, function (name, status, data) {
+          updateAiMsg(typingDiv, '');
+          if (status === 'executing') appendProgress('正在执行：' + name + '…');
+          else if (status === 'done') {
+            if (data && data.switchedTo === 'user') {
+              refreshTierUI();
+              toast('已切换到高性能模型，理解与表达质量已提升', 'success');
+              return;
+            }
+            if (data && data.switchedTo === 'builtin' && data.testError) {
+              refreshTierUI();
+              toast('接入测试未通过：' + data.testError + '，已降级到内置模型', 'error');
+              return;
+            }
+            if (data && data.switchedTo === 'partial') {
+              appendProgress(data.message || '已记录部分配置');
+              return;
+            }
+            if (data && data.card && data.card.kind === 'navigate_hint') {
+              renderNavCard(data.card);
+              return;
+            }
+            if (data) {
+              var summary = data.added !== undefined ? ('✓ 已新增 ' + data.added + ' 条记录' + (data.skipped ? '，跳过 ' + data.skipped + ' 条' : ''))
+                : (data.receivable !== undefined ? ('✓ 应收 ¥' + data.receivable + ' / 已收 ¥' + data.received + ' / 余额 ¥' + data.balance)
+                : '✓ 已完成');
+              appendProgress(summary);
+              if (data.added !== undefined && data.sessionIds && data.sessionIds.length) {
+                recordWriteAction(name, {}, data);
+              }
+            }
+          }
+        }, function (evt) {
+          if (evt && evt.type === 'followups' && Array.isArray(evt.items) && evt.items.length) {
+            renderFollowupCard(evt.items);
+          }
+        }, function (piece, fullText) { updateAiMsg(typingDiv, fullText || piece || ''); },
+          handleReasoning
+        );
+        if (result.error && String(result.error).indexOf('account-session-required') >= 0) {
+          showAccountSessionRecovery(typingDiv, text);
+        } else if (result.error) {
+          updateAiMsg(typingDiv, '⚠ ' + result.error);
+        } else if (result.reply) {
+          // AgentCore.runRound 已把模型消息写入 messages（同一数组引用），此处仅渲染，不再 push。
+          updateAiMsg(typingDiv, result.reply);
+        } else {
+          // result.reply 为空：AgentCore 已写入最终 assistant 消息（可能 content 为空），
+          // 仅补充友好兜底文案并就地修正最后一条消息，避免重复 push 产生两条 assistant。
+          updateAiMsg(typingDiv, '（已完成）');
+          var last = messages[messages.length - 1];
+          if (last && last.role === 'assistant' && !last.content) {
+            last.content = '已完成。';
+          }
+        }
+      } else {
+        if (typeof AI !== 'undefined' && AI.send) {
+          var sys = buildSystemPrompt();
+          AI.send([{ role: 'system', content: sys }, { role: 'user', content: text }], function (res) {
+            if (res && res.error && String(res.error).indexOf('account-session-required') >= 0) {
+              showAccountSessionRecovery(typingDiv, text);
+            } else if (res && res.error) {
+              updateAiMsg(typingDiv, '出错：' + res.error);
+            } else {
+              var content = (res && res.content) || '（未获得回复）';
+              updateAiMsg(typingDiv, content);
+              messages.push({ role: 'assistant', content: content });
+            }
+            busy = false;
+            saveMemory();
+          }, { onDelta: function (piece, fullText) { updateAiMsg(typingDiv, fullText); }, onReasoning: handleReasoning });
+          return;
+        } else {
+          updateAiMsg(typingDiv, 'AI 模块未就绪，请重启应用。');
+        }
+      }
+    } catch (e) {
+      updateAiMsg(typingDiv, '出错：' + (e.message || '未知错误'));
+    }
+    busy = false;
+    saveMemory();
+  }
+
+  // ---------- 方案 B：发送后 3 秒内可撤销 ----------
+  // 数据层即 localStorage 的「跨页对话记忆」（MEM_KEY）；本页没有把自由对话写入 Store 临床会谈，
+  // 故"真删除" = 从 messages 数组移除该轮 + saveMemory() 回写 localStorage，重载后不再出现。
+  function clearTurnFromData(userObj) {
+    var startIdx = messages.indexOf(userObj);
+    if (startIdx < 0) return;
+    var endIdx = messages.length;
+    for (var i = startIdx + 1; i < messages.length; i += 1) {
+      if (messages[i] && messages[i].role === 'user') { endIdx = i; break; }
+    }
+    messages.splice(startIdx, endIdx - startIdx);
+  }
+
+  function clearTurnFromDom(userEl) {
+    if (!userEl || !userEl.parentNode) return;
+    var toRemove = [userEl];
+    var sib = userEl.nextElementSibling;
+    while (sib) {
+      if (sib.classList && sib.classList.contains('xj3-msg') && sib.classList.contains('user')) break;
+      toRemove.push(sib);
+      sib = sib.nextElementSibling;
+    }
+    toRemove.forEach(function (n) { if (n.parentNode) n.parentNode.removeChild(n); });
+  }
+
+  function hideUndoToast() {
+    if (undoToastEl && undoToastEl.parentNode) undoToastEl.parentNode.removeChild(undoToastEl);
+    undoToastEl = null;
+  }
+
+  function undoSend() {
+    if (!sendUndoState) return;
+    var st = sendUndoState;
+    sendUndoState = null;
+    if (sendUndoTimer) { clearTimeout(sendUndoTimer); sendUndoTimer = null; }
+    hideUndoToast();
+    clearTurnFromData(st.userObj);
+    clearTurnFromDom(st.userEl);
+    saveMemory();
+  }
+
+  function showUndoToast() {
+    hideUndoToast();
+    var bar = document.createElement('div');
+    bar.className = 'xj3-send-undo-toast';
+    bar.style.cssText = 'position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:50;' +
+      'display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--paper-2,#fff);' +
+      'color:var(--ink,#222);border:1px solid var(--border,#e3e3e8);border-radius:999px;' +
+      'box-shadow:0 6px 20px rgba(0,0,0,.12);font-size:13px;cursor:default';
+    var label = document.createElement('span');
+    label.textContent = '消息已发送';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '撤销';
+    btn.style.cssText = 'border:none;background:var(--accent,#4f46e5);color:#fff;font-size:12px;' +
+      'padding:4px 12px;border-radius:999px;cursor:pointer';
+    btn.addEventListener('click', undoSend);
+    bar.appendChild(label);
+    bar.appendChild(btn);
+    var drawer = panelEl && panelEl.querySelector('.xj3-drawer');
+    (drawer || document.body).appendChild(bar);
+    undoToastEl = bar;
+  }
+
+  function setSendUndo(userEl, userObj) {
+    // 再次发送会令上一条可撤销提示失效
+    if (sendUndoTimer) { clearTimeout(sendUndoTimer); sendUndoTimer = null; }
+    sendUndoState = { userEl: userEl, userObj: userObj };
+    showUndoToast();
+    sendUndoTimer = setTimeout(function () {
+      sendUndoState = null;
+      hideUndoToast();
+    }, 3000);
+  }
+
+  function quickQuery(text) {
+    if (!inputEl) return;
+    inputEl.value = text;
+    send();
+  }
+
+  function askHint(hint) {
+    if (!inputEl) return;
+    inputEl.value = hint;
+    send();
+  }
+
+  // ---------- 语音输入 ----------
+  var voiceRecognition = null;
+  var isRecording = false;
+
+  function toggleVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      appendAiMsg('当前浏览器不支持语音输入');
+      return;
+    }
+    var voiceBtn = panelEl.querySelector('#xj3-voice');
+    if (!voiceBtn) return;
+
+    if (!voiceRecognition) {
+      voiceRecognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      voiceRecognition.lang = 'zh-CN';
+      voiceRecognition.interimResults = true;
+      voiceRecognition.onresult = function (e) {
+        var interim = '';
+        var final = '';
+        for (var i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
+        }
+        if (inputEl) inputEl.value = final + interim;
+      };
+      voiceRecognition.onend = function () {
+        isRecording = false;
+        if (voiceBtn) voiceBtn.classList.remove('recording');
+        voiceBtn.textContent = '🎤';
+      };
+      voiceRecognition.onerror = function (e) {
+        isRecording = false;
+        if (voiceBtn) voiceBtn.classList.remove('recording');
+        voiceBtn.textContent = '🎤';
+        appendAiMsg('语音输入出错：' + (e.error || '未知错误'));
+      };
+    }
+
+    if (isRecording) {
+      voiceRecognition.stop();
+    } else {
+      voiceRecognition.start();
+      isRecording = true;
+      voiceBtn.classList.add('recording');
+      voiceBtn.textContent = '⏹';
+    }
+  }
+
+  // ---------- 开关 ----------
+  // 2026-09-12（XJ-512-009 缺陷2）：本模块与 xiaojing-panel.js 各持一份 isOpen。接管面板后，
+  // DOM 上的 .open 类由本模块维护，需同步告知 xiaojing-panel.js，避免其 toggle 基于漂移状态
+  // 把"收起"再次变成打开。
+  function syncPeerOpenState(next) {
+    try {
+      if (window.XiaojingPanel && typeof window.XiaojingPanel.syncOpenState === 'function'
+          && window.XiaojingPanel !== XinJingChat) {
+        window.XiaojingPanel.syncOpenState(next);
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function toggle() {
+    build();
+    // 面板可能由旧版脚本或路由恢复提前打开；以内存状态为准会把“收起”再次变成打开。
+    isOpen = !panelEl.classList.contains('open');
+    if (isOpen) {
+      panelEl.classList.add('open');
+      var f = panelEl.querySelector('#xj3-fab');
+      if (f) f.classList.remove('docked');
+      clearNewHint();
+      setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
+    } else {
+      panelEl.classList.remove('open');
+      var f2 = panelEl.querySelector('#xj3-fab');
+      if (f2) f2.classList.add('docked');
+    }
+    syncPeerOpenState(isOpen);
+  }
+
+  function open() {
+    build();
+    if (!panelEl.classList.contains('open')) {
+      isOpen = true;
+      panelEl.classList.add('open');
+      var f = panelEl.querySelector('#xj3-fab');
+      if (f) f.classList.remove('docked');
+      clearNewHint();
+      setTimeout(function () { if (inputEl) inputEl.focus(); }, 300);
+      syncPeerOpenState(true);
+    }
+  }
+
+  function close() {
+    if (panelEl && panelEl.classList.contains('open')) {
+      isOpen = false;
+      panelEl.classList.remove('open');
+      var f = panelEl.querySelector('#xj3-fab');
+      if (f) f.classList.add('docked');
+      var returnTarget = document.activeElement;
+      var fab = panelEl.querySelector('#xj3-fab');
+      if (returnTarget && panelEl.contains(returnTarget) && fab && typeof fab.focus === 'function') {
+        try { fab.focus({ preventScroll: true }); } catch (e) { fab.focus(); }
+      }
+      syncPeerOpenState(false);
+    }
+  }
+
+  function showNewHint() {
+    build();
+    hasNewHint = true;
+    if (hintDotEl) hintDotEl.classList.add('show');
+  }
+
+  function clearNewHint() {
+    hasNewHint = false;
+    if (hintDotEl) hintDotEl.classList.remove('show');
+  }
+
+  function updateSub(text) {
+    build();
+    var sub = panelEl.querySelector('#xj3-sub');
+    if (sub) sub.textContent = text || '工作台助手';
+  }
+
+  function refresh() {
+    build();
+    messages = [];
+    ensureSystemPrompt();
+    renderGreeting();
+  }
+
+  // ---------- 每日检查 ----------
+  function dailyCheck() {
+    try {
+      if (location.pathname.indexOf('index.html') < 0 && location.pathname.indexOf('dashboard') < 0 && location.pathname !== '/') return;
+      var today = new Date().toISOString().slice(0, 10);
+      var lastCheck = localStorage.getItem('xj_daily_check');
+      if (lastCheck === today) return;
+      localStorage.setItem('xj_daily_check', today);
+
+      var sessions = [];
+      try { if (typeof Store !== 'undefined') sessions = Store.getSessions(); } catch (e) {}
+      var pending = sessions.filter(function (s) {
+        var fee = (s.billing && s.billing.fee) || 0;
+        return fee > 0 && !(s.billing && s.billing.paid);
+      });
+
+      var stale = [];
+      try {
+        if (typeof Store !== 'undefined') {
+          var clients = Store.getClients().filter(function (c) { return c.status !== 'ended'; });
+          var now = Date.now();
+          clients.forEach(function (c) {
+            var cs = sessions.filter(function (s) { return s.clientId === c.id; });
+            cs.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+            if (cs.length > 0 && cs[0].date) {
+              var daysAgo = Math.floor((now - new Date(cs[0].date).getTime()) / 86400000);
+              if (daysAgo > 30) stale.push(c.name + '（' + daysAgo + '天未会谈）');
+            }
+          });
+        }
+      } catch (e) {}
+
+      if (pending.length > 0 || stale.length > 0) {
+        var msg = '';
+        if (pending.length > 0) msg += '📋 ' + pending.length + ' 笔未收款 ';
+        if (stale.length > 0) msg += '⏰ ' + stale.length + ' 位来访者待跟进';
+        try {
+          if (typeof App !== 'undefined' && App.showToast) App.showToast(msg.trim(), 'info');
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  // ---------- 加载自检 ----------
+  // 校验统一对话面板 API 表面完整，供 app.js 初始化时调用。
+  function selfTest() {
+    var expected = ['build', 'toggle', 'open', 'close', 'send', 'quickQuery',
+      'askHint', 'showNewHint', 'clearNewHint', 'updateSub', 'refresh', 'undo'];
+    var missing = expected.filter(function (m) { return typeof api[m] !== 'function'; });
+    var loaded = typeof window !== 'undefined' && window.XinJingChat === api;
+    return { ok: missing.length === 0 && loaded, missing: missing, loaded: loaded };
+  }
+
+  // ---------- 导出 ----------
+  var api = {
+    build: build, toggle: toggle, open: open, close: close,
+    send: send, quickQuery: quickQuery, askHint: askHint,
+    showNewHint: showNewHint, clearNewHint: clearNewHint,
+    updateSub: updateSub, refresh: refresh, undo: undoLastWrite,
+    selfTest: selfTest
+  };
+
+  if (typeof window !== 'undefined') {
+    window.XinJingChat = api;
+    window.XiaojingPanel = api;
+    window.toggleXiaojing = toggle;
+    window.AgentOpen = open;
+    window.AgentClose = close;
+    window.AgentSend = function (text) {
+      build();
+      if (!isOpen) open();
+      if (text) quickQuery(text);
+    };
+    window.AgentUndo = undoLastWrite;
+
+    // 加载时主动接管 xiaojing-panel.js 已建好的面板（避免双悬浮球 / 重复事件）
+    if (document.getElementById('xj-panel-v3') && !panelEl) {
+      try { build(); } catch (e) { console.warn('[xinjing-chat] takeover fail', e); }
+    }
+  }
+
+  return api;
+
+})();
+
+// 511-004: GPT-5.6 account-session-required 单一去重恢复卡（保留草稿；显式动作，无自动降级）
+  function showAccountSessionRecovery(typingDiv, draftText) {
+    if (document.querySelector('.xj-recovery-card')) { return; } // 去重：每请求一张
+    var wrap = typingDiv && typingDiv.parentNode ? typingDiv.parentNode : document.body;
+    var card = document.createElement('div');
+    card.className = 'xj-recovery-card';
+    card.setAttribute('role', 'alert');
+    card.style.cssText = 'border:1px solid #c9a227;background:rgba(201,162,39,.08);border-radius:10px;padding:12px 14px;margin:8px 0;';
+    card.innerHTML = '<strong>需要登录账号会话（account-session-required）</strong>' +
+      '<p style="margin:6px 0;color:var(--text-muted,#999);font-size:12px">草稿已保留。请选择以下安全操作：</p>' +
+      '<button type="button" data-xj-act="retry" style="margin-right:6px;padding:6px 12px;border-radius:8px;cursor:pointer;background:var(--accent,#4a6cf7);color:#fff;border:0">重试</button>' +
+      '<button type="button" data-xj-act="relogin" style="margin-right:6px;padding:6px 12px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid var(--border,#444);color:var(--text,#eee)">登录 / 配置会话</button>' +
+      '<button type="button" data-xj-act="switch-qwen" style="padding:6px 12px;border-radius:8px;cursor:pointer;background:transparent;border:1px dashed var(--border,#444);color:var(--text,#eee)">改用无会话基础模型（需显式确认）</button>';
+    card.dataset.draft = String(draftText || '');
+    wrap.appendChild(card);
+    card.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('[data-xj-act]') : null;
+      if (!btn) return;
+      if (btn.disabled) return; // 511-010: duplicate guard —— disabled 期间二次触发 no-op
+      var act = btn.getAttribute('data-xj-act');
+      if (act === 'retry') { var draft = card.dataset.draft || '';  btn.disabled = true; btn.textContent = '发送中…'; if (window.XinJingChat && window.XinJingChat.quickQuery) { window.XinJingChat.quickQuery(draft); } else if (window.__xjRetryDraft) { window.__xjRetryDraft(draft); } } // 511-008: 真实 window.XinJingChat.quickQuery，发送中不删卡
+      else if (act === 'relogin') { card.remove(); if (window.App && App.openSettings) App.openSettings('account'); }
+      else if (act === 'switch-qwen') {
+        if (window.confirm('确认切换到无会话基础模型？该模型不要求账号会话。')) {
+          if (window.__xjSwitchBasic) window.__xjSwitchBasic(card, btn);
+        }
+      }
+    });
+    return card;
+  }
+  window.showAccountSessionRecovery = showAccountSessionRecovery;
+  window.__xjRetryDraft = function (draft) { if (typeof quickQuery === 'function' && draft) { quickQuery(draft); } else if (draft) { var ta = document.querySelector('textarea, [contenteditable=true]'); if (ta) ta.value = draft; } }; // 511-007: retry 走真实 quickQuery 发送（非仅写 textarea）
+  window.__xjSwitchBasic = function (card, btn) { if (typeof Store === 'undefined' || !Store.saveSettingsDurable) { showInlineRecoveryError(card, '无法访问本地存储，请重试'); return; } btn.disabled = true; btn.textContent = '切换中…'; Store.saveSettingsDurable({ apiConfig: {} }).then(function (res) { if (res && res.ok === true) { if (card && card.parentNode) card.parentNode.removeChild(card); App.showToast && App.showToast('已切换到无会话基础模型', 'success'); } else { showInlineRecoveryError(card, '切换失败：未收到 durable 确认，请重试'); if (btn) { btn.disabled = false; btn.textContent = '改用无会话基础模型（需显式确认）'; } } }).catch(function (e) { showInlineRecoveryError(card, '切换失败：' + (e && e.message || e)); if (btn) { btn.disabled = false; btn.textContent = '改用无会话基础模型（需显式确认）'; } }); }; // 511-008: pending/{ok:false}/throw 保留卡可重试；仅 {ok:true} 移除；禁不存在的外部切换调用
+
+function showInlineRecoveryError(card, msg) {
+  if (!card) return;
+  var old = card.querySelector('.xj-recovery-err');
+  if (old) old.remove();
+  var err = document.createElement('div');
+  err.className = 'xj-recovery-err';
+  err.setAttribute('role', 'alert');
+  err.style.cssText = 'margin-top:8px;color:#d64545;font-size:12px;';
+  err.textContent = msg;
+  card.appendChild(err);
+}
+window.showInlineRecoveryError = showInlineRecoveryError;
+
+// 2026-09-11 读写模式入口（与 chat-home 共用同一套逻辑；页面加载后注入）
+(function () {
+  function injectModeBar() {
+    if (typeof AgentTools !== 'undefined' && AgentTools.initAgentModeBar) AgentTools.initAgentModeBar();
+  }
+  if (document.readyState !== 'loading') injectModeBar();
+  else window.addEventListener('DOMContentLoaded', injectModeBar);
+})();

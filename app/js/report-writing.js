@@ -1,0 +1,516 @@
+/* 心镜 v3.0.1 — 撰写报告（分步向导式 + AI 辅助 + 模板上传自动生成模块） */
+(function () {
+  'use strict';
+  var currentClientId = null;
+  var currentSessionId = null;
+  var materialId = '';
+  var tplSections = null; // 模板解析出的模块（null=用默认6段）
+  var currentStep = 0;
+  var stepData = {}; // {0: "text", 1: "text", ...}
+  var activeAiRequest = null;
+
+  // 报告页状态条由 report-writing.html 提供；页面脚本未加载时保持无副作用。
+  function notifyReportAiState(state, description) {
+    if (typeof window.reportAiSetState === 'function') window.reportAiSetState(state, description);
+  }
+
+  // 供页面上的“取消生成”按钮调用；中止真实请求并让晚到结果失效。
+  window.abortReportAi = function () {
+    var request = activeAiRequest;
+    if (!request) return false;
+    request.cancelled = true;
+    if (request.controller && typeof request.controller.abort === 'function') request.controller.abort();
+    activeAiRequest = null;
+    return true;
+  };
+
+  function currentMaterialWorkspace() { return materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null; }
+  function showMaterialSource(material) {
+    var top = document.querySelector('.rpt-top');
+    if (!top || !material || document.getElementById('rpt-material-source')) return;
+    var source = document.createElement('span');
+    source.id = 'rpt-material-source'; source.style.cssText = 'font-size:12px;color:var(--accent);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+    source.textContent = '当前材料：' + (material.source.name || material.title) + (material.clientId ? ' · 已关联' : ' · 未归档，保存前请选择来访者');
+    top.appendChild(source);
+  }
+
+  // 默认 6 段
+  var defaultSections = [
+    { title: '来访者基本信息与转介来源', hint: '姓名、年龄、性别、职业、婚姻状况、转介渠道等……', desc: '填写来访者的基本信息。可点击"AI 填写本步"自动从数据库提取。' },
+    { title: '主诉与求助原因', hint: '来访者自述的困扰、持续时间、严重程度……', desc: '描述来访者主诉的核心困扰及求助原因。' },
+    { title: '个人发展史与家庭背景', hint: '童年经历、家庭关系、重要生活事件……', desc: '填写来访者的成长经历与家庭背景。' },
+    { title: '心理动力学评估与个案概念化', hint: '运用所选理论取向对个案形成理解……', desc: '基于理论取向对个案进行概念化。' },
+    { title: '治疗过程概述与关键转折', hint: '历次咨询的进展、关键转折……', desc: '概述治疗过程中的关键节点。' },
+    { title: '后续方向与反思', hint: '下一阶段的目标、可能的挑战、咨询师的自我反思……', desc: '展望后续治疗方向并做自我反思。' },
+  ];
+
+  function getSections() { return tplSections || defaultSections; }
+
+  function loadClients() {
+    var sel = document.getElementById('rpt-client');
+    var clients = Store.getClients();
+    sel.innerHTML = '<option value="">选择来访者…</option>' + clients.map(function (c) {
+      return '<option value="' + c.id + '">' + App.escapeHtml(c.name) + '</option>';
+    }).join('');
+  }
+
+  window.loadClientSessions = function () {
+    var sel = document.getElementById('rpt-client');
+    currentClientId = sel.value || null;
+    if (!currentClientId) { document.getElementById('sess-dd').style.display = 'none'; return; }
+    if (App.setActiveClientId) App.setActiveClientId(currentClientId);
+    if (materialId && Store.reconcileMaterialContext) Store.reconcileMaterialContext(materialId, currentClientId, null, {});
+    // 载入来访者基本信息到第 1 步
+    var c = Store.getClient(currentClientId);
+    stepData[0] = App.escapeHtml(c.name) + '（化名）\n' + (c.notes || '');
+    document.getElementById('sess-dd').style.display = '';
+    document.getElementById('sess-menu').style.display = 'none';
+    renderSessMenu();
+    renderStepsNav();
+    goToStep(0);
+  };
+
+  // 渲染「基于节次」下拉菜单（默认不勾选，避免占满视觉）
+  window.renderSessMenu = function () {
+    var list = document.getElementById('sessions-list');
+    if (!list || !currentClientId) return;
+    var sessions = Store.getSessionsForPicker(currentClientId).sort(function (a, b) {
+      return (b.date || '').localeCompare(a.date || '');
+    });
+    var onlyHas = document.getElementById('sess-only-has') && document.getElementById('sess-only-has').checked;
+    var filtered = sessions.filter(function (s) {
+      if (!onlyHas) return true;
+      return s.hasTranscript || s.hasSoap || s.hasDap || (s.notes && s.notes.trim());
+    });
+    // 防御：按 id 去重，避免缓存中重复会话记录导致「基于节次」出现多个重复节数
+    var seenM = {};
+    filtered = filtered.filter(function (s) { if (seenM[s.id]) return false; seenM[s.id] = 1; return true; });
+    if (!filtered.length) {
+      list.innerHTML = '<div class="sess-empty">该来访者暂无可用的逐字稿或咨询记录</div>';
+      return;
+    }
+    list.innerHTML = filtered.map(function (s) {
+      var tags = [];
+      if (s.hasTranscript) tags.push('逐字稿');
+      if (s.hasSoap) tags.push('SOAP');
+      if (s.hasDap) tags.push('DAP');
+      if (!tags.length && s.notes && s.notes.trim()) tags.push('记录');
+      var tagHtml = tags.map(function (t) { return '<span class="tag">' + t + '</span>'; }).join('');
+      return '<label class="sess-item"><input type="checkbox" class="sess-cb" value="' + s.id + '"> 第' + s.sessionNumber + '节 ' + (s.date || '') + tagHtml + '</label>';
+    }).join('');
+    updateSessBtnLabel();
+  };
+
+  window.toggleSessMenu = function () {
+    var m = document.getElementById('sess-menu');
+    m.style.display = m.style.display === 'none' ? '' : 'none';
+  };
+
+  window.sessSelectAll = function (checked) {
+    document.querySelectorAll('#sessions-list .sess-cb').forEach(function (cb) { cb.checked = checked; });
+    updateSessBtnLabel();
+  };
+
+  function updateSessBtnLabel() {
+    var btn = document.querySelector('.sess-dd-btn');
+    if (!btn) return;
+    var cbs = document.querySelectorAll('#sessions-list .sess-cb');
+    var n = Array.prototype.filter.call(cbs, function (c) { return c.checked; }).length;
+    if (n > 0) { btn.classList.add('has-sel'); btn.textContent = '基于节次（' + n + '）▾'; }
+    else { btn.classList.remove('has-sel'); btn.textContent = '基于节次 ▾'; }
+  }
+
+  // 上传逐字稿到报告（写入该来访者一条带 transcript 的会话，便于 AI 引用）
+  window.onReportTranscriptUpload = function (event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); event.target.value = ''; return; }
+    App.showToast('正在读取逐字稿…', 'info');
+    var reader = new FileReader();
+    var onText = async function (text) {
+      try {
+      var r;
+      if (currentSessionId) {
+        var existing = Store.getSession(currentSessionId);
+        if (!existing || existing.clientId !== currentClientId) {
+          App.showToast('当前会谈不存在或不属于该来访者，逐字稿未保存', 'error');
+          return;
+        }
+        r = await Store.updateSessionFull(Object.assign({}, existing, { transcript: text, hasTranscript: true }));
+      } else {
+        r = await Store.createSessionDurable({
+          clientId: currentClientId, date: App.todayStr(), durationMinutes: 0, type: 'individual',
+          recordKind: 'clinical', billing: null, transcript: text, hasTranscript: true, notes: '',
+        });
+        if (r && r.ok && r.value) currentSessionId = r.value.id;
+      }
+      if (!r || !r.ok) { App.showToast('逐字稿保存失败：草稿已保留，请恢复存储后重试', 'error'); return; }
+      // Persist a linked material workspace only after the durable session write succeeds.
+      if (Store.createMaterialWorkspace || Store.updateMaterialWorkspace) {
+        var existingMaterial = materialId && Store.getMaterialWorkspace ? Store.getMaterialWorkspace(materialId) : null;
+        if (existingMaterial && existingMaterial.clientId && existingMaterial.clientId !== currentClientId) {
+          App.showToast('材料不属于当前来访者，未建立材料工作区', 'error'); return;
+        }
+        var source = { name: file.name || 'transcript.txt', ext: (file.name || '').split('.').pop().toLowerCase(), size: file.size || 0, modifiedAt: file.lastModified || 0 };
+        var workspacePatch = { clientId: currentClientId, sessionId: currentSessionId || (r.value && r.value.id) || '', linkStatus: 'linked', parseStatus: 'ready', extractedText: text, source: source, workflow: { report: 'in-progress' } };
+        var wsResult;
+        if (existingMaterial && Store.updateMaterialWorkspaceDurable) wsResult = await Store.updateMaterialWorkspaceDurable(existingMaterial.id, workspacePatch);
+        else if (Store.createMaterialWorkspaceDurable) wsResult = await Store.createMaterialWorkspaceDurable(workspacePatch);
+        else if (existingMaterial && Store.updateMaterialWorkspace) wsResult = { ok: true, value: Store.updateMaterialWorkspace(existingMaterial.id, workspacePatch) };
+        else if (Store.createMaterialWorkspace) wsResult = { ok: true, value: Store.createMaterialWorkspace(workspacePatch) };
+        else wsResult = null;
+        if (!wsResult || !wsResult.ok) { App.showToast('材料工作区保存失败：草稿已保留，请重试', 'error'); return; }
+        var ws = wsResult.value;
+        if (ws && ws.id && !materialId) materialId = ws.id;
+        if (ws && typeof SourceRef !== 'undefined' && SourceRef && typeof SourceRef.create === 'function' && Store.updateMaterialWorkspace) {
+          var sourceRef = SourceRef.create({ clientId: currentClientId, sessionId: workspacePatch.sessionId, anchor: { kind: 'material:text', locator: 'material:' + ws.id }, sourceText: text, anchorText: text });
+          var sourceResult = Store.updateMaterialWorkspaceDurable
+            ? await Store.updateMaterialWorkspaceDurable(ws.id, { sourceRef: sourceRef })
+            : { ok: true, value: Store.updateMaterialWorkspace(ws.id, { sourceRef: sourceRef }) };
+          if (!sourceResult || !sourceResult.ok) { App.showToast('材料引用保存失败：草稿已保留，请重试', 'error'); return; }
+          ws = sourceResult.value;
+        }
+      }
+      App.showToast('逐字稿已存入数据库，可在「基于节次」中勾选引用', 'success');
+      renderSessMenu();
+      } catch (error) {
+        App.showToast('逐字稿处理失败：草稿已保留，请重试', 'error');
+      }
+    };
+    if (file.name.toLowerCase().endsWith('.docx')) {
+      if (typeof mammoth !== 'undefined') {
+        reader.onload = function (ev) { mammoth.extractRawText({ arrayBuffer: ev.target.result }).then(function (r) { onText(r.value); }).catch(function () { App.showToast('docx 解析失败', 'error'); }); };
+        reader.readAsArrayBuffer(file);
+      } else { App.showToast('docx 解析库未加载', 'warning'); }
+    } else {
+      reader.onload = function (ev) { onText(ev.target.result); };
+      reader.readAsText(file, 'UTF-8');
+    }
+    event.target.value = '';
+  };
+
+  function renderStepsNav() {
+    var secs = getSections();
+    var nav = document.getElementById('steps-nav');
+    nav.innerHTML = secs.map(function (sec, i) {
+      var cls = i === currentStep ? ' active' : (stepData[i] ? ' done' : '');
+      return '<div class="step' + cls + '" onclick="goToStep(' + i + ')"><span class="dot">' + (i + 1) + '</span><span class="stxt">' + App.escapeHtml(sec.title) + '</span></div>';
+    }).join('');
+  }
+
+  window.goToStep = function (i) {
+    var secs = getSections();
+    if (i < 0 || i >= secs.length) return;
+    currentStep = i;
+    var sec = secs[i];
+    document.getElementById('step-title').textContent = (i + 1) + '. ' + sec.title;
+    document.getElementById('step-desc').textContent = sec.desc || sec.hint || '';
+    // 渲染 textarea
+    var body = document.getElementById('step-body');
+    var val = stepData[i] || '';
+    body.innerHTML = '<textarea id="step-ta" placeholder="' + App.escapeHtml(sec.hint || '请填写…') + '" oninput="onStepInput(this,' + i + ')">' + App.escapeHtml(val) + '</textarea>'
+      + '<div class="ai-suggest" id="ai-suggest"><div class="label">AI 建议</div><div id="ai-suggest-content"></div><button class="accept" onclick="acceptAISuggest()">采用此段</button></div>';
+    // 按钮状态
+    document.getElementById('btn-prev').style.display = i > 0 ? '' : 'none';
+    document.getElementById('btn-ai-step').style.display = currentClientId ? '' : 'none';
+    document.getElementById('step-info').textContent = '步骤 ' + (i + 1) + '/' + secs.length;
+    refreshFoot();
+    renderStepsNav();
+  };
+
+  // textarea 输入：同步 stepData，并在最后一步实时刷新「完成/保存」按钮
+  window.onStepInput = function (ta, i) {
+    stepData[i] = ta.value;
+    if (i === getSections().length - 1) refreshFoot();
+  };
+
+  // 根据「是否为最后一步 + 是否全部填写」决定底栏按钮
+  function refreshFoot() {
+    var secs = getSections();
+    var isLast = currentStep === secs.length - 1;
+    var allFilled = secs.every(function (sec, idx) { return (stepData[idx] || '').trim(); });
+    var nextBtn = document.getElementById('btn-next');
+    var actions = document.getElementById('btn-report-actions');
+    if (isLast && allFilled) {
+      nextBtn.style.display = 'none';
+      actions.style.display = '';
+    } else {
+      nextBtn.style.display = '';
+      nextBtn.textContent = isLast ? '完成' : '下一步 →';
+      actions.style.display = 'none';
+    }
+  }
+
+  window.prevStep = function () { if (currentStep > 0) goToStep(currentStep - 1); };
+  window.nextStep = function () {
+    var secs = getSections();
+    if (currentStep < secs.length - 1) { goToStep(currentStep + 1); }
+    else {
+      // confirmDialog 以 textContent 渲染消息；这里使用纯文本，再把两个真实动作
+      // 作为 footer 控件插入，避免把 HTML 源码展示给用户或调用不存在的 closeDialog。
+      var overlay = App.confirmDialog('报告已完成。你可以保存为 Word 文档，或带着报告去 AI 督导深化分析。', function () {
+        window.onSaveReport();
+        return true;
+      });
+      if (!overlay) return;
+      var footer = overlay.querySelector('.modal-footer');
+      var saveButton = overlay.querySelector('#confirm-ok');
+      if (footer) footer.querySelectorAll('[data-report-supervision]').forEach(function (button) { button.remove(); });
+      if (saveButton) {
+        saveButton.textContent = '保存 Word';
+        saveButton.setAttribute('aria-label', '保存 Word 文档');
+      }
+      if (footer && !footer.querySelector('[data-report-supervision]')) {
+        var supervisionButton = document.createElement('button');
+        supervisionButton.type = 'button';
+        supervisionButton.className = 'btn btn-primary';
+        supervisionButton.setAttribute('data-report-supervision', 'true');
+        supervisionButton.textContent = '开始 AI 督导';
+        supervisionButton.addEventListener('click', function () {
+          if (typeof App.closeModalElement === 'function') App.closeModalElement(overlay);
+          window.onStartSupervision();
+        });
+        footer.insertBefore(supervisionButton, saveButton || null);
+      }
+    }
+  };
+
+  // 保存当前 textarea 值
+  window.stepData = stepData;
+
+  // AI 填写当前步骤
+  window.aiFillCurrent = function () {
+    if (!App.featureGate('ai-report')) { App.showToast('AI 填充需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
+    if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
+    var secs = getSections();
+    var sec = secs[currentStep];
+    var ta = document.getElementById('step-ta');
+    if (ta) ta.value = '生成中…';
+    // 收集选中节次（来自「基于节次」下拉菜单）
+    var checked = document.querySelectorAll('#sessions-list .sess-cb:checked');
+    var sessionIds = Array.prototype.map.call(checked, function (c) { return c.value; });
+    var sys = '你是案例报告撰写助手。请依据所提供的逐字稿真实文字撰写报告模块"' + sec.title + '"。要求：①分析必须结合逐字稿中的真实表述，所有内容须有逐字稿依据；②逐字稿中未出现的内容不要凭空撰写；③本界面仅做基于事实的整理，不涉及理论知识阐释。用中文、客观、具体地回应。';
+    var context = ClinicalContext.build('report-ai-fill', { clientId: currentClientId, materialId: materialId }, { system: sys, selectedSessionIds: sessionIds, inputText: '', instruction: '请填写模块“' + sec.title + '”的内容。' });
+    if (!context.ok) { if (ta) ta.value = ''; notifyReportAiState('idle', '当前上下文无效，请先选择来访者并勾选可引用的会谈。'); App.showToast('当前上下文无效，请重新确认来访者和会谈', 'warning'); return; }
+    if (ClinicalContextView) ClinicalContextView.renderSummary(document.querySelector('.rpt-top') || document.body, context);
+    if (ClinicalContextView && !ClinicalContextView.confirmSend(context)) { if (ta) ta.value = ''; notifyReportAiState('cancelled', '已取消本次生成：未确认的草稿不会写入报告。'); App.showToast('已取消 AI 填写', 'info'); return; }
+    var run = ClinicalContext.createActionRun(context);
+    if (!run) { if (ta) ta.value = ''; notifyReportAiState('error', '无法确认材料归属，请重新选择来访者和会谈后重试。'); App.showToast('无法确认材料归属，已取消生成', 'warning'); return; }
+    if (typeof AI !== 'undefined' && AI.send) {
+      var controller = typeof AbortController === 'function' ? new AbortController() : null;
+      var request = { controller: controller, run: run, cancelled: false };
+      activeAiRequest = request;
+      AI.send(context.messages, function (res) {
+        if (activeAiRequest !== request || request.cancelled || (res && (res.interrupted || res.code === 'ABORT_ERR'))) {
+        if (activeAiRequest === request) activeAiRequest = null;
+          if (request.cancelled || (res && (res.interrupted || res.code === 'ABORT_ERR'))) {
+            ClinicalContext.failActionRun(run.id, '已取消生成', 'cancelled');
+            if (ta) ta.value = '';
+            notifyReportAiState('cancelled', '已取消本次生成：未确认的草稿不会写入报告。');
+          }
+          return;
+        }
+        var currentSessionIds = Array.prototype.map.call(document.querySelectorAll('#sessions-list .sess-cb:checked'), function (checkbox) { return checkbox.value; });
+        if (!ClinicalContext.isSnapshotCurrent(context.snapshot, '', { clientId: currentClientId, materialId: materialId, selectedSessionIds: currentSessionIds })) { activeAiRequest = null; ClinicalContext.failActionRun(run.id, '上下文已变更', 'stale'); if (ta) ta.value = ''; notifyReportAiState('error', '上下文已变更，旧建议未采用；请重新选择材料后重试。'); App.showToast('上下文已变更，旧建议未采用', 'warning'); return; }
+        activeAiRequest = null;
+        if (ta) ta.value = '';
+        if (res && res.content) {
+          var sug = document.getElementById('ai-suggest');
+          var sugContent = document.getElementById('ai-suggest-content');
+          if (sug && sugContent) { sugContent.textContent = res.content; sug.classList.add('show'); }
+          notifyReportAiState(res.content.trim().length < 12 ? 'partial' : 'draft', res.content.trim().length < 12 ? 'AI 仅返回部分内容，请人工补充后保存。' : '草稿已生成，需人工确认后采用。');
+          ClinicalContext.completeActionRun(run.id, { kind: 'report-suggestion', ref: materialId || currentClientId || '' });
+        } else {
+          ClinicalContext.failActionRun(run.id, (res && res.error) || '生成失败'); notifyReportAiState('error', '生成失败，请检查配置或网络后重试；未确认内容不会写入报告。'); App.showToast('生成失败，请重试', 'error');
+        }
+      }, { signal: controller ? controller.signal : undefined, onDelta: function (piece, fullText) {
+        var streaming = document.getElementById('ai-suggest-content');
+        var streamBox = document.getElementById('ai-suggest');
+        if (streaming) streaming.textContent = fullText || piece || '';
+        if (streamBox) streamBox.classList.add('show');
+        notifyReportAiState('streaming', 'AI 正在流式生成草稿…');
+      } });
+    } else {
+      if (ta) ta.value = '';
+      ClinicalContext.failActionRun(run.id, 'AI 模块未就绪'); notifyReportAiState('error', 'AI 模块未就绪，请检查配置后重试；未确认内容不会写入报告。'); App.showToast('AI 模块未就绪', 'error');
+    }
+  };
+
+  window.acceptAISuggest = function () {
+    var sugContent = document.getElementById('ai-suggest-content');
+    var ta = document.getElementById('step-ta');
+    if (sugContent && ta) {
+      ta.value = sugContent.textContent;
+      stepData[currentStep] = ta.value;
+    }
+    var sug = document.getElementById('ai-suggest');
+    if (sug) sug.classList.remove('show');
+  };
+
+  // AI 填写全部
+  window.aiFillAll = function () {
+    if (!App.featureGate('ai-report')) { App.showToast('AI 填充需激活后使用' + (App.isTrial() ? '，或升级会员解锁全部功能' : ''), 'warning'); return; }
+    if (!currentClientId) { App.showToast('请先选择来访者', 'warning'); return; }
+    var secs = getSections();
+    secs.forEach(function (sec, i) { goToStep(i); window.aiFillCurrent(); });
+  };
+
+  // 上传模板
+  window.onTemplateUpload = function (event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    App.showToast('正在分析模板…', 'info');
+    var reader = new FileReader();
+    reader.onload = function () {
+      var content = reader.result;
+      if (file.name.endsWith('.docx') && typeof mammoth !== 'undefined') {
+        mammoth.extractRawText({ arrayBuffer: content }).then(function (r) {
+          analyzeTemplate(r.value, file.name);
+        }).catch(function () { App.showToast('docx 解析失败，请用 .txt 或 .md', 'error'); });
+      } else {
+        analyzeTemplate(content, file.name);
+      }
+    };
+    if (file.name.endsWith('.docx')) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  };
+
+  function analyzeTemplate(text, filename) {
+    if (!text || !text.trim()) { App.showToast('模板内容为空', 'error'); return; }
+    if (App.aiUnlocked() && typeof AI !== 'undefined' && AI.send) {
+      var sys = '你是案例报告模板分析助手。用户将上传一份案例报告模板，请分析其结构，提取出所有需要填写的模块标题和简要说明。以 JSON 数组格式输出，每个元素包含 title、hint、desc 三个字段。只输出 JSON。';
+      AI.send([{ role: 'system', content: sys }, { role: 'user', content: '模板内容：\n' + text.slice(0, 3000) }], function (res) {
+        if (res && res.content) {
+          try {
+            var jsonMatch = res.content.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              tplSections = JSON.parse(jsonMatch[0]);
+              App.showToast('模板分析完成，已生成 ' + tplSections.length + ' 个模块', 'success');
+              currentStep = 0; stepData = {};
+              renderStepsNav(); goToStep(0);
+              return;
+            }
+          } catch (e) {}
+        }
+        autoParseSections(text, filename);
+      }, { onDelta: function (piece, fullText) { notifyReportAiState('streaming', '模板结构正在流式分析…已生成 ' + String(fullText || piece || '').length + ' 字'); } });
+    } else {
+      autoParseSections(text, filename);
+    }
+  }
+
+  function autoParseSections(text, filename) {
+    var lines = text.split('\n');
+    var sections = [];
+    lines.forEach(function (line) {
+      var m = line.match(/^[#＃\s]*[\d一二三四五六七八九十]+[.、．\s]+(.+)/);
+      if (m && m[1].trim()) sections.push({ title: m[1].trim(), hint: '根据模板要求填写', desc: m[1].trim() });
+    });
+    if (!sections.length) {
+      var paras = text.split(/\n\s*\n/).filter(function (p) { return p.trim().length > 5; });
+      paras.slice(0, 10).forEach(function (p, i) {
+        sections.push({ title: '段落 ' + (i + 1), hint: p.trim().slice(0, 80), desc: '段落 ' + (i + 1) });
+      });
+    }
+    tplSections = sections;
+    App.showToast('已从模板提取 ' + sections.length + ' 个模块', 'success');
+    currentStep = 0; stepData = {};
+    renderStepsNav(); goToStep(0);
+  }
+
+  // 导出 Word（真 .doc）
+  window.exportWord = function () {
+    var secs = getSections();
+    var body = '<h1>案例报告</h1>';
+    var client = currentClientId ? Store.getClient(currentClientId) : null;
+    if (client) body += '<p><strong>来访者：</strong>' + App.escapeHtml(client.name) + '（化名）</p>';
+    secs.forEach(function (sec, i) {
+      var val = stepData[i] || '';
+      if (val.trim()) {
+        body += '<h2>' + (i + 1) + '. ' + App.escapeHtml(sec.title) + '</h2>';
+        body += '<p>' + App.escapeHtml(val).replace(/\n/g, '<br>') + '</p>';
+      }
+    });
+    var fname = (client ? client.name : 'report') + '_案例报告.doc';
+    App.exportWordDoc(fname, body);
+    return fname;
+  };
+
+  // 保存：弹出保存对话框，写到用户选择的真实路径并如实告知
+  window.onSaveReport = async function () {
+    var secs = getSections();
+    var body = '<h1>案例报告</h1>';
+    var client = currentClientId ? Store.getClient(currentClientId) : null;
+    if (client) body += '<p><strong>来访者：</strong>' + App.escapeHtml(client.name) + '（化名）</p>';
+    secs.forEach(function (sec, i) {
+      var val = stepData[i] || '';
+      if (val.trim()) {
+        body += '<h2>' + (i + 1) + '. ' + App.escapeHtml(sec.title) + '</h2>';
+        body += '<p>' + App.escapeHtml(val).replace(/\n/g, '<br>') + '</p>';
+      }
+    });
+    var fname = (client ? client.name : 'report') + '_案例报告.doc';
+    try {
+      var r = await App.saveReportFile(fname, body);
+      if (!r) { App.showToast('保存失败', 'error'); return false; }
+      if (r.canceled) { App.showToast('已取消保存', 'info'); return false; }
+      if (r.error) { App.showToast('保存失败：' + r.error, 'error'); return false; }
+      if (materialId && Store.updateMaterialWorkspaceDurable) {
+        var durable = await Store.updateMaterialWorkspaceDurable(materialId, { workflow: { report: 'completed' }, artifacts: { reportDraftKey: 'xj_report_draft_' + (currentClientId || '') } });
+        if (!durable || !durable.ok) { App.showToast('报告已导出，但材料状态未保存，请重试', 'error'); return false; }
+      }
+      App.showToast('报告已保存：' + r.path, 'success'); return true;
+    } catch (e) { App.showToast('保存失败', 'error'); return false; }
+  };
+
+  // 开始 AI 督导：先保存 Word，再携带报告跳转督导页
+  window.onStartSupervision = async function () {
+    exportWord();
+    // 暂存报告纯文本，供督导页预填材料区
+    try {
+      var secs = getSections();
+      var reportText = '【案例报告】\n';
+      var client = currentClientId ? Store.getClient(currentClientId) : null;
+      if (client) reportText += '来访者：' + client.name + '（化名）\n\n';
+      secs.forEach(function (sec, i) {
+        var val = stepData[i] || '';
+        reportText += (i + 1) + '. ' + sec.title + '\n' + val + '\n\n';
+      });
+      if (currentClientId) localStorage.setItem('xj_report_draft_' + currentClientId, reportText);
+      if (materialId && Store.updateMaterialWorkspaceDurable) {
+        var durable = await Store.updateMaterialWorkspaceDurable(materialId, { workflow: { report: 'in-progress' }, artifacts: { reportDraftKey: 'xj_report_draft_' + (currentClientId || '') } });
+        if (!durable || !durable.ok) { App.showToast('报告交接保存失败，未进入督导', 'error'); return false; }
+      }
+    } catch (e) { App.showToast('报告交接保存失败，未进入督导', 'error'); return false; }
+    location.href = 'supervision.html?client=' + encodeURIComponent(currentClientId || '') + '&autoloadreport=1';
+    return true;
+  };
+
+  App.initPage({ title: '撰写报告', subtitle: '', actions: '', onReady: function () {
+    loadClients();
+    try {
+      var params = new URLSearchParams(location.search);
+      var initialClientId = params.get('clientId') || params.get('client') || (App.getActiveClientId && App.getActiveClientId());
+      currentSessionId = params.get('sessionId') || params.get('session') || null;
+      materialId = params.get('materialId') || '';
+      var material = currentMaterialWorkspace();
+      if (material && material.parseStatus === 'ready') {
+        showMaterialSource(material);
+        Store.updateMaterialWorkspace(materialId, { workflow: { report: 'in-progress' } });
+        if (material.clientId) initialClientId = material.clientId;
+      }
+      var initialSelect = document.getElementById('rpt-client');
+      if (initialClientId && Store.getClient(initialClientId) && initialSelect) {
+        initialSelect.value = initialClientId;
+        window.loadClientSessions();
+      }
+    } catch (e) {}
+    // 点击外部关闭「基于节次」下拉菜单
+    document.addEventListener('click', function (e) {
+      var dd = document.getElementById('sess-dd');
+      var menu = document.getElementById('sess-menu');
+      if (!dd || !menu || menu.style.display === 'none') return;
+      if (!dd.contains(e.target)) menu.style.display = 'none';
+    });
+  }});
+})();

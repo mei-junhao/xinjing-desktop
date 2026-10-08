@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Pi Clinical 013 Harness</title></head>
+<body>
+<main id="harness"><h1 id="long-cn">临床事务桥真实 Electron 验收工作台</h1><button id="focus-a">开始</button><button id="focus-b">审批</button><button id="focus-c">验证</button><div id="empty-state">空态</div><div id="loading-state">加载态</div><div id="error-state">错误态</div></main>
+<script src="../../../app/js/clinical-task-validators.js"></script>
+<script src="../../../app/js/store.js"></script>
+<script>
+(function () {
+  'use strict';
+  var ref = { sourceId: 'session:s_013_electron', sourceVersion: 1, sourceContentHash: 'sha256:' + '1'.repeat(64), anchorContentHash: 'sha256:' + '2'.repeat(64) };
+  var projection = { clientId: 'c_013_electron', sessionId: 's_013_electron', sourceRefs: [ref], storeProjectionVersion: 1, membershipProjectionVersion: 1 };
+  function snapshotHash(p) {
+    var text = JSON.stringify(p, Object.keys(p).sort());
+    var bytes = new TextEncoder().encode(text);
+    return crypto.subtle.digest('SHA-256', bytes).then(function (hash) { return 'sha256:' + Array.from(new Uint8Array(hash)).map(function (x) { return x.toString(16).padStart(2, '0'); }).join(''); });
+  }
+  var state = { context: null, currentRun: null, storeReady: false };
+  function reply(requestId, response) { window.__XJ_API__.piTransport.reply(requestId, response && typeof response === 'object' ? response : { ok: false, code: 'XJ_PI_VERIFY_FAILED' }); }
+  async function handleRendererRequest(request) {
+    if (!request || !request.payload) return { ok: false, code: 'XJ_PI_UNKNOWN_EVENT' };
+    var payload = request.payload;
+    if (request.kind === 'durable-write') {
+      if (!payload.clinicalActionRunId || !payload.taskId || !payload.clientId || !payload.sessionId || !payload.snapshotHash || !Array.isArray(payload.sourceRefs)) return { ok: false, code: 'XJ_PI_INVALID_CONTEXT' };
+      var session = Store.getSession(String(payload.sessionId));
+      if (!session || String(session.clientId || '') !== String(payload.clientId)) return { ok: false, code: 'XJ_PI_CLIENT_SESSION_MISMATCH' };
+      var notes = Array.isArray(payload.fields) ? payload.fields.map(function (x) { return String(x && x.text || ''); }).filter(Boolean).join('\n') : '';
+      var now = Date.now();
+      var metadata = { schemaVersion: 1, clinicalActionRunId: String(payload.clinicalActionRunId), taskId: String(payload.taskId), clientId: String(payload.clientId), sessionId: String(payload.sessionId), snapshotHash: String(payload.snapshotHash), sourceRefs: payload.sourceRefs, generationEntitlement: String(payload.generationEntitlement || 'manual'), version: now, savedAt: now };
+      var value = Object.assign({}, session, { notes: notes, piClinical: metadata });
+      var saved = await Store.saveSessionDurable(value);
+      if (!saved || saved.ok !== true) return { ok: false, code: saved && saved.error && saved.error.code || 'XJ_PI_DIRECT_WRITE_DENIED' };
+      return { ok: true, savedObjectId: String(session.id), version: now, savedAt: now, object: saved.value };
+    }
+    if (request.kind === 'durable-read') {
+      var id = String(payload.savedObjectId || '');
+      var read = Store.getSession(id);
+      var meta = read && read.piClinical;
+      if (!read || !meta) return { ok: false, code: 'XJ_PI_VERIFY_FAILED' };
+      return { ok: true, savedObjectId: id, version: Number(meta.version), savedAt: Number(meta.savedAt), clientId: String(meta.clientId), sessionId: String(meta.sessionId), snapshotHash: String(meta.snapshotHash), sourceRefs: meta.sourceRefs, object: read };
+    }
+    return { ok: false, code: 'XJ_PI_UNKNOWN_EVENT' };
+  }
+  function emitProjection() {
+    if (!window.__XJ_API__ || !window.__XJ_API__.piTransport) return false;
+    return window.__XJ_API__.piTransport.publishState({ projection: projection, reads: {} });
+  }
+  async function seedStore() {
+    await Store.hydrate();
+    var existing = Store.getSession('s_013_electron');
+    if (!existing) {
+      var saved = await Store.saveSessionDurable({ id: 's_013_electron', clientId: 'c_013_electron', date: '2026-08-23', notes: '', transcript: '', soap: { subjective: '', objective: '', assessment: '', plan: '' }, dap: { data: '', assessment: '', plan: '' } });
+      if (!saved || saved.ok !== true) throw new Error('seed Store failed');
+    }
+    state.storeReady = true;
+    emitProjection();
+  }
+  window.__PITEST__ = {
+    async ready() { await seedStore(); state.context = Object.assign({}, projection, { snapshotHash: await snapshotHash(projection), taskId: 'transcript-ai-detect', generationEntitlement: 'manual' }); emitProjection(); return { ok: true, context: state.context, storeReady: state.storeReady }; },
+    context() { return state.context; },
+    async begin() { var r = await window.__PI__.clinical.begin(state.context); if (r.ok) state.currentRun = r.clinicalActionRunId; return r; },
+    draft(text) { return window.__PI__.clinical.draftAppend(state.currentRun, { entryType: 'notes', text: text || '合成临床草稿' }); },
+    commitRecord() { return window.__PI__.clinical.commitRecord(state.currentRun); },
+    approve() { return window.__PI__.clinical.approve(state.currentRun); },
+    durable() { return window.__PI__.clinical.commitDurable(state.currentRun); },
+    verify(savedObjectId, expected) { return window.__PI__.clinical.verify(savedObjectId, expected); },
+    status() { return window.__PI__.clinical.status(state.currentRun); },
+    pause() { return window.__PI__.clinical.pause(state.currentRun, 'test'); },
+    resume() { return window.__PI__.clinical.resume(state.currentRun); },
+    cancel() { return window.__PI__.clinical.cancel(state.currentRun); },
+    drift() { projection.storeProjectionVersion += 1; emitProjection(); return true; },
+    snapshotHash,
+    getStore() { var s = Store.getSession('s_013_electron'); return s ? JSON.parse(JSON.stringify(s)) : null; },
+    setSourceVersion(v) { ref.sourceVersion = v; projection.sourceRefs = [ref]; emitProjection(); },
+    setGeneration(v) { if (state.context) state.context.generationEntitlement = String(v || 'manual'); return state.context; },
+    reloadMarker() { return { hasSession: !!Store.getSession('s_013_electron') }; },
+  };
+  window.__XJ_API__.piTransport.onRequest(function (request) {
+    Promise.resolve().then(function () { return handleRendererRequest(request); }).then(function (response) { reply(request.requestId, response); }).catch(function () { reply(request.requestId, { ok: false, code: 'XJ_PI_DIRECT_WRITE_DENIED' }); });
+  });
+  window.__PITEST_READY__ = true;
+  window.addEventListener('DOMContentLoaded', function () { document.getElementById('focus-a').focus(); });
+}());
+</script>
+</body>
+</html>

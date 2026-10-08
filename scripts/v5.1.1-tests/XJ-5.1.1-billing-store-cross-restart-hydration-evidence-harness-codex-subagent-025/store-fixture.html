@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>XinJing Store hydration evidence fixture 025</title>
+</head>
+<body>
+  <main id="fixture-status">Store fixture 025</main>
+  <script src="/app/js/clinical-task-validators.js"></script>
+  <script src="/app/js/store.js"></script>
+  <script>
+    (() => {
+      'use strict';
+
+      const params = new URL(location.href).searchParams;
+      const runId = String(params.get('runId') || 'run-025-unknown');
+      const caseId = String(params.get('caseId') || 'core');
+      const role = String(params.get('role') || 'reader');
+      const mutation = String(params.get('mutation') || '');
+      const clientId = 'client-025-' + caseId;
+      const sessionIds = ['session-025-' + caseId + '-1', 'session-025-' + caseId + '-2'];
+      const monthlyPayment = { id: 'monthly-025-' + caseId, month: '2026-08', amount: 520 };
+
+      function fixtureClient() {
+        return {
+          id: clientId,
+          name: '合成来访者 025',
+          status: 'active',
+          createdAt: '2026-08-26T00:00:00.000Z',
+          updatedAt: '2026-08-26T00:00:00.000Z',
+          billing: { monthlyPayments: [Object.assign({}, monthlyPayment)] },
+        };
+      }
+
+      function fixtureSessions() {
+        return sessionIds.map((id, index) => ({
+          id,
+          clientId,
+          sessionNumber: index + 1,
+          date: '2026-08-' + String(20 + index).padStart(2, '0'),
+          startTime: '09:00',
+          endTime: '10:00',
+          durationMinutes: 60,
+          transcript: '',
+          soap: { subjective: '', objective: '', assessment: '', plan: '' },
+          dap: { data: '', assessment: '', plan: '' },
+          reflection: '',
+          summary: '',
+          isConfirmed: true,
+          createdAt: '2026-08-26T00:00:00.000Z',
+          updatedAt: '2026-08-26T00:00:00.000Z',
+        }));
+      }
+
+      function payload() {
+        return { clients: [fixtureClient()], sessions: fixtureSessions(), expenses: [] };
+      }
+
+      function openAndPut(dbName, storeName, key, value) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(dbName, 1);
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName, { keyPath: 'key' });
+          };
+          request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
+          request.onsuccess = () => {
+            const db = request.result;
+            let tx;
+            try {
+              tx = db.transaction(storeName, 'readwrite');
+              tx.objectStore(storeName).put({ key, value });
+            } catch (error) {
+              try { db.close(); } catch (_) {}
+              reject(error);
+              return;
+            }
+            tx.oncomplete = () => { try { db.close(); } catch (_) {} resolve(); };
+            tx.onerror = () => { try { db.close(); } catch (_) {} reject(tx.error || new Error('IndexedDB put failed')); };
+            tx.onabort = () => { try { db.close(); } catch (_) {} reject(tx.error || new Error('IndexedDB put aborted')); };
+          };
+        });
+      }
+
+      async function writeCorrect() {
+        await Store.hydrate();
+        const result = await Store.saveBillingBatchDurable(payload());
+        if (!result || result.ok !== true) {
+          throw new Error('correct durable write returned ok:false: ' + JSON.stringify(result && result.error || null));
+        }
+        return { ok: true, writeResult: 'durable', result: { clients: 1, sessions: 2, monthlyPayments: 1, amount: 520 } };
+      }
+
+      async function writeMutation() {
+        const data = payload();
+        switch (mutation) {
+          case 'wrong-db-name':
+            await Store.hydrate();
+            await openAndPut('xinjing_db_wrong_025_' + caseId, 'kv', 'clients', data.clients);
+            await openAndPut('xinjing_db_wrong_025_' + caseId, 'kv', 'sessions', data.sessions);
+            return { ok: true, mutation, wroteWrongDatabase: true };
+          case 'wrong-object-store':
+            await Store.hydrate();
+            await openAndPut('xinjing_db', 'wrong_kv_025', 'clients', data.clients);
+            return { ok: true, mutation, wroteWrongObjectStore: true };
+          case 'wrong-key':
+            await Store.hydrate();
+            await Store._put('wrong_clients_025', data.clients, { allowFallback: false });
+            await Store._put('wrong_sessions_025', data.sessions, { allowFallback: false });
+            return { ok: true, mutation, wroteWrongKeys: true };
+          case 'skip-await': {
+            await Store.hydrate();
+            // Fire the real durable API from a later task and return without
+            // awaiting it. The fixture process exits immediately, so the
+            // pending write is not allowed to become a false PASS by timing.
+            const deferredStartMs = 1000;
+            const pending = new Promise((resolve, reject) => {
+              setTimeout(() => Store.saveBillingBatchDurable(data).then(resolve, reject), deferredStartMs);
+            });
+            return { ok: true, mutation, skippedAwait: true, pendingType: typeof pending, deferredStartMs, forceExit: true };
+          }
+          case 'swallow-ok-false': {
+            await Store.hydrate();
+            const result = await Store.saveSessionsDurable([]);
+            if (result && result.ok === false) return { ok: true, mutation, swallowed: true, innerOk: false };
+            return { ok: true, mutation, swallowed: true, innerOk: result && result.ok };
+          }
+          case 'object-as-array': {
+            await Store.hydrate();
+            const result = await Store.saveBillingBatchDurable({ clients: {}, sessions: {}, expenses: {} });
+            return { ok: true, mutation, objectAsArray: true, innerOk: !!(result && result.ok) };
+          }
+          case 'old-memory-reuse': {
+            await Store.hydrate();
+            const client = Store.createClient(fixtureClient());
+            await Store._put('clients', [], { allowFallback: false });
+            return { ok: true, mutation, reusedFromMemory: true, memoryClientCount: Store.getClients().length, memoryClientId: client && client.id };
+          }
+          case 'cross-userdata-origin':
+            await writeCorrect();
+            return { ok: true, mutation, writerContext: 'correct-writer-reader-context-will-differ' };
+          default:
+            throw new Error('unknown mutation: ' + mutation);
+        }
+      }
+
+      async function readHydrated() {
+        await Store.hydrate();
+        const clients = Store.getClients();
+        const sessions = Store.getSessions();
+        const monthlyPayments = clients.flatMap((client) => client && client.billing && Array.isArray(client.billing.monthlyPayments)
+          ? client.billing.monthlyPayments
+          : []);
+        const amount = monthlyPayments.reduce((sum, payment) => sum + (Number(payment && payment.amount) || 0), 0);
+        const ok = clients.length === 1 && sessions.length >= 1 && monthlyPayments.length === 1 && amount === 520;
+        return {
+          ok,
+          hydrated: Store.isHydrated(),
+          counts: { clients: clients.length, sessions: sessions.length, monthlyPayments: monthlyPayments.length, amount },
+          clientIds: clients.map((client) => String(client && client.id || '')),
+          sessionIds: sessions.map((session) => String(session && session.id || '')),
+          context: { runId, caseId, role, mutation, origin: location.origin },
+        };
+      }
+
+      window.__XJ_FIXTURE_RUN__ = async function runFixture() {
+        document.getElementById('fixture-status').textContent = role + ':' + (mutation || 'baseline');
+        if (role === 'writer') return mutation ? writeMutation() : writeCorrect();
+        return readHydrated();
+      };
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none';">
+  <title>Pi App.js transport 004</title>
+  <style>body{font:14px/1.6 sans-serif;margin:20px;background:#faf7f2;color:#3b3028}button{margin:4px;padding:7px 12px}#out{white-space:pre-wrap}</style>
+</head>
+<body>
+  <h1>App.js renderer transport</h1>
+  <button id="run">运行 Store durable 闭环</button>
+  <button id="fail">下一次 Store 写失败</button>
+  <div id="out">初始化中…</div>
+  <script>
+  (function () {
+    window.__SAVE_CALLS__ = 0;
+    window.__FAIL_SAVE__ = false;
+    var session = { id: 's_app_004', clientId: 'c_app_004', date: '2026-08-23', updatedAt: '2026-08-23T00:00:00.000Z' };
+    window.Store = {
+      hydrate: function () { return Promise.resolve(); },
+      getClients: function () { return [{ id: 'c_app_004', name: '合成来访者' }]; },
+      getSessions: function () { return [session]; },
+      getSessionsByClient: function () { return [session]; },
+      getSession: function (id) { return id === session.id ? session : null; },
+      saveSessionDurable: function (value) {
+        window.__SAVE_CALLS__ += 1;
+        if (window.__FAIL_SAVE__) { window.__FAIL_SAVE__ = false; return Promise.resolve({ ok: false, error: { code: 'XJ_TEST_STORE_FAILURE' }, version: new Date().toISOString() }); }
+        session = Object.assign({}, value, { updatedAt: new Date().toISOString() });
+        return Promise.resolve({ ok: true, value: session, version: session.updatedAt });
+      },
+      getSupervision: function () { return null; },
+      saveSupervisionDurable: function () { return Promise.resolve({ ok: false, error: { code: 'XJ_TEST_SUPERVISION_UNUSED' } }); },
+    };
+    window.XJEntitlements = { canUse: function () { return true; }, featureLabel: function () { return ''; }, minimumTier: function () { return 'free'; } };
+  }());
+  </script>
+  <script src="../../../app/js/app.js"></script>
+  <script>
+  (function () {
+    var projection = {
+      clientId: 'c_app_004', sessionId: 's_app_004',
+      sourceRefs: [{ sourceId: 'src_app_004', sourceVersion: 1, sourceContentHash: 'sha256:' + 'a'.repeat(64), anchorContentHash: 'sha256:' + 'b'.repeat(64) }],
+      storeProjectionVersion: 9, membershipProjectionVersion: 4,
+    };
+    var reads = { 'read.task.cards': { '{}': { cards: [] } } };
+    var out = document.getElementById('out');
+    function show(v) { out.textContent = typeof v === 'string' ? v : JSON.stringify(v); }
+    window.__APPTEST__ = {
+      run: async function () {
+        await App.initPage({ title: 'Pi transport', noXiaojing: true, piContext: { projection: projection, reads: reads } });
+        var start = await window.__PI__.startTask({ taskId: 'xj_task_app_004', mode: 'commit', projection: projection });
+        var first = await window.__PI__.commitStep('xj_task_app_004', { kind: 'session', clientId: 'c_app_004', sessionId: 's_app_004' }, { notes: '来自 App.js Store durable' });
+        var approval = first && first.pendingApprovalId ? await window.__PI__.resolveApproval(first.pendingApprovalId, 'approved', 'local-user') : null;
+        var done = approval && approval.ok ? await window.__PI__.commitStep('xj_task_app_004', { kind: 'session', clientId: 'c_app_004', sessionId: 's_app_004' }, { notes: '来自 App.js Store durable' }) : first;
+        return { start: start, done: done, saveCalls: window.__SAVE_CALLS__, piRuntime: typeof window.XJPiRuntime };
+      },
+      fail: async function () {
+        window.__FAIL_SAVE__ = true;
+        var start = await window.__PI__.startTask({ taskId: 'xj_task_app_004_fail', mode: 'commit', projection: projection });
+        var first = await window.__PI__.commitStep('xj_task_app_004_fail', { kind: 'session', clientId: 'c_app_004', sessionId: 's_app_004' }, { notes: '失败传播' });
+        if (first && first.pendingApprovalId) await window.__PI__.resolveApproval(first.pendingApprovalId, 'approved', 'local-user');
+        var done = first && first.pendingApprovalId ? await window.__PI__.commitStep('xj_task_app_004_fail', { kind: 'session', clientId: 'c_app_004', sessionId: 's_app_004' }, { notes: '失败传播' }) : first;
+        return { start: start, done: done, saveCalls: window.__SAVE_CALLS__ };
+      },
+    };
+    document.getElementById('run').onclick = function () { window.__APPTEST__.run().then(show); };
+    document.getElementById('fail').onclick = function () { window.__APPTEST__.fail().then(show); };
+    show('ready');
+  }());
+  </script>
+</body>
+</html>

@@ -1,0 +1,4579 @@
+{
+  "timestamp": "2026-07-27T15:18:09.861Z",
+  "phase1": {
+    "total": 22,
+    "pass": 22,
+    "fail": 0,
+    "routes": [
+      {
+        "id": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_index.html"
+      },
+      {
+        "id": "chat-home",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_chat-home.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_chat-home.html"
+      },
+      {
+        "id": "session-calendar",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_session-calendar.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_session-calendar.html"
+      },
+      {
+        "id": "consult-notes",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_consult-notes.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_consult-notes.html"
+      },
+      {
+        "id": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_transcript.html"
+      },
+      {
+        "id": "transcript-guide",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_transcript-guide.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_transcript-guide.html"
+      },
+      {
+        "id": "report-writing",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_report-writing.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_report-writing.html"
+      },
+      {
+        "id": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_supervision.html"
+      },
+      {
+        "id": "supervision-mindmap",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_supervision-mindmap.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_supervision-mindmap.html"
+      },
+      {
+        "id": "real-supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_real-supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_real-supervision.html"
+      },
+      {
+        "id": "real-supervision-ai",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_real-supervision-ai.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_real-supervision-ai.html"
+      },
+      {
+        "id": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_masters.html"
+      },
+      {
+        "id": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_doc-center.html"
+      },
+      {
+        "id": "doc-growth",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_doc-growth.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_doc-growth.html"
+      },
+      {
+        "id": "knowledge",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_knowledge.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_knowledge.html"
+      },
+      {
+        "id": "billing-shell",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_billing-shell.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_billing-shell.html"
+      },
+      {
+        "id": "billing-calendar",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_billing-calendar.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_billing-calendar.html"
+      },
+      {
+        "id": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_settings.html"
+      },
+      {
+        "id": "feedback",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_feedback.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_feedback.html"
+      },
+      {
+        "id": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_activation.html"
+      },
+      {
+        "id": "confirm-close",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_confirm-close.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_confirm-close.html"
+      },
+      {
+        "id": "migrate-helper",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "hasTitle": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\phase1_migrate-helper.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\phase1_migrate-helper.html"
+      }
+    ]
+  },
+  "phase2": {
+    "total": 126,
+    "pass": 126,
+    "fail": 0,
+    "cells": [
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_clinical_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_clinical_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_theatre_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_theatre_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1024x700",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1024x700_observatory_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1024x700_observatory_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_light_index.html",
+        "probes": {
+          "routeHash": true,
+          "dialogEscape": true,
+          "ctrlSave": true,
+          "mainFocusable": true,
+          "noHOverflow": true,
+          "navRole": true,
+          "toastOnSave": true,
+          "debugBarHidden": true,
+          "sidebarHasItems": true,
+          "shellLayout": true,
+          "hasPageTitle": true,
+          "tabMovesFocus": true,
+          "backdropClose": true
+        },
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_light_masters.html",
+        "probes": {
+          "routeHash": true,
+          "dialogEscape": true,
+          "ctrlSave": true,
+          "mainFocusable": true,
+          "noHOverflow": true,
+          "navRole": true,
+          "toastOnSave": true,
+          "debugBarHidden": true,
+          "sidebarHasItems": true,
+          "shellLayout": true,
+          "hasPageTitle": true,
+          "tabMovesFocus": true,
+          "backdropClose": true
+        },
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_light_supervision.html",
+        "probes": {
+          "routeHash": true,
+          "dialogEscape": true,
+          "ctrlSave": true,
+          "mainFocusable": true,
+          "noHOverflow": true,
+          "navRole": true,
+          "toastOnSave": true,
+          "debugBarHidden": true,
+          "sidebarHasItems": true,
+          "shellLayout": true,
+          "hasPageTitle": true,
+          "tabMovesFocus": true,
+          "backdropClose": true
+        },
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_light_transcript.html",
+        "probes": {
+          "routeHash": true,
+          "dialogEscape": true,
+          "ctrlSave": true,
+          "mainFocusable": true,
+          "noHOverflow": true,
+          "navRole": true,
+          "toastOnSave": true,
+          "debugBarHidden": true,
+          "sidebarHasItems": true,
+          "shellLayout": true,
+          "hasPageTitle": true,
+          "tabMovesFocus": true,
+          "backdropClose": true
+        },
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_light_doc-center.html",
+        "probes": {
+          "routeHash": true,
+          "dialogEscape": true,
+          "ctrlSave": true,
+          "mainFocusable": true,
+          "noHOverflow": true,
+          "navRole": true,
+          "toastOnSave": true,
+          "debugBarHidden": true,
+          "sidebarHasItems": true,
+          "shellLayout": true,
+          "hasPageTitle": true,
+          "tabMovesFocus": true,
+          "backdropClose": true
+        },
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_light_activation.html",
+        "probes": {
+          "routeHash": true,
+          "dialogEscape": true,
+          "ctrlSave": true,
+          "mainFocusable": true,
+          "noHOverflow": true,
+          "navRole": true,
+          "toastOnSave": true,
+          "debugBarHidden": true,
+          "sidebarHasItems": true,
+          "shellLayout": true,
+          "hasPageTitle": true,
+          "tabMovesFocus": true,
+          "backdropClose": true
+        },
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_light_settings.html",
+        "probes": {
+          "routeHash": true,
+          "dialogEscape": true,
+          "ctrlSave": true,
+          "mainFocusable": true,
+          "noHOverflow": true,
+          "navRole": true,
+          "toastOnSave": true,
+          "debugBarHidden": true,
+          "sidebarHasItems": true,
+          "shellLayout": true,
+          "hasPageTitle": true,
+          "tabMovesFocus": true,
+          "backdropClose": true
+        },
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_clinical_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_clinical_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_theatre_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_theatre_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1366x768",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1366x768_observatory_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1366x768_observatory_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "clinical",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_clinical_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_clinical_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "theatre",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_theatre_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_theatre_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_light_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_light_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_light_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_light_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_light_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_light_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_light_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_light_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_light_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_light_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_light_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_light_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "light",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_light_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_light_settings.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "index",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_dark_index.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_dark_index.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "masters",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_dark_masters.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_dark_masters.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "supervision",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_dark_supervision.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_dark_supervision.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "transcript",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_dark_transcript.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_dark_transcript.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "doc-center",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_dark_doc-center.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_dark_doc-center.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "activation",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_dark_activation.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_dark_activation.html",
+        "probes": null,
+        "pageErrors": []
+      },
+      {
+        "vp": "1920x1080",
+        "skin": "observatory",
+        "mode": "dark",
+        "pageId": "settings",
+        "pass": true,
+        "checks": {
+          "mainExists": true,
+          "mainHasChildren": true,
+          "routeMatches": true,
+          "noOverflow": true,
+          "devBarHidden": true,
+          "noPageErrors": true,
+          "skinMatches": true,
+          "modeMatches": true,
+          "shellLayout": true,
+          "shellLayoutDetails": {
+            "appShellApplied": true,
+            "sidebarFixedWidth": true,
+            "sidebarSpansViewportHeight": true,
+            "topbarRightOfSidebar": true,
+            "mainRightOfSidebar": true,
+            "mainVisibleInFirstViewport": true,
+            "appCoversViewport": true
+          }
+        },
+        "shotPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots\\matrix_1920x1080_observatory_dark_settings.png",
+        "domPath": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots\\matrix_1920x1080_observatory_dark_settings.html",
+        "probes": null,
+        "pageErrors": []
+      }
+    ]
+  },
+  "interactions": {
+    "total": 91,
+    "pass": 91,
+    "fail": 0
+  },
+  "consoleErrors": [],
+  "screenshotsDir": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\screenshots",
+  "domDir": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\trae-full-ui-system-prototype\\evidence\\browser-matrix\\dom-snapshots"
+}

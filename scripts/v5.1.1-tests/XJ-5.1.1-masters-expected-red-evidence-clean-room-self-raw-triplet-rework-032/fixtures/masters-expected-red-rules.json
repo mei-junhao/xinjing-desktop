@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "er_ids": [
+    "ER1-delete-left-zero-track",
+    "ER2-delete-right-restore",
+    "ER3-fix-old-track",
+    "ER4-round-table-horizontal",
+    "ER5-delete-long-chinese-wrap",
+    "ER6-delete-failure",
+    "ER7-delete-retry",
+    "ER8-delete-cancel"
+  ],
+  "stages": [
+    "baseline",
+    "mutated",
+    "restored"
+  ],
+  "mutation_rules": [
+    {
+      "id": "M1-delete-raw-stdout",
+      "rule": "delete stdout file"
+    },
+    {
+      "id": "M2-forge-sha",
+      "rule": "tamper stdoutSha256"
+    },
+    {
+      "id": "M3-forge-bytes",
+      "rule": "tamper stdoutBytes"
+    },
+    {
+      "id": "M4-cross-case",
+      "rule": "swap caseId"
+    },
+    {
+      "id": "M5-sibling-path",
+      "rule": "sibling-prefix path"
+    },
+    {
+      "id": "M6-real-junction",
+      "rule": "junction symlink path"
+    },
+    {
+      "id": "M7-flatten-summary",
+      "rule": "summary-only no raw"
+    },
+    {
+      "id": "M8-old-nonce",
+      "rule": "reuse old runId/nonce"
+    },
+    {
+      "id": "M9-delete-runner-self-triplet",
+      "rule": "delete runner self stdout/stderr/meta"
+    }
+  ],
+  "expected_zero": [
+    "baseline",
+    "restored"
+  ],
+  "expected_killed": [
+    "ER1",
+    "ER2",
+    "ER3",
+    "ER4",
+    "ER5",
+    "ER6",
+    "ER7",
+    "ER8"
+  ]
+}

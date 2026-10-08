@@ -1,0 +1,111 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>心镜数据迁移辅助页</title>
+<style>
+/* ============================================================
+   全局视觉增强 — 暖色治愈系（追加层，不修改任何已有选择器）
+   注入到每个页面 style 结束标签前
+   ============================================================ */
+
+/* 入场动画 */
+@keyframes xjFadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes xjFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes xjScaleIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+
+/* 通用交互增强 */
+[data-xj-enhance] *{box-sizing:border-box}
+
+/* 卡片悬停增强（追加到已有卡片选择器，不覆盖） */
+.card:hover,.list-card:hover,.stat-card:hover,.kv-card:hover,.mod:hover,.sc-ov-card:hover,
+.analysis-block:hover,.ccard:hover,.tcard:hover{
+  transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;
+}
+
+/* 输入框聚焦增强 */
+textarea:focus,input:focus,select:focus{
+  transition:border-color .2s ease,box-shadow .2s ease;
+}
+
+/* 按钮点击反馈 */
+button:active{
+  transform:scale(.97);
+  transition:transform .1s ease;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border,#ECE5D9);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-strong,#DDD4C5)}
+
+
+    
+﻿
+    /* === xinjing enhance === */
+    /* step indicator smooth transitions */
+    .xj-step-indicator{transition:background .35s ease,color .35s ease,transform .3s ease,box-shadow .35s ease}
+    .xj-step-indicator.xj-active{background:var(--accent,#9E5A3C);color:#fff;box-shadow:0 0 0 4px rgba(158,90,60,.15);transform:scale(1.1)}
+    .xj-step-indicator.xj-done{background:#6E7E62;color:#fff}
+    .xj-step-connector{transition:background .4s ease,height .3s ease}
+    .xj-step-connector.xj-filled{background:var(--accent,#9E5A3C)}
+    /* progress bar animation */
+    @keyframes xjProgressFill{from{width:0}to{width:100%}}
+    .xj-progress-bar{transition:width .5s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--accent,#9E5A3C),rgba(158,90,60,.7));border-radius:999px;height:6px;overflow:hidden}
+    .xj-progress-bar.xj-animate{animation:xjProgressFill 1.2s cubic-bezier(.4,0,.2,1) forwards}
+    /* content area fade-in per step */
+    @keyframes xjStepFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+    .xj-step-content{animation:xjStepFadeIn .4s ease forwards}
+    .xj-step-content.xj-hidden{opacity:0;display:none}
+    /* button hover polish */
+    .xj-step-btn{transition:transform .2s ease,box-shadow .2s ease,background .2s ease,filter .15s ease}
+    .xj-step-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+    .xj-step-btn:active{transform:translateY(0) scale(.97);box-shadow:none}
+
+  </style>
+</head>
+<body>
+  <script>
+  // 该页被隐藏 iframe 加载于「旧端口 origin」(http://127.0.0.1:<旧端口>)，
+  // 因此 indexedDB.open('xinjing_db') 打开的是旧 origin 的库。读出全部 kv 后 postMessage 给父窗口。
+  (function () {
+    var DB_NAME = 'xinjing_db', DB_VERSION = 1, STORE = 'kv';
+    function readAll(cb) {
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onsuccess = function () {
+        var db = req.result;
+        try {
+          var tx = db.transaction(STORE, 'readonly');
+          var store = tx.objectStore(STORE);
+          var keysReq = store.getAllKeys();
+          keysReq.onsuccess = function () {
+            var keys = keysReq.result || [];
+            var out = {};
+            var i = 0;
+            var next = function () {
+              if (i >= keys.length) { cb(out); try { db.close(); } catch (_) {} return; }
+              var k = keys[i++];
+              var g = store.get(k);
+              g.onsuccess = function () {
+                out[k] = (g.result && g.result.value !== undefined) ? g.result.value : null;
+                next();
+              };
+              g.onerror = function () { next(); };
+            };
+            if (keys.length === 0) { cb(out); try { db.close(); } catch (_) {} }
+            else next();
+          };
+          keysReq.onerror = function () { cb(out); try { db.close(); } catch (_) {} };
+        } catch (e) { cb({}); try { db.close(); } catch (_) {} }
+      };
+      req.onerror = function () { cb({}); };
+    }
+    readAll(function (data) {
+      try { parent.postMessage({ __xj_migrate: true, data: data }, '*'); }
+      catch (e) { parent.postMessage({ __xj_migrate: true, error: String(e) }, '*'); }
+    });
+  })();
+  </script>
+</body>
+</html>

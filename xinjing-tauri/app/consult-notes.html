@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 咨询记录</title>
+<link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/components.css">
+<style>
+.notes-page{display:flex;height:100vh;overflow:hidden;flex-direction:column}
+.ntop{display:flex;align-items:center;gap:12px;padding:12px 24px;background:var(--paper-2,#fff);border-bottom:1px solid var(--border);flex-shrink:0}
+.ntop .back{color:var(--ink-2);font-size:13px;cursor:pointer;border:none;background:none;padding:6px 10px;border-radius:6px;font-family:var(--sans);display:flex;align-items:center;gap:4px}
+.ntop .back:hover{color:var(--accent);background:var(--accent-soft)}
+.ntop h2{font-family:var(--serif);font-size:18px;margin:0}.ntop .spacer{flex:1}
+.ntop select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font:13px var(--sans);background:var(--paper,#fff)}
+.prompt-strip{display:flex;gap:8px;padding:10px 24px;background:var(--bg-sunken,#EDF0F7);border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
+.prompt-strip .chip{border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--ink-2);background:var(--paper,#fff);font-family:var(--sans);transition:.15s}
+.prompt-strip .chip:hover{border-color:var(--accent);color:var(--accent)}
+.prompt-strip .chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.split{display:flex;flex:1;min-height:0}
+.left{flex:1;overflow-y:auto;padding:24px;min-width:0}
+.left .guide{font-size:12px;color:var(--ink-3);margin-bottom:14px;line-height:1.6;padding:10px 14px;background:var(--bg-sunken);border-radius:var(--r-sm,10px);border-left:3px solid var(--accent)}
+.left .field{margin-bottom:16px}
+.left .field label{display:block;font-size:12px;color:var(--accent);font-weight:600;margin-bottom:6px;font-family:var(--sans)}
+.left .field textarea{width:100%;border:1px solid var(--border);border-radius:var(--r-sm,10px);padding:12px 14px;font:14px/1.8 var(--sans);color:var(--ink);resize:vertical;min-height:80px;outline:none;background:var(--paper,#fff)}
+.left .field textarea:focus{border-color:var(--accent)}
+.left .field textarea.tall{min-height:140px}
+.right{width:360px;flex-shrink:0;background:var(--paper-2,#fff);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.rdock-head{padding:14px 16px;border-bottom:1px solid var(--border);font-family:var(--serif);font-size:14px;font-weight:600;color:var(--accent)}
+.rdock-chat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.rmsg{font-size:13px;line-height:1.7;padding:10px 14px;border-radius:12px;max-width:88%;font-family:var(--sans)}
+.rmsg.ai{background:var(--accent-soft);align-self:flex-start;border-bottom-left-radius:4px}
+.rmsg.me{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.rdock-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border)}
+.rdock-input input{flex:1;border:1px solid var(--border);border-radius:9px;padding:9px 12px;font:13px var(--sans);outline:none;background:var(--bg)}
+.rdock-input button{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 16px;font:600 13px var(--sans);cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 24px;font:600 14px var(--sans);cursor:pointer}
+.btn-primary:hover{background:var(--a-hover,#777FBC)}
+.foot-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.foot-actions button{border:1px solid var(--border);background:var(--paper,#fff);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;color:var(--ink-2);font-family:var(--sans)}
+</style>
+</head>
+<body>
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="notes-page">
+<div class="ntop">
+  <button class="back" onclick="location.href='index.html'">&#x2190; 返回</button>
+  <h2>咨询记录</h2><span class="spacer"></span>
+  <select id="sel-client" onchange="loadClientSessions()"><option>选择来访者…</option></select>
+</div>
+<div class="prompt-strip">
+  <span class="chip active" data-mode="apa">APA 引导</span>
+  <span class="chip" data-mode="soap">SOAP</span>
+  <span class="chip" data-mode="dap">DAP</span>
+  <span class="chip" data-mode="free">自由笔记</span>
+  <span style="margin-left:auto;font-size:11px;color:var(--ink-3)">小镜问答 &#x2726;</span>
+</div>
+<div class="split">
+  <div class="left" id="left-pane">
+    <!-- APA 模式 -->
+    <div id="pane-apa">
+    <div class="guide"><b>APA 结构化提示</b> &#8212; 以下 5 个维度帮助快速梳理本次咨询。右侧小镜可逐条展开。</div>
+    <div class="field"><label>1. 主诉与咨询目标</label><textarea id="f1" placeholder="来访者本次提出的主要问题或咨询目标…"></textarea></div>
+    <div class="field"><label>2. 行为观察与非言语信息</label><textarea id="f2" placeholder="咨询中观察到的身体语言、情绪状态、互动模式…"></textarea></div>
+    <div class="field"><label>3. 情绪状态与情感反应</label><textarea id="f3" placeholder="来访者的主要情绪、咨询师的反移情体验…"></textarea></div>
+    <div class="field"><label>4. 关键对话片段</label><textarea id="f4" class="tall" placeholder="一段代表性对话，尽量还原原话…"></textarea></div>
+    <div class="field"><label>5. 下次咨询方向</label><textarea id="f5" placeholder="下一阶段的探索方向…"></textarea></div>
+    </div>
+    <!-- SOAP 模式 -->
+    <div id="pane-soap" style="display:none">
+    <div class="guide"><b>SOAP 个案记录</b> &#8212; 主观/客观/评估/计划四维结构化记录。</div>
+    <div class="field"><label>S &#8212; 主观资料 (Subjective)</label><textarea id="soap-s" placeholder="来访者的自述、主诉、主观体验…"></textarea></div>
+    <div class="field"><label>O &#8212; 客观资料 (Objective)</label><textarea id="soap-o" placeholder="可观察的行为、情绪、非言语信息…"></textarea></div>
+    <div class="field"><label>A &#8212; 评估 (Assessment)</label><textarea id="soap-a" placeholder="临床评估、动力学理解、诊断印象…"></textarea></div>
+    <div class="field"><label>P &#8212; 计划 (Plan)</label><textarea id="soap-p" placeholder="后续咨询方向、家庭作业、转介建议…"></textarea></div>
+    </div>
+    <!-- DAP 模式 -->
+    <div id="pane-dap" style="display:none">
+    <div class="guide"><b>DAP 临床记录</b> &#8212; 资料/评估/计划三维结构化记录。</div>
+    <div class="field"><label>D &#8212; 资料 (Data)</label><textarea id="dap-d" placeholder="会谈中呈现的事实与素材…"></textarea></div>
+    <div class="field"><label>A &#8212; 评估 (Assessment)</label><textarea id="dap-a" placeholder="对资料的理解与评估…"></textarea></div>
+    <div class="field"><label>P &#8212; 计划 (Plan)</label><textarea id="dap-p" placeholder="后续计划…"></textarea></div>
+    </div>
+    <!-- 自由笔记模式 -->
+    <div id="pane-free" style="display:none">
+    <div class="guide"><b>自由笔记</b> &#8212; 无结构约束，自由书写。</div>
+    <div class="field"><textarea id="f-free" style="min-height:340px" placeholder="自由书写本次咨询的任何想法、观察、反思…"></textarea></div>
+    </div>
+    <div class="foot-actions">
+      <button onclick="saveNotes()">保存到数据库</button>
+      <button class="btn-primary" style="margin-left:auto" onclick="location.href='report-writing.html'">完成并跳转撰写报告</button>
+    </div>
+  </div>
+  <div class="right">
+    <div class="rdock-head">小镜</div>
+    <div class="rdock-chat" id="rdock-chat">
+      <div class="rmsg ai">选择来访者和会话后，我将帮你梳理 APA 各维度。你也可以选中左栏任一文字后点发送来提问。</div>
+    </div>
+    <div class="rdock-input"><input id="rdock-input" placeholder="问小镜…" onkeydown="if(event.key==='Enter')sendToXj()"><button onclick="sendToXj()">发送</button></div>
+  </div>
+</div>
+</div>
+</main></div>
+<script src="js/tauri-bridge.js"></script>
+<script src="js/store.js"></script><script src="js/app.js"></script>
+<script src="js/xiaojing-panel.js"></script><script src="js/consult-notes.js"></script>
+</body>
+</html>

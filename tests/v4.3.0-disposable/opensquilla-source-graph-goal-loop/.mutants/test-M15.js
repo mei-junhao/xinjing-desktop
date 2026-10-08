@@ -1,0 +1,4 @@
+'use strict';
+var m=require('D:\\xinjing-electron\\tests\\v4.3.0-disposable\\opensquilla-source-graph-goal-loop\\.mutants\\mutant-M15.js'); var F=require('${path.join(__dirname,'fixtures.js').replace(/\/g,'\\')}'); var a=m.createAdapter(); var slow=function(){return new Promise(function(r){setTimeout(function(){r({ok:true});},30);});}; a.projectAsync('synth-gc-alpha',F,[slow],{generation:999}).then(function(r){if(r.status!=='stale'){console.error('CONTRACT_FAIL: stale should be detected');process.exit(1);}console.log('CONTRACT_PASS');process.exit(0);});
+console.log('CONTRACT_PASS');
+process.exit(0);

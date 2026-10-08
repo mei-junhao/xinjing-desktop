@@ -1,0 +1,276 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.4-longitudinal-summary-01",
+  "checks": [
+    {
+      "id": "E1",
+      "label": "Electron main process exposes the app page through loopback",
+      "pass": true,
+      "detail": "http://127.0.0.1:6299/index.html"
+    },
+    {
+      "id": "E2",
+      "label": "growth route observes reduced-motion preference",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E3",
+      "label": "locked state denies generation while retaining a useful preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E4",
+      "label": "compute-unavailable state stays distinct from entitlement denial",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E5",
+      "label": "two verified synthetic material sources make the primary action ready",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E6",
+      "label": "primary action renders only a validated preview with citations",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E7",
+      "label": "admitted source body reaches the AI request but never the DOM",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E8",
+      "label": "successful preview creates one metadata-only action run and no clinical object",
+      "pass": true,
+      "detail": "{\"before\":{\"sessions\":2,\"materials\":2,\"supervisions\":0,\"runs\":0},\"after\":{\"sessions\":2,\"materials\":2,\"supervisions\":0,\"runs\":1},\"body\":\"纵向摘要预览\\n这是合成长中文预览，用于检查长文本与来源边界。这是合成长中文预览，用于检查长文本与来源边界。这是合成长中文预览，用于检查长文本与来源边界。这是合成长中文预览，用于检查长文本与来源边界。这是合成长中文预览，用于检查长文本与来源边界。这是合成长中文预览，用于检查长文本与来源边界。这是合成长中文预览，用于检查长文本与来源边界。这是合成长中文预览，用于检查长文本与来源边界。\\n变化线索\\n合成变化线索\\n\\n合成观察，不写入任何临床对象。\\n\\n引用来源\\n节点 node-material-growth-client-growth-material-1 · 来源 sr:sha256:4881f03aaf1bc980204a884b49cffac370199b4a6823a3f1ba37e0b3bcd574ea · 会谈 growth-session-1\\n节点 node-material-growth-client-growth-material-2 · 来源 sr:sha256:b6209673a2639483ef3e3b12432b4b050cd62310e11f061f6cb3cc8e10ef654f · 会谈 growth-session-2\",\"sourceInRequest\":true,\"focused\":true,\"run\":{\"id\":\"car_msl2f04m_kjni\",\"task\":\"growth-summary\",\"status\":\"succeeded\",\"origin\":{\"clientId\":\"growth-client\",\"sessionId\":\"\",\"materialId\":\"\",\"supervisionId\":\"\"},\"sources\":[{\"kind\":\"material\",\"id\":\"growth-material-1\",\"label\":\"\",\"chars\":0,\"truncated\":false},{\"kind\":\"material\",\"id\":\"growth-material-2\",\"label\":\"\",\"chars\":0,\"truncated\":false}],\"snapshot\":{\"clientId\":\"growth-client\",\"sessionId\":\"\",\"materialId\":\"\",\"supervisionId\":\"\",\"selectedSessionIds\":[\"growth-session-1\",\"growth-session-2\"],\"sessionVersions\":{\"growth-session-1\":\"2026-08-09T00:29:24.397Z\",\"growth-session-2\":\"2026-08-09T00:29:24.397Z\"},\"materialUpdatedAt\":\"\",\"supervisionUpdatedAt\":\"\",\"inputDigest\":\"sha256:52b0a49712b36c0fc2061502747a74b13d0c1baa07ce132fa41d2b846af9118b\",\"key\":\"growth-client||||growth-session-1,growth-session-2|sha256:52b0a49712b36c0fc2061502747a74b13d0c1baa07ce132fa41d2b846af9118b\"},\"output\":{\"kind\":\"growth-summary-preview\",\"ref\":\"sha256:bf4edda3b357a34b8aee4b0a804802a91b1655e94c58eba4fba86ddb8394696d\"},\"error\":\"\",\"createdAt\":\"2026-08-09T00:29:24.454Z\",\"completedAt\":\"2026-08-09T00:29:24.474Z\"}}"
+    },
+    {
+      "id": "E9",
+      "label": "primary action remains keyboard focusable after preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V1",
+      "label": "1024x700 clinical light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V2",
+      "label": "1024x700 clinical dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V3",
+      "label": "1024x700 theatre light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V4",
+      "label": "1024x700 theatre dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V5",
+      "label": "1024x700 observatory light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V6",
+      "label": "1024x700 observatory dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V7",
+      "label": "1366x768 clinical light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V8",
+      "label": "1366x768 clinical dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V9",
+      "label": "1366x768 theatre light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V10",
+      "label": "1366x768 theatre dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V11",
+      "label": "1366x768 observatory light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V12",
+      "label": "1366x768 observatory dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V13",
+      "label": "1920x1080 clinical light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V14",
+      "label": "1920x1080 clinical dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V15",
+      "label": "1920x1080 theatre light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V16",
+      "label": "1920x1080 theatre dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V17",
+      "label": "1920x1080 observatory light has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V18",
+      "label": "1920x1080 observatory dark has no horizontal overflow or blank preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E10",
+      "label": "unknown citation is rejected and the verified-source retry remains available",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E11",
+      "label": "changed material invalidates the pending preview and permits a newly verified retry",
+      "pass": true,
+      "detail": "{\"body\":\"预览已过期\\n\\n材料或来访者上下文已变化，请重新核对来源后生成。\",\"retry\":true}"
+    }
+  ],
+  "failed": 0,
+  "screenshots": [
+    {
+      "name": "doc-growth-1024x700-clinical-light.png",
+      "bytes": 67752,
+      "sha256": "41BDC87BB2202F1018F6C483E80C82395950E5FE11DC9D6497F0DAC1C8574464"
+    },
+    {
+      "name": "doc-growth-1024x700-clinical-dark.png",
+      "bytes": 67209,
+      "sha256": "677982E81C8AAF27157272FD6A60F936B256170875926E67DA6AE631E7B52AE6"
+    },
+    {
+      "name": "doc-growth-1024x700-theatre-light.png",
+      "bytes": 67768,
+      "sha256": "D9A927E6201F098E7475903B374CA5A956936F6629A105F065702052EFC003B1"
+    },
+    {
+      "name": "doc-growth-1024x700-theatre-dark.png",
+      "bytes": 68630,
+      "sha256": "4FE10251D84B08103A65887819712891A9834C49233CBF03DD6DA18A894BAD57"
+    },
+    {
+      "name": "doc-growth-1024x700-observatory-light.png",
+      "bytes": 67863,
+      "sha256": "B8E9C951A1161B73D75428B54FFB6F290DE192F8523E09DA9AC51FCD71B9F619"
+    },
+    {
+      "name": "doc-growth-1024x700-observatory-dark.png",
+      "bytes": 68821,
+      "sha256": "F92603984DAA01DEE2C53833005925125083D7920E67E14A73E394C14E32D3B9"
+    },
+    {
+      "name": "doc-growth-1366x768-clinical-light.png",
+      "bytes": 73106,
+      "sha256": "9FFFD356839088801FCC58271C6C5C76163B998C50E677102071FF0CEF05A437"
+    },
+    {
+      "name": "doc-growth-1366x768-clinical-dark.png",
+      "bytes": 74229,
+      "sha256": "AA83D9A6107744EFF3299FD6C71910E99CD3A917774314D5F2268642DF3ACEB3"
+    },
+    {
+      "name": "doc-growth-1366x768-theatre-light.png",
+      "bytes": 73098,
+      "sha256": "E5A70F9609E1E7F83877DAC3C28C6581ACC4FB342212A1512B68A63AA5D2C297"
+    },
+    {
+      "name": "doc-growth-1366x768-theatre-dark.png",
+      "bytes": 73991,
+      "sha256": "A5D0CFCBF3EA0DF4834DB9E513544D6C078070324D444CA25F140EBC140DF866"
+    },
+    {
+      "name": "doc-growth-1366x768-observatory-light.png",
+      "bytes": 73156,
+      "sha256": "5FCF2BAB0A5C5AB83C6FD95B28E1E87348C7F9021EC50ECB1646FFB0BC440B24"
+    },
+    {
+      "name": "doc-growth-1366x768-observatory-dark.png",
+      "bytes": 74102,
+      "sha256": "DCAB3F7B1D9721A97B8EA29258BC4AC445B508498C366792670A0C41098BE016"
+    },
+    {
+      "name": "doc-growth-1920x1080-clinical-light.png",
+      "bytes": 80094,
+      "sha256": "C7DE1598A8A7CFC50CF005ABF608F7E16EA84E6F0FE6FD427A68BE0361B8D773"
+    },
+    {
+      "name": "doc-growth-1920x1080-clinical-dark.png",
+      "bytes": 81446,
+      "sha256": "21E4E0C683D2937507108B6D8AA6D8A9AB0F0A6EC02D3777F238FCE4A9903D44"
+    },
+    {
+      "name": "doc-growth-1920x1080-theatre-light.png",
+      "bytes": 80326,
+      "sha256": "8C3CC706B65F8DD28B8D0B8FCF5DFD8369AC067744478E3F6133B04B1F7C8ED3"
+    },
+    {
+      "name": "doc-growth-1920x1080-theatre-dark.png",
+      "bytes": 81245,
+      "sha256": "ADB9C4D53047951602D6804EF48B5D36EE7ED6147FB2BD352165B08CDBD7C06F"
+    },
+    {
+      "name": "doc-growth-1920x1080-observatory-light.png",
+      "bytes": 80223,
+      "sha256": "02B576E649CDF8DC18F419F5829FEFF66DEBE1BBED8ABA43337BA33052B89558"
+    },
+    {
+      "name": "doc-growth-1920x1080-observatory-dark.png",
+      "bytes": 81247,
+      "sha256": "635A676EED167C7995846FE9A57742941CBA15EE51E761D4C121DD68C398A3D2"
+    }
+  ],
+  "runtime_errors": [
+    "[57956:0809/082923.576:ERROR:net\\base\\network_change_notifier_win.cc:213] WSALookupServiceBegin failed with: 10108",
+    "DevTools listening on ws://127.0.0.1:6295/devtools/browser/cb13bdc3-54bc-427c-ba6f-732ecb182c0e"
+  ]
+}

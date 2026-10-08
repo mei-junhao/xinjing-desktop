@@ -1,0 +1,97 @@
+{
+  "route": "/settings.html",
+  "reduced_motion": true,
+  "visual_cells": 18,
+  "screenshots": [
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1024x700-clinical-light.png",
+      "bytes": 54992,
+      "sha256": "388E5D179ED444AFB8CAFC538D33947E6B370CE499981A817DE2253AD3CA16C2"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1024x700-clinical-dark.png",
+      "bytes": 53937,
+      "sha256": "307284B4CCF62CE3FB72C088DE69CE9DE76DF2D5A72E088D200276B96B06C217"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1024x700-theatre-light.png",
+      "bytes": 55095,
+      "sha256": "47B459ED4D5D705DCCB7658225DE509D033B1CAF6B98143E9882F8CB3097F4AE"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1024x700-theatre-dark.png",
+      "bytes": 54686,
+      "sha256": "C675CC02BDE3655CAA29C40FF2233D17C50F7E5A9BCE6D4281250118D78AA733"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1024x700-observatory-light.png",
+      "bytes": 55641,
+      "sha256": "7FAC2EF9E17941F73D94E5B714D8FF0DA5E9900717B6E38A0ABA96A8FFD72D10"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1024x700-observatory-dark.png",
+      "bytes": 54768,
+      "sha256": "C8C00F2F4B4E0BCA1E73AFDBFBED6E04A0C5BCB38DD855D16FE35C61501E1939"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1366x768-clinical-light.png",
+      "bytes": 62422,
+      "sha256": "B0F9AABBA2C75F12FA1B4616B7026AC8429588B22E66E0F5D7E4E6F67D1CB2FC"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1366x768-clinical-dark.png",
+      "bytes": 61513,
+      "sha256": "81DCB88592681ADD484ED410654538293F38AE1C00F3ED93F29A3C9D15D16271"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1366x768-theatre-light.png",
+      "bytes": 62669,
+      "sha256": "B97139BC36AEF37FA8FC886A5CAD7B16015F0073361D24517301DCAE0094A412"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1366x768-theatre-dark.png",
+      "bytes": 61969,
+      "sha256": "BCFA92A05DC538C154061767C68F8167AE1F6A0DE5AEE4059FBA8AB1BBC66BA2"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1366x768-observatory-light.png",
+      "bytes": 62567,
+      "sha256": "CA66294A6373AADBCCEB7B7ADA253C10F83C4F35961AA9C61CFE469D0D960DBD"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1366x768-observatory-dark.png",
+      "bytes": 61744,
+      "sha256": "173AC091934D639A0C89F42E710F0CA3327C25780D4580E14320EC2459EBEBEA"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1920x1080-clinical-light.png",
+      "bytes": 78243,
+      "sha256": "B12D7DD326C812F5B27FEEF6CEAFEA9AC9BEF3C671CB445E9B6248CF1EC6446A"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1920x1080-clinical-dark.png",
+      "bytes": 77490,
+      "sha256": "804DF1124B383AC20A741B157A9E7D782716CC6A4F24CB6B3772D143D84F054E"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1920x1080-theatre-light.png",
+      "bytes": 78531,
+      "sha256": "05066AA02E4153BF107A03206D59CBDC65ACB503165FFDBC56393F6F7A219557"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1920x1080-theatre-dark.png",
+      "bytes": 77573,
+      "sha256": "B735C927633ACE6E3C6A72C4B5BCF019040C01DA82A6741BB534313D85FF6524"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1920x1080-observatory-light.png",
+      "bytes": 78488,
+      "sha256": "1BE4363C273BE4D3210030C7A1620810BE608B327A608350B6D1A3EB2A9B00A7"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-v4.5-encrypted-backup-passphrase\\artifacts\\settings-1920x1080-observatory-dark.png",
+      "bytes": 77549,
+      "sha256": "9443F8F952159D06B720C1CC3BE28F2A7E18AA5BBC04D446AADE15ECC2FBDBAC"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-g7-electron-runtime-current-20260808",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "protected_files": [
+    {
+      "path": "main.js",
+      "sha256": "305A48FB03936381EB38F00464701AA3A111F60FE634A761AA627B070C231C01"
+    },
+    {
+      "path": "preload.js",
+      "sha256": "F1AC14CD9C33B37C562DA403DE9BC119E0856DAA930078A00CD2A767174F1262"
+    },
+    {
+      "path": "app/js/store.js",
+      "sha256": "84DED0E7EAF3B8DE98A727D5F1671ED42B9EA27AE7EA27CAA644E8EF20CF768D"
+    },
+    {
+      "path": "package.json",
+      "sha256": "C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07"
+    }
+  ],
+  "allowlist": [
+    "tests/v5.0.0-production/electron-platform-runtime-regression/artifacts/**"
+  ]
+}

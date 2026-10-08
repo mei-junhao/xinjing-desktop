@@ -1,0 +1,17 @@
+{
+  "taskId": "XJ-5.1.0-pi-electron-bridge-production-installation-004",
+  "version": "v1",
+  "cases": [
+    "production-anonymous-gate",
+    "sandbox-preload-whitelist",
+    "production-runtime-observe-approval-durable-verify",
+    "membership-unknown-fail-closed",
+    "context-drift-fail-closed",
+    "durable-ok-false-propagation",
+    "pause-resume-cancel",
+    "event-replay-and-bad-log",
+    "network-default-deny",
+    "visual-18-cell"
+  ],
+  "forbidden": ["raw-ipc", "second-store-writer", "remote-network", "clinical-data"]
+}

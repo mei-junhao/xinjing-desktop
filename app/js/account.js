@@ -1,0 +1,375 @@
+'use strict';
+/* account.js — 强制登录门禁账号页逻辑（v5.0.2）。
+ * 所有网络调用经主进程 IPC（window.__XJ_API__.account.*）；渲染进程不直连账号服务。
+ * 安全：不向 console/DOM 写入密码、会话 token 或完整验证码错误上下文；仅展示错误码的中文释义。
+ */
+(function () {
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  var ERROR_TEXT = {
+    'invalid-email': '邮箱格式不正确',
+    'weak-password': '密码太弱：至少 8 位，且包含字母和数字',
+    'email-taken': '该邮箱已注册，请直接登录',
+    'email-delivery-failed': '验证邮件发送失败，请稍后重试',
+    'persistence-failed': '服务器暂时不可用，请稍后重试',
+    'account-not-found': '账号不存在，请检查邮箱或先注册',
+    'already-verified': '该邮箱已完成验证，请直接登录',
+    'account-disabled': '账号已被停用，请联系支持',
+    'resend-cooldown': '发送太频繁，请稍后再试',
+    'invalid-token': '验证码格式不正确',
+    'token-not-found': '验证码不存在，请重新发送验证邮件',
+    'token-expired': '验证码已过期，请重新发送验证邮件',
+    'account-missing': '账号状态异常，请重新注册',
+    'invalid-credentials': '邮箱或密码不正确',
+    'email-unverified': '邮箱尚未验证，请先完成验证',
+    'no-session': '登录状态不存在，请登录',
+    'session-not-found': '登录状态不存在，请登录',
+    'session-expired': '登录已过期，请重新登录',
+    'account-invalid': '账号状态异常，请重新登录',
+    'account-unverified': '邮箱尚未验证，请先完成验证',
+    'unknown-tier': '会员信息未知，服务器未返回可信档位',
+    'network-error': '网络连接失败，请检查网络后重试',
+    'network-timeout': '请求超时，请稍后重试',
+    'server-unavailable': '服务器暂时不可用，请稍后重试',
+    'endpoint-invalid': '账号服务未配置，请联系支持',
+    'request-too-large': '请求内容过大',
+    'body-too-large': '请求内容过大',
+    'bad-response': '服务器响应异常，请稍后重试',
+    'bad-membership-projection': '会员信息不可信，已被拒绝',
+    'server-rejected': '服务器拒绝了请求',
+    'account-unavailable': '账号服务不可用，请稍后重试',
+    'untrusted-renderer': '请求来源不受信任',
+    'session-restore-failed': '会话恢复失败，请重新登录'
+  };
+
+  function errorText(result) {
+    var code = result && result.error ? String(result.error.code || '') : '';
+    return ERROR_TEXT[code] || ('操作失败（' + (code || 'unknown-error') + '）');
+  }
+
+  function isRetryable(result) {
+    return !!(result && result.error && result.error.retryable);
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  function applyThemeFromStorage() {
+    try {
+      var skin = localStorage.getItem('xj_skin');
+      var theme = localStorage.getItem('xj_theme');
+      var root = document.documentElement;
+      if (skin) root.setAttribute('data-skin', skin);
+      root.classList.toggle('dark', theme === 'dark');
+    } catch (e) { /* localStorage 不可用时用默认皮肤 */ }
+  }
+
+  var statusEl = $('account-status');
+  function showStatus(text, kind) {
+    if (!statusEl) return;
+    statusEl.textContent = text || '';
+    statusEl.classList.toggle('is-visible', !!text);
+    statusEl.classList.toggle('is-error', kind === 'error');
+    statusEl.classList.toggle('is-warning', kind === 'warning');
+  }
+
+  function showView(name) {
+    ['view-restoring', 'view-auth', 'view-verify', 'view-forgot'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.hidden = id !== name;
+    });
+    var focusTarget = null;
+    if (name === 'view-auth') {
+      focusTarget = $('tab-login').getAttribute('aria-selected') === 'true' ? $('login-email') : $('register-email');
+    } else if (name === 'view-forgot') {
+      focusTarget = $('forgot-email');
+    } else if (name === 'view-verify') {
+      focusTarget = $('verify-token');
+    }
+    if (focusTarget) {
+      window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () { try { focusTarget.focus(); } catch (e) {} });
+      });
+    }
+  }
+
+  function setBusy(button, busy, busyText) {
+    if (!button) return;
+    if (busy) {
+      button.disabled = true;
+      button.dataset.idleText = button.textContent;
+      button.textContent = busyText || '处理中…';
+    } else {
+      button.disabled = false;
+      if (button.dataset.idleText) button.textContent = button.dataset.idleText;
+    }
+  }
+
+  function selectTab(which) {
+    var login = which === 'login';
+    $('tab-login').setAttribute('aria-selected', String(login));
+    $('tab-register').setAttribute('aria-selected', String(!login));
+    $('pane-login').hidden = !login;
+    $('pane-register').hidden = login;
+    showStatus('', '');
+    var target = login ? $('login-email') : $('register-email');
+    if (target) {
+      window.requestAnimationFrame(function () { try { target.focus(); } catch (e) {} });
+    }
+  }
+
+  function bridge() { return window.__XJ_API__ && window.__XJ_API__.account; }
+
+  var pendingVerifyEmail = '';
+
+  function enterVerifyView(email) {
+    pendingVerifyEmail = String(email || '').trim().toLowerCase();
+    var explain = $('verify-explain');
+    if (explain) {
+      explain.textContent = pendingVerifyEmail
+        ? '验证码已发送到 ' + pendingVerifyEmail + '，请在邮件中查收并粘贴到下方。'
+        : '请输入邮箱中收到的验证码。';
+    }
+    showView('view-verify');
+  }
+
+  async function bootstrap() {
+    var api = bridge();
+    if (!api) {
+      showStatus('账号服务不可用：桥接缺失，请重启应用。', 'error');
+      showView('view-auth');
+      return;
+    }
+    showView('view-restoring');
+    var result = null;
+    try {
+      result = await api.bootstrap();
+    } catch (e) {
+      result = null;
+    }
+    if (result && result.authenticated) {
+      showStatus('会话恢复成功，正在进入工作台…');
+      window.setTimeout(function () { location.href = 'index.html'; }, 250);
+      return;
+    }
+    if (result && result.restore === 'none') {
+      showView('view-auth');
+      return;
+    }
+    showView('view-auth');
+    if (result && result.restore === 'failed') {
+      var retry = isRetryable({ error: { code: result.lastError, retryable: ['network-error', 'network-timeout', 'server-unavailable'].indexOf(result.lastError) !== -1 } });
+      showStatus('未能恢复登录状态：' + (ERROR_TEXT[result.lastError] || (result.lastError || '请重新登录')) + (retry ? '（可稍后重试）' : ''), 'warning');
+    }
+  }
+
+  async function submitLogin(event) {
+    if (event) event.preventDefault();
+    var api = bridge();
+    if (!api) return;
+    var email = $('login-email').value.trim().toLowerCase();
+    var password = $('login-password').value;
+    if (!EMAIL_RE.test(email)) { showStatus('请输入有效的邮箱地址。', 'error'); $('login-email').focus(); return; }
+    if (!password) { showStatus('请输入密码。', 'error'); $('login-password').focus(); return; }
+    var button = $('login-submit');
+    setBusy(button, true, '登录中…');
+    showStatus('正在登录…');
+    var result = null;
+    try {
+      result = await api.login(email, password);
+    } catch (e) {
+      result = { ok: false, error: { code: 'account-unavailable', retryable: true } };
+    }
+    setBusy(button, false);
+    if (result && result.ok === true && result.authenticated) {
+      $('login-password').value = '';
+      showStatus('登录成功，正在进入工作台…');
+      window.setTimeout(function () { location.href = 'index.html'; }, 250);
+      return;
+    }
+    $('login-password').value = '';
+    showStatus(errorText(result) + (isRetryable(result) ? '（可重试）' : ''), 'error');
+    $(result && result.error && result.error.code === 'email-unverified' ? 'login-password' : 'login-email').focus();
+  }
+
+  async function submitRegister(event) {
+    if (event) event.preventDefault();
+    var api = bridge();
+    if (!api) return;
+    var email = $('register-email').value.trim().toLowerCase();
+    var password = $('register-password').value;
+    var password2 = $('register-password2').value;
+    if (!EMAIL_RE.test(email)) { showStatus('请输入有效的邮箱地址。', 'error'); $('register-email').focus(); return; }
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      showStatus('密码太弱：至少 8 位，且包含字母和数字。', 'error');
+      $('register-password').focus();
+      return;
+    }
+    if (password !== password2) { showStatus('两次输入的密码不一致。', 'error'); $('register-password2').focus(); return; }
+    var button = $('register-submit');
+    setBusy(button, true, '创建账号中…');
+    showStatus('正在创建账号并发送验证邮件…');
+    var result = null;
+    try {
+      result = await api.register(email, password);
+    } catch (e) {
+      result = { ok: false, error: { code: 'account-unavailable', retryable: true } };
+    }
+    setBusy(button, false);
+    if (result && result.ok === true) {
+      $('register-password').value = '';
+      $('register-password2').value = '';
+      enterVerifyView(result.email || email);
+      showStatus('账号创建成功：验证邮件已发送。', 'warning');
+      return;
+    }
+    showStatus(errorText(result) + (isRetryable(result) ? '（可重试）' : ''), 'error');
+  }
+
+  async function submitVerify(event) {
+    if (event) event.preventDefault();
+    var api = bridge();
+    if (!api) return;
+    var token = $('verify-token').value.trim();
+    if (token.length < 6 || !/^[0-9]{6}$/.test(token)) { showStatus('请输入 6 位数字验证码。', 'error'); $('verify-token').focus(); return; }
+    var button = $('verify-submit');
+    setBusy(button, true, '验证中…');
+    showStatus('正在验证…');
+    var result = null;
+    try {
+      result = await api.verify(token);
+    } catch (e) {
+      result = { ok: false, error: { code: 'account-unavailable', retryable: true } };
+    }
+    setBusy(button, false);
+    if (result && result.ok === true) {
+      $('verify-token').value = '';
+      selectTab('login');
+      showView('view-auth');
+      showStatus('验证成功，请登录。');
+      if (result.email) $('login-email').value = result.email;
+      return;
+    }
+    $('verify-token').value = '';
+    showStatus(errorText(result) + (isRetryable(result) ? '（可重试）' : ''), 'error');
+    $('verify-token').focus();
+  }
+
+  async function submitResend() {
+    var api = bridge();
+    if (!api) return;
+    var email = pendingVerifyEmail || ($('register-email').value || '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) { showStatus('缺少邮箱地址，无法重发。', 'error'); return; }
+    var button = $('verify-resend');
+    setBusy(button, true, '发送中…');
+    showStatus('正在重新发送验证邮件…');
+    var result = null;
+    try {
+      result = await api.resend(email);
+    } catch (e) {
+      result = { ok: false, error: { code: 'account-unavailable', retryable: true } };
+    }
+    setBusy(button, false);
+    if (result && result.ok === true) {
+      showStatus('验证邮件已重新发送，请查收。', 'warning');
+      return;
+    }
+    if (result && result.error && result.error.retryAfterMs) {
+      showStatus('发送太频繁，请 ' + Math.max(1, Math.ceil(result.error.retryAfterMs / 1000)) + ' 秒后重试。', 'error');
+    } else {
+      showStatus(errorText(result) + (isRetryable(result) ? '（可重试）' : ''), 'error');
+    }
+  }
+
+  function bind() {
+    $('tab-login').addEventListener('click', function () { selectTab('login'); });
+    $('tab-register').addEventListener('click', function () { selectTab('register'); });
+    $('form-login').addEventListener('submit', submitLogin);
+    $('form-register').addEventListener('submit', submitRegister);
+    $('form-verify').addEventListener('submit', submitVerify);
+    $('link-forgot').addEventListener('click', function (e) { e.preventDefault(); showForgot(); });
+    $('link-forgot-back').addEventListener('click', function (e) { e.preventDefault(); showView('view-auth'); selectTab('login'); });
+    $('form-forgot-request').addEventListener('submit', submitForgotRequest);
+    $('form-forgot-reset').addEventListener('submit', submitForgotReset);
+    $('verify-resend').addEventListener('click', submitResend);
+    $('verify-back').addEventListener('click', function () {
+      selectTab('login');
+      showView('view-auth');
+      if (pendingVerifyEmail) $('login-email').value = pendingVerifyEmail;
+    });
+
+  function showForgot() {
+    showStatus('', '');
+    $('forgot-email').value = ($('login-email').value || '').trim();
+    $('form-forgot-request').hidden = false;
+    $('form-forgot-reset').hidden = true;
+    showView('view-forgot');
+  }
+
+  async function submitForgotRequest(event) {
+    if (event) event.preventDefault();
+    var api = bridge();
+    if (!api) return;
+    var email = $('forgot-email').value.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) { showStatus('请输入有效的邮箱地址。', 'error'); $('forgot-email').focus(); return; }
+    var button = $('forgot-request-submit');
+    setBusy(button, true, '发送中…');
+    showStatus('正在发送重置验证码…');
+    var result = null;
+    try {
+      result = await api.forgotPassword(email);
+    } catch (e) {
+      result = { ok: false, error: { code: 'account-unavailable', retryable: true } };
+    }
+    setBusy(button, false);
+    if (result && result.ok === true) {
+      $('form-forgot-request').hidden = true;
+      $('form-forgot-reset').hidden = false;
+      showStatus('重置验证码已发送到您的邮箱，请查收。', 'ok');
+      window.requestAnimationFrame(function () { try { $('forgot-token').focus(); } catch (e) {} });
+      return;
+    }
+    showStatus(ERROR_TEXT[result && result.error && result.error.code] || '发送失败，请稍后重试。', 'error');
+  }
+
+  async function submitForgotReset(event) {
+    if (event) event.preventDefault();
+    var api = bridge();
+    if (!api) return;
+    var email = $('forgot-email').value.trim().toLowerCase();
+    var token = $('forgot-token').value.trim();
+    var password = $('forgot-password').value;
+    var password2 = $('forgot-password2').value;
+    if (!/^[0-9]{6}$/.test(token)) { showStatus('请输入 6 位数字验证码。', 'error'); $('forgot-token').focus(); return; }
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) { showStatus('新密码至少 8 位，且包含字母和数字。', 'error'); $('forgot-password').focus(); return; }
+    if (password !== password2) { showStatus('两次输入的新密码不一致。', 'error'); $('forgot-password2').focus(); return; }
+    var button = $('forgot-reset-submit');
+    setBusy(button, true, '重置中…');
+    showStatus('正在重置密码…');
+    var result = null;
+    try {
+      result = await api.resetPassword({ email: email, token: token, password: password });
+    } catch (e) {
+      result = { ok: false, error: { code: 'account-unavailable', retryable: true } };
+    }
+    setBusy(button, false);
+    if (result && result.ok === true) {
+      showStatus('密码已重置，请使用新密码登录。', 'ok');
+      showView('view-auth');
+      selectTab('login');
+      return;
+    }
+    showStatus(ERROR_TEXT[result && result.error && result.error.code] || '重置失败，请稍后重试。', 'error');
+  }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    applyThemeFromStorage();
+    if (!bridge()) {
+      showView('view-auth');
+      showStatus('账号服务不可用：桥接缺失，请重启应用。', 'error');
+      return;
+    }
+    bind();
+    bootstrap();
+  });
+})();

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-v4.3-ai-draft-confirmation-dashboard-30",
+  "pass": true,
+  "viewports": [
+    "1024x700",
+    "1366x768",
+    "1920x1080"
+  ],
+  "screenshots": [
+    {
+      "viewport": "1024x700",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-ai-draft-confirmation-dashboard\\artifacts\\dashboard-1024x700.png",
+      "bytes": 62868,
+      "sha256": "F3170EEEC4BAE560E2A79DD5D25D923006EB399CDEC4B76E1AF757AF2E081477"
+    },
+    {
+      "viewport": "1366x768",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-ai-draft-confirmation-dashboard\\artifacts\\dashboard-1366x768.png",
+      "bytes": 74283,
+      "sha256": "33077875D0133FE25D5AB5D9578640D21BF83B931FD41E2E3E15B7232E846BB3"
+    },
+    {
+      "viewport": "1920x1080",
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.3-ai-draft-confirmation-dashboard\\artifacts\\dashboard-1920x1080.png",
+      "bytes": 84127,
+      "sha256": "D0C5C71B651A5D884CD136E9AB215355C3A28CB8D093770DFF1C3A9C3C51BA78"
+    }
+  ],
+  "success": {
+    "status": "open",
+    "hasCompletion": true,
+    "hasConfirm": false
+  },
+  "failure": {
+    "status": "ai-draft",
+    "enabled": true,
+    "stillDraft": true
+  },
+  "synthetic_data_only": true
+}

@@ -1,0 +1,25 @@
+{
+  "suite": "internal-adversarial-review",
+  "pass": 18,
+  "fail": 0,
+  "checks": [
+    "A01-unknown-task",
+    "A02-cross-client-source",
+    "A03-quarantined-source",
+    "A04-unknown-source-kind",
+    "A05-hashless-source",
+    "A06-schema-smuggling",
+    "A07-automatic-persist",
+    "A08-bounded-output",
+    "A09-cross-label-dedup",
+    "A10-cross-label-conflict",
+    "A11-declared-hash-mismatch",
+    "A12-no-live-project-bindings",
+    "A13-revert-fix-kills-contract",
+    "A14-delete-await-kills-summary",
+    "A15-rejection-not-swallowed",
+    "A16-no-default-context-backfill",
+    "A17-empty-string-normalization-blocked",
+    "A18-pass-text-exit-coherence"
+  ]
+}

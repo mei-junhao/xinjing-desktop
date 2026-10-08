@@ -1,0 +1,9 @@
+<!doctype html><html><body><script>
+(async () => {
+  const result = await window.XJ279.runUpdate({ channel: 'nsis' });
+  window.XJ279.finish({ type: 'run', result });
+  const marker = { schemaVersion: 1, operationId: 'operation-nsis-electron', version: '5.0.0', channel: 'nsis', artifactSha512: result && result.artifactSha512 || 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==', state: result && result.state || 'committed', updatedAt: new Date().toISOString(), errorCode: null, sequence: 0 };
+  const recovery = await window.XJ279.recoverUpdate(marker);
+  window.XJ279.finish({ type: 'recover', recovery });
+})();
+</script></body></html>

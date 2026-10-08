@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>XJ463 health probe</title>
+</head>
+<body>
+<div id="status">probe starting</div>
+<script>
+'use strict';
+// XJ463 probe renderer: proves preload/context isolation, typed IPC, a REAL
+// IndexedDB durable open/write/read in the temporary userData, the default-deny
+// network wrapper (sentinel fetch must be blocked), and one Free manual
+// workflow (synthetic manual client record -> v2 export -> main schema gate).
+// All data is synthetic. No paid/entitlement path is touched.
+(function () {
+  var statusEl = document.getElementById('status');
+  function note(msg) { try { statusEl.textContent = msg; } catch (_) {} }
+
+  var api = window.__XJ_PROBE__;
+  var result = {
+    preloadOk: false, ipcOk: false, durableOk: false,
+    workflowOk: false, networkProbe: 'not-run'
+  };
+
+  function sendReport() {
+    try { api.report(result); } catch (_) {}
+  }
+
+  function fail(reason) {
+    note('probe fail: ' + reason);
+    sendReport();
+  }
+
+  // ---- preload / isolation evidence ----
+  // The bridge exists, but NO raw Electron surface may leak into the page.
+  result.preloadOk = !!api &&
+    typeof api.ping === 'function' && typeof api.report === 'function' &&
+    typeof window.require === 'undefined' && typeof window.process === 'undefined' &&
+    typeof window.module === 'undefined' && !window.ipcRenderer;
+
+  // ---- typed IPC roundtrip ----
+  function runIpc() {
+    var correlationId = 'probe-corr-' + Date.now();
+    return api.ping(correlationId).then(function (reply) {
+      result.ipcOk = !!(reply && reply.ok === true && reply.correlationId === correlationId && typeof reply.pid === 'number');
+    }).catch(function () { result.ipcOk = false; });
+  }
+
+  // ---- durable open: REAL IndexedDB inside the temporary userData ----
+  function runDurable() {
+    return new Promise(function (resolve) {
+      var req;
+      try { req = window.indexedDB.open('xj463-probe-durable', 1); }
+      catch (e) { result.durableOk = false; return resolve(); }
+      req.onupgradeneeded = function (ev) {
+        try {
+          var db = ev.target.result;
+          if (!db.objectStoreNames.contains('records')) {
+            db.createObjectStore('records', { keyPath: 'id' });
+          }
+        } catch (e) { /* handled by error path */ }
+      };
+      req.onerror = function () { result.durableOk = false; resolve(); };
+      req.onblocked = function () { result.durableOk = false; resolve(); };
+      req.onsuccess = function (ev) {
+        var db = ev.target.result;
+        try {
+          var synthetic = { id: 'syn-record-1', kind: 'manual-note', text: '合成探针记录', takenAt: '2026-01-01T00:00:00.000Z' };
+          var tx = db.transaction('records', 'readwrite');
+          tx.objectStore('records').put(synthetic);
+          tx.oncomplete = function () {
+            var read = db.transaction('records', 'readonly').objectStore('records').get('syn-record-1');
+            read.onsuccess = function () {
+              var value = read.result;
+              result.durableOk = !!(value && value.id === synthetic.id && value.text === synthetic.text);
+              try { db.close(); } catch (_) {}
+              resolve();
+            };
+            read.onerror = function () { result.durableOk = false; try { db.close(); } catch (_) {} resolve(); };
+          };
+          tx.onerror = function () { result.durableOk = false; try { db.close(); } catch (_) {} resolve(); };
+          tx.onabort = function () { result.durableOk = false; try { db.close(); } catch (_) {} resolve(); };
+        } catch (e) { result.durableOk = false; try { db.close(); } catch (_) {} resolve(); }
+      };
+    });
+  }
+
+  // ---- default-deny evidence: the sentinel fetch MUST be blocked ----
+  function runNetworkProbe(sentinelUrl) {
+    var target = String(sentinelUrl || 'http://203.0.113.7/xj463-deny-sentinel');
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, 4000) : null;
+    return fetch(target, { mode: 'no-cors', cache: 'no-store', signal: controller ? controller.signal : undefined })
+      .then(function (response) {
+        // Any completed response means the deny wrapper did NOT hold.
+        result.networkProbe = 'egress-succeeded:' + (response ? response.status : 'none');
+        if (timer) clearTimeout(timer);
+      })
+      .catch(function () {
+        // Blocked/aborted is the ONLY acceptable outcome for non-loopback.
+        result.networkProbe = 'blocked';
+        if (timer) clearTimeout(timer);
+      });
+  }
+
+  // ---- Free manual workflow: synthetic manual record -> v2 export -> main ----
+  function runWorkflow() {
+    return new Promise(function (resolve) {
+      var req;
+      try { req = window.indexedDB.open('xj463-probe-durable', 1); }
+      catch (e) { result.workflowOk = false; return resolve(); }
+      req.onerror = function () { result.workflowOk = false; resolve(); };
+      req.onsuccess = function (ev) {
+        var db = ev.target.result;
+        try {
+          var manualClient = { id: 'syn-client-1', kind: 'manual-client', name: '合成来访者（免费手动建档）', tier: 'free', createdAt: '2026-01-01T00:00:00.000Z' };
+          var tx = db.transaction('records', 'readwrite');
+          tx.objectStore('records').put(manualClient);
+          tx.oncomplete = function () {
+            var payload = {
+              version: '2.0.0', exportedAt: '2026-01-01T00:00:00.000Z',
+              clients: [manualClient], sessions: [], supervisions: [],
+              supervisorIdentities: [], masterConversations: [], expenses: [],
+              materialWorkspaces: [], clinicalActionRuns: [], clinicalTasks: [],
+              importQuarantine: [], deletionBatches: [], deletionQuarantine: []
+            };
+            api.runWorkflow(JSON.stringify(payload)).then(function (reply) {
+              result.workflowOk = !!(reply && reply.ok === true && typeof reply.sha256 === 'string' && /^[0-9A-F]{64}$/.test(reply.sha256));
+              try { db.close(); } catch (_) {}
+              resolve();
+            }).catch(function () { result.workflowOk = false; try { db.close(); } catch (_) {} resolve(); });
+          };
+          tx.onerror = function () { result.workflowOk = false; try { db.close(); } catch (_) {} resolve(); };
+        } catch (e) { result.workflowOk = false; try { db.close(); } catch (_) {} resolve(); }
+      };
+    });
+  }
+
+  if (!result.preloadOk) { fail('preload'); return; }
+  note('probe: ipc');
+  api.onStart(function (data) {
+    runIpc()
+      .then(function () { note('probe: durable'); return runDurable(); })
+      .then(function () { note('probe: network'); return runNetworkProbe(data && data.denySentinelUrl); })
+      .then(function () { note('probe: workflow'); return runWorkflow(); })
+      .then(function () { note('probe: report'); sendReport(); })
+      .catch(function (e) { fail(String((e && e.message) || e)); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "at": "2026-08-29T19:21:42.754Z",
+  "results": [
+    {
+      "name": "M-005a 删截图→对账抓获",
+      "ok": true,
+      "detail": "declared=90 missing_on_disk=1 (对账必报 1 缺失)"
+    },
+    {
+      "name": "M-005b 翻转截图尾字节→SHA 对账抓获",
+      "ok": true,
+      "detail": "tampered_detected=1"
+    },
+    {
+      "name": "M-006a 清空 invariant.failed→复算一致性抓获(15≠14)",
+      "ok": true,
+      "detail": "killed_after_mutation=14 caseCount=15 (PASS 声明与复算矛盾=攻击被拒)"
+    },
+    {
+      "name": "M-006b taskId 重绑定冒充→绑定检查断裂",
+      "ok": true,
+      "detail": "original=e-codex-subagent-successor-006 forged→007r: ledger taskId 与 006 证据内容(run 目录/来源路径)不匹配=拒绝复用"
+    },
+    {
+      "name": "M-004a 004 契约=静态断言(无 runtime 字段)→不冒充行为证据",
+      "ok": true,
+      "detail": "runtime_fields_present=false（历史 intake 定性 source-string-only 复核成立）"
+    }
+  ]
+}

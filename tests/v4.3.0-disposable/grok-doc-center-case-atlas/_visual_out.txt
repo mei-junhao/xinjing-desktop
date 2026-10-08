@@ -1,0 +1,10 @@
+Visual matrix cells planned: 18
+Artifact files hashed: 4
+HASH app.js 503c397d1f8262edc4af8be7648f83ece2e399af3f2227c857b00872426f1727
+HASH fixtures.js 60df8d9f5192d8709844a4cd4ed88f66aa58976d211df21fb7f38b530bfcb606
+HASH index.html ff2a9e1d98e3858365c5d18fcf95d38a90fb65809478710488dcbbf6b3dc78de
+HASH styles.css bbdd5d0d6879ea079642025b5e63d9abca5b4697d832d598794d1083c9da4809
+Source observations: {"overflowXHidden":true,"longChineseClamp":true,"focusVisible":true,"reducedMotion":true,"narrowBreakpoints":true,"threeSkins":true,"lightDark":true,"segmentFocusRestore":true,"nonCausationCopy":true}
+Browser automation: BLOCKED 鈥?No local playwright/puppeteer package found; browser viewport capture unavailable.
+Manifest: D:\xinjing-electron\tests\v4.3.0-disposable\grok-doc-center-case-atlas\visual-matrix-out\matrix-manifest.json
+VISUAL_MATRIX_BLOCKED_BUT_HASHES_RECORDED

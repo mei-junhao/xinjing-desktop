@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 真人督导 — 会员版E（问答AI分析流）</title>
+<style>
+:root{--r-shell:14px;--r-card:10px;--r-ctl:8px;--r-sm:6px;--r-btn:8px;--gap:16px;--ease:cubic-bezier(.22,1,.36,1);--serif:"Noto Serif SC","Songti SC","STSong",serif;--sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;--mono:"JetBrains Mono","SF Mono",ui-monospace,monospace}
+:root{--bg:#F6F8FC;--bg-elevated:#FFFFFF;--bg-sunken:#EDF0F7;--border-c:#E2E7F0;--text-c:#2B3140;--text-secondary-c:#646B7D;--text-muted-c:#99A1B3;--accent:#8B93C7;--accent-hover:#777FBC;--accent-soft:#ECEEF9;--success-c:#6FAE8F;--warning-c:#D6A85C;--danger-c:#D98C8C;--shadow-sm:0 1px 3px rgba(43,49,64,.05);--shadow:0 4px 16px rgba(43,49,64,.07);--hover-tint:rgba(43,49,64,.04)}
+:root{--paper:#F6F8FC;--paper-2:#FFFFFF;--sidebar:#EDF0F7;--ink:#2B3140;--ink-2:#646B7D;--ink-3:#99A1B3;--hair:#E2E7F0;--hair-strong:#D2D9E6;--accent-line:#B5BDE0;--green:#6FAE8F;--orange:#D6A85C;--blue:#9DB8D6;--purple:#8B93C7;--red:#D98C8C;--radius:14px;--radius-sm:10px;--border:var(--hair-strong);--text:var(--ink);--card:var(--paper-2);--bg-soft:var(--sidebar);--transition:.2s var(--ease)}
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
+.xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .sp{flex:1}
+.rs-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.rs-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
+.rs-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.rs-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
+.rs-top .sp{flex:1}
+.rs-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.rs-body{flex:1;display:grid;grid-template-columns:280px 1fr 340px;min-height:0;overflow:hidden}
+.rs-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.rs-left .lh-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.rs-left .lh-list{flex:1;overflow-y:auto;padding:8px}
+.rs-left .lh-item{padding:10px 12px;border-radius:8px;cursor:pointer;font:12.5px/1.5 var(--sans);margin-bottom:4px;transition:all .15s}
+.rs-left .lh-item:hover{background:var(--hover-tint)}
+.rs-left .lh-item.active{background:var(--accent-soft);border:1px solid var(--accent)}
+.rs-left .lh-item .s-name{font-weight:600;color:var(--accent)}
+.rs-left .lh-item .s-date{font:11px var(--sans);color:var(--ink-3)}
+.rs-left .lh-item .s-preview{font:11px var(--sans);color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rs-mid{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.rs-mid .m-head{padding:14px 16px;border-bottom:1px solid var(--border);background:var(--paper-2);flex-shrink:0;display:flex;align-items:center;gap:8px}
+.rs-mid .m-head .title{font:600 14px var(--serif)}
+.rs-mid .m-head .badge{font:10px var(--sans);padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.rs-mid .m-head .sp{flex:1}
+.qa-list{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.qa-pair{background:var(--paper-2);border:1px solid var(--border);border-radius:var(--r-card);overflow:hidden;transition:var(--transition)}
+.qa-pair:hover{border-color:var(--accent-line)}
+.qa-pair .qa-q{padding:12px 14px;background:var(--accent-soft);border-bottom:1px solid var(--border)}
+.qa-pair .qa-q .label{font:600 10px var(--sans);color:var(--accent);letter-spacing:.05em;margin-bottom:3px}
+.qa-pair .qa-q .text{font:13px/1.7 var(--sans);color:var(--ink)}
+.qa-pair .qa-a{padding:12px 14px;border-bottom:1px solid var(--border)}
+.qa-pair .qa-a .label{font:600 10px var(--sans);color:var(--green);letter-spacing:.05em;margin-bottom:3px}
+.qa-pair .qa-a .text{font:13px/1.7 var(--sans);color:var(--ink)}
+.qa-pair .qa-a .text .hl{color:var(--accent);font-weight:600}
+.qa-pair .qa-source{padding:10px 14px;background:var(--bg-soft);font:11px/1.6 var(--sans);color:var(--ink-2)}
+.qa-pair .qa-source .src-label{font-weight:600;color:var(--purple);margin-right:4px}
+.qa-pair .qa-tags{display:flex;gap:5px;flex-wrap:wrap;padding:8px 14px}
+.qa-pair .qa-tags .tag{font:10px var(--sans);padding:2px 7px;border-radius:4px;background:var(--bg-sunken);color:var(--ink-3)}
+.qa-pair .qa-tags .tag.knowledge{background:rgba(139,147,199,.12);color:var(--accent)}
+.qa-pair .qa-tags .tag.technique{background:rgba(111,174,143,.12);color:var(--green)}
+.rs-right{background:var(--paper-2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.rs-right .rr-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.rs-right .rr-body{flex:1;overflow-y:auto;padding:16px}
+.insight-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+.insight-card .i-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.insight-card .i-head .i-icon{font-size:16px}
+.insight-card .i-head .i-title{font:600 12px var(--sans);color:var(--ink)}
+.insight-card .i-list{list-style:none;padding:0;margin:0}
+.insight-card .i-list li{font:12px/1.7 var(--sans);color:var(--ink-2);padding:4px 0;border-bottom:1px dashed var(--border)}
+.insight-card .i-list li:last-child{border:none}
+.rs-right .rr-action{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+.rs-right .rr-action button{width:100%;border:none;background:var(--accent);color:#fff;border-radius:8px;padding:10px;font:13px var(--sans);cursor:pointer;margin-bottom:8px}
+.rs-right .rr-action button:disabled{opacity:.5;cursor:not-allowed}
+.rs-right .rr-action button.ghost{background:var(--paper-2);border:1px solid var(--border);color:var(--ink-2)}
+</style>
+</head>
+<body>
+
+<div class="preview-bar">
+  <span>🔒</span>
+  <span>会员预览模式 · 这是 <b>真人督导 AI 分析流</b> 会员增值页面，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后启用 AI 问答分析+知识来源追溯</span>
+  <span class="sp"></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">基础版（方案D）→ <a href="real-supervision.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<div class="rs-top">
+  <button class="back" onclick="history.back()">← 返回</button>
+  <h2>真人督导 AI 分析 <span class="sub">· 会员版E · 问题↔回答↔知识来源</span></h2>
+  <span class="sp"></span>
+  <select><option>林小满 · 督导：张老师 · 2026-07-10</option><option>陈默 · 督导：李老师 · 2026-07-05</option></select>
+  <span class="xj-tier-badge pro">会员</span>
+</div>
+
+<div class="rs-body">
+
+  <div class="rs-left">
+    <div class="lh-head">📋 督导记录</div>
+    <div class="lh-list">
+      <div class="lh-item active"><div class="s-name">林小满</div><div class="s-date">2026-07-10 · 第3次督导</div><div class="s-preview">探讨来访者的移情反应与早期依恋模式…</div></div>
+      <div class="lh-item"><div class="s-name">陈默</div><div class="s-date">2026-07-05 · 第2次督导</div><div class="s-preview">处理沉默与阻抗，边界设置…</div></div>
+      <div class="lh-item"><div class="s-name">芳芳</div><div class="s-date">2026-06-25 · 第1次督导</div><div class="s-preview">首次评估，制定治疗计划…</div></div>
+    </div>
+  </div>
+
+  <div class="rs-mid">
+    <div class="m-head">
+      <span class="title">🔍 问答 AI 分析流</span>
+      <span class="badge">3 组问答</span>
+      <span class="sp"></span>
+      <button class="xj-premium-btn" style="border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:7px;padding:4px 12px;font:11px var(--sans)" disabled>重新分析</button>
+    </div>
+    <div class="qa-list">
+
+      <div class="qa-pair">
+        <div class="qa-q">
+          <div class="label">❓ 咨询师提问</div>
+          <div class="text">来访者说「习惯了忍着」时沉默了，这个沉默怎么理解？</div>
+        </div>
+        <div class="qa-a">
+          <div class="label">督导回答</div>
+          <div class="text">这个沉默不是阻抗，而是一种<span class="hl">过渡现象</span>。来访者在"忍着"和"被听到"之间犹豫，正是温尼科特所说的真自体试图浮现但害怕被覆盖的时刻。建议在此停留，不要急于解释。</div>
+        </div>
+        <div class="qa-tags">
+          <span class="tag knowledge">温尼科特 · 真自体/假自体</span>
+          <span class="tag technique">抱持（Holding）</span>
+          <span class="tag">沉默</span>
+        </div>
+        <div class="qa-source">
+          <span class="src-label">📚 知识来源</span>
+          温尼科特《游戏与现实》第3章"过渡性客体与过渡现象"；《成熟过程和促进性环境》中"存在"（being）与"行动"（doing）的区分。
+        </div>
+      </div>
+
+      <div class="qa-pair">
+        <div class="qa-q">
+          <div class="label">❓ 咨询师提问</div>
+          <div class="text">来访者说"一直在讨好她但不甘心"，这是移情吗？</div>
+        </div>
+        <div class="qa-a">
+          <div class="label">督导回答</div>
+          <div class="text">这是<span class="hl">强迫性重复</span>的雏形。来访者在咨询关系中也可能讨好你（咨询师），同时带着不甘心。注意你自己的反移情——是否感到被讨好后的微妙不适？这就是<span class="hl">互补性认同</span>。</div>
+        </div>
+        <div class="qa-tags">
+          <span class="tag knowledge">客体关系 · 投射性认同</span>
+          <span class="tag technique">反移情分析</span>
+          <span class="tag">移情</span>
+        </div>
+        <div class="qa-source">
+          <span class="src-label">📚 知识来源</span>
+          克莱因《嫉羡与感恩》中投射性认同论述；比昂"容器-被容纳者"模型（Bion, 1962）；奥格登互补性认同扩展（Ogden, 1979）。
+        </div>
+      </div>
+
+      <div class="qa-pair">
+        <div class="qa-q">
+          <div class="label">❓ 咨询师提问</div>
+          <div class="text">下一步我该怎么工作？</div>
+        </div>
+        <div class="qa-a">
+          <div class="label">督导回答</div>
+          <div class="text">先不急于解释。在接下来的1-2节里，重点是<span class="hl">抱持住</span>来访者的"讨好—不甘心"张力。当她再次出现讨好模式时，可以温和地说："我注意到你很照顾我的感受，但好像有些什么没说出来。"——这是<span class="hl">解释性碰触</span>，而非直接解释。</div>
+        </div>
+        <div class="qa-tags">
+          <span class="tag knowledge">温尼科特 · 抱持环境</span>
+          <span class="tag technique">解释性碰触</span>
+          <span class="tag">下一步计划</span>
+        </div>
+        <div class="qa-source">
+          <span class="src-label">📚 知识来源</span>
+          温尼科特《治疗性咨询》中"squiggle game"的等待哲学；Casement《论学习从病人》中"试探性解释"概念。
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="rs-right">
+    <div class="rr-head">🤖 AI 结构化分析</div>
+    <div class="rr-body xj-locked-area">
+      <div class="xj-lock-overlay">🔒 会员功能 · AI 深度分析</div>
+
+      <div class="insight-card">
+        <div class="i-head"><span class="i-icon">🎯</span><span class="i-title">核心议题</span></div>
+        <ul class="i-list">
+          <li>讨好模式与假自体浮现</li>
+          <li>沉默中的过渡现象</li>
+          <li>互补性认同（反移情）</li>
+        </ul>
+      </div>
+
+      <div class="insight-card">
+        <div class="i-head"><span class="i-icon">🛠</span><span class="i-title">督导使用技术</span></div>
+        <ul class="i-list">
+          <li>抱持（Holding）</li>
+          <li>反移情分析</li>
+          <li>解释性碰触</li>
+        </ul>
+      </div>
+
+      <div class="insight-card">
+        <div class="i-head"><span class="i-icon">📚</span><span class="i-title">理论锚点</span></div>
+        <ul class="i-list">
+          <li>温尼科特 · 真自体/假自体</li>
+          <li>克莱因 · 投射性认同</li>
+          <li>比昂 · 容器模型</li>
+          <li>Casement · 试探性解释</li>
+        </ul>
+      </div>
+
+      <div class="insight-card">
+        <div class="i-head"><span class="i-icon">⚠</span><span class="i-title">督导建议要点</span></div>
+        <ul class="i-list">
+          <li>不急于解释，先停留</li>
+          <li>1-2 节抱持张力</li>
+          <li>温和碰触讨好模式</li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="rr-action">
+      <button class="xj-premium-btn" disabled>🔄 重新分析</button>
+      <button class="ghost" disabled>📋 导出分析报告</button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

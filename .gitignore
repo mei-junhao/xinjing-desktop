@@ -12,7 +12,18 @@ dist/
 # 机密：主密钥与已生成的激活码，绝不入库
 .license-secret
 secret.generated.js
+proxy-secret.generated.js
+version.generated.js
 keys.log
+
+# 机密：腾讯云 COS 密钥（本机专用，cnb-build.ps1 / sync-cos.ps1 dot-source 读取）
+scripts/.cos-secret.ps1
+.cos-secret.ps1
+
+# 激活码管理工具（开发者本地）：密钥与已发码记录、打包产物，不入库
+tools/license-admin/tool-config.json
+tools/license-admin/issued-codes.json
+tools/license-admin/dist/
 
 # 日志
 *.log
@@ -30,6 +41,55 @@ zip-green.py
 build-pack.cmd
 noop-sign.js
 
+# 构建期临时 .npmrc（可能含私有源 token，绝不入库）
+.npmrc-build.tmp
+
 # 沙箱调试残留（含死代理配置，不入库）
 dl.js
 proxy.js
+
+# 本地发布产物（cnb-build.ps1 生成：上传 COS 的临时资产、coscli 二进制，不入库）
+cos-assets/
+scripts/coscli.exe
+
+# 代理共享密钥（不入库）
+.app-proxy-key
+
+# 服务端生产环境变量（含真实 provider key，绝不入库；仅本机部署用）
+server/.env*
+
+# Demo 与设计稿 HTML（不入库）
+*-demo-*.html
+*-v3-*.html
+*-design-*.html
+*-redesign*.html
+*-board-*.html
+homepage-*.html
+billing-redesign.html
+*-demo*.html
+
+# Tauri 构建产物（Rust target/ 体积巨大，绝不入库；曾误提交致 6GB 推送失败）
+xinjing-tauri/src-tauri/target/
+xinjing-tauri/target/
+
+# 设计文档 / 交接文档 / 技术方案 .md（不入库，仅本地参考）
+XinJing-*.md
+
+# CodeGraph 本地索引库（本机代码知识图谱，体积大且与机器绑定，不入库）
+.codegraph/
+.codegraph-*/
+
+# 飞书/Lark 桥接脚本：含真实 App Secret 与 App ID，绝不入库（2026-09-14 GitHub Push Protection 拦截后补）
+scripts/feishu/
+
+# 本地构建产物与临时目录（体积大，不入库）
+xj*-build-out/
+dist.bak-*/
+.ss-test-tmp*/
+
+# 根目录临时调试脚本与抓取产物
+/_tmp*
+
+# 一次性协调脚手架与快照（多 agent 任务卡 fixture/证据，非回归测试，不入库）
+tests/*-disposable/
+scripts/v5.1.1-tests/

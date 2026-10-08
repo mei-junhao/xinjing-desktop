@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-5.0.0-codex-v4.3-pro-flagship-template-production-33",
+  "probe_count": 8,
+  "killed": 8,
+  "survived": 0,
+  "harness_errors": 0,
+  "all_killed": true,
+  "source_hashes": {
+    "session-template-view-model.js": "C6E9CFEC28DF6BEAFECC35550DF5921C8E266CFA4B2A005B04F9FEA86969A211",
+    "quick-record.js": "6F5F3CE48F18260984BF041FC9D3723F7BE5058FB592238291AF45995A50312D",
+    "consult-notes.js": "438B3DD27125B9D800E8BB304D0612AD48080445E4A5FBA2C999C3F2ECA98FCA",
+    "dashboard.js": "8B57214B94E64049AA5B87474EB01D584FCA382FD0E0C466AD58932CBEEB96E7"
+  },
+  "probes": [
+    {
+      "id": "M01-TIER-FAIL-OPEN",
+      "title": "unknown tier promotion to Flagship",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "54178F61AAC0C2214919F5D27FCED9C83F3EADE8A1C9AFD96AB8CA67C0DDC4E5",
+      "stderr": [
+        "[FAIL] VM-LICENSE activated license states normalize to Free/Pro/Flagship and invalid states fail closed: Expected values to be strictly equal:",
+        "true !== false"
+      ]
+    },
+    {
+      "id": "M02-TRIAL-PROMOTION",
+      "title": "trial paid preview becomes eligible",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "D4EA130EF003CA18C5E1E971852CFFB33FD9590FF8DA0AE6CAEA0A086E2CFF58",
+      "stderr": [
+        "[FAIL] VM-TRIAL trial exposes paid preview but never grants paid selection: Expected values to be strictly equal:",
+        "false !== true"
+      ]
+    },
+    {
+      "id": "M03-CUSTOM-ID-BYPASS",
+      "title": "invalid custom template id is accepted",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "AE136BDCC45E28943A1130C77CC34F2F6E556F7D53F6ED9282524858C6E517E8",
+      "stderr": [
+        "[FAIL] VM-OPTIONS Pro and Flagship list eligible templates while retaining locked discoverability: Expected values to be strictly equal:",
+        "true !== false"
+      ]
+    },
+    {
+      "id": "M04-HANDLER-BYPASS",
+      "title": "QuickRecord skips handler-side template validation",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "6CE26CF9685B05F6A51E1FF43869A42251E386BA3723AFF9453B9746493C5709",
+      "stderr": [
+        "[FAIL] QR-FAIL-CLOSED handler rejects paid selection under Free/trial/unknown before session write: Cannot read properties of undefined (reading 'templateId')"
+      ]
+    },
+    {
+      "id": "M05-SELECTION-AWAIT",
+      "title": "selection write is not awaited",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "F9CCAABBE430AC9257C3DFD39E86684FD9F4E233FCA7B1591CDC65D62C706843",
+      "stderr": [
+        "[FAIL] QR-PRO-FLAGSHIP handler accepts eligible Pro/Flagship selections and saves bounded metadata: Expected values to be strictly equal:",
+        "false !== true"
+      ]
+    },
+    {
+      "id": "M06-DUPLICATE-RETRY",
+      "title": "retry creates a second session",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "12F823444199DA2515A37083597031BA14EA1A6CCD068F3ED8FBAFB243542FD4",
+      "stderr": [
+        "[FAIL] QR-RETRY selection failure preserves the same session and retries without duplicate IDs: Expected values to be strictly equal:",
+        "2 !== 1"
+      ]
+    },
+    {
+      "id": "M07-CONSULT-AWAIT",
+      "title": "consultation selection write is not awaited",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "98CE57599684FBD05AACE2A3880F345E8B520D3E682079D11760411B669406E5",
+      "stderr": [
+        "[FAIL] UI-INTEGRATION dashboard and consultation route expose the same guarded selector contract: The input did not match the regular expression /await Store\\.saveSessionTemplateSelectionDurable/. Input:",
+        "'/* 心镜 v3.0.0 — 咨询记录（APA/SOAP/DAP/自由 + 小镜辅助） */\\r\\n' +"
+      ]
+    },
+    {
+      "id": "M08-LOCKED-OPTION",
+      "title": "locked paid option remains selectable",
+      "verdict": "killed",
+      "status": 1,
+      "signal": null,
+      "mutated_hash": "CDFBC46D43282647A896DF965407B0C62BCA9A5314A4F163643FD408B5CA630C",
+      "stderr": [
+        "[FAIL] UI-INTEGRATION dashboard and consultation route expose the same guarded selector contract: The input did not match the regular expression /item\\.locked \\? ' disabled' : ''/. Input:",
+        "'/* 心镜 v3.5.0 — 首页工作台（小镜面板已统一到 xiaojing-panel.js） */\\r\\n' +"
+      ]
+    }
+  ]
+}

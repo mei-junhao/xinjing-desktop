@@ -1,0 +1,41 @@
+{
+  "candidateRoot": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-intake-294-run\\candidate\\repo",
+  "files": [
+    {
+      "path": "app/js/clinical-context.js",
+      "bytes": 21980,
+      "sha256": "D0FDF476BA0CD0AF665A95B2CE474C20BE0333216F006C9D57EE1D6E46143F99",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/clinical-task-validators.js",
+      "bytes": 3298,
+      "sha256": "A1ED569334817E134E69F84468FA9212567DA40A744B3A58141C4E80A247CFA0",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/source-ref.js",
+      "bytes": 13874,
+      "sha256": "7F8B8CCC6ECB53FA357CF16AEC11DBA3B7C0DBB9770DAA7255F69B60762613A5",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/prompt-governance.js",
+      "bytes": 10517,
+      "sha256": "DFFE9DB4E195962CE27401201C7701D680090E42EB56774140B7B7B3E7BBBC9C",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/longitudinal-summary.js",
+      "bytes": 11311,
+      "sha256": "B21FC9FFA65C8482049A7FEC5F6642BEF7437156229E168C7BBE5B265ACBDEAA",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/agent-core.js",
+      "bytes": 26246,
+      "sha256": "23987D23F4C6C60A909E2875349E8210CDF75B0ADED489B06AF311174A7C78C5",
+      "syntaxExitCode": 0
+    }
+  ]
+}

@@ -1,124 +1,356 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>心镜 · 工作台</title>
-  <link rel="stylesheet" href="css/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 首页</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/workbench-home.css">
+<style>
+/* ============ 首页专属样式 — v5.0.0 workbench 语言（Clinical 默认，皮肤经 token 驱动） ============ */
+:root{--xj-panel-w:380px}
+
+/* 页面容器 */
+.page{max-width:1100px;margin:0 auto;padding:40px 44px 48px;display:flex;flex-direction:column;gap:28px;transition:margin-right .3s cubic-bezier(.4,0,.2,1);min-height:100vh}
+.page.panel-open{margin-right:var(--xj-panel-w)}
+
+/* ---------- 顶栏 ---------- */
+.topbar{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.topbar h1{font-family:var(--sans);font-size:24px;font-weight:680;letter-spacing:0;margin:0;color:var(--ink)}
+.topbar .date{font-size:13.5px;color:var(--ink-3,var(--text-muted));margin-top:4px;font-family:var(--sans)}
+.topbar .spacer{flex:1}
+
+/* 小镜切换按钮（工作区控件，6px 圆角；状态点为静态色点） */
+.topbar .xj-toggle{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border:1px solid var(--border);border-radius:6px;
+  background:var(--paper-2,var(--bg-elevated,#fff));
+  cursor:pointer;font-size:13px;font-family:var(--sans);
+  color:var(--ink-2,var(--text-secondary));
+  transition:border-color .16s ease,color .16s ease;
+}
+.topbar .xj-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.topbar .xj-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--accent);
+  flex-shrink:0;
+}
+
+/* 新建来访按钮 */
+.topbar .xj-new-client{
+  border:1px solid var(--border);border-radius:6px;
+  padding:8px 13px;font:600 13px var(--sans);
+  cursor:pointer;background:var(--paper-2,#fff);color:var(--ink-2);
+  display:flex;align-items:center;gap:6px;
+  transition:border-color .16s ease,color .16s ease;
+}
+.topbar .xj-new-client:hover{
+  border-color:var(--accent);color:var(--accent);
+}
+
+/* 切换到对话模式按钮 */
+.topbar .xj-chat-link{
+  padding:8px 12px;border:1px solid var(--border);border-radius:6px;
+  background:var(--paper-2,#fff);color:var(--ink-2);
+  font:500 12.5px var(--sans);cursor:pointer;
+  display:flex;align-items:center;gap:6px;
+  transition:border-color .16s ease,color .16s ease;
+}
+.topbar .xj-chat-link:hover{
+  border-color:var(--accent);color:var(--accent);
+}
+
+/* ---------- 今日概览统计 ---------- */
+.hero-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.kv-card{
+  background:var(--paper-2,var(--bg-elevated,#fff));
+  border:1px solid var(--border);border-radius:var(--r-card,8px);
+  padding:16px 18px;text-align:left;
+  transition:border-color .16s ease;
+}
+.kv-card .kv-num{font-family:var(--sans);font-size:28px;font-weight:700;color:var(--text);line-height:1.2;font-variant-numeric:tabular-nums}
+.kv-card .kv-label{font-size:11.5px;color:var(--ink-3,var(--text-muted));letter-spacing:.04em;margin-top:6px}
+.kv-card .kv-sub{font-size:11px;color:var(--ink-3,var(--text-muted));margin-top:4px}
+.kv-card.accent .kv-num{color:var(--accent)}
+.kv-card.warn .kv-num{color:var(--danger)}
+
+/* ---------- 工作日程 ---------- */
+.work-schedule{background:var(--paper-2,var(--bg-elevated,#fff));border:1px solid var(--border);border-radius:var(--r-card,8px);padding:16px 18px;margin:18px 0}
+.work-schedule-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.work-schedule-head h3{font-family:var(--sans);font-size:15px;margin:0;color:var(--text)}.work-schedule-head .sp{flex:1}
+.schedule-week{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}.schedule-day{min-width:58px;border:1px solid var(--border);border-radius:7px;padding:6px 7px;text-align:center;color:var(--ink-3);font-size:11px;background:var(--bg)}.schedule-day.has-session{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.today-session{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border)}.today-session:first-of-type{border-top:none}.today-session-time{width:46px;font-weight:600;font-size:12px;color:var(--accent)}.today-session-info{flex:1;min-width:0}.today-session-name{font-size:13px;font-weight:600}.today-session-meta{font-size:11px;color:var(--ink-3);margin-top:2px}.today-session-actions{display:flex;gap:6px;flex-shrink:0}.schedule-empty{padding:14px 0;color:var(--ink-3);font-size:13px;text-align:center}
+
+/* ---------- 模块网格 ---------- */
+.modules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mod{
+  background:var(--paper-2,var(--bg-elevated,#fff));
+  border:1px solid var(--border);border-radius:var(--r-card,8px);
+  padding:26px 24px 20px;cursor:pointer;
+  transition:border-color .16s ease,background .16s ease;
+  display:flex;flex-direction:column;gap:10px;
+  text-decoration:none;color:inherit;
+}
+.mod:hover{border-color:var(--accent);background:var(--accent-soft)}
+.mod .m-icon{font-size:28px;line-height:1}
+.mod .m-title{font-weight:600;font-size:15px;color:var(--text)}
+.mod .m-desc{font-size:12.5px;color:var(--ink-3,var(--text-muted));line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mod .m-tag{font-size:10px;padding:2px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent);width:fit-content;font-family:var(--sans)}
+
+/* ---------- 底部双栏 ---------- */
+.bottom-row{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;
+}
+.recent{
+  background:var(--paper-2,var(--bg-elevated,#fff));
+  border:1px solid var(--border);border-radius:var(--r-card,8px);
+  padding:20px 22px;
+}
+.recent h3{font-family:var(--sans);font-size:15px;margin:0 0 14px;color:var(--text)}
+
+/* 最近咨询条目（JS 渲染） */
+.ritem{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 0;border-bottom:1px solid var(--border);
+  font-family:var(--sans);
+  transition:color .18s ease,background-color .18s ease,border-color .18s ease;
+}
+.ritem:last-child{border:none}
+.ritem:hover{background:var(--hover-tint);border-radius:6px;padding-left:6px;padding-right:6px;margin-left:-6px;margin-right:-6px}
+.rav{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:13px;flex-shrink:0;
+}
+.ritem .info{flex:1;min-width:0}
+.ritem .nm{font-weight:600;font-size:13.5px;color:var(--text)}
+.ritem .mt{font-size:11.5px;color:var(--ink-3,var(--text-muted))}
+.ritem .tag{font-size:10.5px;padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+
+/* ---------- 小镜 AI 面板 ---------- */
+.xj-panel{
+  position:fixed;right:0;top:0;width:var(--xj-panel-w);height:100vh;
+  background:var(--paper-2,var(--bg-elevated,#fff));
+  border-left:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:100;
+  transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  will-change:transform;
+}
+.xj-panel.open{transform:none}
+.xj-head{padding:20px 22px;border-bottom:1px solid var(--border)}
+.xj-name{font-family:var(--sans);font-size:18px;font-weight:650;color:var(--accent)}
+.xj-greet{font-size:13px;color:var(--ink-2,var(--text-secondary));margin-top:6px;line-height:1.7;font-family:var(--sans)}
+.xj-body{flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:12px;font-family:var(--sans)}
+.xj-msg{font-size:13px;line-height:1.7;padding:10px 14px;border-radius:8px;max-width:92%}
+.xj-msg.ai{background:var(--accent-soft);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+.xj-input-row{display:flex;gap:8px;padding:14px 22px;border-top:1px solid var(--border)}
+.xj-input-row input{flex:1;border:1px solid var(--border);border-radius:6px;padding:10px 14px;font:13px var(--sans);outline:none;background:var(--bg)}
+.xj-input-row button{background:var(--cta-bg,var(--accent));color:#fff;border:none;border-radius:6px;padding:10px 20px;font:600 13px var(--sans);cursor:pointer;transition:color .18s ease,background-color .18s ease,box-shadow .18s ease}
+.xj-input-row button:hover{background:var(--cta-bg-hover,var(--accent-hover))}
+
+/* ---------- 响应式 ---------- */
+@media(max-width:768px){
+  .modules{grid-template-columns:repeat(2,1fr)}
+  .hero-grid{grid-template-columns:1fr}
+  .bottom-row{grid-template-columns:1fr}
+  .page{padding:20px 16px}
+}
+
+/* ---------- 小镜入口按钮 ---------- */
+.xj-float-btn{
+  position:fixed;right:24px;bottom:32px;width:56px;height:56px;
+  border-radius:50%;background:var(--cta-bg,var(--accent));color:#fff;
+  font-size:20px;border:none;cursor:pointer;
+  box-shadow:var(--shadow,0 4px 20px rgba(23,33,31,.2));
+  z-index:99;transition:background .16s ease;
+  display:flex;align-items:center;justify-content:center;
+}
+.xj-float-btn:hover{background:var(--cta-bg-hover,var(--accent-hover))}
+.xj-float-btn:active{transform:scale(.95)}
+
+/* v4.0.1 approved clinical workbench hierarchy. */
+.page{max-width:1440px;padding:28px 32px 40px;gap:20px}
+.topbar{align-items:center;gap:10px}.topbar h1{font-family:var(--sans);font-size:24px;font-weight:680;letter-spacing:0}
+.topbar .start-next{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 15px;border:1px solid var(--cta-bg,var(--accent));border-radius:6px;background:var(--cta-bg,var(--accent));color:#fff;font:650 13px var(--sans);cursor:pointer}
+.topbar .start-next:hover{background:var(--cta-bg-hover,var(--accent-hover));border-color:var(--cta-bg-hover,var(--accent-hover))}
+.topbar .xj-toggle,.topbar .xj-chat-link{border-radius:6px;padding:8px 12px}
+.topbar .xj-new-client{border:1px solid var(--border);border-radius:6px;padding:8px 13px;background:var(--paper-2);color:var(--ink-2);box-shadow:none}
+.topbar .xj-new-client:hover{border-color:var(--accent);background:var(--paper-2);color:var(--accent);box-shadow:none;transform:none}
+.hero-grid{gap:12px}.kv-card{padding:16px 18px;border-radius:8px;text-align:left}.kv-card:hover{border-color:var(--accent);box-shadow:none;transform:none}
+.kv-card .kv-num{font-family:var(--sans);font-size:28px;font-variant-numeric:tabular-nums}.kv-card .kv-label{font-size:13px;letter-spacing:0}
+.work-schedule{margin:0;padding:16px 18px;border-radius:8px;animation-duration:.25s}
+.section-head{display:flex;align-items:center;gap:8px}.section-head h2{font:650 16px var(--sans);margin:0}.section-head span{font-size:12px;color:var(--ink-3)}
+.quick-tools{display:grid;gap:10px}.quick-tools-actions{display:flex;align-items:center;gap:6px;margin-left:auto}.quick-tools-action{min-height:32px;display:inline-flex;align-items:center;gap:5px;padding:0 9px;border:1px solid var(--border);border-radius:6px;background:var(--paper-2);color:var(--ink-2);font:600 12px var(--sans);cursor:pointer}.quick-tools-action:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}.quick-tools-action[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}.quick-tools-edit-hint{display:none;font-size:12px;color:var(--ink-3)}.quick-tools.editing .quick-tools-edit-hint{display:block}.quick-tools.editing .mod[data-quick-key]{cursor:grab;border-style:dashed}.quick-tools.editing .mod[data-quick-key]:active{cursor:grabbing}.quick-tools.editing .mod.dragging{opacity:.45}.modules.drag-over{outline:1px dashed var(--accent);outline-offset:3px}.quick-tools.editing #more-mod-btn{display:none}.modules{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.mod{display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:10px;row-gap:2px;align-items:center;padding:13px 14px;border-radius:7px}
+.mod:hover{border-color:var(--accent);background:var(--accent-soft);box-shadow:none;transform:none}.mod .m-icon{grid-row:1/3;font-size:20px}.mod .m-icon svg{width:19px;height:19px}
+.mod .m-title{font-size:13px;font-weight:650}.mod .m-desc{font-size:11px;line-height:1.45;white-space:nowrap;text-overflow:ellipsis}.mod .m-tag{display:none}
+.recent{border-radius:8px}
+@media(max-width:1200px){.modules{grid-template-columns:repeat(3,minmax(0,1fr))}.page{padding:24px}}
+.workbench-switch{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--paper-2)}.workbench-switch button{min-height:36px;border:0;border-right:1px solid var(--border);padding:0 12px;background:transparent;color:var(--ink-2);font:600 13px var(--sans);cursor:pointer}.workbench-switch button:last-child{border-right:0}.workbench-switch button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}.dual-workbench{display:none;grid-template-columns:220px minmax(0,1fr) 250px;gap:12px;min-height:360px}.dual-workbench.active{display:grid}.dual-workbench .wb-panel{border:1px solid var(--border);background:var(--paper-2);border-radius:8px;min-width:0}.wb-rail-head,.wb-main-head{padding:14px;border-bottom:1px solid var(--border)}.wb-rail-head h2,.wb-main-head h2{margin:0;font:650 16px var(--sans);color:var(--ink)}.wb-rail-head input,.wb-link-grid select{box-sizing:border-box;width:100%;min-height:36px;margin-top:10px;border:1px solid var(--border);border-radius:6px;padding:0 9px;background:var(--paper);font:13px var(--sans);color:var(--ink)}.wb-client-list,.wb-material-list{max-height:490px;overflow:auto;padding:6px}.wb-client,.wb-material{display:flex;width:100%;gap:8px;align-items:center;border:0;border-radius:6px;background:transparent;padding:9px;text-align:left;color:var(--ink);cursor:pointer;font:13px var(--sans)}.wb-client:hover,.wb-material:hover,.wb-client.active,.wb-material.active{background:var(--accent-soft)}.wb-avatar{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--bg-sunken);color:var(--accent);font-weight:700;flex:0 0 auto}.wb-client b,.wb-material b{display:block}.wb-client small,.wb-material small,.wb-muted{display:block;margin-top:2px;font-size:12px;line-height:1.45;color:var(--ink-3)}.wb-main{display:flex;flex-direction:column}.wb-main-body{padding:16px;overflow:auto}.wb-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}.wb-kpi{border:1px solid var(--border);border-radius:6px;padding:10px}.wb-kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums}.wb-kpi span{display:block;margin-top:3px;font-size:12px;color:var(--ink-3)}.wb-focus{display:flex;gap:12px;align-items:center;border:1px solid var(--border);border-left:3px solid var(--accent);padding:12px;border-radius:6px}.wb-focus strong{display:block;font-size:14px}.wb-focus p{margin:3px 0 0;font-size:12px;line-height:1.5;color:var(--ink-3)}.wb-focus .wb-primary{margin-left:auto}.wb-primary,.wb-secondary{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 11px;border-radius:6px;font:600 13px var(--sans);cursor:pointer}.wb-primary{border:1px solid var(--cta-bg,var(--accent));background:var(--cta-bg,var(--accent));color:#fff}.qr-actions .wb-primary{background:var(--cta-bg,var(--accent));border-color:var(--cta-bg,var(--accent))}.qr-actions .wb-primary:hover{background:var(--cta-bg-hover,var(--accent-hover))}.wb-secondary{border:1px solid var(--border);background:var(--paper-2);color:var(--ink-2)}.wb-actions{padding:14px}.wb-action{display:flex;width:100%;align-items:center;gap:8px;border:0;border-bottom:1px solid var(--border);padding:10px 0;background:transparent;color:var(--ink);font:13px var(--sans);text-align:left;cursor:pointer}.wb-action:last-child{border-bottom:0}.wb-action:hover{color:var(--accent)}.wb-action i:last-child{margin-left:auto}.wb-empty{display:grid;place-items:center;min-height:330px;padding:24px;text-align:center}.wb-empty i{width:34px;height:34px;color:var(--accent)}.wb-empty h2{margin:12px 0 6px;font:650 18px var(--sans)}.wb-empty p{max-width:380px;margin:0 0 16px;color:var(--ink-3);font-size:13px;line-height:1.6}.wb-link-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}.wb-link-grid label{font-size:12px;color:var(--ink-3)}.wb-source{margin-top:14px;border-top:1px solid var(--border);padding-top:12px;white-space:pre-wrap;font:13px/1.65 var(--sans);color:var(--ink-2);max-height:220px;overflow:auto}.wb-status{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:3px 7px;border-radius:4px;background:var(--bg-sunken);font-size:12px;color:var(--ink-2)}.wb-status.ready,.wb-status.linked{background:var(--accent-soft);color:var(--accent)}.wb-status.failed{background:#fff0f0;color:var(--danger)}.wb-doc{grid-template-columns:280px minmax(0,1fr) 240px}.wb-doc .wb-panel{min-height:420px}@media(max-width:1180px){.dual-workbench{grid-template-columns:190px minmax(0,1fr)}.dual-workbench .wb-actions-panel{display:none}.wb-doc{grid-template-columns:240px minmax(0,1fr)}}@media(max-width:880px){.workbench-switch{order:4;width:100%}.dual-workbench,.wb-doc{grid-template-columns:1fr}.dual-workbench .wb-rail{max-height:220px}.wb-kpis{grid-template-columns:1fr}.wb-focus{align-items:flex-start;flex-direction:column}.wb-focus .wb-primary{margin-left:0}.wb-link-grid{grid-template-columns:1fr}}
+</style>
+<link rel="stylesheet" href="css/workbench.css">
+<link rel="stylesheet" href="css/xj-ui-system.css">
 </head>
-<body>
-  <div class="layout">
-    <div id="sidebar-mount"></div>
-    <main class="main">
-      <header class="main-header">
-        <div id="page-header"></div>
-      </header>
-      <div class="content">
-        <!-- 统计卡片 -->
-        <div class="stat-grid" id="stat-grid">
-          <div class="stat-card">
-            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/><path d="M16.6 13.4A5.4 5.4 0 0 1 20.4 19"/></svg></div>
-            <div class="num" id="stat-clients">0</div>
-            <div class="label">咨询中的来访者</div>
-          </div>
-          <div class="stat-card">
-            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-4 9 4-9 4-9-4z"/><path d="M7 11v4c0 1.5 2.2 2.6 5 2.6s5-1.1 5-2.6v-4"/><path d="M21 9v5.5"/></svg></div>
-            <div class="num" id="stat-supervision">0</div>
-            <div class="label">督导记录</div>
-          </div>
-          <div class="stat-card">
-            <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg></div>
-            <div class="num" id="stat-reports">0</div>
-            <div class="label">近期报告</div>
-          </div>
-        </div>
-
-        <!-- 两栏：最近会谈 / 最近报告 -->
-        <div class="two-column">
-          <div>
-            <div class="section-title">最近会谈 <span class="count" id="recent-sessions-count"></span></div>
-            <div id="recent-sessions"></div>
-          </div>
-          <div>
-            <div class="section-title">最近报告 <span class="count" id="recent-reports-count"></span></div>
-            <div id="recent-reports"></div>
-          </div>
-        </div>
-      </div>
-    </main>
+<body data-xj-pattern="dashboard">
+<div class="layout"><div id="sidebar-mount"></div><main class="main">
+<div class="page" id="main-page">
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <div><h1>今日工作台</h1><div class="date" id="wel-date"></div></div>
+    <div class="workbench-switch" role="tablist" aria-label="工作台视角"><button id="wb-client-view" type="button" role="tab" aria-selected="true" aria-controls="dual-workbench" tabindex="0"><i data-lucide="users-round"></i>来访者视角</button><button id="wb-document-view" type="button" role="tab" aria-selected="false" aria-controls="dual-workbench" tabindex="-1"><i data-lucide="file-up"></i>文档视角</button></div>
+    <div class="spacer"></div>
+    <button class="start-next" id="start-next-session" type="button"><i data-lucide="play"></i>开始下一场会谈</button>
+    <button class="xj-toggle" id="xj-toggle-btn" onclick="toggleXiaojing()"><span class="xj-dot"></span> 小镜</button>
+    <button class="xj-chat-link" onclick="location.href='chat-home.html'"><i data-lucide="message-square-text"></i>对话模式</button>
+    <button class="xj-new-client" onclick="if(typeof ClientModal!=='undefined')ClientModal.show(function(c){if(typeof App!=='undefined')App.showToast('已新增来访者「'+c.name+'」','success');if(typeof refreshDashboardWorkbench==='function')refreshDashboardWorkbench(c);})"><i data-lucide="user-round-plus"></i>新建来访者</button>
   </div>
 
-  <!-- 新建来访者模态框 -->
-  <div class="modal-overlay" id="client-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>新建来访者</h2>
-        <button class="close" onclick="App.closeModal('client-modal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-row">
-          <label class="form-label">姓名 / 化名 <span style="color:var(--red)">*</span></label>
-          <input class="form-control" id="c-name" placeholder="如：小A / 阿拉伯">
-        </div>
-        <div class="form-row two">
-          <div>
-            <label class="form-label">性别</label>
-            <select class="form-control" id="c-gender">
-              <option value="unknown">未填</option>
-              <option value="female">女</option>
-              <option value="male">男</option>
-              <option value="other">其他</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label">出生日期</label>
-            <input class="form-control" id="c-birth" type="date">
-          </div>
-        </div>
-        <div class="form-row two">
-          <div>
-            <label class="form-label">联系电话</label>
-            <input class="form-control" id="c-phone" placeholder="选填">
-          </div>
-          <div>
-            <label class="form-label">首访日期</label>
-            <input class="form-control" id="c-firstvisit" type="date">
-          </div>
-        </div>
-        <div class="form-row">
-          <label class="form-label">标签（逗号分隔）</label>
-          <input class="form-control" id="c-tags" placeholder="如：成人个体, 焦虑">
-        </div>
-        <div class="form-row">
-          <label class="form-label">备注</label>
-          <textarea class="form-control" id="c-notes" placeholder="背景信息摘要、转介来源等"></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="App.closeModal('client-modal')">取消</button>
-        <button class="btn btn-primary" onclick="saveNewClient()">保存</button>
-      </div>
+  <!-- 英雄统计区 -->
+  <div class="hero-grid" id="hero-stats">
+    <div class="kv-card accent">
+      <div class="kv-num" id="stat-today">0</div>
+      <div class="kv-label">今日咨询</div>
+      <div class="kv-sub" id="stat-today-sub"></div>
+    </div>
+    <div class="kv-card">
+      <div class="kv-num" id="stat-income">¥0</div>
+      <div class="kv-label">本月待收</div>
+      <div class="kv-sub" id="stat-income-sub"></div>
+    </div>
+    <div class="kv-card warn">
+      <div class="kv-num" id="stat-pending-reports">0</div>
+      <div class="kv-label">待补记录</div>
+      <div class="kv-sub"></div>
     </div>
   </div>
 
-  <!-- 确认对话框 -->
-  <div class="modal-overlay" id="confirm-modal">
-    <div class="modal" style="max-width:380px">
-      <div class="modal-header">
-        <h2>确认</h2>
-      </div>
-      <div class="modal-body">
-        <p id="confirm-message" style="font-family:var(--sans);font-size:14px;"></p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="App.closeModal('confirm-modal')">取消</button>
-        <button class="btn btn-primary" id="confirm-ok">确定</button>
-      </div>
-    </div>
+  <section class="work-schedule" aria-label="工作日程">
+    <div class="work-schedule-head"><h3>今日与本周安排</h3><span class="sp"></span><button class="back" onclick="location.href='session-calendar.html'">查看日历</button><button class="back" onclick="location.href='session-calendar.html?action=new'">新建会谈</button></div>
+    <div class="schedule-week" id="week-schedule"></div>
+    <div id="today-schedule"></div>
+  </section>
+  <section class="dual-workbench" id="dual-workbench" role="tabpanel" tabindex="0" aria-labelledby="wb-client-view" aria-live="polite"></section>
+
+  <!-- 新手任务清单（由 onboarding.js 渲染，完成/关闭后自动收起） -->
+  <div id="ob-checklist"></div>
+
+  <section class="quick-tools" aria-label="快捷进入">
+  <div class="section-head"><h2>快捷进入</h2><span>全部现有工具均保留</span><div class="quick-tools-actions"><button class="quick-tools-action" id="manage-quick-tools" type="button" aria-pressed="false"><i data-lucide="grip"></i>整理快捷方式</button><button class="quick-tools-action" id="reset-quick-tools" type="button"><i data-lucide="rotate-ccw"></i>恢复默认</button></div></div>
+  <div class="quick-tools-edit-hint" id="quick-tools-edit-hint">拖动工具卡片，可在“快捷进入”和“更多功能”之间自由组合；完成后会自动保存。</div>
+  <!-- 模块网格 -->
+  <div class="modules" id="quick-modules" data-quick-zone="quick">
+    <button class="mod" id="qr-entry" type="button" style="cursor:pointer;border:none;background:inherit;font:inherit;text-align:left;width:100%;color:inherit">
+      <div class="m-icon"><i data-lucide="zap"></i></div>
+      <div class="m-title">快速记录</div>
+      <div class="m-desc">选择来访者，一键创建会谈并保存后续动作</div>
+      <div class="m-tag">常用</div>
+    </button>
+    <a class="mod" data-quick-key="consult-notes" href="consult-notes.html">
+      <div class="m-icon"><i data-lucide="notebook-pen"></i></div>
+      <div class="m-title">咨询记录</div>
+      <div class="m-desc">快速记录整理，APA 结构化提示</div>
+      <div class="m-tag">常用</div>
+    </a>
+    <a class="mod" data-quick-key="supervision" data-feature="ai-supervise" href="supervision.html">
+      <div class="m-icon"><i data-lucide="brain-circuit"></i></div>
+      <div class="m-title">AI 督导</div>
+      <div class="m-desc">三栏研究台，整体印象与深化分析</div>
+    </a>
+    <a class="mod" data-quick-key="masters" data-feature="ai-masters" href="masters.html">
+      <div class="m-icon"><i data-lucide="messages-square"></i></div>
+      <div class="m-title">学派对话</div>
+      <div class="m-desc">与 12 位思想者对话，理论研讨</div>
+    </a>
+    <a class="mod" data-quick-key="billing" href="billing-shell.html">
+      <div class="m-icon"><i data-lucide="wallet-cards"></i></div>
+      <div class="m-title">账单</div>
+      <div class="m-desc">收入统计，月结，对账导出</div>
+    </a>
+    <a class="mod" data-quick-key="knowledge" href="knowledge.html">
+      <div class="m-icon"><i data-lucide="library-big"></i></div>
+      <div class="m-title">资料库</div>
+      <div class="m-desc">导入讲义文献，AI 检索</div>
+      <div class="m-tag" id="kb-mod-count">未设置</div>
+    </a>
+    <a class="mod" data-quick-key="calendar" href="session-calendar.html">
+      <div class="m-icon"><i data-lucide="calendar-days"></i></div>
+      <div class="m-title">咨询日历</div>
+      <div class="m-desc">查看今日与本周会谈，直接开始记录</div>
+      <div class="m-tag">常用</div>
+    </a>
+    <button class="mod" onclick="toggleMoreModules()" id="more-mod-btn">
+      <div class="m-icon"><i data-lucide="ellipsis"></i></div>
+      <div class="m-title">更多功能</div>
+      <div class="m-desc">逐字稿、报告、真人督导、文档中心、日历、设置...</div>
+    </button>
   </div>
 
-  <script src="js/store.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/dashboard.js"></script>
+  <!-- 更多模块（默认隐藏） -->
+  <div class="modules" id="more-modules" data-quick-zone="more" style="display:none">
+    <a class="mod" data-quick-key="transcript" href="transcript.html">
+      <div class="m-icon"><i data-lucide="audio-lines"></i></div>
+      <div class="m-title">逐字稿整理</div>
+      <div class="m-desc">AI 辅助校对，双栏对比修正</div>
+    </a>
+    <a class="mod" data-quick-key="report-writing" href="report-writing.html">
+      <div class="m-icon"><i data-lucide="file-text"></i></div>
+      <div class="m-title">撰写报告</div>
+      <div class="m-desc">完整案例报告，跨节整合，导出 Word</div>
+      <div class="m-tag" style="background:var(--success);color:#fff">AI 生成</div>
+    </a>
+    <a class="mod" data-quick-key="real-supervision" href="real-supervision.html">
+      <div class="m-icon"><i data-lucide="handshake"></i></div>
+      <div class="m-title">真人督导</div>
+      <div class="m-desc">记录督导过程，上传逐字稿</div>
+    </a>
+    <a class="mod" data-quick-key="doc-center" href="doc-center.html">
+      <div class="m-icon"><i data-lucide="folder-kanban"></i></div>
+      <div class="m-title">文档中心</div>
+      <div class="m-desc">来访者材料归档，成长轨迹追踪</div>
+    </a>
+    <a class="mod" data-quick-key="settings" href="settings.html">
+      <div class="m-icon"><i data-lucide="settings-2"></i></div>
+      <div class="m-title">设置</div>
+      <div class="m-desc">API 配置，备份恢复，激活管理</div>
+    </a>
+  </div>
+  </section>
+
+  <!-- 底部双栏 -->
+  <div class="bottom-row">
+    <div class="recent"><h3>最近咨询记录</h3><div id="recent-sessions"></div></div>
+    <div class="recent"><h3>待办</h3><div id="todo-list"></div></div>
+  </div>
+</div>
+</main></div>
+
+<script>
+function toggleMoreModules() {
+  const more = document.getElementById('more-modules');
+  const btn = document.getElementById('more-mod-btn');
+  if (!more || !btn) return;
+  const isHidden = more.style.display === 'none';
+  more.style.display = isHidden ? '' : 'none';
+  btn.innerHTML = isHidden
+    ? '<div class="m-icon"><i data-lucide="minus"></i></div><div class="m-title">收起</div><div class="m-desc">隐藏更多功能</div>'
+    : '<div class="m-icon"><i data-lucide="ellipsis"></i></div><div class="m-title">更多功能</div><div class="m-desc">逐字稿、报告、真人督导、文档中心、日历、设置...</div>';
+  if (window.IconSystem) window.IconSystem.render(btn);
+}
+</script>
+
+<script src="js/clinical-task-validators.js"></script>
+<script src="js/store.js"></script>
+<script src="js/update-durable-renderer.js"></script>
+<script src="js/clinical-context.js"></script><script src="js/clinical-context-view.js"></script>
+<script src="js/memory.js"></script>
+<script src="js/persona-preamble.js"></script>
+<script src="js/client-modal.js"></script>
+<script src="js/entitlements.js"></script><script src="js/ai.js"></script><script src="js/agent-tools.js"></script><script src="js/agent-core.js"></script><script src="js/page-hints.js"></script><script src="js/icon-system.js"></script><script src="js/xinjing-chat.js"></script><script src="js/app.js"></script><script src="js/workbench-readonly.js"></script>
+<script src="js/clinical-task-view-model.js"></script>
+<script src="js/session-template-view-model.js"></script>
+<script src="js/quick-record.js"></script>
+<script src="js/onboarding.js"></script>
+<script src="js/dashboard.js"></script>
+<script>if(typeof Memory!=='undefined'&&Memory.init)Memory.init();</script>
 </body>
 </html>

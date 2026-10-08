@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none';">
+  <title>Pi 生产接线 041</title>
+  <style>
+    :root { --bg:#fbf8f3; --panel:#fffdf9; --ink:#382f29; --muted:#776c62; --line:#dfd6cc; --accent:#8b5a44; }
+    :root.dark { --bg:#211c19; --panel:#2d2722; --ink:#f5ece3; --muted:#b9aa9d; --line:#574a40; --accent:#d9a58a; }
+    :root[data-skin="theatre"] { --accent:#7d6a4b; }
+    :root[data-skin="observatory"] { --accent:#4a7184; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.55 -apple-system,"Microsoft YaHei",sans-serif; }
+    header { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); }
+    h1 { margin:0; font-size:17px; }
+    .chip { border:1px solid var(--line); border-radius:999px; padding:3px 9px; color:var(--muted); font-size:11px; }
+    main { display:grid; grid-template-columns:minmax(220px,30%) minmax(0,1fr); gap:14px; padding:14px; }
+    .panel { min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+    .panel h2 { margin:0; padding:10px 14px; border-bottom:1px solid var(--line); font-size:13px; color:var(--muted); }
+    .body { padding:14px; }
+    .buttons { display:flex; flex-wrap:wrap; gap:8px; }
+    button { padding:8px 12px; border:1px solid var(--line); border-radius:9px; color:var(--ink); background:var(--panel); font:600 12px inherit; cursor:pointer; }
+    button.primary { color:#fff; background:var(--accent); border-color:var(--accent); }
+    button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    #status { min-height:74px; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--muted); }
+    #log { max-height:300px; overflow:auto; font-size:12px; color:var(--muted); }
+    .row { padding:4px 0; border-bottom:1px dashed var(--line); overflow-wrap:anywhere; }
+    #states span { display:block; padding:3px 0; }
+    @media (max-width:720px) { main { grid-template-columns:1fr; } }
+    @media (prefers-reduced-motion:no-preference) { button { transition:background-color .12s ease; } }
+  </style>
+</head>
+<body>
+  <header><h1>Pi supervision broker · 生产接线</h1><span class="chip">041</span><span class="chip" id="phase">BOOT</span></header>
+  <main>
+    <section class="panel"><h2>生命周期</h2><div class="body" id="log"><div class="row">等待受控 IPC</div></div></section>
+    <section class="panel"><h2>真实 Electron 入口</h2><div class="body">
+      <div class="buttons">
+        <button id="start" class="primary">开始督导任务</button>
+        <button id="context">上下文复核</button>
+        <button id="plan">写入计划</button>
+        <button id="read">读取摘要</button>
+        <button id="supervision">督导草稿</button>
+        <button id="command">导航命令</button>
+        <button id="commit">临床写入</button>
+        <button id="pause">暂停</button>
+        <button id="resume">继续</button>
+        <button id="cancel">取消</button>
+        <button id="tamper">篡改投影</button>
+        <button id="malformed">发布坏投影</button>
+        <button id="restore">恢复投影</button>
+        <button id="fail">下一次写入失败</button>
+        <button id="network">拒网探针</button>
+      </div>
+      <p id="status">桥接初始化中……</p>
+      <div id="long-cn">长中文验收：上下文、来源材料、会员投影和 durable 回执都由主进程受控，任何不一致都会被 fail-closed。</div>
+      <div id="states"><span id="empty-state">空态：暂无待处理任务</span><span id="loading-state">加载态：正在读取投影</span><span id="error-state">错误态：投影暂不可用</span></div>
+    </div></section>
+  </main>
+  <script>
+  (function () {
+    'use strict';
+    var taskId = 'xj_task_041_runtime';
+    var projection = {
+      clientId: 'c_041_electron', sessionId: 's_041_electron',
+      sourceRefs: [{ sourceId: 'electron:041', sourceVersion: 1, sourceContentHash: 'sha256:' + '1'.repeat(64), anchorContentHash: 'sha256:' + '2'.repeat(64) }],
+      storeProjectionVersion: 1, membershipProjectionVersion: 1,
+    };
+    var reads = { 'read.client.summary': { '{"clientId":"c_041_electron"}': { clientId: 'c_041_electron', summary: '合成 Electron 摘要' } }, 'read.task.cards': { '{}': { cards: [] } } };
+    var transport = window.__XJ_API__ && window.__XJ_API__.piTransport;
+    var failNext = false; var approvalId = ''; var seq = 0;
+    var status = document.getElementById('status'); var phase = document.getElementById('phase'); var logBox = document.getElementById('log');
+    function show(value) { status.textContent = typeof value === 'string' ? value : JSON.stringify(value); }
+    function log(value) { var d = document.createElement('div'); d.className = 'row'; d.textContent = value; logBox.prepend(d); }
+    function publish(next) { return transport && transport.publishState({ projection: next || projection, reads: reads }); }
+    if (transport) transport.onRequest(function (request) {
+      if (request.kind !== 'durable-write') return transport.reply(request.requestId, { ok: false, code: 'XJ_PI_UNKNOWN_EVENT' });
+      if (failNext) { failNext = false; return transport.reply(request.requestId, { ok: false, code: 'XJ_PI_DIRECT_WRITE_DENIED', message: 'synthetic Store failure' }); }
+      var id = 'electron-receipt-' + (++seq); var now = Date.now();
+      return transport.reply(request.requestId, { ok: true, savedObjectId: id, version: now, object: { id: id, snapshotHash: request.payload && request.payload.snapshotHash, version: now } });
+    });
+    window.__PITEST__ = {
+      keys: function () { return { pi: Object.keys(window.__PI__ || {}), raw: window.__PI__ && window.__PI__.__raw, transport: typeof window.__XJ_API__.piTransport }; },
+      projection: function () { return JSON.parse(JSON.stringify(projection)); },
+      start: async function (mode, id, custom) { publish(custom || projection); return window.__PI__.startTask({ taskId: id || taskId, mode: mode || 'supervision', projection: custom || projection }); },
+      context: function (id) { return window.__PI__.contextCheck(id || taskId); },
+      plan: function (id) { return window.__PI__.plan(id || taskId, [{ tool: 'read.client.summary' }, { tool: 'supervision.note.append' }]); },
+      read: function (id) { return window.__PI__.runToolStep(id || taskId, { tool: 'read.client.summary', args: { clientId: 'c_041_electron' } }); },
+      supervision: function (id) { return window.__PI__.runToolStep(id || taskId, { tool: 'supervision.note.append', args: { noteText: '合成督导草稿，不写正式临床对象' } }); },
+      command: function (id) { return window.__PI__.runToolStep(id || taskId, { tool: 'command.navigate', args: {} }); },
+      tamper: function () { var changed = JSON.parse(JSON.stringify(projection)); changed.storeProjectionVersion += 1; return window.__PI__.startTask({ taskId: 'xj_task_041_tampered', mode: 'observe', projection: changed }); },
+      malformed: function () { return publish({ clientId: '', sessionId: '', sourceRefs: [], storeProjectionVersion: -1, membershipProjectionVersion: -1, extra: true }); },
+      restore: function () { return publish(projection); },
+      commit: async function (id) { var first = await window.__PI__.commitStep(id || taskId, { kind: 'session', clientId: 'c_041_electron', sessionId: 's_041_electron' }, { note: '合成临床草稿' }); if (first && first.awaiting) { approvalId = first.pendingApprovalId; await window.__PI__.resolveApproval(approvalId, 'approved', 'local-user'); return window.__PI__.commitStep(id || taskId, { kind: 'session', clientId: 'c_041_electron', sessionId: 's_041_electron' }, { note: '合成临床草稿' }); } return first; },
+      pauseResumeCancel: async function (id) { id = id || taskId; var p = await window.__PI__.pause(id, 'user'); var r = await window.__PI__.resume(id); var c = await window.__PI__.cancel(id, 'user'); var after = await window.__PI__.runToolStep(id, { tool: 'read.task.cards', args: {} }); return { paused: p, resumed: r, cancelled: c, after: after }; },
+      failWrite: function () { failNext = true; return true; },
+      network: async function () { try { await fetch('https://example.com'); return 'network-open'; } catch (_) { return 'network-denied'; } },
+    };
+    publish(); phase.textContent = 'READY'; show({ ok: true, bridge: window.__PITEST__.keys() });
+    document.getElementById('start').onclick = function () { window.__PITEST__.start().then(show); phase.textContent = 'INTAKE'; log('startTask'); };
+    document.getElementById('context').onclick = function () { Promise.resolve(window.__PITEST__.context()).then(show); phase.textContent = 'CONTEXT_CHECK'; };
+    document.getElementById('plan').onclick = function () { Promise.resolve(window.__PITEST__.plan()).then(show); phase.textContent = 'PLAN'; };
+    document.getElementById('read').onclick = function () { Promise.resolve(window.__PITEST__.read()).then(show); phase.textContent = 'TOOL_LOOP'; };
+    document.getElementById('supervision').onclick = function () { Promise.resolve(window.__PITEST__.supervision()).then(show); };
+    document.getElementById('command').onclick = function () { Promise.resolve(window.__PITEST__.command()).then(show); };
+    document.getElementById('commit').onclick = function () { window.__PITEST__.commit().then(show); phase.textContent = 'COMMIT'; };
+    document.getElementById('pause').onclick = function () { window.__PI__.pause(taskId, 'user').then(show); phase.textContent = 'PAUSED'; };
+    document.getElementById('resume').onclick = function () { window.__PI__.resume(taskId).then(show); phase.textContent = 'TOOL_LOOP'; };
+    document.getElementById('cancel').onclick = function () { window.__PI__.cancel(taskId, 'user').then(show); phase.textContent = 'CANCELLED'; };
+    document.getElementById('tamper').onclick = function () { Promise.resolve(window.__PITEST__.tamper()).then(show); };
+    document.getElementById('malformed').onclick = function () { show(window.__PITEST__.malformed()); };
+    document.getElementById('restore').onclick = function () { show(window.__PITEST__.restore()); };
+    document.getElementById('fail').onclick = function () { window.__PITEST__.failWrite(); show('下一次 durable 写入返回 {ok:false}'); };
+    document.getElementById('network').onclick = function () { window.__PITEST__.network().then(show); };
+  }());
+  </script>
+</body>
+</html>

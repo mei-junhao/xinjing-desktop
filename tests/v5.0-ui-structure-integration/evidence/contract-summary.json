@@ -1,0 +1,304 @@
+{
+  "task_id": "XJ-5.0.0-codex-vechooool-structure-production-integration-01",
+  "checks": [
+    {
+      "id": "S-chat-home.html",
+      "label": "required artifact exists: app\\chat-home.html",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-doc-center.html",
+      "label": "required artifact exists: app\\doc-center.html",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-doc-growth.html",
+      "label": "required artifact exists: app\\doc-growth.html",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-chat-home.js",
+      "label": "required artifact exists: app\\js\\chat-home.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-doc-center.js",
+      "label": "required artifact exists: app\\js\\doc-center.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-longitudinal-summary.js",
+      "label": "required artifact exists: app\\js\\longitudinal-summary.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-clinical-workspace-ui.js",
+      "label": "required artifact exists: app\\js\\clinical-workspace-ui.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-clinical-workspaces.css",
+      "label": "required artifact exists: app\\css\\clinical-workspaces.css",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-source-ref.js",
+      "label": "required artifact exists: app\\js\\source-ref.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-case-space-view-model.js",
+      "label": "required artifact exists: app\\js\\case-space-view-model.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-clinical-context.js",
+      "label": "required artifact exists: app\\js\\clinical-context.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-longitudinal-summary.js",
+      "label": "required artifact exists: app\\js\\longitudinal-summary.js",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-HTML-CHAT-STRUCTURE",
+      "label": "chat page exposes the three structure regions",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-HTML-ATLAS-STRUCTURE",
+      "label": "doc center retains Atlas route/tab and source inspector",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-HTML-GROWTH-STRUCTURE",
+      "label": "growth page retains preview-only and human-review boundaries",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-DEPENDENCIES",
+      "label": "all three pages load shared clinical workspace assets",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-REAL-ENTRYPOINTS",
+      "label": "production scripts call real Store / CaseSpace / Longitudinal / ClinicalContext APIs",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-NO-LEGACY-TRAJECTORY-AI",
+      "label": "doc-center routes growth work to doc-growth instead of running legacy trajectory AI",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-CHAT-REAL-SOURCE-ADMISSION",
+      "label": "chat loads CaseSpaceViewModel and refreshes a verified projection before showing sources",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-CHAT-SINGLE-SEND-BINDING",
+      "label": "chat send command is bound only through its runtime listener",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-CHAT-BUSY-BEFORE-AWAIT",
+      "label": "chat locks send state before the first authorization await",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-ATLAS-DRAWER-INERT",
+      "label": "Atlas makes its background inert while the source drawer is open",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-ATLAS-FAIL-CLOSED",
+      "label": "Atlas has request/context guards, source validation and Escape focus return",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-GROWTH-FAIL-CLOSED",
+      "label": "growth preparation gates feature, compute, source and preview-only mode",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-NO-EMOJI",
+      "label": "new structure surfaces do not introduce emoji interface glyphs",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-REDUCED-MOTION",
+      "label": "shared CSS contains an explicit reduced-motion contract",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-REDUCED-MOTION-TYPING-PULSE",
+      "label": "reduced motion disables both typing and recording pulse animations",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-LETTER-SPACING-ZERO",
+      "label": "structure typography explicitly keeps letter spacing at zero",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-LONG-CHINESE",
+      "label": "structure CSS constrains long Chinese text without horizontal spill",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "S-PROTECTED-BOUNDARY",
+      "label": "runner does not require or modify protected production modules",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "B-CHAT-HYDRATION-GATE",
+      "label": "chat defers page initialization to App.initPage hydration readiness",
+      "pass": true,
+      "detail": "{\"initPageCalls\":1,\"documentReads\":4,\"catchAttached\":true,\"documentReadsBeforeReady\":0,\"documentReadsAfterReady\":4}"
+    },
+    {
+      "id": "M-CHAT-HYDRATION-DIRECT-START",
+      "label": "mutation replacing the hydration gate with direct initialization is killed",
+      "pass": true,
+      "detail": "{\"initPageCalls\":0,\"documentReads\":4,\"ready\":null,\"catchAttached\":false,\"documentReadsBeforeReady\":4,\"documentReadsAfterReady\":4}"
+    },
+    {
+      "id": "M-CHAT-HYDRATION-CALLBACK",
+      "label": "mutation deleting the hydrated callback is killed",
+      "pass": true,
+      "detail": "{\"initPageCalls\":1,\"documentReads\":0,\"catchAttached\":true,\"documentReadsBeforeReady\":0,\"documentReadsAfterReady\":0}"
+    },
+    {
+      "id": "B-GROWTH-POSITIVE",
+      "label": "real LongitudinalSummary admits a verified synthetic source",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "id": "B-GROWTH-BODY-CLIP",
+      "label": "growth context contains controlled source metadata, not a UI business-data copy",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "B-GROWTH-FREE",
+      "label": "feature gate blocks Free preview",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "B-GROWTH-COMPUTE",
+      "label": "AI compute availability remains independent from feature entitlement",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "B-GROWTH-PREVIEW",
+      "label": "preview parser requires an allowed SourceRef citation",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "B-GROWTH-CITATION-FAIL",
+      "label": "unknown citation is rejected fail-closed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-FEATURE-GATE",
+      "label": "mutation removing feature gate is detected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-SOURCE-STATUS",
+      "label": "mutation admitting a stale source changes the contract result",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-AWAIT",
+      "label": "mutation removing await is observable and cannot pass",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-LEGACY-TRAJECTORY",
+      "label": "mutation restoring legacy trajectory AI is rejected by the route-only contract",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-DOUBLE-SEND",
+      "label": "mutation restoring an inline second send binding is rejected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-CHAT-SOURCE-ADMISSION",
+      "label": "mutation removing complete SourceRef admission changes the production guard",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-BUSY-BEFORE-AWAIT",
+      "label": "mutation removing the pre-await busy lock is rejected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-DRAWER-INERT",
+      "label": "mutation removing drawer inert state is rejected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "M-ATLAS-DEEPLINK",
+      "label": "mutation bypassing Atlas ownership validation is detected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "RUNTIME",
+      "label": "controlled Electron/CDP runtime acceptance",
+      "pass": true,
+      "detail": "{\"status\":\"SKIPPED\"}"
+    }
+  ],
+  "failed": 0,
+  "runtime": {
+    "status": "SKIPPED"
+  },
+  "generatedAt": "2026-08-18T12:27:04.168Z"
+}

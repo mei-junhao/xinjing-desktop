@@ -1,0 +1,181 @@
+{
+  "task_id": "XJ-5.0.0-codex-g7-electron-runtime-current-20260808",
+  "mode": "accept-forged-selection",
+  "electron_version": "43.2.0",
+  "protected_evidence": {
+    "manifest_sha256": "30FB998F677C474D01DAA520D02C6FA242B833E9E5AB21CA180AC739C93DF38E",
+    "sourceChecks": [
+      {
+        "path": "main.js",
+        "expected": "305A48FB03936381EB38F00464701AA3A111F60FE634A761AA627B070C231C01",
+        "actual": "305A48FB03936381EB38F00464701AA3A111F60FE634A761AA627B070C231C01",
+        "match": true
+      },
+      {
+        "path": "preload.js",
+        "expected": "F1AC14CD9C33B37C562DA403DE9BC119E0856DAA930078A00CD2A767174F1262",
+        "actual": "F1AC14CD9C33B37C562DA403DE9BC119E0856DAA930078A00CD2A767174F1262",
+        "match": true
+      },
+      {
+        "path": "app/js/store.js",
+        "expected": "84DED0E7EAF3B8DE98A727D5F1671ED42B9EA27AE7EA27CAA644E8EF20CF768D",
+        "actual": "84DED0E7EAF3B8DE98A727D5F1671ED42B9EA27AE7EA27CAA644E8EF20CF768D",
+        "match": true
+      },
+      {
+        "path": "package.json",
+        "expected": "C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D",
+        "actual": "C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D",
+        "match": true
+      },
+      {
+        "path": "package-lock.json",
+        "expected": "60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07",
+        "actual": "60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07",
+        "match": true
+      }
+    ]
+  },
+  "profile": {
+    "temporary": true,
+    "cleaned": true
+  },
+  "indexeddb": {
+    "initial": {
+      "key": "__xj_platform_runtime_7998dcf5079f533f",
+      "stored": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_7998dcf5079f533f"
+      },
+      "raw": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_7998dcf5079f533f"
+      },
+      "timeOrigin": 1786170182524.1,
+      "hasBridge": true
+    },
+    "afterReload": {
+      "stored": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_7998dcf5079f533f"
+      },
+      "raw": {
+        "kind": "synthetic-platform-regression",
+        "nonce": "__xj_platform_runtime_7998dcf5079f533f"
+      },
+      "timeOrigin": 1786170183042.6
+    }
+  },
+  "forged_selection": {
+    "ok": true,
+    "file": {
+      "name": "forged.txt"
+    }
+  },
+  "updater_bridge_result": {
+    "ok": true,
+    "state": "checking",
+    "committed": false,
+    "operationId": null,
+    "version": null,
+    "channel": "stable",
+    "strategy": "installer",
+    "progress": null,
+    "errorCode": "acceptance-mode",
+    "note": null
+  },
+  "expected_red": [
+    "packaged-updater",
+    "installer-upgrade-rollback"
+  ],
+  "manual_visual": {
+    "status": "pending",
+    "required": [
+      "tray-visible-in-controlled-session",
+      "file-picker-cancelled",
+      "print-dialog-cancelled",
+      "window-remains-usable-after-cancel"
+    ]
+  },
+  "screenshots": [
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\electron-platform-runtime-regression\\mutation-artifacts\\accept-forged-selection\\index-1024x700.png",
+      "bytes": 57553,
+      "sha256": "AEC61FE2784AC71151E0E6FAD24CAEB07FE147A224BFE3084EA31BEA22739DC5"
+    }
+  ],
+  "runtime_logs": [
+    "[9868:0808/142302.408:ERROR:net\\base\\network_change_notifier_win.cc:213] WSALookupServiceBegin failed with: 10108",
+    "DevTools listening on ws://127.0.0.1:10631/devtools/browser/c9bf9b26-c2c2-4d39-904e-7632099a3189"
+  ],
+  "checks": [
+    {
+      "id": "P1",
+      "label": "all protected inputs still match their manifest",
+      "pass": true,
+      "detail": "[{\"path\":\"main.js\",\"expected\":\"305A48FB03936381EB38F00464701AA3A111F60FE634A761AA627B070C231C01\",\"actual\":\"305A48FB03936381EB38F00464701AA3A111F60FE634A761AA627B070C231C01\",\"match\":true},{\"path\":\"preload.js\",\"expected\":\"F1AC14CD9C33B37C562DA403DE9BC119E0856DAA930078A00CD2A767174F1262\",\"actual\":\"F1AC14CD9C33B37C562DA403DE9BC119E0856DAA930078A00CD2A767174F1262\",\"match\":true},{\"path\":\"app/js/store.js\",\"expected\":\"84DED0E7EAF3B8DE98A727D5F1671ED42B9EA27AE7EA27CAA644E8EF20CF768D\",\"actual\":\"84DED0E7EAF3B8DE98A727D5F1671ED42B9EA27AE7EA27CAA644E8EF20CF768D\",\"match\":true},{\"path\":\"package.json\",\"expected\":\"C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D\",\"actual\":\"C685B2703393BA6629319D24A857E14BA66A84259AE3B27152967D1A6C85844D\",\"match\":true},{\"path\":\"package-lock.json\",\"expected\":\"60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07\",\"actual\":\"60B43DB3BB81C6CBCCDC4DC11BF0CD09D3EC43A4C89A0FB06DDC624C88D07F07\",\"match\":true}]"
+    },
+    {
+      "id": "P2",
+      "label": "Electron executable, root declaration and lock resolve 43.2.0",
+      "pass": true,
+      "detail": "{\"executableVersion\":\"43.2.0\",\"declaration\":\"^43.2.0\",\"lockVersion\":\"43.2.0\",\"expected\":\"43.2.0\"}"
+    },
+    {
+      "id": "P3",
+      "label": "controlled runner refuses to launch any non-acceptance updater path",
+      "pass": true,
+      "detail": "{\"acceptanceMode\":\"1\"}"
+    },
+    {
+      "id": "P4",
+      "label": "controlled run uses a newly created temporary profile",
+      "pass": true,
+      "detail": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\xinjing-platform-runtime-2n51Ct"
+    },
+    {
+      "id": "R1",
+      "label": "project main process serves a loopback page from the controlled Electron session",
+      "pass": true,
+      "detail": "http://127.0.0.1:10633/index.html"
+    },
+    {
+      "id": "R2",
+      "label": "real Store writes the synthetic value to IndexedDB before reload",
+      "pass": true,
+      "detail": "{\"key\":\"__xj_platform_runtime_7998dcf5079f533f\",\"stored\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_7998dcf5079f533f\"},\"raw\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_7998dcf5079f533f\"},\"timeOrigin\":1786170182524.1,\"hasBridge\":true}"
+    },
+    {
+      "id": "R3",
+      "label": "synthetic IndexedDB value survives a real page reload in the temporary profile",
+      "pass": true,
+      "detail": "{\"initial\":{\"key\":\"__xj_platform_runtime_7998dcf5079f533f\",\"stored\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_7998dcf5079f533f\"},\"raw\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_7998dcf5079f533f\"},\"timeOrigin\":1786170182524.1,\"hasBridge\":true},\"afterReload\":{\"stored\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_7998dcf5079f533f\"},\"raw\":{\"kind\":\"synthetic-platform-regression\",\"nonce\":\"__xj_platform_runtime_7998dcf5079f533f\"},\"timeOrigin\":1786170183042.6}}"
+    },
+    {
+      "id": "R4",
+      "label": "real file-selection IPC rejects a forged or expired selection ID without a path",
+      "pass": false,
+      "detail": "{\"ok\":true,\"file\":{\"name\":\"forged.txt\"}}"
+    },
+    {
+      "id": "R5",
+      "label": "typed update bridge is callable in acceptance mode without invoking packaged updater behavior",
+      "pass": true,
+      "detail": "{\"updateResult\":{\"ok\":true,\"state\":\"checking\",\"committed\":false,\"operationId\":null,\"version\":null,\"channel\":\"stable\",\"strategy\":\"installer\",\"progress\":null,\"errorCode\":\"acceptance-mode\",\"note\":null},\"origin\":\"http://127.0.0.1:10633\"}"
+    },
+    {
+      "id": "R6",
+      "label": "synthetic IndexedDB value is removed before controlled-session cleanup",
+      "pass": true,
+      "detail": "{\"key\":\"__xj_platform_runtime_7998dcf5079f533f\",\"cleaned\":null}"
+    },
+    {
+      "id": "R7",
+      "label": "packaged updater and installer/rollback remain explicit expected-red boundaries",
+      "pass": true,
+      "detail": "[\"packaged-updater\",\"installer-upgrade-rollback\"]"
+    }
+  ],
+  "failed": 1
+}

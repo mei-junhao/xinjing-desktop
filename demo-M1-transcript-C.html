@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 逐字稿整理 — 会员版C（对话引导）</title>
+<style>
+/* ====== 心镜 calm 令牌（自包含，与 tokens.css 完全一致） ====== */
+:root{--r-shell:14px;--r-card:10px;--r-ctl:8px;--r-sm:6px;--r-btn:8px;--gap:16px;--gap-sm:10px;--gap-lg:24px;--ease:cubic-bezier(.22,1,.36,1);--serif:"Noto Serif SC","Songti SC","STSong",serif;--sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;--mono:"JetBrains Mono","SF Mono",ui-monospace,monospace}
+:root{--bg:#F6F8FC;--bg-elevated:#FFFFFF;--bg-sunken:#EDF0F7;--border-c:#E2E7F0;--border-strong-c:#D2D9E6;--text-c:#2B3140;--text-secondary-c:#646B7D;--text-muted-c:#99A1B3;--accent:#8B93C7;--accent-hover:#777FBC;--accent-soft:#ECEEF9;--accent-2:#9DB8D6;--success-c:#6FAE8F;--warning-c:#D6A85C;--danger-c:#D98C8C;--shadow-sm:0 1px 3px rgba(43,49,64,.05);--shadow:0 4px 16px rgba(43,49,64,.07);--shadow-lg:0 12px 36px rgba(43,49,64,.10);--hover-tint:rgba(43,49,64,.04)}
+:root{--paper:#F6F8FC;--paper-2:#FFFFFF;--sidebar:#EDF0F7;--ink:#2B3140;--ink-2:#646B7D;--ink-3:#99A1B3;--hair:#E2E7F0;--hair-strong:#D2D9E6;--accent-line:#B5BDE0;--green:#6FAE8F;--orange:#D6A85C;--blue:#9DB8D6;--purple:#8B93C7;--red:#D98C8C;--radius:14px;--radius-sm:10px;--border:var(--hair-strong);--muted:var(--ink-2);--text:var(--ink);--card:var(--paper-2);--bg-soft:var(--sidebar);--transition:.2s var(--ease)}
+/* ====== 会员视觉系统 ====== */
+.xj-lock-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.4;background:rgba(0,0,0,.04);color:var(--ink-3);border:1px solid var(--border);cursor:help}
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.4}
+.xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
+.xj-tier-badge.trial{background:var(--accent-soft);color:var(--accent);border:1px solid rgba(139,147,199,.2)}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font-family:var(--sans);font-size:13px;font-weight:500;color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ====== 预览条 ====== */
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .lock-icon{font-size:14px}
+.preview-bar .sp{flex:1}
+.preview-bar .badge-trial{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(139,147,199,.2)}
+
+/* ====== 顶栏 ====== */
+.tp-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.tp-top .back{font-size:13px;cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px;font-family:var(--sans)}
+.tp-top .back:hover{background:var(--hover-tint)}
+.tp-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.tp-top h2 .sub{font-size:11px;color:var(--ink-3);font-weight:400;margin-left:6px;font-family:var(--sans)}
+.tp-top .sp{flex:1}
+.tp-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+
+/* ====== 三栏：左逐字稿 + 中AI对话引导 + 右修正面板 ====== */
+.tp-body{flex:1;display:grid;grid-template-columns:1fr 420px 300px;min-height:0;overflow:hidden}
+
+/* 左栏：逐字稿原文 */
+.tp-col{display:flex;flex-direction:column;overflow:hidden}
+.tp-col-center{border-right:1px solid var(--border)}
+.tp-col-right{border-right:1px solid var(--border)}
+.tp-col-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;background:var(--paper-2)}
+.tp-col-head .tch{font-family:var(--serif);font-size:14px;font-weight:600}
+.tp-col-head .tch-badge{font-size:10px;padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.tp-col-head .sp{flex:1}
+.tp-col-head .tch-btn{border:1px solid var(--border);background:var(--paper-2);border-radius:7px;padding:4px 10px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
+.tp-col-head .tch-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tp-col-head .tch-btn.pri{background:var(--accent);color:#fff;border:none}
+.tp-col-head .tch-btn:disabled{opacity:.5;cursor:not-allowed}
+.tp-col-body{flex:1;overflow-y:auto;padding:16px}
+
+/* 逐字稿行 */
+.tp-line{display:flex;gap:8px;padding:4px 0;font-size:13px;line-height:1.8;border-radius:4px;transition:background .15s;cursor:pointer}
+.tp-line:hover{background:var(--hover-tint)}
+.tp-line .ln{color:var(--ink-3);font-size:11px;min-width:28px;text-align:right;font-family:var(--mono);padding-top:2px;user-select:none}
+.tp-line .speaker{font-weight:600;min-width:32px;color:var(--accent)}
+.tp-line .text{flex:1;color:var(--ink)}
+.tp-line .text .ai-hint{background:rgba(139,147,199,.15);border-bottom:2px dotted var(--accent);padding:1px 0;cursor:help;border-radius:2px}
+.tp-line .text .ai-hint:hover{background:rgba(139,147,199,.25)}
+
+/* 中栏：AI对话引导 */
+.guide-msg{padding:14px 16px;border-radius:var(--r-card);margin-bottom:12px;font-size:13px;line-height:1.7;max-width:90%}
+.guide-msg.ai{background:var(--accent-soft);color:var(--ink);border:1px solid rgba(139,147,199,.15)}
+.guide-msg.user{background:var(--paper-2);color:var(--ink);border:1px solid var(--border);margin-left:auto;text-align:right}
+.guide-msg .gm-role{font-size:10px;font-weight:600;color:var(--accent);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+.guide-msg .gm-suggestion{margin-top:8px;padding:8px 12px;background:rgba(111,174,143,.1);border-left:3px solid var(--green);border-radius:4px;font-size:12px;color:var(--ink-2)}
+.guide-msg .gm-suggestion .sg-label{font-weight:600;color:var(--green);font-size:11px}
+
+/* 右栏：修正面板 */
+.suggest-card{background:var(--paper-2);border:1px solid var(--border);border-radius:var(--r-card);padding:14px;margin-bottom:10px}
+.suggest-card .sc-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.suggest-card .sc-head .sc-icon{font-size:16px}
+.suggest-card .sc-head .sc-title{font-family:var(--serif);font-size:13px;font-weight:600}
+.suggest-card .sc-body{font-size:12px;color:var(--ink-2);line-height:1.7}
+.suggest-card .sc-action{display:flex;gap:6px;margin-top:10px}
+.suggest-card .sc-action button{border:1px solid var(--border);background:var(--paper-2);border-radius:6px;padding:4px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2);transition:var(--transition)}
+.suggest-card .sc-action button:hover{border-color:var(--accent);color:var(--accent)}
+.suggest-card .sc-action button.pri{background:var(--green);color:#fff;border:none}
+.suggest-card .sc-action button:disabled{opacity:.5;cursor:not-allowed}
+
+/* 输入区 */
+.guide-input{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;background:var(--paper-2)}
+.guide-input input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:13px var(--sans);background:var(--bg);color:var(--text);outline:none}
+.guide-input input:focus{border-color:var(--accent)}
+.guide-input button{border:none;background:var(--accent);color:#fff;border-radius:8px;padding:8px 16px;font:13px var(--sans);cursor:pointer}
+.guide-input button:disabled{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<!-- ====== 预览条（免费用户可见） ====== -->
+<div class="preview-bar" id="preview-bar">
+  <span class="lock-icon">🔒</span>
+  <span>会员预览模式 · 这是 <b>逐字稿对话引导</b> 会员增值页面，升级 <span class="badge-trial">会员</span> 后可使用全部 AI 引导功能</span>
+  <span class="sp"></span>
+  <span style="font-size:11px;color:var(--ink-3)">基础版（方案A）仍免费使用 → <a href="transcript.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<!-- ====== 顶栏 ====== -->
+<div class="tp-top">
+  <button class="back" onclick="history.back()">← 返回</button>
+  <h2>逐字稿整理 <span class="sub">· 会员版C · 对话引导</span></h2>
+  <span class="sp"></span>
+  <select><option>林小满 · 第8次咨询</option><option>陈默 · 第3次咨询</option></select>
+  <span class="xj-tier-badge pro">会员</span>
+</div>
+
+<!-- ====== 三栏主体 ====== -->
+<div class="tp-body">
+
+  <!-- 左栏：逐字稿原文 -->
+  <div class="tp-col">
+    <div class="tp-col-head">
+      <span class="tch">逐字稿原文</span>
+      <span class="tch-badge">8处 AI 标注</span>
+      <span class="sp"></span>
+    </div>
+    <div class="tp-col-body">
+      <div class="tp-line">
+        <span class="ln">01</span><span class="speaker">T</span>
+        <span class="text">你好小满，上周你提到和母亲之间有一些摩擦，这周怎么样？</span>
+      </div>
+      <div class="tp-line">
+        <span class="ln">02</span><span class="speaker">P</span>
+        <span class="text">这周好多了，我试着用你说的<span class="ai-hint" title="AI引导：这里可能表达的是"保持距离"而非"保持距离感"，点击右侧修正">保持距离感</span>的方法，但说实话很难。</span>
+      </div>
+      <div class="tp-line">
+        <span class="ln">03</span><span class="speaker">T</span>
+        <span class="text">嗯，你能说说具体难在哪里吗？</span>
+      </div>
+      <div class="tp-line">
+        <span class="ln">04</span><span class="speaker">P</span>
+        <span class="text">就是每次她打电话来，我都会<span class="ai-hint" title="AI引导：来访者可能说的是"紧张"而非"矜持"，语境提示焦虑情绪">矜持</span>，想说又不敢说。</span>
+      </div>
+      <div class="tp-line">
+        <span class="ln">05</span><span class="speaker">T</span>
+        <span class="text">这种想说又不敢说的感觉，你熟悉吗？</span>
+      </div>
+      <div class="tp-line">
+        <span class="ln">06</span><span class="speaker">P</span>
+        <span class="text">很熟悉。从小就这样，我妈妈总是很<span class="ai-hint" title="AI引导：可能是"强势"的语音识别错误">强事</span>，我习惯了忍着。</span>
+      </div>
+      <div class="tp-line">
+        <span class="ln">07</span><span class="speaker">T</span>
+        <span class="text">习惯了忍着……这句话里好像有很多重量。</span>
+      </div>
+      <div class="tp-line">
+        <span class="ln">08</span><span class="speaker">P</span>
+        <span class="text">是的，我觉得自己一直在<span class="ai-hint" title="AI引导：可能为"讨好"的错别字">耗好</span>她，但又不甘心。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 中栏：AI对话引导 -->
+  <div class="tp-col tp-col-center">
+    <div class="tp-col-head">
+      <span class="tch">🤖 AI 对话引导</span>
+      <span class="tch-badge">逐句分析</span>
+      <span class="sp"></span>
+      <button class="tch-btn xj-premium-btn" disabled>逐句引导</button>
+      <button class="tch-btn pri xj-premium-btn" disabled>全局分析</button>
+    </div>
+    <div class="tp-col-body" style="padding:16px">
+      <div class="guide-msg ai">
+        <div class="gm-role">AI 引导</div>
+        我已逐句阅读了这份逐字稿，发现了 <b>4 处</b>可能的语音识别错误和 <b>2 处</b>临床材料值得展开。
+        <div class="gm-suggestion">
+          <div class="sg-label">💡 建议优先处理</div>
+          第4行「矜持」→ 在焦虑语境中可能是「紧张」；第6行「强事」→ 可能是「强势」。
+        </div>
+      </div>
+      <div class="guide-msg user">
+        <div class="gm-role">你</div>
+        第8行的"耗好"是什么意思？
+      </div>
+      <div class="guide-msg ai">
+        <div class="gm-role">AI 引导</div>
+        结合语境「一直在___她，但又不甘心」，这很可能是<b>「讨好」</b>的语音识别错误。
+        「讨好」在此处更符合来访者表达的模式——长期顺从母亲但内心不甘。
+        <div class="gm-suggestion">
+          <div class="sg-label">临床材料</div>
+          这句话触及了温尼科特所说的「假自体」——为适应母亲而发展出的顺从自我。值得在后续咨询中深入。
+        </div>
+      </div>
+    </div>
+    <div class="guide-input">
+      <input placeholder="向 AI 提问逐字稿中的疑问…" disabled>
+      <button disabled>发送</button>
+    </div>
+  </div>
+
+  <!-- 右栏：修正面板 -->
+  <div class="tp-col tp-col-right">
+    <div class="tp-col-head">
+      <span class="tch">修正建议</span>
+      <span class="tch-badge">4 条</span>
+      <span class="sp"></span>
+    </div>
+    <div class="tp-col-body" style="padding:12px">
+      <div class="suggest-card">
+        <div class="sc-head"><span class="sc-icon">📍</span><span class="sc-title">第2行</span></div>
+        <div class="sc-body">「保持距离感」→ 建议改为「保持距离」<br>语境中无"感"字</div>
+        <div class="sc-action">
+          <button class="pri" disabled>采纳</button>
+          <button disabled>跳过</button>
+        </div>
+      </div>
+      <div class="suggest-card">
+        <div class="sc-head"><span class="sc-icon">📍</span><span class="sc-title">第4行</span></div>
+        <div class="sc-body">「矜持」→ 可能是「紧张」<br>焦虑语境不支持矜持</div>
+        <div class="sc-action">
+          <button class="pri" disabled>采纳</button>
+          <button disabled>跳过</button>
+        </div>
+      </div>
+      <div class="suggest-card">
+        <div class="sc-head"><span class="sc-icon">📍</span><span class="sc-title">第6行</span></div>
+        <div class="sc-body">「强事」→ 可能是「强势」<br>音近字错误</div>
+        <div class="sc-action">
+          <button class="pri" disabled>采纳</button>
+          <button disabled>跳过</button>
+        </div>
+      </div>
+      <div class="suggest-card">
+        <div class="sc-head"><span class="sc-icon">📍</span><span class="sc-title">第8行</span></div>
+        <div class="sc-body">「耗好」→ 可能是「讨好」<br>语境为顺从模式</div>
+        <div class="sc-action">
+          <button class="pri" disabled>采纳</button>
+          <button disabled>跳过</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// 演示用：点击隐藏预览条模拟会员模式
+document.querySelectorAll('.xj-premium-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    if(btn.disabled) return;
+  });
+});
+// 预览条关闭按钮（模拟会员升级后）
+var previewBar = document.getElementById('preview-bar');
+// 如果是会员，预览条自动隐藏
+// previewBar.style.display = 'none';
+// 按钮启用
+// document.querySelectorAll('button[disabled]').forEach(function(b){b.disabled=false});
+// document.querySelectorAll('input[disabled]').forEach(function(i){i.disabled=false});
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+{
+  "task_id": "XJ-5.0.0-agent-a-v4.4-controlled-supervision-package-expected-red-31",
+  "mutant_total": 12,
+  "killed": 12,
+  "survived": 0,
+  "harness_errors": 0,
+  "results": [
+    {
+      "id": "M1",
+      "title": "Fabricate missing API as confirmed",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M2",
+      "title": "Weaken source anchor check (false CONFIRMED)",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M3",
+      "title": "Allow author key leakage in source",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M4",
+      "title": "Allow device key leakage in source",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M5",
+      "title": "Fabricate wrong-subject rejection as confirmed",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M6",
+      "title": "Fabricate second-device prevention as confirmed",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M7",
+      "title": "Fabricate grace-expiry enforcement as confirmed",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M8",
+      "title": "Fabricate clock-rollback rejection as confirmed",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M9",
+      "title": "Fabricate grant-sequence rollback as confirmed",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M10",
+      "title": "Fabricate corrupt-package rejection as confirmed",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M11",
+      "title": "Allow plaintext/key in renderer",
+      "verdict": "killed",
+      "status": "PASS"
+    },
+    {
+      "id": "M12",
+      "title": "Force exit zero after semantic failure",
+      "verdict": "killed",
+      "status": "PASS"
+    }
+  ]
+}

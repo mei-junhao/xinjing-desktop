@@ -1,0 +1,14 @@
+'use strict';
+const fs = require('fs'); const path = require('path'); const crypto = require('crypto'); const cp = require('child_process');
+const ROOT = 'D:/xinjing-electron';
+const OUT = path.join(ROOT, 'qa/task-scratch/XJ-5.1.1-model-session-recovery-runtime-evidence-verifier-evidence-provenance-selftest-rework-019');
+const sha = b => crypto.createHash('sha256').update(b).digest('hex').toUpperCase();
+const startUtc = new Date().toISOString();
+const res = cp.spawnSync(process.execPath, ['scripts/self-test.js'], { cwd: ROOT, encoding: 'utf8' });
+const endUtc = new Date().toISOString();
+fs.writeFileSync(path.join(OUT, 'self-test.stdout'), res.stdout || '');
+fs.writeFileSync(path.join(OUT, 'self-test.stderr'), res.stderr || '');
+const meta = { command: process.execPath + ' scripts/self-test.js', argv: ['scripts/self-test.js'], cwd: ROOT, startUtc: startUtc, endUtc: endUtc, exitCode: res.status === null ? -1 : res.status, stdoutSha256: sha(res.stdout || ''), stdoutBytes: Buffer.byteLength(res.stdout || ''), stderrSha256: sha(res.stderr || ''), stderrBytes: Buffer.byteLength(res.stderr || '') };
+fs.writeFileSync(path.join(OUT, 'self-test.meta.json'), JSON.stringify(meta, null, 2) + '\n');
+console.log('SELF_TEST exit=' + meta.exitCode + ' stdoutSha=' + meta.stdoutSha256.slice(0,8) + ' stderrBytes=' + meta.stderrBytes);
+process.exit(0);

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>心镜 · 账号登录</title>
+<link rel="stylesheet" href="css/workbench.css" />
+<link rel="stylesheet" href="css/xj-ui-system.css" />
+<style>
+  /* v5.0.2: 账号页复用共享皮肤 tokens（Clinical/Theatre/Observatory + light/dark）。 */
+  :root {
+    --canvas: var(--xj-canvas, #f3f6f5);
+    --surface: var(--xj-surface, #ffffff);
+    --text: var(--xj-text, #202725);
+    --muted: var(--xj-text-2, #66716d);
+    --line: var(--xj-border, #d7dfdc);
+    --accent: var(--xj-accent, #167568);
+    --accent-hover: var(--xj-accent-hover, #115f55);
+    --danger: var(--danger, #a63f36);
+    --info-bg: var(--accent-soft, #eef6f4);
+    --warning-bg: var(--orange-soft, #fff8e8);
+    --warning-border: var(--warning, #d8a542);
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; margin: 0; }
+  body {
+    background: var(--canvas);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    overflow-x: hidden;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px 56px;
+  }
+  .account-shell {
+    width: min(460px, 100%);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(25, 42, 37, .08);
+    padding: 28px 30px 30px;
+  }
+  .account-brand { color: var(--accent); font-size: 14px; font-weight: 700; letter-spacing: .04em; }
+  .account-shell h1 { margin: 6px 0 4px; font-size: 22px; line-height: 1.3; }
+  .account-subtitle { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+  .account-status {
+    display: none;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--info-bg);
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .account-status.is-visible { display: block; }
+  .account-status.is-error { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .account-status.is-warning { background: var(--warning-bg); border-color: var(--warning-border); }
+  .account-tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  .account-tab {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    font: 600 14px/1.4 inherit;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .account-tab[aria-selected="true"] { background: var(--info-bg); border-color: var(--accent); color: var(--accent); }
+  .account-field { margin-bottom: 14px; }
+  .account-field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .account-field input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--canvas);
+    color: var(--text);
+    font: 14px/1.5 inherit;
+    font-family: inherit;
+    outline: none;
+  }
+  .account-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .account-field .hint { font-size: 12px; color: var(--muted); margin-top: 5px; }
+  .account-submit {
+    width: 100%;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font: 600 15px/1.4 inherit;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .account-submit:hover { background: var(--accent-hover); }
+  .account-submit:disabled { opacity: .55; cursor: wait; }
+  .account-secondary {
+    width: 100%;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text);
+    font: 500 13px/1.4 inherit;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  .account-secondary:disabled { opacity: .55; cursor: wait; }
+  .account-foot { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.7; }
+  .account-view[hidden] { display: none; }
+  .account-restoring { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 26px 0 18px; }
+  .account-spinner {
+    width: 26px; height: 26px;
+    border: 3px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: accountSpin 0.9s linear infinite;
+  }
+  @keyframes accountSpin { to { transform: rotate(360deg); } }
+  button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  @media (max-width: 480px) {
+    body { padding: 20px 10px 40px; }
+    .account-shell { padding: 22px 18px 24px; }
+  }
+</style>
+</head>
+<body class="xj-utility-page" data-xj-pattern="utility-window">
+<main class="account-shell" aria-labelledby="account-title">
+  <div class="account-brand">心镜 XinJing</div>
+  <h1 id="account-title">账号登录</h1>
+  <p class="account-subtitle">登录后进入临床工作台；会员信息以服务器核验为唯一权威。</p>
+
+  <p class="account-status" id="account-status" role="status" aria-live="polite"></p>
+
+  <!-- 会话恢复中 -->
+  <section class="account-view" id="view-restoring" aria-label="正在恢复会话">
+    <div class="account-restoring">
+      <div class="account-spinner" aria-hidden="true"></div>
+      <p id="restoring-text" style="margin:0;font-size:14px">正在恢复登录状态…</p>
+    </div>
+  </section>
+
+  <!-- 登录 / 注册 -->
+  <section class="account-view" id="view-auth" aria-label="登录或注册">
+    <div class="account-tabs" role="tablist" aria-label="登录或注册">
+      <button class="account-tab" id="tab-login" role="tab" aria-selected="true" aria-controls="pane-login" type="button">登录</button>
+      <button class="account-tab" id="tab-register" role="tab" aria-selected="false" aria-controls="pane-register" type="button">注册新账号</button>
+    </div>
+
+    <div id="pane-login" role="tabpanel" aria-labelledby="tab-login">
+      <form id="form-login" novalidate>
+        <div class="account-field">
+          <label for="login-email">邮箱</label>
+          <input id="login-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" />
+        </div>
+        <div class="account-field">
+          <label for="login-password">密码</label>
+          <input id="login-password" type="password" autocomplete="current-password" maxlength="1024" placeholder="输入密码" />
+        </div>
+        <button class="account-submit" id="login-submit" type="submit">登 录</button>
+      </form>
+    </div>
+
+    <div id="pane-register" role="tabpanel" aria-labelledby="tab-register" hidden>
+      <form id="form-register" novalidate>
+        <div class="account-field">
+          <label for="register-email">邮箱</label>
+          <input id="register-email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" />
+        </div>
+        <div class="account-field">
+          <label for="register-password">密码</label>
+          <input id="register-password" type="password" autocomplete="new-password" maxlength="1024" placeholder="至少 8 位，包含字母和数字" />
+          <div class="hint">至少 8 位，必须包含字母和数字。</div>
+        </div>
+        <div class="account-field">
+          <label for="register-password2">确认密码</label>
+          <input id="register-password2" type="password" autocomplete="new-password" maxlength="1024" placeholder="再次输入密码" />
+        </div>
+        <button class="account-submit" id="register-submit" type="submit">创建账号并发送验证邮件</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- 邮箱验证 -->
+  <section class="account-view" id="view-verify" aria-label="邮箱验证" hidden>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px" id="verify-explain"></p>
+    <form id="form-verify" novalidate>
+      <div class="account-field">
+        <label for="verify-token">验证码</label>
+        <input id="verify-token" type="text" autocomplete="one-time-code" maxlength="512" placeholder="粘贴邮件中的验证码" />
+        <div class="hint">验证码在验证邮件中，15 分钟内有效。</div>
+      </div>
+      <button class="account-submit" id="verify-submit" type="submit">完成验证</button>
+      <button class="account-secondary" id="verify-resend" type="button">重新发送验证邮件</button>
+      <button class="account-secondary" id="verify-back" type="button">返回登录</button>
+    </form>
+  </section>
+
+  <p class="account-foot">临床数据仅保存在本机；账号会话与会员档由服务器核验。</p>
+</main>
+<script src="js/account.js"></script>
+</body>
+</html>

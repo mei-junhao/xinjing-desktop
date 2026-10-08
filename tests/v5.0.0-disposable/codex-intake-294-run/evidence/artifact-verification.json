@@ -1,0 +1,85 @@
+{
+  "suite": "verify-artifacts",
+  "candidateRoot": "D:\\xinjing-electron\\tests\\v5.0.0-disposable\\codex-intake-294-run\\candidate\\repo",
+  "manifest": [
+    {
+      "path": "app/js/clinical-context.js",
+      "bytes": 21980,
+      "sha256": "D0FDF476BA0CD0AF665A95B2CE474C20BE0333216F006C9D57EE1D6E46143F99",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/clinical-task-validators.js",
+      "bytes": 3298,
+      "sha256": "A1ED569334817E134E69F84468FA9212567DA40A744B3A58141C4E80A247CFA0",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/source-ref.js",
+      "bytes": 13874,
+      "sha256": "7F8B8CCC6ECB53FA357CF16AEC11DBA3B7C0DBB9770DAA7255F69B60762613A5",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/prompt-governance.js",
+      "bytes": 10517,
+      "sha256": "DFFE9DB4E195962CE27401201C7701D680090E42EB56774140B7B7B3E7BBBC9C",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/longitudinal-summary.js",
+      "bytes": 11311,
+      "sha256": "B21FC9FFA65C8482049A7FEC5F6642BEF7437156229E168C7BBE5B265ACBDEAA",
+      "syntaxExitCode": 0
+    },
+    {
+      "path": "app/js/agent-core.js",
+      "bytes": 26246,
+      "sha256": "23987D23F4C6C60A909E2875349E8210CDF75B0ADED489B06AF311174A7C78C5",
+      "syntaxExitCode": 0
+    }
+  ],
+  "tests": [
+    {
+      "test": "trusted-ai-provenance-governance-contract.js",
+      "exitCode": 0,
+      "stdout": "{\n  \"suite\": \"trusted-ai-provenance-governance\",\n  \"pass\": 22,\n  \"fail\": 0,\n  \"root\": \"D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\candidate\\\\repo\"\n}",
+      "stderr": ""
+    },
+    {
+      "test": "longitudinal-summary-candidate-contract.js",
+      "exitCode": 0,
+      "stdout": "{\n  \"suite\": \"longitudinal-summary-candidate\",\n  \"pass\": 15,\n  \"fail\": 0,\n  \"root\": \"D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\candidate\\\\repo\"\n}",
+      "stderr": ""
+    },
+    {
+      "test": "prompt-governance-candidate-contract.js",
+      "exitCode": 0,
+      "stdout": "{\n  \"suite\": \"prompt-governance-candidate\",\n  \"pass\": 11,\n  \"fail\": 0,\n  \"root\": \"D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\candidate\\\\repo\"\n}",
+      "stderr": ""
+    },
+    {
+      "test": "source-context-fail-closed-contract.js",
+      "exitCode": 0,
+      "stdout": "{\n  \"suite\": \"source-context-fail-closed-contract\",\n  \"phase\": \"observe\",\n  \"root\": \"D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\candidate\\\\repo\",\n  \"observed\": [\n    {\n      \"entry\": \"ClinicalContext.validateSources/createActionRun\",\n      \"name\": \"transcript/all-sources-clientId-cleared\",\n      \"admitted\": false,\n      \"reason\": \"source-client-missing\",\n      \"runCreated\": false\n    },\n    {\n      \"entry\": \"ClinicalContext.validateSources/createActionRun\",\n      \"name\": \"transcript/all-sources-sessionId-cleared\",\n      \"admitted\": false,\n      \"reason\": \"source-session-missing\",\n      \"runCreated\": false\n    },\n    {\n      \"entry\": \"ClinicalContext.validateSources/createActionRun\",\n      \"name\": \"transcript/all-sources-clientId-and-sessionId-cleared\",\n      \"admitted\": false,\n      \"reason\": \"source-client-missing\",\n      \"runCreated\": false\n    },\n    {\n      \"entry\": \"ClinicalContext.validateSources\",\n      \"name\": \"transcript/all-sources-clientId-whitespace\",\n      \"admitted\": false,\n      \"reason\": \"source-client-missing\",\n      \"runCreated\": false\n    },\n    {\n      \"entry\": \"ClinicalContext.validateSources/LongitudinalSummary.createPreviewActionRun\",\n      \"name\": \"summary/all-sources-clientId-cleared\",\n      \"admitted\": false,\n      \"reason\": \"source-client-missing\",\n      \"runCreated\": false\n    },\n    {\n      \"entry\": \"ClinicalContext.validateSources/LongitudinalSummary.createPreviewActionRun\",\n      \"name\": \"summary/all-sources-sessionId-cleared\",\n      \"admitted\": false,\n      \"reason\": \"source-session-missing\",\n      \"runCreated\": false\n    },\n    {\n      \"entry\": \"ClinicalContext.validateSources/LongitudinalSummary.createPreviewActionRun\",\n      \"name\": \"summary/all-sources-clientId-and-sessionId-cleared\",\n      \"admitted\": false,\n      \"reason\": \"source-client-missing\",\n      \"runCreated\": false\n    }\n  ]\n}\n{\n  \"suite\": \"source-context-fail-closed-contract\",\n  \"phase\": \"assert\",\n  \"pass\": 12,\n  \"fail\": 0,\n  \"root\": \"D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\candidate\\\\repo\"\n}",
+      "stderr": ""
+    },
+    {
+      "test": "mutation-probes.js",
+      "exitCode": 0,
+      "stdout": "{\n  \"suite\": \"mutation-probes\",\n  \"total\": 11,\n  \"killed\": 11,\n  \"survived\": 0,\n  \"ledger\": [\n    {\n      \"id\": \"M01-registry-required-field\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: registry id must equal its stable key | + actual - expected | \"\n    },\n    {\n      \"id\": \"M02-cross-client-admission\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: | + actual - expected | \"\n    },\n    {\n      \"id\": \"M03-preview-only-boundary\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: |  | false !== true\"\n    },\n    {\n      \"id\": \"M04-cross-label-knowledge-key\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: cross-label duplicate must have one accepted identity |  | 2 !== 1\"\n    },\n    {\n      \"id\": \"M05-source-hash-admission\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: | + actual - expected | \"\n    },\n    {\n      \"id\": \"M06-output-schema-strictness\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: | + actual - expected | \"\n    },\n    {\n      \"id\": \"M07-async-await-projection\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: |  | false !== true\"\n    },\n    {\n      \"id\": \"M09-source-client-missing-relaxed\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: transcript/all-sources-clientId-cleared must reject with a missing-context reason, got: source-client-mismatch |     at run (D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\tests\\\\source-context-fail-closed-contract.js:168:14) | \"\n    },\n    {\n      \"id\": \"M10-source-session-missing-relaxed\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: transcript/all-sources-sessionId-cleared must reject with a missing-context reason, got: source-session-mismatch |     at run (D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\tests\\\\source-context-fail-closed-contract.js:168:14) | \"\n    },\n    {\n      \"id\": \"M11-source-context-guard-fully-reverted\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"AssertionError [ERR_ASSERTION]: transcript/all-sources-clientId-cleared must reject with a missing-context reason, got: source-client-mismatch |     at run (D:\\\\xinjing-electron\\\\tests\\\\v5.0.0-disposable\\\\codex-intake-294-run\\\\tests\\\\source-context-fail-closed-contract.js:168:14) | \"\n    },\n    {\n      \"id\": \"M08-live-project-test-read\",\n      \"applied\": true,\n      \"killed\": true,\n      \"exitCode\": 1,\n      \"stderrHead\": \"task-local boundary scanner\"\n    }\n  ]\n}",
+      "stderr": ""
+    },
+    {
+      "test": "internal-adversarial-review.js",
+      "exitCode": 0,
+      "stdout": "{\n  \"suite\": \"internal-adversarial-review\",\n  \"pass\": 18,\n  \"fail\": 0,\n  \"checks\": [\n    \"A01-unknown-task\",\n    \"A02-cross-client-source\",\n    \"A03-quarantined-source\",\n    \"A04-unknown-source-kind\",\n    \"A05-hashless-source\",\n    \"A06-schema-smuggling\",\n    \"A07-automatic-persist\",\n    \"A08-bounded-output\",\n    \"A09-cross-label-dedup\",\n    \"A10-cross-label-conflict\",\n    \"A11-declared-hash-mismatch\",\n    \"A12-no-live-project-bindings\",\n    \"A13-revert-fix-kills-contract\",\n    \"A14-delete-await-kills-summary\",\n    \"A15-rejection-not-swallowed\",\n    \"A16-no-default-context-backfill\",\n    \"A17-empty-string-normalization-blocked\",\n    \"A18-pass-text-exit-coherence\"\n  ]\n}",
+      "stderr": ""
+    }
+  ],
+  "runtimeEvidence": {
+    "status": "BLOCKED",
+    "reason": "Task-local Node VM proves candidate module behavior; isolated real Electron/renderer userData harness is not present in the frozen input and static evidence is not substituted."
+  },
+  "pass": true
+}

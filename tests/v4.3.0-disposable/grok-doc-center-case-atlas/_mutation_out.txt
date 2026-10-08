@@ -1,0 +1,21 @@
+Baseline contract: PASS
+[KILLED] M1-remove-material-handler 鈥?contract exit 1
+[KILLED] M2-neutralize-source-health 鈥?contract exit 1
+[KILLED] M3-observatory-equals-clinical 鈥?contract exit 1
+[KILLED] M4-delete-focus-restoration 鈥?contract exit 1
+[KILLED] M5-remove-long-chinese-clamp 鈥?contract exit 1
+[KILLED] M6-remove-reduced-motion 鈥?contract exit 1
+[KILLED] M7-stale-quarantine-usable 鈥?contract exit 1
+[KILLED] M8-missing-sourceContentHash-field 鈥?PROBE_FAIL: sourceContentHash removed
+
+
+Mutation summary: killed=8 survived=0 harnessError=0
+- M1-remove-material-handler: KILLED
+- M2-neutralize-source-health: KILLED
+- M3-observatory-equals-clinical: KILLED
+- M4-delete-focus-restoration: KILLED
+- M5-remove-long-chinese-clamp: KILLED
+- M6-remove-reduced-motion: KILLED
+- M7-stale-quarantine-usable: KILLED
+- M8-missing-sourceContentHash-field: KILLED
+MUTATION_OK

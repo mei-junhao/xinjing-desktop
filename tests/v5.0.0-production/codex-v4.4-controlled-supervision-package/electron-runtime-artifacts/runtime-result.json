@@ -1,0 +1,110 @@
+{
+  "task_id": "XJ-5.0.0-codex-v4.4-controlled-supervision-package-runtime-32",
+  "checks": [
+    {
+      "id": "E1",
+      "title": "supervision route loads through the real Electron loopback server",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E2",
+      "title": "controlled package bridge is present without exposing package bytes",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E3",
+      "title": "empty package index reports a visible locked state",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E4",
+      "title": "renderer receives an empty sanitized installed-package list",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V-1024x700",
+      "title": "package strip and controls stay within viewport",
+      "pass": true,
+      "detail": "{\"scrollWidth\":1024,\"width\":1024}"
+    },
+    {
+      "id": "V-1024x700-locked",
+      "title": "install/run/remove remain disabled until valid package and entitlement",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V-1024x700-motion",
+      "title": "reduced motion preference is visible to the page",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V-1366x768",
+      "title": "package strip and controls stay within viewport",
+      "pass": true,
+      "detail": "{\"scrollWidth\":1366,\"width\":1366}"
+    },
+    {
+      "id": "V-1366x768-locked",
+      "title": "install/run/remove remain disabled until valid package and entitlement",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V-1366x768-motion",
+      "title": "reduced motion preference is visible to the page",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V-1920x1080",
+      "title": "package strip and controls stay within viewport",
+      "pass": true,
+      "detail": "{\"scrollWidth\":1920,\"width\":1920}"
+    },
+    {
+      "id": "V-1920x1080-locked",
+      "title": "install/run/remove remain disabled until valid package and entitlement",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "V-1920x1080-motion",
+      "title": "reduced motion preference is visible to the page",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "id": "E5",
+      "title": "no renderer errors were emitted during route and viewport checks",
+      "pass": true,
+      "detail": "[3424:0811/231452.680:ERROR:net\\base\\network_change_notifier_win.cc:213] WSALookupServiceBegin failed with: 10108 | DevTools listening on ws://127.0.0.1:10544/devtools/browser/c3c41e0b-ec5e-4ca6-baba-99d5306456e0"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.4-controlled-supervision-package\\electron-runtime-artifacts\\supervision-package-1024x700.png",
+      "bytes": 73580,
+      "sha256": "1FB1E7E12C149ADD5308480B217C6661FDC9F7B88901C9ED1AA02F2AF4A68250"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.4-controlled-supervision-package\\electron-runtime-artifacts\\supervision-package-1366x768.png",
+      "bytes": 79455,
+      "sha256": "B835035EE5CFEE78F841310105FDEAE300B4529DB88526E717DD50D258559315"
+    },
+    {
+      "file": "D:\\xinjing-electron\\tests\\v5.0.0-production\\codex-v4.4-controlled-supervision-package\\electron-runtime-artifacts\\supervision-package-1920x1080.png",
+      "bytes": 87879,
+      "sha256": "8A1505E3822806AC1B8DAE69CFBDDA56FD400CCC6858FF3D04CC85D314FA5FD1"
+    }
+  ],
+  "logs": [
+    "[3424:0811/231452.680:ERROR:net\\base\\network_change_notifier_win.cc:213] WSALookupServiceBegin failed with: 10108",
+    "DevTools listening on ws://127.0.0.1:10544/devtools/browser/c3c41e0b-ec5e-4ca6-baba-99d5306456e0"
+  ]
+}

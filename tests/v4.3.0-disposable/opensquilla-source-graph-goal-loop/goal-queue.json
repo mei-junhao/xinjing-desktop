@@ -1,0 +1,448 @@
+{
+  "schema_version": 1,
+  "task_id": "XJ-4.3.0-opensquilla-source-graph-goal-loop-01",
+  "minimum_loop_passes_per_goal": 8,
+  "goals": [
+    {
+      "id": "G01",
+      "name": "clientId/sessionId/subject/session binding stability",
+      "description": "clientId/sessionId/subject/session 绑定稳定，任一缺失、别名或错配都拒绝",
+      "priority": "critical",
+      "risk": "high",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 40,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G01-1",
+        "scn-G01-2",
+        "scn-G01-3",
+        "scn-G01-4",
+        "scn-G01-5",
+        "scn-G01-6",
+        "scn-G01-7",
+        "scn-G01-8"
+      ],
+      "negative_case_ids": [
+        "neg-G01-01",
+        "neg-G01-02",
+        "neg-G01-03",
+        "neg-G01-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G01"
+    },
+    {
+      "id": "G02",
+      "name": "SourceRef stable ID, version and hash completeness",
+      "description": "SourceRef 稳定 ID、normalizationVersion、sourceVersion、sourceContentHash 和 anchorContentHash 完整保留",
+      "priority": "critical",
+      "risk": "high",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 48,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G02-1",
+        "scn-G02-2",
+        "scn-G02-3",
+        "scn-G02-4",
+        "scn-G02-5",
+        "scn-G02-6",
+        "scn-G02-7",
+        "scn-G02-8"
+      ],
+      "negative_case_ids": [
+        "neg-G02-01",
+        "neg-G02-02",
+        "neg-G02-03",
+        "neg-G02-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G02"
+    },
+    {
+      "id": "G03",
+      "name": "Source/anchor content change produces stale/invalid",
+      "description": "anchor/source 内容变化正确产生 stale/invalid，不得静默继续使用旧证据",
+      "priority": "critical",
+      "risk": "high",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 16,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G03-1",
+        "scn-G03-2",
+        "scn-G03-3",
+        "scn-G03-4",
+        "scn-G03-5",
+        "scn-G03-6",
+        "scn-G03-7",
+        "scn-G03-8"
+      ],
+      "negative_case_ids": [
+        "neg-G03-01",
+        "neg-G03-02",
+        "neg-G03-03",
+        "neg-G03-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G03"
+    },
+    {
+      "id": "G04",
+      "name": "Snapshot expiry and client-switch guard",
+      "description": "snapshot 过期、来访者切换和旧异步结果不得写入当前 ClinicalContext",
+      "priority": "critical",
+      "risk": "high",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 32,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G04-1",
+        "scn-G04-2",
+        "scn-G04-3",
+        "scn-G04-4",
+        "scn-G04-5",
+        "scn-G04-6",
+        "scn-G04-7",
+        "scn-G04-8"
+      ],
+      "negative_case_ids": [
+        "neg-G04-01",
+        "neg-G04-02",
+        "neg-G04-03",
+        "neg-G04-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G04"
+    },
+    {
+      "id": "G05",
+      "name": "Cross-client/session/route fail-closed",
+      "description": "跨 client/session、跨会谈和错误 route 的来源引用必须 fail closed",
+      "priority": "critical",
+      "risk": "high",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 32,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G05-1",
+        "scn-G05-2",
+        "scn-G05-3",
+        "scn-G05-4",
+        "scn-G05-5",
+        "scn-G05-6",
+        "scn-G05-7",
+        "scn-G05-8"
+      ],
+      "negative_case_ids": [
+        "neg-G05-01",
+        "neg-G05-02",
+        "neg-G05-03",
+        "neg-G05-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G05"
+    },
+    {
+      "id": "G06",
+      "name": "Import/quarantine isolation",
+      "description": "import/quarantine 对未知 clientId、sessionId、source version 和 malformed record 隔离且不污染权威集合",
+      "priority": "high",
+      "risk": "medium",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 24,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G06-1",
+        "scn-G06-2",
+        "scn-G06-3",
+        "scn-G06-4",
+        "scn-G06-5",
+        "scn-G06-6",
+        "scn-G06-7",
+        "scn-G06-8"
+      ],
+      "negative_case_ids": [
+        "neg-G06-01",
+        "neg-G06-02",
+        "neg-G06-03",
+        "neg-G06-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G06"
+    },
+    {
+      "id": "G07",
+      "name": "Source chain traceability",
+      "description": "来源链原始来源→观察→理解→动作→产物保持可回溯，相关性不得被标成因果",
+      "priority": "high",
+      "risk": "medium",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 24,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G07-1",
+        "scn-G07-2",
+        "scn-G07-3",
+        "scn-G07-4",
+        "scn-G07-5",
+        "scn-G07-6",
+        "scn-G07-7",
+        "scn-G07-8"
+      ],
+      "negative_case_ids": [
+        "neg-G07-01",
+        "neg-G07-02",
+        "neg-G07-03",
+        "neg-G07-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G07"
+    },
+    {
+      "id": "G08",
+      "name": "AI preview edge isolation",
+      "description": "AI 预览边只在当前会话存在，未经人工确认不得进入持久化临床对象",
+      "priority": "high",
+      "risk": "medium",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 24,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G08-1",
+        "scn-G08-2",
+        "scn-G08-3",
+        "scn-G08-4",
+        "scn-G08-5",
+        "scn-G08-6",
+        "scn-G08-7",
+        "scn-G08-8"
+      ],
+      "negative_case_ids": [
+        "neg-G08-01",
+        "neg-G08-02",
+        "neg-G08-03",
+        "neg-G08-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G08"
+    },
+    {
+      "id": "G09",
+      "name": "Replay/out-of-order idempotency",
+      "description": "duplicate、replay、out-of-order 和 concurrent async 结果保持幂等且不覆盖新状态",
+      "priority": "high",
+      "risk": "medium",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 16,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G09-1",
+        "scn-G09-2",
+        "scn-G09-3",
+        "scn-G09-4",
+        "scn-G09-5",
+        "scn-G09-6",
+        "scn-G09-7",
+        "scn-G09-8"
+      ],
+      "negative_case_ids": [
+        "neg-G09-01",
+        "neg-G09-02",
+        "neg-G09-03",
+        "neg-G09-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G09"
+    },
+    {
+      "id": "G10",
+      "name": "Failure path diagnosability",
+      "description": "取消、超时、失败、部分失败和恢复路径保留可诊断状态，不吞掉错误或提前反馈成功",
+      "priority": "high",
+      "risk": "medium",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 24,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G10-1",
+        "scn-G10-2",
+        "scn-G10-3",
+        "scn-G10-4",
+        "scn-G10-5",
+        "scn-G10-6",
+        "scn-G10-7",
+        "scn-G10-8"
+      ],
+      "negative_case_ids": [
+        "neg-G10-01",
+        "neg-G10-02",
+        "neg-G10-03",
+        "neg-G10-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G10"
+    },
+    {
+      "id": "G11",
+      "name": "Read-only projection boundary",
+      "description": "route/view-model projection 只读、无业务数据复制、无跨页面旧引用泄漏",
+      "priority": "medium",
+      "risk": "medium",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 16,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G11-1",
+        "scn-G11-2",
+        "scn-G11-3",
+        "scn-G11-4",
+        "scn-G11-5",
+        "scn-G11-6",
+        "scn-G11-7",
+        "scn-G11-8"
+      ],
+      "negative_case_ids": [
+        "neg-G11-01",
+        "neg-G11-02",
+        "neg-G11-03",
+        "neg-G11-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G11"
+    },
+    {
+      "id": "G12",
+      "name": "Fact ledger and SHA binding",
+      "description": "事实台账、任务卡 contract、write lock、验证路由和报告证据能绑定同一迭代与最终 SHA",
+      "priority": "medium",
+      "risk": "low",
+      "threshold": {
+        "pass": 16,
+        "negative": 8,
+        "mutation": 3
+      },
+      "status": "done",
+      "iteration_count": 16,
+      "loop_passes": 8,
+      "pass_count": 24,
+      "negative_count": 8,
+      "mutation_count": 0,
+      "error_count": 0,
+      "bundle_ids": [
+        "scn-G12-1",
+        "scn-G12-2",
+        "scn-G12-3",
+        "scn-G12-4",
+        "scn-G12-5",
+        "scn-G12-6",
+        "scn-G12-7",
+        "scn-G12-8"
+      ],
+      "negative_case_ids": [
+        "neg-G12-01",
+        "neg-G12-02",
+        "neg-G12-03",
+        "neg-G12-04"
+      ],
+      "evidence_pointer": "iteration-ledger.jsonl goal=G12"
+    }
+  ],
+  "summary": {
+    "total_goals": 12,
+    "pending": 0,
+    "done": 12,
+    "blocked": 0,
+    "total_iterations": 192,
+    "minimum_required_iterations": 96
+  },
+  "created_at": "2026-07-24T11:07:00+08:00"
+}

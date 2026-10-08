@@ -1,0 +1,1622 @@
+<!doctype html>
+<html lang="zh-CN" data-tier="free" data-skin="clinical">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>心镜 · 整合工作台预览</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --canvas: #eef3f1;
+      --surface: #ffffff;
+      --surface-2: #f5f8f7;
+      --surface-3: #e7efec;
+      --sidebar: #f8faf9;
+      --ink: #17221f;
+      --ink-2: #52615c;
+      --ink-3: #75837e;
+      --border: #cbd6d2;
+      --border-strong: #aebdb8;
+      --accent: #147d70;
+      --accent-hover: #0f685d;
+      --accent-soft: #dcefeb;
+      --member: #204f49;
+      --member-surface: #173d38;
+      --member-ink: #f4fbf8;
+      --member-muted: #b7cec8;
+      --flagship: #8b671f;
+      --success: #28764f;
+      --warning: #97651f;
+      --danger: #a34242;
+      --info: #326b98;
+      --focus: #2d8f82;
+      --shadow: 0 16px 48px rgba(22, 38, 33, .16);
+      --r-sm: 4px;
+      --r-control: 6px;
+      --r-panel: 8px;
+      --review-height: 52px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    html[data-skin="theatre"] {
+      --canvas: #eceae6;
+      --surface: #fbfaf6;
+      --surface-2: #f2f0eb;
+      --surface-3: #e4dfd7;
+      --sidebar: #f5f2ed;
+      --ink: #292522;
+      --ink-2: #655e58;
+      --ink-3: #847b74;
+      --border: #d0c9c0;
+      --border-strong: #b6aca1;
+      --accent: #7a3945;
+      --accent-hover: #612b35;
+      --accent-soft: #f0e1e4;
+      --member: #6a3440;
+      --member-surface: #49262e;
+      --member-muted: #d9bec4;
+      --focus: #9b5964;
+    }
+    html[data-skin="observatory"] {
+      color-scheme: dark;
+      --canvas: #111719;
+      --surface: #1a2225;
+      --surface-2: #202a2d;
+      --surface-3: #283337;
+      --sidebar: #151d20;
+      --ink: #edf3f1;
+      --ink-2: #b5c2bf;
+      --ink-3: #879794;
+      --border: #38464a;
+      --border-strong: #526166;
+      --accent: #68bac1;
+      --accent-hover: #84ced4;
+      --accent-soft: #203b3f;
+      --member: #68bac1;
+      --member-surface: #152f34;
+      --member-ink: #f0fbfc;
+      --member-muted: #a8cdd0;
+      --flagship: #d7b45d;
+      --success: #70bc8c;
+      --warning: #d4a95c;
+      --danger: #dc7979;
+      --info: #73a9d7;
+      --focus: #7ac8ce;
+      --shadow: 0 18px 52px rgba(0, 0, 0, .36);
+    }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body { background: var(--canvas); color: var(--ink); font-size: 15px; letter-spacing: 0; }
+    button, input, select, textarea { font: inherit; letter-spacing: 0; }
+    button, select, textarea { color: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+    button:disabled { cursor: not-allowed; }
+    svg { width: 18px; height: 18px; stroke-width: 1.7; }
+    .review-strip {
+      height: var(--review-height);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      border-bottom: 1px solid #25302d;
+      background: #17211f;
+      color: #f2f7f5;
+      position: relative;
+      z-index: 50;
+    }
+    .review-title { min-width: 220px; display: flex; align-items: center; gap: 9px; font-weight: 650; }
+    .review-title span { color: #9bb0aa; font-size: 12px; font-weight: 500; }
+    .review-group { display: flex; align-items: center; gap: 4px; }
+    .review-label { color: #91a49f; font-size: 12px; margin-right: 4px; }
+    .review-button {
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid #3b4b47;
+      border-radius: 5px;
+      background: transparent;
+      color: #d3dfdc;
+      font-size: 12px;
+    }
+    .review-button:hover { border-color: #70837e; color: #fff; }
+    .review-button.active { background: #e6f3ef; border-color: #e6f3ef; color: #17332d; font-weight: 650; }
+    .review-spacer { flex: 1; }
+    .review-note { color: #91a49f; font-size: 12px; white-space: nowrap; }
+    .app-shell { height: calc(100% - var(--review-height)); display: grid; grid-template-columns: 224px minmax(0, 1fr); transition: grid-template-columns 200ms ease; }
+    .app-shell.sidebar-collapsed { grid-template-columns: 68px minmax(0, 1fr); }
+    .sidebar {
+      min-width: 0;
+      border-right: 1px solid var(--border);
+      background: var(--sidebar);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .brand { height: 68px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 16px; border-bottom: 1px solid var(--border); }
+    .brand img { width: 31px; height: 31px; object-fit: contain; }
+    .brand-copy { display: grid; gap: 1px; }
+    .brand-copy strong { font-size: 17px; font-weight: 680; }
+    .brand-copy span { color: var(--ink-3); font-size: 11px; }
+    .brand-spacer { flex: 1; }
+    .sidebar-toggle { width: 36px; min-width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--ink-2); }
+    .sidebar-toggle:hover { border-color: var(--border); background: var(--surface); color: var(--accent); }
+    .nav-scroll { flex: 1; min-height: 0; overflow: auto; padding: 12px 10px; }
+    .nav-label { padding: 4px 8px 7px; color: var(--ink-3); font-size: 11px; font-weight: 650; }
+    .nav-list { display: grid; gap: 3px; }
+    .nav-item {
+      width: 100%;
+      min-height: 39px;
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 0 9px;
+      border: 1px solid transparent;
+      border-radius: var(--r-control);
+      background: transparent;
+      color: var(--ink-2);
+      text-align: left;
+    }
+    .nav-item:hover { background: var(--surface-2); color: var(--ink); }
+    .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+    .nav-item .nav-lock { color: var(--warning); }
+    .nav-item .nav-lock svg { width: 14px; height: 14px; }
+    .member-dock {
+      margin: 8px 10px 10px;
+      padding: 12px;
+      border: 1px solid color-mix(in srgb, var(--member) 42%, var(--border));
+      border-radius: var(--r-panel);
+      background: color-mix(in srgb, var(--member) 7%, var(--surface));
+    }
+    .member-dock-head { display: flex; align-items: center; gap: 7px; color: var(--member); font-size: 12px; font-weight: 700; }
+    .member-dock p { margin: 7px 0 10px; color: var(--ink-2); font-size: 12px; line-height: 1.5; }
+    .member-feature-line { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-bottom: 10px; color: var(--ink-3); font-size: 11px; }
+    .member-feature-line span { display: inline-flex; align-items: center; gap: 4px; }
+    .member-feature-line svg { width: 12px; height: 12px; }
+    .button {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 0 13px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--r-control);
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 620;
+      font-size: 13px;
+    }
+    .button:hover { border-color: var(--accent); color: var(--accent); }
+    .button.primary { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .button.primary:hover { background: var(--accent-hover); color: #fff; }
+    .button.member-button { width: 100%; border-color: var(--member); background: var(--member); color: #fff; }
+    .button.member-button:hover { background: var(--member-surface); color: #fff; }
+    .button.ghost { background: transparent; border-color: transparent; }
+    .button.small { min-height: 32px; padding: 0 10px; font-size: 12px; }
+    .button.icon-only { width: 38px; padding: 0; }
+    .button.full-width { width: 100%; }
+    .sidebar-foot { min-height: 43px; display: flex; align-items: center; padding: 0 17px; border-top: 1px solid var(--border); color: var(--ink-3); font-size: 11px; }
+    .sidebar-foot svg { flex: 0 0 auto; }
+    .app-shell.sidebar-collapsed .brand { justify-content: center; gap: 2px; padding: 0 3px; }
+    .app-shell.sidebar-collapsed .brand img { width: 27px; height: 27px; }
+    .app-shell.sidebar-collapsed .brand-copy, .app-shell.sidebar-collapsed .brand-spacer,
+    .app-shell.sidebar-collapsed .nav-label, .app-shell.sidebar-collapsed .nav-item > span:not(.nav-lock),
+    .app-shell.sidebar-collapsed .member-dock-head, .app-shell.sidebar-collapsed .member-dock p,
+    .app-shell.sidebar-collapsed .member-feature-line, .app-shell.sidebar-collapsed .member-button span,
+    .app-shell.sidebar-collapsed .sidebar-foot span { display: none; }
+    .app-shell.sidebar-collapsed .nav-scroll { padding-inline: 8px; }
+    .app-shell.sidebar-collapsed .nav-item { position: relative; display: grid; grid-template-columns: 1fr; place-items: center; min-height: 44px; padding: 0; }
+    .app-shell.sidebar-collapsed .nav-item .nav-lock { position: absolute; right: 3px; top: 3px; display: block; }
+    .app-shell.sidebar-collapsed .member-dock { margin: 6px 8px 8px; padding: 0; border: 0; background: transparent; }
+    .app-shell.sidebar-collapsed .member-button { width: 50px; min-height: 44px; padding: 0; }
+    .app-shell.sidebar-collapsed .sidebar-foot { justify-content: center; padding: 0; }
+    .workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: 68px 58px minmax(0, 1fr); overflow: hidden; }
+    .topbar { display: flex; align-items: center; gap: 14px; padding: 0 20px 0 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .page-heading { min-width: 180px; }
+    .page-heading h1 { margin: 0; font-size: 22px; line-height: 1.25; font-weight: 680; }
+    .page-heading p { margin: 3px 0 0; color: var(--ink-3); font-size: 12px; }
+    .topbar-spacer { flex: 1; }
+    .status-chip {
+      min-height: 26px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--ink-2);
+      font-size: 11px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .status-chip.member { color: var(--member); border-color: color-mix(in srgb, var(--member) 45%, var(--border)); background: color-mix(in srgb, var(--member) 8%, var(--surface)); }
+    .status-chip.flagship { color: var(--flagship); border-color: color-mix(in srgb, var(--flagship) 50%, var(--border)); }
+    .context-bar {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(170px, .9fr) minmax(160px, .8fr) minmax(170px, 1fr) auto;
+      align-items: center;
+      gap: 0;
+      padding: 0 20px 0 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .context-cell { min-width: 0; padding: 0 16px; border-left: 1px solid var(--border); }
+    .context-cell:first-child { padding-left: 0; border-left: 0; }
+    .context-cell label { display: block; margin-bottom: 3px; color: var(--ink-3); font-size: 10px; font-weight: 650; }
+    .context-cell select {
+      width: 100%;
+      height: 27px;
+      padding: 0 24px 0 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .context-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-size: 12px; }
+    .privacy { display: inline-flex; align-items: center; gap: 6px; color: var(--success); font-size: 11px; font-weight: 650; }
+    .view-stage { min-width: 0; min-height: 0; overflow: hidden; background: var(--canvas); }
+    .view { width: 100%; height: 100%; display: none; min-width: 0; min-height: 0; }
+    .view.active { display: block; }
+    .scroll-view { overflow: auto; padding: 22px 24px 32px; }
+    .section-head { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 16px; }
+    .section-head h2 { margin: 0; font-size: 19px; line-height: 1.3; }
+    .section-head p { margin: 4px 0 0; color: var(--ink-2); font-size: 13px; }
+    .section-head .head-spacer { flex: 1; }
+    .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-block: 1px solid var(--border); background: var(--surface); }
+    .metric { min-width: 0; padding: 16px 18px; border-left: 1px solid var(--border); }
+    .metric:first-child { border-left: 0; }
+    .metric-label { color: var(--ink-3); font-size: 12px; }
+    .metric-value { margin-top: 7px; font-size: 25px; line-height: 1; font-weight: 680; font-variant-numeric: tabular-nums; }
+    .metric-foot { margin-top: 7px; color: var(--ink-2); font-size: 11px; }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .75fr); gap: 18px; margin-top: 18px; }
+    .panel { min-width: 0; border: 1px solid var(--border); border-radius: var(--r-panel); background: var(--surface); }
+    .panel-head { min-height: 49px; display: flex; align-items: center; gap: 9px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+    .panel-head strong { font-size: 14px; }
+    .panel-head .spacer { flex: 1; }
+    .schedule-row { display: grid; grid-template-columns: 82px minmax(0, 1fr) 140px auto; align-items: center; gap: 12px; min-height: 61px; padding: 8px 14px; border-top: 1px solid var(--border); }
+    .schedule-row:first-child { border-top: 0; }
+    .time { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+    .schedule-main { min-width: 0; }
+    .schedule-main strong { display: block; font-size: 14px; }
+    .schedule-main span { display: block; margin-top: 3px; color: var(--ink-3); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .schedule-state { color: var(--ink-2); font-size: 12px; }
+    .task-list { padding: 5px 14px; }
+    .task-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 48px; border-top: 1px solid var(--border); }
+    .task-row:first-child { border-top: 0; }
+    .task-row span { color: var(--ink-2); font-size: 12px; }
+    .task-row b { color: var(--ink); }
+    .clinical-layout { height: 100%; display: grid; grid-template-rows: 50px minmax(0, 1fr); }
+    .subnav { display: flex; align-items: end; gap: 2px; padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .subnav-button { min-height: 43px; padding: 0 15px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-2); font-weight: 620; font-size: 13px; }
+    .subnav-button:hover { color: var(--ink); }
+    .subnav-button.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .clinical-content { min-width: 0; min-height: 0; display: grid; grid-template-columns: 236px minmax(420px, 1fr) 248px; }
+    .clinical-rail { min-width: 0; overflow: auto; border-right: 1px solid var(--border); background: var(--surface-2); padding: 16px 14px; }
+    .rail-title { margin-bottom: 11px; color: var(--ink-3); font-size: 11px; font-weight: 700; }
+    .session-list { display: grid; gap: 4px; }
+    .session-row { width: 100%; padding: 9px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; text-align: left; color: var(--ink-2); }
+    .session-row strong { display: block; color: var(--ink); font-size: 12px; }
+    .session-row span { display: block; margin-top: 3px; color: var(--ink-3); font-size: 11px; }
+    .session-row.active { border-color: var(--border); background: var(--surface); }
+    .session-new { width: 100%; margin-top: 12px; }
+    .editor { min-width: 0; min-height: 0; display: grid; grid-template-rows: 48px minmax(0, 1fr) 54px; background: var(--surface); }
+    .editor-head { display: flex; align-items: center; gap: 10px; padding: 0 18px; border-bottom: 1px solid var(--border); }
+    .editor-head strong { font-size: 14px; }
+    .editor-head .spacer { flex: 1; }
+    .autosave { color: var(--success); font-size: 11px; }
+    .editor-body { min-height: 0; overflow: auto; padding: 22px max(24px, 6%); }
+    .editor-label { margin: 0 0 7px; color: var(--ink-2); font-size: 12px; font-weight: 650; }
+    .note-area { width: 100%; min-height: 172px; resize: vertical; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface-2); color: var(--ink); line-height: 1.7; }
+    .note-area:focus { background: var(--surface); }
+    .transcript-sample { padding: 16px; line-height: 1.75; font-size: 13px; }
+    .structured-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+    .structured-block { padding-top: 11px; border-top: 2px solid var(--border); }
+    .structured-block span { color: var(--ink-3); font-size: 11px; }
+    .structured-block p { margin: 6px 0 0; color: var(--ink-2); font-size: 12px; line-height: 1.6; }
+    .editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 18px; border-top: 1px solid var(--border); background: var(--surface-2); }
+    .next-rail { min-width: 0; overflow: auto; border-left: 1px solid var(--border); background: var(--surface-2); padding: 16px 14px; }
+    .next-step-row { width: 100%; min-height: 43px; display: grid; grid-template-columns: 20px minmax(0, 1fr) 16px; align-items: center; gap: 7px; padding: 0 8px; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--ink-2); text-align: left; font-size: 12px; }
+    .next-step-row:hover { color: var(--accent); }
+    .next-step-row:first-of-type { border-top: 0; }
+    .member-view { background: var(--member-surface); color: var(--member-ink); }
+    .member-workspace { position: relative; height: 100%; display: grid; grid-template-rows: 64px minmax(0, 1fr); }
+    .member-header { display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid rgba(255,255,255,.16); }
+    .member-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.28); border-radius: 7px; color: #fff; }
+    .member-header h2 { margin: 0; font-size: 18px; }
+    .member-header p { margin: 3px 0 0; color: var(--member-muted); font-size: 11px; }
+    .member-header .spacer { flex: 1; }
+    .member-tabs { display: flex; gap: 3px; }
+    .member-tab { min-height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--member-muted); font-size: 12px; }
+    .member-tab:hover { color: #fff; background: rgba(255,255,255,.06); }
+    .member-tab.active { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.1); color: #fff; }
+    .member-body { min-width: 0; min-height: 0; position: relative; display: grid; grid-template-columns: 244px minmax(420px, 1fr) 286px; grid-template-rows: 58px minmax(0, 1fr); }
+    .member-source, .member-canvas, .member-insight { grid-row: 2; }
+    .member-source, .member-insight { min-width: 0; overflow: auto; padding: 16px; background: rgba(5,16,14,.18); }
+    .member-source { border-right: 1px solid rgba(255,255,255,.14); }
+    .member-insight { border-left: 1px solid rgba(255,255,255,.14); }
+    .member-section-label { color: var(--member-muted); font-size: 10px; font-weight: 700; }
+    .source-item { margin-top: 10px; padding: 10px; border: 1px solid rgba(255,255,255,.15); border-radius: 6px; background: rgba(255,255,255,.04); }
+    .source-item strong { display: block; font-size: 12px; }
+    .source-item p { margin: 5px 0 0; color: var(--member-muted); font-size: 11px; line-height: 1.5; }
+    .member-canvas { min-width: 0; min-height: 0; display: grid; grid-template-rows: 48px minmax(0, 1fr) 62px; }
+    .member-canvas-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid rgba(255,255,255,.14); }
+    .member-canvas-toolbar span { color: var(--member-muted); font-size: 11px; }
+    .member-canvas-toolbar strong { font-size: 12px; }
+    .member-canvas-toolbar .spacer { flex: 1; }
+    .member-chip { min-height: 25px; display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: var(--member-muted); font-size: 10px; }
+    .member-thread { min-height: 0; overflow: auto; padding: 18px max(20px, 5%); }
+    .member-message { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; margin-bottom: 17px; }
+    .member-avatar { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; color: #fff; font-size: 11px; font-weight: 700; }
+    .member-message-head { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+    .member-message-head strong { font-size: 12px; }
+    .member-message-head span { color: var(--member-muted); font-size: 10px; }
+    .member-message p { margin: 0; color: #e2eeea; font-family: "Microsoft YaHei", sans-serif; font-size: 13px; line-height: 1.75; }
+    .member-composer { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px 14px; border-top: 1px solid rgba(255,255,255,.14); background: rgba(5,16,14,.22); }
+    .member-composer textarea { height: 42px; resize: none; padding: 10px 12px; border: 1px solid rgba(255,255,255,.22); border-radius: 6px; background: rgba(255,255,255,.07); color: #fff; line-height: 1.4; }
+    .member-composer textarea::placeholder { color: var(--member-muted); }
+    .member-composer .button { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.1); color: #fff; }
+    .insight-block { margin-top: 12px; padding-top: 11px; border-top: 1px solid rgba(255,255,255,.15); }
+    .insight-block:first-of-type { border-top: 0; }
+    .insight-block strong { display: block; font-size: 12px; }
+    .insight-block p { margin: 6px 0 0; color: var(--member-muted); font-size: 11px; line-height: 1.55; }
+    .insight-action { width: 100%; min-height: 36px; margin-top: 9px; border: 1px solid rgba(255,255,255,.2); border-radius: 6px; background: rgba(255,255,255,.06); color: #fff; text-align: left; padding: 0 9px; font-size: 11px; }
+    .member-gate {
+      position: absolute;
+      right: 22px;
+      bottom: 22px;
+      width: min(390px, calc(100% - 44px));
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,.26);
+      border-radius: 8px;
+      background: #f6faf8;
+      color: #17221f;
+      box-shadow: var(--shadow);
+      z-index: 3;
+    }
+    .member-gate h3 { margin: 0; font-size: 17px; }
+    .member-gate p { margin: 7px 0 14px; color: #53625d; font-size: 12px; line-height: 1.55; }
+    .member-gate-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .supervisor-strip { grid-column: 1 / -1; grid-row: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid rgba(255,255,255,.16); background: rgba(5,16,14,.22); }
+    .supervisor-current { min-width: 0; display: flex; align-items: center; gap: 9px; }
+    .supervisor-current-mark { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(255,255,255,.24); border-radius: 6px; background: rgba(255,255,255,.07); color: #fff; font-size: 10px; font-weight: 750; }
+    .supervisor-current-copy { min-width: 0; }
+    .supervisor-current-copy span { display: block; color: var(--member-muted); font-size: 9px; }
+    .supervisor-current-copy strong { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font-size: 12px; }
+    .supervisor-strip .spacer { flex: 1; }
+    .supervisor-prompt-boundary { min-width: 0; display: flex; align-items: center; gap: 6px; color: var(--member-muted); font-size: 10px; white-space: nowrap; }
+    .supervisor-prompt-boundary strong { color: #fff; font-weight: 650; }
+    .supervisor-strip-button { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid rgba(255,255,255,.24); border-radius: 6px; background: rgba(255,255,255,.08); color: #fff; font-size: 11px; font-weight: 650; }
+    .supervisor-strip-button:hover { background: rgba(255,255,255,.14); }
+    .supervisor-picker { position: absolute; z-index: 6; top: 64px; left: 16px; width: min(820px, calc(100% - 32px)); max-height: calc(100% - 80px); overflow: auto; padding: 16px; border: 1px solid var(--border-strong); border-radius: var(--r-panel); background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+    .supervisor-picker[hidden] { display: none; }
+    .supervisor-picker-head { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 13px; border-bottom: 1px solid var(--border); }
+    .supervisor-picker-head h3 { margin: 0; font-size: 17px; }
+    .supervisor-picker-head p { margin: 4px 0 0; color: var(--ink-3); font-size: 11px; line-height: 1.55; }
+    .supervisor-picker-head .spacer { flex: 1; }
+    .supervisor-picker-section { margin-top: 15px; }
+    .supervisor-picker-label { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; color: var(--ink-3); font-size: 10px; font-weight: 750; }
+    .supervisor-special-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+    .supervisor-orientation-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
+    .supervisor-option { min-width: 0; min-height: 76px; position: relative; display: grid; grid-template-columns: 32px minmax(0,1fr) 18px; align-items: start; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); color: var(--ink); text-align: left; }
+    .supervisor-option:hover { border-color: var(--accent); background: var(--surface-2); }
+    .supervisor-option.selected { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); background: var(--accent-soft); }
+    .supervisor-option-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; background: var(--accent); color: #fff; font-size: 9px; font-weight: 750; }
+    .supervisor-option strong { display: block; font-size: 11px; line-height: 1.4; }
+    .supervisor-option small { display: block; margin-top: 4px; color: var(--ink-3); font-size: 9px; line-height: 1.45; }
+    .supervisor-option-check { color: var(--accent); opacity: 0; }
+    .supervisor-option.selected .supervisor-option-check { opacity: 1; }
+    .supervisor-option.special { min-height: 88px; }
+    .supervisor-option.special .supervisor-option-mark { background: var(--member); }
+    .supervisor-option.custom { grid-column: 1 / -1; min-height: 66px; border-style: dashed; }
+    .supervisor-option.custom .supervisor-option-mark { background: var(--flagship); }
+    .supervisor-flagship { position: absolute; top: 8px; right: 8px; color: var(--flagship); font-size: 9px; font-weight: 750; }
+    .supervisor-picker-foot { display: flex; align-items: center; gap: 8px; margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--ink-3); font-size: 10px; }
+    .supervisor-picker-foot strong { color: var(--ink); }
+    html:not([data-tier="free"]) .member-gate { display: none; }
+    html[data-tier="free"] .member-body::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 24, 21, .28);
+      pointer-events: none;
+    }
+    .masters-preview { min-width: 0; min-height: 0; position: relative; display: grid; grid-template-columns: 236px minmax(420px, 1fr) 276px; background: var(--surface); color: var(--ink); }
+    .masters-preview[hidden], .member-body[hidden] { display: none; }
+    html[data-tier="free"] .masters-preview::after { content: ""; position: absolute; inset: 0; z-index: 2; background: rgba(8,24,21,.28); pointer-events: none; }
+    .masters-picker { min-width: 0; min-height: 0; overflow: auto; padding: 15px 12px; border-right: 1px solid var(--border); background: var(--surface-2); }
+    .masters-picker-head, .masters-chat-head, .masters-inspector-head { display: flex; align-items: center; gap: 9px; }
+    .masters-picker-head h3, .masters-inspector-head h3 { margin: 0; font-size: 14px; }
+    .masters-picker-head .spacer, .masters-chat-head .spacer, .masters-inspector-head .spacer { flex: 1; }
+    .masters-mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 13px 0 11px; padding: 3px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); }
+    .masters-mode-switch button { min-height: 31px; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); font-size: 11px; font-weight: 650; }
+    .masters-mode-switch button.active { background: var(--accent-soft); color: var(--accent); }
+    .masters-school-tabs { display: flex; gap: 4px; padding-bottom: 9px; overflow-x: auto; }
+    .masters-school-tab { flex: 0 0 auto; min-height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 10px; }
+    .masters-school-tab.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .masters-search { height: 34px; display: flex; align-items: center; gap: 7px; margin-bottom: 9px; padding: 0 9px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); }
+    .masters-search input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 11px; }
+    .masters-list { display: grid; gap: 3px; }
+    .masters-person { width: 100%; min-height: 52px; display: grid; grid-template-columns: 32px minmax(0,1fr) 16px; align-items: center; gap: 8px; padding: 6px 7px; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--ink); text-align: left; }
+    .masters-person:hover { border-color: var(--border); background: var(--surface); }
+    .masters-person.selected { border-color: var(--accent); background: var(--accent-soft); }
+    .masters-person[hidden] { display: none; }
+    .masters-person-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; background: var(--accent); color: #fff; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 10px; font-weight: 700; }
+    .masters-person strong { display: block; font-size: 11px; }
+    .masters-person small { display: block; margin-top: 3px; color: var(--ink-3); font-size: 9px; }
+    .masters-person-check { color: var(--accent); }
+    .masters-person:not(.selected) .masters-person-check { opacity: 0; }
+    .masters-picker-foot { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--ink-3); font-size: 10px; line-height: 1.5; }
+    .masters-dialogue { min-width: 0; min-height: 0; display: grid; grid-template-rows: 56px 36px minmax(0,1fr) 62px; background: var(--surface); }
+    .masters-chat-head { padding: 0 15px; border-bottom: 1px solid var(--border); }
+    .masters-chat-heading { min-width: 0; }
+    .masters-chat-heading strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 14px; }
+    .masters-chat-heading span { display: block; margin-top: 3px; color: var(--ink-3); font-size: 10px; }
+    .masters-range { display: flex; align-items: center; gap: 5px; color: var(--ink-3); font-size: 9px; white-space: nowrap; }
+    .masters-range input { width: 58px; accent-color: var(--accent); }
+    .masters-dialogue-bar { display: flex; align-items: center; gap: 8px; padding: 0 15px; border-bottom: 1px solid var(--border); background: var(--surface-2); color: var(--success); font-size: 10px; }
+    .masters-dialogue-bar .spacer { flex: 1; }
+    .masters-dialogue-bar button { min-height: 28px; display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border: 0; background: transparent; color: var(--ink-3); font-size: 10px; }
+    .masters-dialogue-bar button:hover { color: var(--accent); }
+    .masters-chat-thread { min-width: 0; min-height: 0; overflow: auto; padding: 18px max(18px, 5%); background: var(--surface-2); }
+    .masters-chat-message { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 9px; margin-bottom: 16px; }
+    .masters-chat-message.user { grid-template-columns: minmax(0,1fr) 30px; }
+    .masters-chat-message.user .masters-message-content { justify-self: end; order: -1; }
+    .masters-message-avatar { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; background: var(--accent); color: #fff; font-family: "Noto Serif SC", "Songti SC", serif; font-size: 10px; font-weight: 700; }
+    .masters-chat-message.user .masters-message-avatar { background: var(--ink-2); }
+    .masters-message-content { min-width: 0; max-width: min(760px, 84%); }
+    .masters-message-head { margin-bottom: 4px; color: var(--ink); font-size: 10px; font-weight: 680; }
+    .masters-message-bubble { padding: 10px 13px; border: 1px solid var(--border); border-radius: 8px 8px 8px 3px; background: var(--surface); color: var(--ink); font-family: "Noto Serif SC", "Songti SC", serif; font-size: 13px; line-height: 1.75; }
+    .masters-chat-message.user .masters-message-bubble { border-radius: 8px 8px 3px 8px; background: var(--accent-soft); }
+    .masters-composer { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; align-items: center; gap: 5px; margin: 8px 14px 10px; padding: 6px 7px; border: 1px solid var(--border-strong); border-radius: var(--r-panel); background: var(--surface); }
+    .masters-composer textarea { min-width: 0; height: 38px; padding: 8px 5px; resize: none; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 12px; line-height: 1.5; }
+    .masters-composer .button { width: 34px; min-height: 34px; padding: 0; }
+    .masters-composer .docs-on { color: var(--accent); background: var(--accent-soft); }
+    .masters-inspector { min-width: 0; min-height: 0; display: grid; grid-template-rows: 45px minmax(0,1fr); border-left: 1px solid var(--border); background: var(--surface); }
+    .masters-inspector-tabs { display: flex; gap: 16px; padding: 0 13px; border-bottom: 1px solid var(--border); }
+    .masters-inspector-tab { height: 45px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink-3); font-size: 11px; font-weight: 650; }
+    .masters-inspector-tab.active { border-bottom-color: var(--accent); color: var(--accent); }
+    .masters-inspector-view { min-height: 0; display: none; overflow: auto; padding: 13px; }
+    .masters-inspector-view.active { display: block; }
+    .masters-summary { margin: 12px 0; padding: 11px; border-left: 2px solid var(--accent); background: var(--accent-soft); }
+    .masters-summary span { color: var(--accent); font-size: 9px; font-weight: 700; }
+    .masters-summary p { margin: 5px 0 0; color: var(--ink-2); font-size: 10px; line-height: 1.6; }
+    .masters-viewpoint { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 8px; padding: 10px 2px; border-bottom: 1px solid var(--border); }
+    .masters-viewpoint strong { font-size: 10px; }
+    .masters-viewpoint p { margin: 4px 0 0; color: var(--ink-3); font-size: 9px; line-height: 1.55; }
+    .masters-history-item { width: 100%; min-height: 55px; padding: 8px; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--ink); text-align: left; }
+    .masters-history-item:hover, .masters-history-item.active { border-color: var(--border); background: var(--surface-2); }
+    .masters-history-item strong { display: block; font-size: 10px; }
+    .masters-history-item span { display: block; margin-top: 4px; color: var(--ink-3); font-size: 9px; }
+    .masters-detail-actions { display: grid; gap: 7px; margin-top: 14px; }
+    .knowledge-view { background: var(--surface); }
+    .knowledge-shell { height: 100%; min-width: 0; min-height: 0; display: grid; grid-template-rows: 52px 42px minmax(0, 1fr); }
+    .knowledge-toolbar { min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0 14px 0 18px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .knowledge-modes { min-width: 0; display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: thin; }
+    .knowledge-mode { flex: 0 0 auto; min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--ink-2); font-size: 12px; font-weight: 620; }
+    .knowledge-mode:hover { background: var(--surface-2); color: var(--ink); }
+    .knowledge-mode.active { border-color: var(--border); background: var(--accent-soft); color: var(--accent); }
+    .knowledge-mode svg { width: 15px; height: 15px; }
+    .knowledge-toolbar-spacer { flex: 1; }
+    .knowledge-status { min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0 18px; border-bottom: 1px solid var(--border); background: var(--surface-2); color: var(--ink-2); font-size: 11px; }
+    .knowledge-path { min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .knowledge-status .status-spacer { flex: 1; }
+    .knowledge-policy { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 680; white-space: nowrap; }
+    .knowledge-capacity { white-space: nowrap; }
+    .knowledge-index-button { min-height: 30px; }
+    .knowledge-index-progress { width: 118px; height: 5px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+    .knowledge-index-progress span { display: block; width: 0; height: 100%; background: var(--accent); transition: width 180ms ease; }
+    .knowledge-body { min-width: 0; min-height: 0; display: grid; grid-template-columns: 212px minmax(420px, 1fr) 286px; }
+    .knowledge-tree, .knowledge-detail { min-width: 0; min-height: 0; overflow: auto; background: var(--surface-2); }
+    .knowledge-tree { border-right: 1px solid var(--border); padding: 15px 12px; }
+    .knowledge-detail { border-left: 1px solid var(--border); padding: 16px; }
+    .knowledge-content { min-width: 0; min-height: 0; display: grid; grid-template-rows: 52px minmax(0, 1fr); background: var(--surface); }
+    .knowledge-searchbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+    .knowledge-searchfield { min-width: 0; height: 35px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface-2); }
+    .knowledge-searchfield:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); background: var(--surface); }
+    .knowledge-searchfield input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
+    .knowledge-host { min-width: 0; min-height: 0; overflow: auto; padding: 16px; }
+    .knowledge-section-label { margin: 0 0 8px; color: var(--ink-3); font-size: 10px; font-weight: 750; text-transform: uppercase; }
+    .knowledge-tree-list { display: grid; gap: 3px; margin-bottom: 18px; }
+    .knowledge-tree-button { width: 100%; min-height: 36px; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 7px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--ink-2); text-align: left; font-size: 12px; }
+    .knowledge-tree-button:hover { background: var(--surface); color: var(--ink); }
+    .knowledge-tree-button.active { border-color: var(--border); background: var(--surface); color: var(--accent); font-weight: 680; }
+    .knowledge-count { color: var(--ink-3); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .knowledge-local-note { padding: 10px 8px 0; border-top: 1px solid var(--border); color: var(--ink-3); font-size: 11px; line-height: 1.55; }
+    .knowledge-local-note strong { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: var(--success); font-size: 11px; }
+    .knowledge-title-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+    .knowledge-title-row h2 { margin: 0; font-size: 18px; }
+    .knowledge-title-row p { margin: 4px 0 0; color: var(--ink-3); font-size: 12px; }
+    .knowledge-title-row .spacer { flex: 1; }
+    .knowledge-gallery, .knowledge-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+    .knowledge-doc-card { min-width: 0; min-height: 138px; display: flex; flex-direction: column; padding: 13px; border: 1px solid var(--border); border-radius: var(--r-panel); background: var(--surface); color: var(--ink); text-align: left; }
+    .knowledge-doc-card:hover { border-color: var(--accent); background: var(--surface-2); }
+    .knowledge-doc-card.selected { border-color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
+    .knowledge-doc-card .doc-top { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; }
+    .knowledge-doc-card .doc-type { color: var(--accent); font-size: 10px; font-weight: 750; text-transform: uppercase; }
+    .knowledge-doc-card .doc-category { margin-left: auto; color: var(--ink-3); font-size: 10px; }
+    .knowledge-doc-card strong { font-size: 13px; line-height: 1.45; }
+    .knowledge-doc-card p { flex: 1; margin: 7px 0 10px; color: var(--ink-2); font-size: 11px; line-height: 1.55; }
+    .knowledge-doc-card .doc-meta { display: flex; justify-content: space-between; color: var(--ink-3); font-size: 10px; }
+    .knowledge-list { border-block: 1px solid var(--border); }
+    .knowledge-list-row { width: 100%; min-height: 50px; display: grid; grid-template-columns: 24px minmax(0, 1fr) 86px 68px; align-items: center; gap: 9px; padding: 6px 8px; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--ink); text-align: left; }
+    .knowledge-list-row:first-child { border-top: 0; }
+    .knowledge-list-row:hover, .knowledge-list-row.selected { background: var(--accent-soft); }
+    .knowledge-list-row strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    .knowledge-list-row small { display: block; margin-top: 3px; color: var(--ink-3); font-size: 10px; }
+    .knowledge-list-row > span { color: var(--ink-3); font-size: 10px; }
+    .knowledge-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .knowledge-table th { height: 36px; padding: 0 9px; border-bottom: 1px solid var(--border); color: var(--ink-3); text-align: left; font-weight: 680; }
+    .knowledge-table th button { padding: 0; border: 0; background: transparent; color: inherit; font-weight: inherit; }
+    .knowledge-table td { height: 43px; padding: 6px 9px; border-bottom: 1px solid var(--border); color: var(--ink-2); }
+    .knowledge-table tbody tr { cursor: pointer; }
+    .knowledge-table tbody tr:hover { background: var(--surface-2); }
+    .knowledge-table td:first-child { color: var(--ink); font-weight: 620; }
+    .knowledge-reader { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 20px; min-height: 100%; }
+    .knowledge-toc { position: sticky; top: 0; align-self: start; padding-right: 14px; border-right: 1px solid var(--border); }
+    .knowledge-toc button { width: 100%; min-height: 31px; padding: 0 7px; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); text-align: left; font-size: 11px; }
+    .knowledge-toc button.active, .knowledge-toc button:hover { background: var(--accent-soft); color: var(--accent); }
+    .knowledge-article { max-width: 720px; }
+    .knowledge-article h2 { margin: 0 0 18px; font-size: 22px; }
+    .knowledge-article h3 { margin: 24px 0 8px; font-size: 16px; }
+    .knowledge-article p { margin: 0 0 13px; color: var(--ink-2); font-family: "Noto Serif SC", "Songti SC", serif; font-size: 14px; line-height: 1.85; }
+    .knowledge-search-summary { margin-bottom: 10px; color: var(--ink-3); font-size: 11px; }
+    .knowledge-hit { width: 100%; margin-bottom: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); color: var(--ink); text-align: left; }
+    .knowledge-hit:hover { border-color: var(--accent); }
+    .knowledge-hit strong { font-size: 12px; }
+    .knowledge-hit p { margin: 6px 0 0; color: var(--ink-2); font-size: 11px; line-height: 1.65; }
+    .knowledge-hit mark { border-radius: 2px; background: #f2d986; color: #4d3a00; }
+    .knowledge-graph { position: relative; min-height: 430px; overflow: hidden; border: 1px solid var(--border); background: var(--surface-2); }
+    .graph-line { position: absolute; height: 1px; transform-origin: left center; background: var(--border-strong); }
+    .graph-node { position: absolute; min-width: 78px; min-height: 34px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 10px; }
+    .graph-node.concept { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 680; }
+    .knowledge-chat { height: 100%; min-height: 420px; display: grid; grid-template-columns: 200px minmax(0, 1fr); border: 1px solid var(--border); }
+    .knowledge-refs { overflow: auto; padding: 12px; border-right: 1px solid var(--border); background: var(--surface-2); }
+    .knowledge-ref { width: 100%; min-height: 40px; display: grid; grid-template-columns: 17px minmax(0, 1fr); align-items: start; gap: 7px; padding: 7px; border: 0; border-radius: 4px; background: transparent; color: var(--ink-2); text-align: left; font-size: 10px; }
+    .knowledge-ref:hover { background: var(--surface); }
+    .knowledge-ref .check { width: 16px; height: 16px; display: grid; place-items: center; border: 1px solid var(--border-strong); border-radius: 4px; }
+    .knowledge-ref[aria-checked="true"] .check { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .knowledge-chat-main { min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+    .knowledge-thread { min-height: 0; overflow: auto; padding: 18px; }
+    .knowledge-message { max-width: 82%; margin-bottom: 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); color: var(--ink-2); font-size: 12px; line-height: 1.65; }
+    .knowledge-message.user { margin-left: auto; background: var(--accent); color: #fff; }
+    .knowledge-citation { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--border); color: var(--ink-3); font-size: 10px; }
+    .knowledge-chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+    .knowledge-chat-form input { min-width: 0; height: 38px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); color: var(--ink); }
+    .knowledge-inline-gate { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--warning); background: var(--surface-2); color: var(--ink-2); font-size: 11px; }
+    .knowledge-inline-gate .spacer { flex: 1; }
+    .knowledge-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--border); }
+    .knowledge-stat { padding: 13px; border-left: 1px solid var(--border); }
+    .knowledge-stat:first-child { border-left: 0; }
+    .knowledge-stat strong { display: block; font-size: 21px; font-variant-numeric: tabular-nums; }
+    .knowledge-stat span { color: var(--ink-3); font-size: 10px; }
+    .knowledge-bars { margin-top: 20px; }
+    .knowledge-bar { display: grid; grid-template-columns: 96px minmax(0, 1fr) 42px; align-items: center; gap: 9px; min-height: 34px; color: var(--ink-2); font-size: 11px; }
+    .knowledge-bar-track { height: 7px; border-radius: 999px; background: var(--surface-3); }
+    .knowledge-bar-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+    .knowledge-detail h3 { margin: 0; font-size: 15px; line-height: 1.45; }
+    .knowledge-detail-summary { margin: 7px 0 14px; color: var(--ink-2); font-size: 11px; line-height: 1.6; }
+    .knowledge-detail-meta { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; padding: 12px 0; border-block: 1px solid var(--border); font-size: 10px; }
+    .knowledge-detail-meta dt { color: var(--ink-3); }
+    .knowledge-detail-meta dd { margin: 0; color: var(--ink-2); }
+    .knowledge-toggle-row { min-height: 45px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+    .knowledge-toggle-row span { flex: 1; color: var(--ink-2); font-size: 11px; }
+    .knowledge-switch { width: 38px; height: 22px; position: relative; padding: 0; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface-3); }
+    .knowledge-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--ink-3); transition: transform 160ms ease, background 160ms ease; }
+    .knowledge-switch[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); }
+    .knowledge-switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--accent); }
+    .knowledge-detail-actions { display: grid; gap: 7px; margin-top: 14px; }
+    .knowledge-empty { display: grid; place-items: center; min-height: 260px; color: var(--ink-3); text-align: center; }
+    .knowledge-empty strong { display: block; margin-bottom: 5px; color: var(--ink); font-size: 14px; }
+    .generic-view { overflow: auto; padding: 24px; }
+    .generic-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .75fr); gap: 18px; }
+    .generic-main { min-height: 360px; padding: 18px; border: 1px solid var(--border); background: var(--surface); border-radius: 8px; }
+    .generic-main h2 { margin: 0; font-size: 19px; }
+    .generic-main p { color: var(--ink-2); font-size: 13px; line-height: 1.6; }
+    .route-list { margin-top: 18px; border-block: 1px solid var(--border); }
+    .route-row { display: grid; grid-template-columns: 190px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 48px; border-top: 1px solid var(--border); }
+    .route-row:first-child { border-top: 0; }
+    .route-row code { color: var(--accent); font-size: 12px; }
+    .route-row span { color: var(--ink-2); font-size: 12px; }
+    .generic-aside { padding: 16px; border-left: 2px solid var(--accent); background: var(--surface); }
+    .generic-aside h3 { margin: 0; font-size: 14px; }
+    .generic-aside p { color: var(--ink-2); font-size: 12px; line-height: 1.6; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; padding: 24px; background: rgba(10,18,16,.56); }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(900px, calc(100vw - 48px)); max-height: min(700px, calc(100vh - 76px)); overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+    .modal-head { min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 0 18px; border-bottom: 1px solid var(--border); }
+    .modal-head h2 { margin: 0; font-size: 18px; }
+    .modal-head p { margin: 3px 0 0; color: var(--ink-3); font-size: 11px; }
+    .modal-head .spacer { flex: 1; }
+    .plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .plan { min-width: 0; padding: 18px; border-left: 1px solid var(--border); }
+    .plan:first-child { border-left: 0; }
+    .plan.recommended { background: color-mix(in srgb, var(--member) 7%, var(--surface)); }
+    .plan-name { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .plan-name h3 { margin: 0; font-size: 17px; }
+    .plan p { min-height: 42px; color: var(--ink-2); font-size: 12px; line-height: 1.5; }
+    .plan ul { min-height: 176px; margin: 14px 0; padding: 0; list-style: none; }
+    .plan li { display: flex; align-items: flex-start; gap: 7px; margin: 9px 0; color: var(--ink-2); font-size: 12px; line-height: 1.4; }
+    .plan li svg { width: 14px; height: 14px; color: var(--success); flex: 0 0 auto; margin-top: 1px; }
+    .plan > .button { width: 100%; }
+    .mapping-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; padding: 8px 18px 18px; }
+    .mapping-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 9px; align-items: center; min-height: 37px; border-bottom: 1px solid var(--border); }
+    .mapping-row code { color: var(--accent); font-size: 11px; }
+    .mapping-row span { color: var(--ink-2); font-size: 11px; }
+    .toast { position: fixed; left: 50%; bottom: 24px; z-index: 150; min-width: 260px; max-width: min(520px, calc(100vw - 40px)); transform: translate(-50%, 18px); opacity: 0; pointer-events: none; padding: 11px 14px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--ink); color: var(--surface); box-shadow: var(--shadow); font-size: 12px; transition: opacity 180ms ease, transform 180ms ease; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    @media (max-width: 1160px) {
+      .app-shell { grid-template-columns: 204px minmax(0, 1fr); }
+      .app-shell.sidebar-collapsed { grid-template-columns: 68px minmax(0, 1fr); }
+      .clinical-content { grid-template-columns: 210px minmax(380px, 1fr); }
+      .next-rail { display: none; }
+      .member-body { grid-template-columns: 220px minmax(390px, 1fr); }
+      .member-insight { display: none; }
+      .supervisor-orientation-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .supervisor-prompt-boundary { display: none; }
+      .masters-preview { grid-template-columns: 218px minmax(400px, 1fr) 242px; }
+      .knowledge-body { grid-template-columns: 190px minmax(400px, 1fr); }
+      .knowledge-detail { display: none; }
+      .review-note { display: none; }
+      .member-tabs .tab-label { display: none; }
+    }
+    @media (max-width: 1020px) {
+      .app-shell { grid-template-columns: 178px minmax(0, 1fr); }
+      .app-shell.sidebar-collapsed { grid-template-columns: 68px minmax(0, 1fr); }
+      .brand { padding-inline: 11px; }
+      .brand-copy span { display: none; }
+      .nav-item { padding-inline: 7px; }
+      .member-feature-line, .member-dock p { display: none; }
+      .context-bar { grid-template-columns: minmax(145px, 1fr) minmax(140px, 1fr) auto; }
+      .context-cell:nth-child(3) { display: none; }
+      .clinical-content { grid-template-columns: 185px minmax(360px, 1fr); }
+      .member-body { grid-template-columns: 190px minmax(360px, 1fr); }
+      .supervisor-picker { width: calc(100% - 24px); left: 12px; }
+      .masters-preview { grid-template-columns: 188px minmax(380px, 1fr); }
+      .masters-inspector { display: none; }
+      .masters-range { display: none; }
+      .knowledge-body { grid-template-columns: 176px minmax(360px, 1fr); }
+      .knowledge-toolbar .button span { display: none; }
+      .knowledge-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .dashboard-grid, .generic-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="review-strip" aria-label="预览控制栏">
+    <div class="review-title"><i data-lucide="layout-template"></i><div>整合工作台预览 <span>仅审稿，不写业务数据</span></div></div>
+    <div class="review-group" aria-label="会员状态">
+      <span class="review-label">状态</span>
+      <button class="review-button active" type="button" data-tier-control="free">免费</button>
+      <button class="review-button" type="button" data-tier-control="pro">会员</button>
+      <button class="review-button" type="button" data-tier-control="flagship">旗舰</button>
+    </div>
+    <div class="review-group" aria-label="视觉语言">
+      <span class="review-label">皮肤</span>
+      <button class="review-button active" type="button" data-skin-control="clinical">01</button>
+      <button class="review-button" type="button" data-skin-control="theatre">04</button>
+      <button class="review-button" type="button" data-skin-control="observatory">05</button>
+    </div>
+    <div class="review-spacer"></div>
+    <span class="review-note">核心导航 9 项 · 物理路由 22 个</span>
+    <button class="review-button" type="button" id="open-mapping"><i data-lucide="waypoints"></i> 22 页映射</button>
+  </header>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="../app/vendor/xinjing-mark.png" alt="心镜">
+        <div class="brand-copy"><strong>心镜</strong><span>XinJing Clinical</span></div>
+        <span class="brand-spacer"></span>
+        <button class="sidebar-toggle" type="button" id="sidebar-toggle" aria-label="折叠侧边栏" aria-expanded="true" title="折叠侧边栏"><i data-lucide="panel-left-close"></i></button>
+      </div>
+      <div class="nav-scroll">
+        <div class="nav-label">临床工作</div>
+        <nav class="nav-list" aria-label="主要任务">
+          <button class="nav-item active" type="button" data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>工作台</span></button>
+          <button class="nav-item" type="button" data-view="calendar"><i data-lucide="calendar-days"></i><span>咨询日历</span></button>
+          <button class="nav-item" type="button" data-view="clients"><i data-lucide="users-round"></i><span>来访者</span></button>
+          <button class="nav-item" type="button" data-view="clinical"><i data-lucide="notebook-pen"></i><span>临床材料</span></button>
+          <button class="nav-item paid-nav" type="button" data-view="member" data-member-tab="supervision"><i data-lucide="graduation-cap"></i><span>督导空间</span><span class="nav-lock"><i data-lucide="lock-keyhole"></i></span></button>
+          <button class="nav-item paid-nav" type="button" data-view="member" data-member-tab="masters"><i data-lucide="messages-square"></i><span>大师对话</span><span class="nav-lock"><i data-lucide="lock-keyhole"></i></span></button>
+          <button class="nav-item" type="button" data-view="knowledge"><i data-lucide="library-big"></i><span>资料库</span></button>
+          <button class="nav-item" type="button" data-view="billing"><i data-lucide="wallet-cards"></i><span>记账</span></button>
+          <button class="nav-item" type="button" data-view="settings"><i data-lucide="settings-2"></i><span>设置</span></button>
+        </nav>
+      </div>
+      <section class="member-dock" aria-label="会员临床空间">
+        <div class="member-dock-head"><i data-lucide="badge-check"></i><span id="member-dock-title">会员临床空间</span></div>
+        <p id="member-dock-copy">AI 督导、学派大师对话、逐字稿引导与成长轨迹集中在独立空间。</p>
+        <div class="member-feature-line"><span><i data-lucide="brain-circuit"></i>AI 督导</span><span><i data-lucide="messages-square"></i>学派对话</span><span><i data-lucide="route"></i>对话引导</span></div>
+        <button class="button member-button" type="button" id="member-entry"><i data-lucide="unlock-keyhole"></i><span>解锁会员</span></button>
+      </section>
+      <div class="sidebar-foot" title="本地保存 · 数据不出本机"><i data-lucide="hard-drive"></i><span>&nbsp;&nbsp;本地保存 · 数据不出本机</span></div>
+    </aside>
+
+    <main class="workspace" id="main-content" tabindex="-1">
+      <header class="topbar">
+        <div class="page-heading"><h1 id="page-title">今日工作台</h1><p id="page-subtitle">7 月 17 日 · 星期五</p></div>
+        <div class="topbar-spacer"></div>
+        <span class="status-chip" id="tier-chip"><i data-lucide="circle"></i>免费版</span>
+        <button class="button small" type="button" id="quick-xiaojing"><i data-lucide="message-square-text"></i>小镜</button>
+        <button class="button primary" type="button" id="primary-action"><i data-lucide="play"></i><span>开始下一场会谈</span></button>
+      </header>
+
+      <section class="context-bar" aria-label="当前个案上下文">
+        <div class="context-cell"><label for="context-client">当前来访者</label><select id="context-client"><option value="lin">林澄 · 持续 9 个月</option><option value="zhou">周遥 · 持续 4 个月</option><option value="none">未选择来访者</option></select></div>
+        <div class="context-cell"><label for="context-session">当前会谈</label><select id="context-session"><option value="12">第 12 节 · 今天 14:00</option><option value="11">第 11 节 · 7 月 10 日</option><option value="new">新会谈</option></select></div>
+        <div class="context-cell"><label>连续工作摘要</label><div class="context-summary" id="context-summary">迟到、结束边界与咨询师补偿冲动</div></div>
+        <div class="context-cell"><span class="privacy"><i data-lucide="shield-check"></i>本机上下文</span></div>
+      </section>
+
+      <div class="view-stage">
+        <section class="view scroll-view active" data-view-panel="dashboard">
+          <div class="section-head"><div><h2>今天先处理这三件事</h2><p>从会谈、记录和收款进入，不再先选择功能模块。</p></div><div class="head-spacer"></div><button class="button" type="button" data-go="calendar"><i data-lucide="calendar-plus"></i>安排会谈</button></div>
+          <div class="metrics">
+            <div class="metric"><div class="metric-label">今日会谈</div><div class="metric-value">3</div><div class="metric-foot">下一场 14:00 · 林澄</div></div>
+            <div class="metric"><div class="metric-label">待补记录</div><div class="metric-value">2</div><div class="metric-foot">最早一条已等待 3 天</div></div>
+            <div class="metric"><div class="metric-label">本月待收</div><div class="metric-value">¥1,200</div><div class="metric-foot">2 位来访者 · 3 节会谈</div></div>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel">
+              <div class="panel-head"><i data-lucide="calendar-clock"></i><strong>今天的安排</strong><div class="spacer"></div><button class="button ghost small" type="button" data-go="calendar">查看本周</button></div>
+              <div class="schedule-row"><span class="time">09:30</span><div class="schedule-main"><strong>周遥 · 第 8 节</strong><span>依恋中的确认需求 · 已完成</span></div><span class="schedule-state">记录待补</span><button class="button small" type="button" data-go="clinical">补记录</button></div>
+              <div class="schedule-row"><span class="time">14:00</span><div class="schedule-main"><strong>林澄 · 第 12 节</strong><span>迟到、结束边界与补偿冲动</span></div><span class="schedule-state">准备就绪</span><button class="button primary small" type="button" data-go="clinical">开始会谈</button></div>
+              <div class="schedule-row"><span class="time">18:30</span><div class="schedule-main"><strong>顾言 · 初访</strong><span>已完成知情同意与基本资料</span></div><span class="schedule-state">待开始</span><button class="button small" type="button" data-go="clients">查看档案</button></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><i data-lucide="list-checks"></i><strong>需要收尾</strong></div>
+              <div class="task-list">
+                <div class="task-row"><i data-lucide="notebook-tabs"></i><span><b>周遥</b> · 第 8 节记录</span><button class="button ghost small" type="button" data-go="clinical">处理</button></div>
+                <div class="task-row"><i data-lucide="wallet-minimal"></i><span><b>林澄</b> · 2 节待收</span><button class="button ghost small" type="button" data-go="billing">处理</button></div>
+                <div class="task-row"><i data-lucide="calendar-plus"></i><span><b>顾言</b> · 未安排下次</span><button class="button ghost small" type="button" data-go="calendar">处理</button></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="clinical">
+          <div class="clinical-layout">
+            <nav class="subnav" aria-label="临床材料视图">
+              <button class="subnav-button active" type="button" data-material-tab="notes">咨询记录</button>
+              <button class="subnav-button" type="button" data-material-tab="transcript">逐字稿</button>
+              <button class="subnav-button" type="button" data-material-tab="report">报告</button>
+              <button class="subnav-button" type="button" data-material-tab="timeline">个案时间线</button>
+            </nav>
+            <div class="clinical-content">
+              <aside class="clinical-rail"><div class="rail-title">林澄 · 会谈节次</div><div class="session-list"><button class="session-row active" type="button" data-session-label="第 12 节 · 今天"><strong>第 12 节 · 今天</strong><span>草稿 · 自动保存于 13:42</span></button><button class="session-row" type="button" data-session-label="第 11 节 · 7 月 10 日"><strong>第 11 节 · 7 月 10 日</strong><span>记录完整 · 已收款</span></button><button class="session-row" type="button" data-session-label="第 10 节 · 7 月 3 日"><strong>第 10 节 · 7 月 3 日</strong><span>记录完整 · 已督导</span></button></div><button class="button small session-new" type="button" id="new-session"><i data-lucide="plus"></i>新建节次</button></aside>
+              <article class="editor">
+                <div class="editor-head"><strong id="material-title">第 12 节 · 快速记录</strong><div class="spacer"></div><span class="autosave"><i data-lucide="cloud-check"></i> 已保存草稿</span></div>
+                <div class="editor-body" id="material-body">
+                  <div class="editor-label">会谈记录</div>
+                  <textarea class="note-area" id="note-area" aria-label="会谈记录">来访者连续第三次迟到，并在结束前表达希望延长时间。我注意到自己先是生气，随后很快出现想要补偿她的冲动。今天没有延长，但把“结束似乎很难”带回了关系中。</textarea>
+                  <div class="structured-grid"><div class="structured-block"><span>本节焦点</span><p>结束边界是否被体验为拒绝，以及咨询师对破坏关系的担心。</p></div><div class="structured-block"><span>下节留意</span><p>观察补偿冲动出现的时点，不急于用延长时间修复焦虑。</p></div></div>
+                </div>
+                <div class="editor-actions"><button class="button" type="button" id="manual-template"><i data-lucide="list-tree"></i>结构化记录</button><button class="button member-ai-action" type="button" data-member-feature="AI 整理记录"><i data-lucide="sparkles"></i>AI 整理 <span class="status-chip">会员</span></button><button class="button primary" type="button" id="save-note"><i data-lucide="save"></i>保存第 12 节</button></div>
+              </article>
+              <aside class="next-rail"><div class="rail-title">保存后的下一步</div><button class="next-step-row" type="button" data-go="calendar"><i data-lucide="calendar-plus"></i><span>安排下次会谈</span><i data-lucide="chevron-right"></i></button><button class="next-step-row" type="button" data-go="billing"><i data-lucide="wallet-cards"></i><span>补充本节账务</span><i data-lucide="chevron-right"></i></button><button class="next-step-row member-ai-action" type="button" data-member-feature="AI 督导"><i data-lucide="graduation-cap"></i><span>进入 AI 督导</span><i data-lucide="chevron-right"></i></button><button class="next-step-row" type="button" data-material-jump="report"><i data-lucide="file-text"></i><span>撰写报告</span><i data-lucide="chevron-right"></i></button></aside>
+            </div>
+          </div>
+        </section>
+
+        <section class="view member-view" data-view-panel="member">
+          <div class="member-workspace">
+            <header class="member-header"><div class="member-mark" id="member-header-mark"><i data-lucide="brain-circuit"></i></div><div><h2 id="member-header-title">会员临床空间</h2><p id="member-header-subtitle">保持当前个案上下文，集中使用深度临床工具</p></div><div class="spacer"></div><div class="member-tabs" role="tablist"><button class="member-tab active" type="button" data-member-tab-button="supervision"><i data-lucide="graduation-cap"></i><span class="tab-label">AI 督导</span></button><button class="member-tab" type="button" data-member-tab-button="masters"><i data-lucide="messages-square"></i><span class="tab-label">大师对话</span></button><button class="member-tab" type="button" data-member-tab-button="guide"><i data-lucide="route"></i><span class="tab-label">对话引导</span></button><button class="member-tab" type="button" data-member-tab-button="growth"><i data-lucide="chart-no-axes-combined"></i><span class="tab-label">成长轨迹</span></button></div></header>
+            <div class="member-body" id="member-supervision-workspace" data-entitlement="ai-supervise" data-prompt-scope="clinical-material" data-master-persona="false">
+              <section class="supervisor-strip" id="supervisor-strip" aria-label="当前督导师">
+                <div class="supervisor-current"><span class="supervisor-current-mark" id="supervisor-current-mark">仓</span><span class="supervisor-current-copy"><span>当前督导师</span><strong id="supervisor-current-name">仓颉版温尼科特督导师</strong></span></div>
+                <span class="spacer"></span>
+                <span class="supervisor-prompt-boundary"><i data-lucide="scan-text"></i><strong>临床材料优先</strong> · 不模拟大师身份</span>
+                <button class="supervisor-strip-button" type="button" id="open-supervisor-picker" aria-expanded="false"><i data-lucide="users-round"></i>选择督导师</button>
+              </section>
+              <section class="supervisor-picker" id="supervisor-picker" aria-label="选择督导师取向" hidden>
+                <header class="supervisor-picker-head"><div><h3>选择督导师取向</h3><p>取向只决定理解临床材料的方法论和提问方式，不扮演理论大师本人。</p></div><span class="spacer"></span><button class="button icon-only" type="button" id="close-supervisor-picker" title="关闭督导师选择" aria-label="关闭督导师选择"><i data-lucide="x"></i></button></header>
+                <div class="supervisor-picker-section"><div class="supervisor-picker-label"><i data-lucide="sparkles"></i>专属温尼科特督导师</div><div class="supervisor-special-grid">
+                  <button class="supervisor-option special selected" type="button" data-supervisor-id="cangjie" data-supervisor-name="仓颉版温尼科特督导师" data-supervisor-mark="仓" aria-pressed="true"><span class="supervisor-option-mark">仓</span><span><strong>仓颉版温尼科特督导师</strong><small>结构更完整，逐层辨认设置、抱持、依赖与反移情线索。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option special" type="button" data-supervisor-id="nvwa" data-supervisor-name="女娲版温尼科特督导师" data-supervisor-mark="女" aria-pressed="false"><span class="supervisor-option-mark">女</span><span><strong>女娲版温尼科特督导师</strong><small>更温暖和关系导向，先容纳咨询师体验，再形成临床假设。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                </div></div>
+                <div class="supervisor-picker-section"><div class="supervisor-picker-label"><i data-lucide="waypoints"></i>内置理论取向</div><div class="supervisor-orientation-grid">
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-freud" data-prompt-key="freud" data-supervisor-name="经典精神分析取向" data-supervisor-mark="精" aria-pressed="false"><span class="supervisor-option-mark">精</span><span><strong>经典精神分析取向</strong><small>无意识冲突、防御机制、移情与反移情。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-jung" data-prompt-key="jung" data-supervisor-name="分析心理学取向" data-supervisor-mark="析" aria-pressed="false"><span class="supervisor-option-mark">析</span><span><strong>分析心理学取向</strong><small>象征、原型、梦与个体化过程。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-klein" data-prompt-key="klein" data-supervisor-name="克莱因客体关系取向" data-supervisor-mark="客" aria-pressed="false"><span class="supervisor-option-mark">客</span><span><strong>克莱因客体关系取向</strong><small>投射性认同、分裂与早期焦虑。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-adler" data-prompt-key="adler" data-supervisor-name="个体心理学取向" data-supervisor-mark="个" aria-pressed="false"><span class="supervisor-option-mark">个</span><span><strong>个体心理学取向</strong><small>目的论、生活风格、社会兴趣与鼓励。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-lacan" data-prompt-key="lacan" data-supervisor-name="结构主义精神分析取向" data-supervisor-mark="拉" aria-pressed="false"><span class="supervisor-option-mark">拉</span><span><strong>结构主义精神分析取向</strong><small>语言、能指链、欲望与三界结构。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-bion" data-prompt-key="bion" data-supervisor-name="容器理论取向" data-supervisor-mark="容" aria-pressed="false"><span class="supervisor-option-mark">容</span><span><strong>容器理论取向</strong><small>容器—被容者、α 功能与无记忆无欲望。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-beck" data-prompt-key="beck" data-supervisor-name="认知行为疗法取向" data-supervisor-mark="认" aria-pressed="false"><span class="supervisor-option-mark">认</span><span><strong>认知行为疗法取向</strong><small>自动思维、核心信念与行为实验。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-rogers" data-prompt-key="rogers" data-supervisor-name="以人为中心取向" data-supervisor-mark="人" aria-pressed="false"><span class="supervisor-option-mark">人</span><span><strong>以人为中心取向</strong><small>共情、真诚一致与无条件积极关注。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-yalom" data-prompt-key="yalom" data-supervisor-name="存在主义治疗取向" data-supervisor-mark="存" aria-pressed="false"><span class="supervisor-option-mark">存</span><span><strong>存在主义治疗取向</strong><small>死亡、自由、孤独、意义与此时此地。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-sue-johnson" data-prompt-key="sue-johnson" data-supervisor-name="情绪聚焦疗法取向" data-supervisor-mark="情" aria-pressed="false"><span class="supervisor-option-mark">情</span><span><strong>情绪聚焦疗法取向</strong><small>依恋需要、情绪加工与互动循环。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option" type="button" data-supervisor-id="builtin-generic" data-prompt-key="generic" data-supervisor-name="整合取向" data-supervisor-mark="整" aria-pressed="false"><span class="supervisor-option-mark">整</span><span><strong>整合取向</strong><small>案例概念化、关系评估、伦理和进程管理。</small></span><i class="supervisor-option-check" data-lucide="check"></i></button>
+                  <button class="supervisor-option custom" type="button" data-supervisor-custom data-entitlement="custom-supervisors"><span class="supervisor-option-mark">定</span><span><strong>新建定制督导师</strong><small>旗舰专属。联系开发者定制理论框架、表达方式和材料边界。</small></span><span class="supervisor-flagship">旗舰 · 联系定制</span></button>
+                </div></div>
+                <footer class="supervisor-picker-foot"><i data-lucide="shield-check"></i><span><strong>提示词边界：</strong>只基于已选临床材料形成假设、问题与技术思路；不声明自己是任何大师或真实人物。</span></footer>
+              </section>
+              <aside class="member-source"><div class="member-section-label">本次引用范围</div><div class="source-item"><strong>第 12 节快速记录</strong><p>迟到、结束边界与咨询师补偿冲动。</p></div><div class="source-item"><strong>第 11 节逐字稿</strong><p>来访者曾询问“你会不会觉得我很麻烦”。</p></div><div class="source-item"><strong>个案时间线</strong><p>近 4 节集中出现时间与被抛下的主题。</p></div><button class="insight-action" type="button" id="add-source"><i data-lucide="plus"></i> 添加临床材料</button></aside>
+              <article class="member-canvas"><div class="member-canvas-toolbar"><span>当前工具</span><strong id="member-tool-name">AI 督导 · 仓颉版温尼科特督导师</strong><div class="spacer"></div><span class="member-chip" id="rag-chip"><i data-lucide="search-check"></i>关键词检索 · Top-5</span><span class="member-chip"><i data-lucide="shield-check"></i>本机保存</span></div><div class="member-thread" id="member-thread"><div class="member-message"><div class="member-avatar">小镜</div><div><div class="member-message-head"><strong>材料整理</strong><span>基于 3 份已选材料</span></div><p>这里值得区分两种结束：时间上的结束，以及关系是否仍然持续。你没有延长时间，但把“结束很难”带回关系中，这让设置不只是一条规则，也成为可以被共同思考的经验。</p></div></div><div class="member-message" id="supervisor-sample-message"><div class="member-avatar" id="supervisor-message-avatar">仓</div><div><div class="member-message-head"><strong id="supervisor-message-name">仓颉版温尼科特督导师</strong><span id="supervisor-message-focus">设置、抱持与反移情</span></div><p id="supervisor-message-copy">从这段材料看，补偿冲动可能紧跟在来访者把结束体验为“不再被保留”之后。可继续辨认：这份冲动出现前，双方各自承受了什么，以及设置如何在不回避分离体验的同时维持关系连续性。</p></div></div></div><form class="member-composer" id="member-form"><button class="button icon-only" type="button" id="member-quote" title="引用临床材料" aria-label="引用临床材料"><i data-lucide="quote"></i></button><textarea id="member-input" aria-label="督导追问" placeholder="继续围绕当前临床材料追问"></textarea><button class="button icon-only" type="submit" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button></form></article>
+              <aside class="member-insight"><div class="member-section-label">本轮临床抓手</div><div class="insight-block"><strong>设置也可以是抱持</strong><p>准时结束，同时承认结束激活的关系体验。</p></div><div class="insight-block"><strong>反移情线索</strong><p>补偿冲动可能承载“关系将被破坏”的焦虑。</p></div><div class="insight-block"><strong>提示词边界</strong><p>只解释所选临床材料，不声明大师身份，不补写材料中不存在的事实。</p></div><div class="insight-block"><strong>下节观察</strong><p>补偿冲动出现前，来访者说了什么或做了什么。</p><button class="insight-action" type="button" id="save-insight"><i data-lucide="bookmark"></i> 保存到第 12 节</button></div><div class="insight-block" id="flagship-panel" hidden><strong>旗舰定制督导师</strong><p>理论框架、表达方式与材料边界由开发者协助配置。</p><button class="insight-action" type="button" id="custom-supervisor"><i data-lucide="messages-square"></i> 联系开发者定制</button></div></aside>
+            </div>
+            <div class="masters-preview" id="member-masters-workspace" data-entitlement="ai-masters" hidden>
+              <aside class="masters-picker" aria-label="学派与大师选择">
+                <div class="masters-picker-head"><div><div class="member-section-label">讨论对象</div><h3>学派与大师</h3></div><span class="spacer"></span><button class="button icon-only small" type="button" id="masters-new-round" title="新建圆桌" aria-label="新建圆桌"><i data-lucide="plus"></i></button></div>
+                <div class="masters-mode-switch" role="tablist" aria-label="大师对话模式"><button class="active" type="button" data-master-mode="one" role="tab" aria-selected="true">一对一</button><button type="button" data-master-mode="round" role="tab" aria-selected="false">圆桌会诊</button></div>
+                <div class="masters-school-tabs" aria-label="理论学派筛选"><button class="masters-school-tab active" type="button" data-school-filter="all">全部</button><button class="masters-school-tab" type="button" data-school-filter="analysis">精神分析</button><button class="masters-school-tab" type="button" data-school-filter="humanistic">人本存在</button><button class="masters-school-tab" type="button" data-school-filter="cbt">认知行为</button><button class="masters-school-tab" type="button" data-school-filter="systemic">系统关系</button></div>
+                <label class="masters-search" for="masters-search-input"><i data-lucide="search"></i><input id="masters-search-input" type="search" placeholder="搜索大师或学派" autocomplete="off"></label>
+                <div class="masters-list" id="masters-list">
+                  <button class="masters-person selected" type="button" data-master-id="winnicott" data-master-name="温尼科特" data-master-school="analysis" data-master-label="客体关系 · 抱持与游戏" aria-pressed="true"><span class="masters-person-mark">温</span><span><strong>温尼科特</strong><small>客体关系 · 抱持与游戏</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                  <button class="masters-person" type="button" data-master-id="bion" data-master-name="比昂" data-master-school="analysis" data-master-label="精神分析 · 容纳与思考" aria-pressed="false"><span class="masters-person-mark">比</span><span><strong>比昂</strong><small>精神分析 · 容纳与思考</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                  <button class="masters-person" type="button" data-master-id="klein" data-master-name="克莱因" data-master-school="analysis" data-master-label="客体关系 · 原始焦虑" aria-pressed="false"><span class="masters-person-mark">克</span><span><strong>克莱因</strong><small>客体关系 · 原始焦虑</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                  <button class="masters-person" type="button" data-master-id="rogers" data-master-name="罗杰斯" data-master-school="humanistic" data-master-label="人本主义 · 共情与一致" aria-pressed="false"><span class="masters-person-mark">罗</span><span><strong>罗杰斯</strong><small>人本主义 · 共情与一致</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                  <button class="masters-person" type="button" data-master-id="yalom" data-master-name="亚隆" data-master-school="humanistic" data-master-label="存在主义 · 关系与死亡" aria-pressed="false"><span class="masters-person-mark">亚</span><span><strong>亚隆</strong><small>存在主义 · 关系与死亡</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                  <button class="masters-person" type="button" data-master-id="beck" data-master-name="贝克" data-master-school="cbt" data-master-label="认知治疗 · 信念与验证" aria-pressed="false"><span class="masters-person-mark">贝</span><span><strong>贝克</strong><small>认知治疗 · 信念与验证</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                  <button class="masters-person" type="button" data-master-id="sue" data-master-name="苏珊·约翰逊" data-master-school="systemic" data-master-label="EFT · 依恋与互动循环" aria-pressed="false"><span class="masters-person-mark">苏</span><span><strong>苏珊·约翰逊</strong><small>EFT · 依恋与互动循环</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                  <button class="masters-person" type="button" data-master-id="jung" data-master-name="荣格" data-master-school="analysis" data-master-label="分析心理学 · 象征与个体化" aria-pressed="false"><span class="masters-person-mark">荣</span><span><strong>荣格</strong><small>分析心理学 · 象征与个体化</small></span><i class="masters-person-check" data-lucide="check"></i></button>
+                </div>
+                <div class="masters-picker-foot" id="masters-picker-foot">一对一模式一次选择一位大师。切换圆桌后可选择 2–4 位不同学派参与讨论。</div>
+              </aside>
+              <section class="masters-dialogue" aria-label="大师对话">
+                <header class="masters-chat-head"><div class="masters-chat-heading"><strong id="masters-chat-title">温尼科特 · 一对一</strong><span id="masters-chat-subtitle">客体关系 · 抱持与游戏</span></div><span class="spacer"></span><label class="masters-range"><span>交心</span><input type="range" id="masters-warmth" min="0" max="100" value="60" aria-label="回应温度"><span>教学</span></label><label class="masters-range"><span>简洁</span><input type="range" id="masters-detail" min="0" max="100" value="50" aria-label="回应详细度"><span>详尽</span></label><button class="button icon-only small" type="button" id="masters-export" title="导出当前对话" aria-label="导出当前对话"><i data-lucide="file-down"></i></button><button class="button icon-only small" type="button" id="masters-delete" title="删除当前对话" aria-label="删除当前对话"><i data-lucide="trash-2"></i></button></header>
+                <div class="masters-dialogue-bar"><i data-lucide="shield-check"></i><span>对话独立保存在本机，不生成督导结论</span><span class="spacer"></span><button type="button" id="masters-quote"><i data-lucide="quote"></i>引用</button><button type="button" id="masters-save-point"><i data-lucide="bookmark"></i>保存观点</button></div>
+                <div class="masters-chat-thread" id="masters-chat-thread"><div class="masters-chat-message user"><div class="masters-message-avatar">我</div><div class="masters-message-content"><div class="masters-message-head">我的议题</div><div class="masters-message-bubble">当来访者反复要求延长结束时间时，维持设置是否会破坏抱持？</div></div></div><div class="masters-chat-message"><div class="masters-message-avatar">温</div><div class="masters-message-content"><div class="masters-message-head">温尼科特 · 抱持与设置</div><div class="masters-message-bubble">设置的可靠性本身就是抱持的一部分。问题不是简单地延长或拒绝，而是你们能否一起经验“结束来了，但关系没有因此消失”。我更想知道，当她提出要求时，你最先感到的是什么。</div></div></div></div>
+                <form class="masters-composer" id="masters-form"><button class="button icon-only docs-on" type="button" id="masters-use-docs" aria-pressed="true" title="引用我的资料" aria-label="引用我的资料"><i data-lucide="paperclip"></i></button><button class="button icon-only" type="button" id="masters-mention" title="指定大师发言" aria-label="指定大师发言"><i data-lucide="at-sign"></i></button><textarea id="masters-input" aria-label="大师对话消息" placeholder="继续追问；圆桌模式可输入 @大师 指定发言"></textarea><button class="button primary icon-only" type="submit" title="发送" aria-label="发送"><i data-lucide="arrow-up"></i></button></form>
+              </section>
+              <aside class="masters-inspector">
+                <div class="masters-inspector-tabs" role="tablist" aria-label="大师对话侧栏"><button class="masters-inspector-tab active" type="button" data-masters-inspector="summary" role="tab" aria-selected="true">视角摘要</button><button class="masters-inspector-tab" type="button" data-masters-inspector="history" role="tab" aria-selected="false">历史对话</button></div>
+                <section class="masters-inspector-view active" id="masters-summary-view"><div class="masters-inspector-head"><div><div class="member-section-label">当前议题</div><h3>设置与抱持</h3></div><span class="spacer"></span><span class="status-chip member">一对一</span></div><div class="masters-summary"><span>对话摘要</span><p>维持可靠边界与承认分离体验并不冲突；值得继续追问咨询师自身的补偿冲动。</p></div><div id="masters-viewpoints"><div class="masters-viewpoint"><span class="masters-person-mark">温</span><div><strong>温尼科特</strong><p>可靠设置提供可被依赖的环境，结束可以成为共同经验。</p></div></div></div><div class="masters-detail-actions"><button class="button full-width" type="button" id="masters-to-supervision"><i data-lucide="file-plus-2"></i>保存为督导草稿</button><button class="button full-width" type="button" data-go="calendar"><i data-lucide="calendar-plus"></i>安排下次会谈</button></div></section>
+                <section class="masters-inspector-view" id="masters-history-view"><div class="masters-inspector-head"><div><div class="member-section-label">本机记录</div><h3>历史对话</h3></div></div><button class="masters-history-item active" type="button" data-master-history="设置与抱持"><strong>设置与抱持</strong><span>温尼科特 · 今天 10:42</span></button><button class="masters-history-item" type="button" data-master-history="沉默中的撤退"><strong>沉默中的撤退</strong><span>比昂、克莱因 · 7 月 15 日</span></button><button class="masters-history-item" type="button" data-master-history="初访中的共情"><strong>初访中的共情</strong><span>罗杰斯 · 7 月 11 日</span></button></section>
+              </aside>
+            </div>
+            <section class="member-gate" aria-label="会员解锁提示"><span class="status-chip member"><i data-lucide="lock-keyhole"></i>会员功能</span><h3>解锁独立的会员临床空间</h3><p>免费工作台与手工记录保持完整。会员空间分别提供 AI 督导、学派大师对话、逐字稿引导、成长轨迹和向量资料检索。</p><div class="member-gate-actions"><button class="button" type="button" id="gate-back">返回免费工作台</button><button class="button primary" type="button" data-open-plans>查看并解锁会员</button></div></section>
+          </div>
+        </section>
+
+        <section class="view knowledge-view" data-view-panel="knowledge">
+          <div class="knowledge-shell">
+            <header class="knowledge-toolbar">
+              <div class="knowledge-modes" role="tablist" aria-label="资料库视图">
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="gallery"><i data-lucide="layout-grid"></i>概览</button>
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="cards"><i data-lucide="panels-top-left"></i>卡片</button>
+                <button class="knowledge-mode active" type="button" role="tab" aria-selected="true" data-knowledge-mode="threecol"><i data-lucide="columns-3"></i>三栏</button>
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="table"><i data-lucide="table-properties"></i>属性表</button>
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="reading"><i data-lucide="book-open-text"></i>阅读</button>
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="search"><i data-lucide="search"></i>搜索</button>
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="graph"><i data-lucide="share-2"></i>图谱</button>
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="chat"><i data-lucide="message-square-text"></i>对话</button>
+                <button class="knowledge-mode" type="button" role="tab" aria-selected="false" data-knowledge-mode="stats"><i data-lucide="chart-no-axes-column-increasing"></i>统计</button>
+              </div>
+              <span class="knowledge-toolbar-spacer"></span>
+              <button class="button icon-only small" type="button" id="knowledge-refresh" aria-label="重新扫描资料文件夹" title="重新扫描资料文件夹"><i data-lucide="refresh-cw"></i></button>
+              <button class="button small" type="button" id="knowledge-folder"><i data-lucide="folder-open"></i><span>选择资料文件夹</span></button>
+            </header>
+            <div class="knowledge-status">
+              <span class="knowledge-path" title="D:\\心理资料库"><i data-lucide="folder-lock"></i>D:\心理资料库</span>
+              <span class="knowledge-capacity" id="knowledge-capacity">已纳入 100 / 100 篇 · 另有 227 篇未纳入</span>
+              <span class="status-spacer"></span>
+              <span class="knowledge-policy" id="knowledge-policy" data-entitlements="rag-vector rag-rerank"><i data-lucide="text-search"></i>关键词 · Top-5 · 2K</span>
+              <div class="knowledge-index-progress" id="knowledge-index-progress" hidden aria-label="索引构建进度"><span></span></div>
+              <button class="button small knowledge-index-button" type="button" id="knowledge-index" data-entitlement="rag-vector"><i data-lucide="sparkles"></i><span>解锁向量索引</span></button>
+            </div>
+            <div class="knowledge-body">
+              <aside class="knowledge-tree" aria-label="资料分类与筛选">
+                <h3 class="knowledge-section-label">资料分类</h3>
+                <div class="knowledge-tree-list" id="knowledge-categories">
+                  <button class="knowledge-tree-button active" type="button" data-knowledge-category="全部"><i data-lucide="folders"></i><span>全部资料</span><span class="knowledge-count">327</span></button>
+                  <button class="knowledge-tree-button" type="button" data-knowledge-category="温尼科特"><i data-lucide="folder"></i><span>温尼科特</span><span class="knowledge-count">86</span></button>
+                  <button class="knowledge-tree-button" type="button" data-knowledge-category="依恋"><i data-lucide="folder"></i><span>依恋</span><span class="knowledge-count">64</span></button>
+                  <button class="knowledge-tree-button" type="button" data-knowledge-category="临床技术"><i data-lucide="folder"></i><span>临床技术</span><span class="knowledge-count">112</span></button>
+                  <button class="knowledge-tree-button" type="button" data-knowledge-category="伦理"><i data-lucide="folder"></i><span>伦理</span><span class="knowledge-count">38</span></button>
+                  <button class="knowledge-tree-button" type="button" data-knowledge-category="未分类"><i data-lucide="folder-question"></i><span>未分类</span><span class="knowledge-count">27</span></button>
+                </div>
+                <h3 class="knowledge-section-label">常用筛选</h3>
+                <div class="knowledge-tree-list">
+                  <button class="knowledge-tree-button" type="button" data-knowledge-filter="recent"><i data-lucide="clock-3"></i><span>最近更新</span><span class="knowledge-count">18</span></button>
+                  <button class="knowledge-tree-button" type="button" data-knowledge-filter="cited"><i data-lucide="quote"></i><span>已用于引用</span><span class="knowledge-count">42</span></button>
+                  <button class="knowledge-tree-button" type="button" data-knowledge-filter="word"><i data-lucide="file-type-2"></i><span>Word 文档</span><span class="knowledge-count">75</span></button>
+                </div>
+                <div class="knowledge-local-note"><strong><i data-lucide="shield-check"></i>本机只读</strong>支持 .md、.txt、.doc、.docx；文件内容不会上传，AI 仅接收本次选中的引用片段。</div>
+              </aside>
+              <section class="knowledge-content" aria-label="资料浏览区">
+                <div class="knowledge-searchbar">
+                  <label class="knowledge-searchfield" for="knowledge-search"><i data-lucide="search"></i><input id="knowledge-search" type="search" placeholder="搜索标题、正文或概念，例如“抱持”" autocomplete="off"></label>
+                  <button class="button small" type="button" id="knowledge-clear-filter"><i data-lucide="list-filter"></i>全部资料</button>
+                </div>
+                <div class="knowledge-host" id="knowledge-host"></div>
+              </section>
+              <aside class="knowledge-detail" id="knowledge-detail" aria-label="资料详情"></aside>
+            </div>
+          </div>
+        </section>
+
+        <section class="view generic-view" data-view-panel="generic"><div class="generic-grid"><section class="generic-main"><div class="section-head"><div><h2 id="generic-title">咨询日历</h2><p id="generic-copy">日程与会谈入口在同一任务域中连续工作。</p></div><div class="head-spacer"></div><button class="button primary" type="button" id="generic-action"><i data-lucide="plus"></i><span>新建会谈</span></button></div><div class="route-list" id="generic-routes"></div></section><aside class="generic-aside"><h3>当前上下文保持</h3><p>林澄 · 第 12 节仍然处于选中状态。从这里进入记录、账务、督导或下次计划时，不需要重复选择来访者。</p><button class="button" type="button" data-go="clinical"><i data-lucide="notebook-pen"></i>返回临床材料</button></aside></div></section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="plans-modal" role="dialog" aria-modal="true" aria-labelledby="plans-title">
+    <section class="modal"><header class="modal-head"><div><h2 id="plans-title">选择适合你的临床工作方式</h2><p>会员资格与 AI 算力来源分开；配置自己的 API 不会提升会员档位。</p></div><div class="spacer"></div><button class="button icon-only" type="button" data-close-modal title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></header><div class="plan-grid"><article class="plan"><div class="plan-name"><h3>免费</h3><span class="status-chip">当前</span></div><p>完整的手工执业工作流。</p><ul><li><i data-lucide="check"></i>来访者、日历、手工记录</li><li><i data-lucide="check"></i>手工逐字稿、报告与督导</li><li><i data-lucide="check"></i>基础记账与 100 篇资料</li></ul><button class="button" type="button" data-select-tier="free">查看免费界面</button></article><article class="plan recommended"><div class="plan-name"><h3>会员</h3><span class="status-chip member">推荐</span></div><p>独立会员临床空间与连续个案 AI 工作。</p><ul><li><i data-lucide="check"></i>AI 督导与思维导图</li><li><i data-lucide="check"></i>学派单大师 / 圆桌对话</li><li><i data-lucide="check"></i>对话引导与成长轨迹</li><li><i data-lucide="check"></i>向量检索 · 500 篇资料</li></ul><button class="button primary" type="button" data-select-tier="pro"><i data-lucide="unlock-keyhole"></i>模拟解锁会员</button></article><article class="plan"><div class="plan-name"><h3>旗舰</h3><span class="status-chip flagship">高强度</span></div><p>高个案量、督导与研究工作。</p><ul><li><i data-lucide="check"></i>会员全部能力</li><li><i data-lucide="check"></i>向量召回 + Rerank 精排</li><li><i data-lucide="check"></i>16K 上下文与不限资料</li><li><i data-lucide="check"></i>自定义督导师</li></ul><button class="button" type="button" data-select-tier="flagship">模拟旗舰界面</button></article></div></section>
+  </div>
+
+  <div class="modal-backdrop" id="mapping-modal" role="dialog" aria-modal="true" aria-labelledby="mapping-title"><section class="modal"><header class="modal-head"><div><h2 id="mapping-title">22 个原页面如何进入 9 个任务域</h2><p>原路由全部保留，用作任务域内部视图和深链接。</p></div><div class="spacer"></div><button class="button icon-only" type="button" data-close-modal title="关闭" aria-label="关闭"><i data-lucide="x"></i></button></header><div class="mapping-list" id="mapping-list"></div></section></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="../app/vendor/lucide.min.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var root = document.documentElement;
+      var currentView = 'dashboard';
+      var currentMemberTab = 'supervision';
+      var currentSupervisorId = 'cangjie';
+      var masterMode = 'one';
+      var selectedMasters = ['winnicott'];
+      var currentMasterSchool = 'all';
+      var knowledgeMode = 'threecol';
+      var knowledgeCategory = '全部';
+      var knowledgeQuery = '';
+      var knowledgeSelected = 0;
+      var knowledgeSortAscending = true;
+      var toastTimer = null;
+      var views = {
+        dashboard: { title: '今日工作台', subtitle: '7 月 17 日 · 星期五', action: '开始下一场会谈', icon: 'play' },
+        clinical: { title: '临床材料', subtitle: '林澄 · 第 12 节', action: '保存本节记录', icon: 'save' },
+        member: { title: '会员临床空间', subtitle: '林澄 · 第 12 节', action: '保存临床抓手', icon: 'bookmark' },
+        knowledge: { title: '我的资料库', subtitle: '327 篇本地资料 · 数据不出本机', action: '选择资料文件夹', icon: 'folder-open' }
+      };
+      var genericViews = {
+        calendar: { title: '咨询日历', subtitle: '本周共 8 节会谈', copy: '排期、开始会谈与补记录共享同一个节次上下文。', action: '新建会谈', routes: [['session-calendar.html','周/月排期与会谈深链接']] },
+        clients: { title: '来访者', subtitle: '12 位持续个案', copy: '档案、会谈和连续个案材料从来访者上下文进入。', action: '新建来访者', routes: [['doc-center.html','个案档案与材料时间线'],['consult-notes.html','从来访者进入会谈记录']] },
+        billing: { title: '记账', subtitle: '本月已收 ¥8,400', copy: '收入、待收与月历明细统一在经营任务域。', action: '记一笔', routes: [['billing-shell.html','收入、支出与月结'],['billing-calendar.html','会员账单月历']] },
+        settings: { title: '设置', subtitle: '账号、会员、AI 与数据', copy: '会员解锁入口固定在设置首组，并与算力配置分开。', action: '检查更新', routes: [['settings.html','会员、AI、数据与外观'],['activation.html','三档比较与激活'],['feedback.html','帮助与反馈']] }
+      };
+      var knowledgeDocs = [
+        { title: '抱持环境与治疗设置', category: '温尼科特', type: 'md', size: '42 KB', updated: '今天', chars: '18,420', headings: 12, summary: '从抱持环境理解设置、可靠性与治疗关系中可被依赖的连续性。', cited: true },
+        { title: '过渡性客体：临床阅读笔记', category: '温尼科特', type: 'docx', size: '86 KB', updated: '昨天', chars: '24,860', headings: 9, summary: '整理过渡现象、游戏空间与象征能力在临床材料中的观察线索。', cited: true },
+        { title: '成人依恋访谈的工作框架', category: '依恋', type: 'pdf摘录', size: '33 KB', updated: '3 天前', chars: '15,230', headings: 7, summary: '聚焦叙事一致性、关系表征与访谈过程中的情感调节。', cited: false },
+        { title: '结束阶段的边界与哀悼', category: '临床技术', type: 'txt', size: '18 KB', updated: '5 天前', chars: '8,740', headings: 4, summary: '会谈结束、疗程结束与分离体验的观察、解释和节奏。', cited: true },
+        { title: '治疗中的沉默：介入时机', category: '临床技术', type: 'doc', size: '57 KB', updated: '7 月 8 日', chars: '21,400', headings: 8, summary: '区分有生产性的沉默、防御性撤退和咨询师自身的行动压力。', cited: false },
+        { title: '知情同意与电子记录规范', category: '伦理', type: 'docx', size: '74 KB', updated: '7 月 4 日', chars: '19,060', headings: 15, summary: '电子记录、隐私、授权与临床资料最小化原则的本地工作清单。', cited: true },
+        { title: '反移情记录模板', category: '临床技术', type: 'md', size: '12 KB', updated: '6 月 28 日', chars: '5,120', headings: 6, summary: '用于区分身体感受、情绪、幻想、行动冲动与关系假设。', cited: false },
+        { title: '未整理的课程摘录 07', category: '未分类', type: 'txt', size: '9 KB', updated: '6 月 20 日', chars: '4,380', headings: 2, summary: '关于依赖、退行与环境失败的课堂记录，等待重新命名和分类。', cited: false }
+      ];
+      var mappings = [
+        ['index.html','工作台'],['session-calendar.html','咨询日历'],['consult-notes.html','临床材料 · 记录'],['transcript.html','临床材料 · 逐字稿'],['transcript-guide.html','会员空间 · 对话引导'],['report-writing.html','临床材料 · 报告'],['doc-center.html','来访者/资料库 · 时间线'],['doc-growth.html','会员空间 · 成长轨迹'],['supervision.html','会员空间 · AI 督导'],['supervision-mindmap.html','会员空间 · 督导导图'],['real-supervision.html','督导空间 · 真人记录'],['real-supervision-ai.html','会员空间 · AI 分析'],['masters.html','会员空间 · 大师对话'],['knowledge.html','资料库'],['billing-shell.html','记账'],['billing-calendar.html','记账 · 会员月历'],['chat-home.html','小镜助手'],['settings.html','设置'],['activation.html','设置 · 会员解锁'],['feedback.html','设置 · 帮助'],['confirm-close.html','独立工具窗'],['migrate-helper.html','独立系统流程']
+      ];
+
+      function renderIcons() {
+        if (window.lucide) window.lucide.createIcons({ attrs: { 'aria-hidden': 'true' } });
+      }
+
+      function showToast(message) {
+        var toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(function () { toast.classList.remove('show'); }, 2800);
+      }
+
+      function safeHtml(value) {
+        return String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      function filteredKnowledgeDocs() {
+        var query = knowledgeQuery.trim().toLowerCase();
+        return knowledgeDocs.filter(function (doc) {
+          var categoryMatch = knowledgeCategory === '全部' || doc.category === knowledgeCategory || (knowledgeCategory === 'Word 文档' && (doc.type === 'doc' || doc.type === 'docx')) || (knowledgeCategory === '已用于引用' && doc.cited);
+          var queryMatch = !query || (doc.title + ' ' + doc.summary + ' ' + doc.category).toLowerCase().indexOf(query) >= 0;
+          return categoryMatch && queryMatch;
+        });
+      }
+
+      function knowledgeCard(doc, index) {
+        return '<button class="knowledge-doc-card' + (knowledgeSelected === index ? ' selected' : '') + '" type="button" data-knowledge-doc="' + index + '">' +
+          '<span class="doc-top"><span class="doc-type">' + safeHtml(doc.type) + '</span><span class="doc-category">' + safeHtml(doc.category) + '</span></span>' +
+          '<strong>' + safeHtml(doc.title) + '</strong><p>' + safeHtml(doc.summary) + '</p>' +
+          '<span class="doc-meta"><span>' + safeHtml(doc.size) + '</span><span>' + safeHtml(doc.updated) + '</span></span></button>';
+      }
+
+      function knowledgeListRow(doc, index) {
+        return '<button class="knowledge-list-row' + (knowledgeSelected === index ? ' selected' : '') + '" type="button" data-knowledge-doc="' + index + '"><i data-lucide="file-text"></i><span><strong>' + safeHtml(doc.title) + '</strong><small>' + safeHtml(doc.category) + ' · ' + safeHtml(doc.type.toUpperCase()) + '</small></span><span>' + safeHtml(doc.size) + '</span><span>' + safeHtml(doc.updated) + '</span></button>';
+      }
+
+      function renderKnowledgeDetail() {
+        var doc = knowledgeDocs[knowledgeSelected] || knowledgeDocs[0];
+        var detail = document.getElementById('knowledge-detail');
+        detail.innerHTML = '<h3>' + safeHtml(doc.title) + '</h3><p class="knowledge-detail-summary">' + safeHtml(doc.summary) + '</p>' +
+          '<dl class="knowledge-detail-meta"><dt>分类</dt><dd>' + safeHtml(doc.category) + '</dd><dt>格式</dt><dd>' + safeHtml(doc.type.toUpperCase()) + ' · ' + safeHtml(doc.size) + '</dd><dt>正文</dt><dd>' + safeHtml(doc.chars) + ' 字 · ' + doc.headings + ' 个标题</dd><dt>更新</dt><dd>' + safeHtml(doc.updated) + '</dd><dt>本地路径</dt><dd>' + safeHtml(doc.category + '\\' + doc.title + '.' + doc.type.replace('pdf摘录', 'txt')) + '</dd></dl>' +
+          '<div class="knowledge-toggle-row"><span>纳入 AI 检索</span><button class="knowledge-switch" type="button" role="switch" aria-checked="true" data-knowledge-toggle="index" aria-label="纳入 AI 检索"></button></div>' +
+          '<div class="knowledge-toggle-row"><span>允许回答时引用</span><button class="knowledge-switch" type="button" role="switch" aria-checked="' + (doc.cited ? 'true' : 'false') + '" data-knowledge-toggle="cite" aria-label="允许回答时引用"></button></div>' +
+          '<div class="knowledge-detail-actions"><button class="button primary full-width" type="button" data-knowledge-open-reading><i data-lucide="book-open-text"></i>沉浸阅读</button><button class="button full-width" type="button" data-knowledge-locate><i data-lucide="folder-search"></i>在文件夹中定位</button></div>';
+        renderIcons();
+      }
+
+      function renderKnowledge() {
+        var host = document.getElementById('knowledge-host');
+        if (!host) return;
+        var docs = filteredKnowledgeDocs();
+        document.querySelectorAll('[data-knowledge-mode]').forEach(function (button) {
+          var active = button.dataset.knowledgeMode === knowledgeMode;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        if (!docs.length) {
+          host.innerHTML = '<div class="knowledge-empty"><div><strong>没有匹配的资料</strong>尝试更换分类，或减少搜索关键词。<br><button class="button small" type="button" data-knowledge-reset style="margin-top:12px">清除筛选</button></div></div>';
+          renderIcons();
+          return;
+        }
+        var selectedDoc = knowledgeDocs[knowledgeSelected] || docs[0];
+        var selectedIndex = knowledgeDocs.indexOf(selectedDoc);
+        var title = '<div class="knowledge-title-row"><div><h2>' + ({ gallery: '资料概览', cards: '卡片浏览', threecol: '文件浏览', table: '资料属性', reading: '沉浸阅读', search: '全文搜索', graph: '知识图谱', chat: '资料对话', stats: '资料统计' }[knowledgeMode]) + '</h2><p>' + docs.length + ' 份示例结果 · 原应用支持最多显示前 200 份后引导搜索</p></div><span class="spacer"></span></div>';
+        var html = title;
+        if (knowledgeMode === 'gallery' || knowledgeMode === 'cards') {
+          html += '<div class="' + (knowledgeMode === 'gallery' ? 'knowledge-gallery' : 'knowledge-card-grid') + '">' + docs.map(function (doc) { return knowledgeCard(doc, knowledgeDocs.indexOf(doc)); }).join('') + '</div>';
+        } else if (knowledgeMode === 'threecol') {
+          html += '<div class="knowledge-list">' + docs.map(function (doc) { return knowledgeListRow(doc, knowledgeDocs.indexOf(doc)); }).join('') + '</div>';
+        } else if (knowledgeMode === 'table') {
+          var tableDocs = docs.slice().sort(function (a, b) { return (knowledgeSortAscending ? 1 : -1) * a.title.localeCompare(b.title, 'zh-CN'); });
+          html += '<table class="knowledge-table"><thead><tr><th><button type="button" data-knowledge-sort>标题 <i data-lucide="arrow-up-down"></i></button></th><th>分类</th><th>格式</th><th>字符数</th><th>大小</th><th>更新</th><th>AI 注入</th></tr></thead><tbody>' + tableDocs.map(function (doc) { return '<tr tabindex="0" data-knowledge-doc="' + knowledgeDocs.indexOf(doc) + '"><td>' + safeHtml(doc.title) + '</td><td>' + safeHtml(doc.category) + '</td><td>' + safeHtml(doc.type.toUpperCase()) + '</td><td>' + safeHtml(doc.chars) + '</td><td>' + safeHtml(doc.size) + '</td><td>' + safeHtml(doc.updated) + '</td><td>已纳入</td></tr>'; }).join('') + '</tbody></table>';
+        } else if (knowledgeMode === 'reading') {
+          html += '<div class="knowledge-reader"><nav class="knowledge-toc" aria-label="文档目录"><button class="active" type="button" data-toc="0">抱持环境</button><button type="button" data-toc="1">设置的可靠性</button><button type="button" data-toc="2">临床中的失误</button><button type="button" data-toc="3">观察要点</button></nav><article class="knowledge-article"><h2>' + safeHtml(selectedDoc.title) + '</h2><p>抱持不只是一种态度，它首先体现为治疗设置的连续、可靠与可预期。来访者对时间、空间和咨询师回应方式的使用，常常比对概念的直接讨论更早呈现其依赖经验。</p><h3 id="knowledge-reading-1">设置的可靠性</h3><p>稳定的开始与结束、对中断的说明、对失误的承认，共同构成可被使用的环境。设置不是僵硬规则，而是让经验能够发生并被理解的边界。</p><h3 id="knowledge-reading-2">临床中的失误</h3><p>环境的失败并非总能避免。关键在于咨询师能否识别失误，并让来访者有机会体验、表达和赋予它意义，而不是过快解释或补偿。</p><h3 id="knowledge-reading-3">观察要点</h3><p>记录来访者如何使用时间、沉默和结束，也记录咨询师自身出现的焦急、补偿冲动与撤退倾向。</p></article></div>';
+        } else if (knowledgeMode === 'search') {
+          var q = knowledgeQuery.trim();
+          html += '<div class="knowledge-search-summary">' + (q ? '“' + safeHtml(q) + '”匹配 ' + docs.length + ' 份资料，显示标题与正文位置。' : '输入关键词实时检索标题、正文和概念；支持点击结果直接阅读。') + '</div>' + docs.map(function (doc) { var excerpt = safeHtml(doc.summary); if (q) { var escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); excerpt = excerpt.replace(new RegExp(escaped, 'gi'), function (match) { return '<mark>' + match + '</mark>'; }); } return '<button class="knowledge-hit" type="button" data-knowledge-doc="' + knowledgeDocs.indexOf(doc) + '"><strong>' + safeHtml(doc.title) + '</strong><p>' + excerpt + '</p></button>'; }).join('');
+        } else if (knowledgeMode === 'graph') {
+          html += '<div class="knowledge-graph" aria-label="文档与概念关系图"><span class="graph-line" style="left:19%;top:31%;width:37%;transform:rotate(18deg)"></span><span class="graph-line" style="left:43%;top:49%;width:31%;transform:rotate(-24deg)"></span><span class="graph-line" style="left:27%;top:69%;width:32%;transform:rotate(-34deg)"></span><button class="graph-node concept" type="button" style="left:41%;top:42%" data-graph-label="抱持">抱持</button><button class="graph-node concept" type="button" style="left:62%;top:24%" data-graph-label="过渡空间">过渡空间</button><button class="graph-node concept" type="button" style="left:20%;top:64%" data-graph-label="结束边界">结束边界</button><button class="graph-node" type="button" style="left:8%;top:20%" data-knowledge-doc="0">抱持环境与治疗设置</button><button class="graph-node" type="button" style="left:69%;top:61%" data-knowledge-doc="1">过渡性客体笔记</button><button class="graph-node" type="button" style="left:39%;top:78%" data-knowledge-doc="3">结束阶段的边界</button></div>';
+        } else if (knowledgeMode === 'chat') {
+          var gate = tier() === 'free' ? '<div class="knowledge-inline-gate"><i data-lucide="lock-keyhole"></i><span>免费版可浏览与关键词检索；资料对话和向量召回需会员资格及可用 AI 算力。</span><span class="spacer"></span><button class="button small" type="button" data-open-plans>查看会员方案</button></div>' : '';
+          html += gate + '<div class="knowledge-chat"><aside class="knowledge-refs"><div class="knowledge-section-label">本次引用范围</div>' + docs.slice(0, 6).map(function (doc, i) { return '<button class="knowledge-ref" type="button" role="checkbox" aria-checked="' + (i < 3 ? 'true' : 'false') + '"><span class="check">' + (i < 3 ? '✓' : '') + '</span><span>' + safeHtml(doc.title) + '</span></button>'; }).join('') + '</aside><section class="knowledge-chat-main"><div class="knowledge-thread" id="knowledge-thread"><div class="knowledge-message">你可以围绕已勾选的本地资料提问。回答会保留引用来源，不会把整个资料库上传。<div class="knowledge-citation">当前引用 3 份资料</div></div><div class="knowledge-message user">“抱持”与维持会谈结束边界是否矛盾？</div><div class="knowledge-message">并不矛盾。资料中的共同线索是：可靠边界本身属于抱持环境。承认结束带来的痛苦，比临时延长时间更能维持经验的连续性。<div class="knowledge-citation">引用：抱持环境与治疗设置 · 结束阶段的边界与哀悼</div></div></div><form class="knowledge-chat-form" id="knowledge-chat-form"><input id="knowledge-chat-input" aria-label="向资料库提问" placeholder="就勾选的资料提问"><button class="button primary" type="submit"><i data-lucide="send"></i>发送</button></form></section></div>';
+        } else if (knowledgeMode === 'stats') {
+          html += '<div class="knowledge-stat-grid"><div class="knowledge-stat"><strong>327</strong><span>发现的资料</span></div><div class="knowledge-stat"><strong>14.8 MB</strong><span>本地文本体积</span></div><div class="knowledge-stat"><strong>5</strong><span>资料分类</span></div><div class="knowledge-stat"><strong>42</strong><span>已用于引用</span></div></div><div class="knowledge-bars"><div class="knowledge-title-row"><div><h2>分类与格式分布</h2><p>用于检查资料组织、格式覆盖和容量上限。</p></div></div><div class="knowledge-bar"><span>临床技术</span><div class="knowledge-bar-track"><span style="width:100%"></span></div><b>112</b></div><div class="knowledge-bar"><span>温尼科特</span><div class="knowledge-bar-track"><span style="width:77%"></span></div><b>86</b></div><div class="knowledge-bar"><span>依恋</span><div class="knowledge-bar-track"><span style="width:57%"></span></div><b>64</b></div><div class="knowledge-bar"><span>伦理</span><div class="knowledge-bar-track"><span style="width:34%"></span></div><b>38</b></div><div class="knowledge-bar"><span>未分类</span><div class="knowledge-bar-track"><span style="width:24%"></span></div><b>27</b></div><div class="knowledge-bar"><span>MD / TXT</span><div class="knowledge-bar-track"><span style="width:76%"></span></div><b>252</b></div><div class="knowledge-bar"><span>DOC / DOCX</span><div class="knowledge-bar-track"><span style="width:23%"></span></div><b>75</b></div></div>';
+        }
+        host.innerHTML = html;
+        renderKnowledgeDetail();
+        renderIcons();
+      }
+
+      function tier() { return root.getAttribute('data-tier') || 'free'; }
+
+      function updateKnowledgePolicy() {
+        var currentTier = tier();
+        var policy = document.getElementById('knowledge-policy');
+        var capacity = document.getElementById('knowledge-capacity');
+        var indexButton = document.getElementById('knowledge-index');
+        if (!policy || !capacity || !indexButton) return;
+        if (currentTier === 'free') {
+          policy.innerHTML = '<i data-lucide="text-search"></i>关键词 · Top-5 · 2K';
+          capacity.textContent = '已纳入 100 / 100 篇 · 另有 227 篇未纳入';
+          indexButton.innerHTML = '<i data-lucide="unlock-keyhole"></i><span>解锁向量索引</span>';
+        } else if (currentTier === 'pro') {
+          policy.innerHTML = '<i data-lucide="scan-search"></i>向量检索 · Top-20 · 4K';
+          capacity.textContent = '已纳入 327 / 500 篇 · 容量充足';
+          indexButton.innerHTML = '<i data-lucide="database-zap"></i><span>重建向量索引</span>';
+        } else {
+          policy.innerHTML = '<i data-lucide="scan-search"></i>向量 + Rerank · Top-20 → Top-5 · 16K';
+          capacity.textContent = '已纳入 327 篇 · 资料数量不限';
+          indexButton.innerHTML = '<i data-lucide="database-zap"></i><span>重建精排索引</span>';
+        }
+        if (knowledgeMode === 'chat') renderKnowledge();
+        renderIcons();
+      }
+
+      function setSidebarCollapsed(collapsed, persist) {
+        var shell = document.querySelector('.app-shell');
+        var button = document.getElementById('sidebar-toggle');
+        shell.classList.toggle('sidebar-collapsed', collapsed);
+        button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        button.setAttribute('aria-label', collapsed ? '展开侧边栏' : '折叠侧边栏');
+        button.title = collapsed ? '展开侧边栏' : '折叠侧边栏';
+        button.innerHTML = '<i data-lucide="' + (collapsed ? 'panel-left-open' : 'panel-left-close') + '"></i>';
+        if (persist) {
+          try { localStorage.setItem('xj_preview_sidebar_collapsed', collapsed ? '1' : '0'); } catch (error) {}
+        }
+        renderIcons();
+      }
+
+      function setTier(nextTier, openMember) {
+        root.setAttribute('data-tier', nextTier);
+        document.querySelectorAll('[data-tier-control]').forEach(function (button) { button.classList.toggle('active', button.dataset.tierControl === nextTier); });
+        var chip = document.getElementById('tier-chip');
+        var dockTitle = document.getElementById('member-dock-title');
+        var dockCopy = document.getElementById('member-dock-copy');
+        var entry = document.getElementById('member-entry');
+        var paidLocks = document.querySelectorAll('.paid-nav .nav-lock');
+        var flagship = nextTier === 'flagship';
+        chip.className = 'status-chip' + (nextTier === 'pro' ? ' member' : flagship ? ' flagship' : '');
+        chip.innerHTML = nextTier === 'free' ? '<i data-lucide="circle"></i>免费版' : nextTier === 'pro' ? '<i data-lucide="badge-check"></i>会员' : '<i data-lucide="crown"></i>旗舰';
+        dockTitle.textContent = nextTier === 'free' ? '会员临床空间' : nextTier === 'pro' ? '会员临床空间已解锁' : '旗舰临床空间';
+        dockCopy.textContent = nextTier === 'free' ? 'AI 督导、学派大师对话、逐字稿引导与成长轨迹集中在独立空间。' : '督导处理个案材料；大师对话用于独立的理论学派讨论。';
+        entry.innerHTML = nextTier === 'free' ? '<i data-lucide="unlock-keyhole"></i><span>解锁会员</span>' : '<i data-lucide="arrow-right"></i><span>进入会员空间</span>';
+        paidLocks.forEach(function (lock) { lock.hidden = nextTier !== 'free'; });
+        document.getElementById('flagship-panel').hidden = !flagship;
+        document.getElementById('rag-chip').innerHTML = flagship ? '<i data-lucide="scan-search"></i>向量 + Rerank · 16K' : nextTier === 'pro' ? '<i data-lucide="search-check"></i>向量检索 · Top-20' : '<i data-lucide="search-check"></i>关键词检索 · Top-5';
+        updateKnowledgePolicy();
+        if (nextTier === 'free' && root.getAttribute('data-skin') !== 'clinical') setSkin('clinical', true);
+        closeModals();
+        if (openMember) showView('member');
+        renderIcons();
+        showToast(nextTier === 'free' ? '已切换到免费界面' : nextTier === 'pro' ? '已切换到会员专属界面' : '已切换到旗舰专属界面');
+      }
+
+      function setSkin(nextSkin, forced) {
+        if (tier() === 'free' && nextSkin !== 'clinical' && !forced) {
+          openPlans();
+          showToast('04 / 05 是会员皮肤，已打开会员方案');
+          return;
+        }
+        root.setAttribute('data-skin', nextSkin);
+        document.querySelectorAll('[data-skin-control]').forEach(function (button) { button.classList.toggle('active', button.dataset.skinControl === nextSkin); });
+      }
+
+      function updateHeader(key) {
+        var item = views[key] || genericViews[key] || views.dashboard;
+        document.getElementById('page-title').textContent = item.title;
+        document.getElementById('page-subtitle').textContent = item.subtitle;
+        var primary = document.getElementById('primary-action');
+        primary.innerHTML = '<i data-lucide="' + (item.icon || 'plus') + '"></i><span>' + item.action + '</span>';
+        primary.dataset.currentAction = key;
+      }
+
+      function showGeneric(key) {
+        var item = genericViews[key];
+        document.getElementById('generic-title').textContent = item.title;
+        document.getElementById('generic-copy').textContent = item.copy;
+        document.querySelector('#generic-action span').textContent = item.action;
+        document.getElementById('generic-routes').innerHTML = item.routes.map(function (route) { return '<div class="route-row"><code>' + route[0] + '</code><span>' + route[1] + '</span><i data-lucide="chevron-right"></i></div>'; }).join('');
+      }
+
+      function showView(key, memberTab) {
+        var panelKey = views[key] ? key : 'generic';
+        if (genericViews[key]) showGeneric(key);
+        if (key === 'knowledge') renderKnowledge();
+        if (memberTab) setMemberTab(memberTab);
+        document.querySelectorAll('[data-view-panel]').forEach(function (panel) { panel.classList.toggle('active', panel.dataset.viewPanel === panelKey); });
+        document.querySelectorAll('.nav-item').forEach(function (button) {
+          var active = key === 'member' ? button.dataset.view === 'member' && button.dataset.memberTab === currentMemberTab : button.dataset.view === key;
+          button.classList.toggle('active', active);
+        });
+        currentView = key;
+        updateHeader(key);
+        if (key === 'member') updateMemberPresentation();
+        document.getElementById('main-content').focus({ preventScroll: true });
+        renderIcons();
+      }
+
+      function supervisorProfile(id) {
+        var profiles = {
+          cangjie: { focus: '设置、抱持与反移情', copy: '从这段材料看，补偿冲动可能紧跟在来访者把结束体验为“不再被保留”之后。可继续辨认双方各自承受了什么，以及设置如何维持关系连续性。' },
+          nvwa: { focus: '关系体验与咨询师承受', copy: '材料里最需要先被容纳的，也许是咨询师在结束时同时感到的生气、内疚和修复压力。先让这些体验被看见，再判断怎样回应来访者。' },
+          freud: { focus: '无意识冲突与移情', copy: '材料显示，结束可能激活了关于失去和拒绝的无意识冲突。建议区分来访者的移情期待，以及咨询师被推动去补偿的反移情位置。' },
+          jung: { focus: '象征与个体化', copy: '“门被关上”是材料中值得保留的象征。可以继续探索这个意象承载的关系经验，而不急于把它简化为对时间规则的抗拒。' },
+          klein: { focus: '投射性认同与分裂', copy: '反复迟到、要求延长和咨询师的补偿冲动可能形成一组投射性互动。可观察双方如何在拒绝与被拒绝的位置间快速转换。' },
+          adler: { focus: '目的与生活风格', copy: '可从行为目的理解迟到和延长要求：它们帮助来访者确认什么、避免什么，又如何维持其熟悉的关系位置。' },
+          lacan: { focus: '语言、欲望与能指', copy: '建议回到逐字材料，特别是“浪费机会”和“门被关上”这些能指，观察它们如何组织来访者对他者欲望的猜测。' },
+          bion: { focus: '容器与未思想化经验', copy: '咨询师的急迫补偿感可能是尚未被思想化的材料。先容纳这份压力，暂缓行动，看看它是否能转化为可共同思考的经验。' },
+          beck: { focus: '自动思维与行为验证', copy: '可进一步识别双方的自动思维：来访者是否把准时结束等同于被抛弃，咨询师是否把不延长等同于关系受损，并寻找可验证的替代解释。' },
+          rogers: { focus: '共情与真诚一致', copy: '材料提示来访者需要其结束体验被准确听见。维持边界时仍可真诚回应她的害怕，并觉察咨询师自身是否能够一致地表达限制。' },
+          yalom: { focus: '此时此地与存在议题', copy: '结束把分离、孤独和关系有限性带进了此时此地。可以直接讨论此刻两个人如何共同面对“时间会结束，但关系经验仍可被保存”。' },
+          'sue-johnson': { focus: '依恋需要与互动循环', copy: '材料中可能形成循环：来访者越担心失去连接就越要求延长，咨询师越感到压力就越想补偿。先共同命名循环，再回应其下的依恋需要。' },
+          generic: { focus: '案例概念化与进程', copy: '当前材料可从治疗关系、咨询目标、风险与伦理、下一步技术选择四个维度整理，并明确哪些是假设、哪些已有材料支持。' }
+        };
+        return profiles[id] || profiles.generic;
+      }
+
+      function closeSupervisorPicker() {
+        document.getElementById('supervisor-picker').hidden = true;
+        document.getElementById('open-supervisor-picker').setAttribute('aria-expanded', 'false');
+      }
+
+      function setSupervisor(id) {
+        var button = document.querySelector('[data-supervisor-id="' + id + '"]');
+        if (!button) return;
+        if (tier() === 'free') { openPlans(); showToast('AI 督导需要会员资格，并单独检查 AI 算力'); return; }
+        currentSupervisorId = id;
+        document.querySelectorAll('[data-supervisor-id]').forEach(function (item) {
+          var active = item === button;
+          item.classList.toggle('selected', active);
+          item.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        var name = button.dataset.supervisorName;
+        var mark = button.dataset.supervisorMark;
+        var profile = supervisorProfile(button.dataset.promptKey || id);
+        document.getElementById('supervisor-current-name').textContent = name;
+        document.getElementById('supervisor-current-mark').textContent = mark;
+        document.getElementById('member-tool-name').textContent = 'AI 督导 · ' + name;
+        document.getElementById('supervisor-message-name').textContent = name;
+        document.getElementById('supervisor-message-avatar').textContent = mark;
+        document.getElementById('supervisor-message-focus').textContent = profile.focus;
+        document.getElementById('supervisor-message-copy').textContent = profile.copy;
+        closeSupervisorPicker();
+        showToast('已切换为“' + name + '”，后续分析只围绕临床材料');
+      }
+
+      function selectedMasterButtons() {
+        return Array.from(document.querySelectorAll('.masters-person')).filter(function (button) { return selectedMasters.indexOf(button.dataset.masterId) >= 0; });
+      }
+
+      function updateMastersSelection() {
+        var selected = selectedMasterButtons();
+        document.querySelectorAll('.masters-person').forEach(function (button) {
+          var active = selectedMasters.indexOf(button.dataset.masterId) >= 0;
+          button.classList.toggle('selected', active);
+          button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        var names = selected.map(function (button) { return button.dataset.masterName; });
+        var title = document.getElementById('masters-chat-title');
+        var subtitle = document.getElementById('masters-chat-subtitle');
+        title.textContent = masterMode === 'one' ? (names[0] || '选择一位大师') + ' · 一对一' : '圆桌会诊 · ' + names.length + ' 位大师';
+        subtitle.textContent = masterMode === 'one' && selected[0] ? selected[0].dataset.masterLabel : (names.length ? names.join('、') : '至少选择两位大师');
+        document.getElementById('masters-picker-foot').textContent = masterMode === 'one' ? '一对一模式一次选择一位大师。切换圆桌后可选择 2–4 位不同学派参与讨论。' : '圆桌已选择 ' + names.length + ' 位：' + names.join('、');
+        document.getElementById('masters-viewpoints').innerHTML = selected.map(function (button) {
+          var name = button.dataset.masterName;
+          var copy = name === '温尼科特' ? '可靠设置提供可被依赖的环境，结束可以成为共同经验。' : name === '比昂' ? '先容纳尚未形成思想的焦虑，再决定是否需要解释。' : name === '克莱因' ? '留意结束是否激活了被抛弃和报复性的幻想。' : name === '罗杰斯' ? '让来访者感到结束体验被准确听见，而非只被规则挡回。' : name === '贝克' ? '辨认“结束等于关系消失”的自动化信念并共同检验。' : '从该学派的核心概念继续追问当前议题。';
+          return '<div class="masters-viewpoint"><span class="masters-person-mark">' + name.slice(0, 1) + '</span><div><strong>' + name + '</strong><p>' + copy + '</p></div></div>';
+        }).join('');
+        renderIcons();
+      }
+
+      function setMasterMode(mode) {
+        masterMode = mode === 'round' ? 'round' : 'one';
+        if (masterMode === 'round' && selectedMasters.length < 2) selectedMasters = ['winnicott', 'bion'];
+        if (masterMode === 'one' && selectedMasters.length !== 1) selectedMasters = [selectedMasters[0] || 'winnicott'];
+        document.querySelectorAll('[data-master-mode]').forEach(function (button) {
+          var active = button.dataset.masterMode === masterMode;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        updateMastersSelection();
+      }
+
+      function filterMasters() {
+        var query = document.getElementById('masters-search-input').value.trim().toLowerCase();
+        document.querySelectorAll('.masters-person').forEach(function (button) {
+          var schoolMatch = currentMasterSchool === 'all' || button.dataset.masterSchool === currentMasterSchool;
+          var queryMatch = !query || (button.dataset.masterName + ' ' + button.dataset.masterLabel).toLowerCase().indexOf(query) >= 0;
+          button.hidden = !(schoolMatch && queryMatch);
+        });
+      }
+
+      function updateMemberPresentation() {
+        var isMasters = currentMemberTab === 'masters';
+        var isSupervision = currentMemberTab === 'supervision';
+        document.getElementById('member-supervision-workspace').hidden = isMasters;
+        document.getElementById('member-masters-workspace').hidden = !isMasters;
+        if (isMasters) closeSupervisorPicker();
+        document.getElementById('member-header-mark').innerHTML = '<i data-lucide="' + (isMasters ? 'messages-square' : 'brain-circuit') + '"></i>';
+        document.getElementById('member-header-title').textContent = isMasters ? '学派大师对话' : isSupervision ? 'AI 督导工作台' : '会员临床空间';
+        document.getElementById('member-header-subtitle').textContent = isMasters ? '选择理论学派与大师，展开独立的一对一或圆桌讨论' : isSupervision ? '选择督导师取向，围绕当前个案与节次理解临床材料' : '保持当前个案上下文，集中使用深度临床工具';
+        var primary = document.getElementById('primary-action');
+        if (currentView === 'member') {
+          primary.dataset.currentAction = isMasters ? 'member-masters' : 'member';
+          primary.innerHTML = isMasters ? '<i data-lucide="square-pen"></i><span>新建大师对话</span>' : '<i data-lucide="bookmark"></i><span>保存临床抓手</span>';
+        }
+        renderIcons();
+      }
+
+      function canPreviewMasters() {
+        if (tier() !== 'free') return true;
+        openPlans();
+        showToast('大师对话需要会员资格，并单独检查 AI 算力');
+        return false;
+      }
+
+      function newMasterConversation() {
+        if (!canPreviewMasters()) return;
+        document.getElementById('masters-chat-thread').innerHTML = '<div class="knowledge-empty"><div><strong>把一个问题带到对话中</strong>已保留当前学派与大师选择，输入议题即可开始。</div></div>';
+        document.getElementById('masters-input').value = '';
+        showToast('已新建独立的大师对话');
+      }
+
+      function appendMasterMessage(kind, name, text) {
+        var thread = document.getElementById('masters-chat-thread');
+        var row = document.createElement('div');
+        row.className = 'masters-chat-message' + (kind === 'user' ? ' user' : '');
+        row.innerHTML = '<div class="masters-message-avatar"></div><div class="masters-message-content"><div class="masters-message-head"></div><div class="masters-message-bubble"></div></div>';
+        row.querySelector('.masters-message-avatar').textContent = kind === 'user' ? '我' : name.slice(0, 1);
+        row.querySelector('.masters-message-head').textContent = kind === 'user' ? '我的追问' : name + ' · 学派视角';
+        row.querySelector('.masters-message-bubble').textContent = text;
+        thread.appendChild(row);
+        thread.scrollTop = thread.scrollHeight;
+      }
+
+      function setMemberTab(tab) {
+        currentMemberTab = tab || 'supervision';
+        var labels = { supervision: 'AI 督导 · ' + document.getElementById('supervisor-current-name').textContent, guide: '逐字稿对话引导', growth: '连续个案成长轨迹' };
+        document.querySelectorAll('[data-member-tab-button]').forEach(function (button) { button.classList.toggle('active', button.dataset.memberTabButton === currentMemberTab); });
+        document.querySelectorAll('.nav-item[data-view="member"]').forEach(function (button) { button.classList.toggle('active', button.dataset.memberTab === currentMemberTab); });
+        if (currentMemberTab !== 'masters') document.getElementById('member-tool-name').textContent = labels[currentMemberTab] || labels.supervision;
+        updateMemberPresentation();
+      }
+
+      function openPlans() { document.getElementById('plans-modal').classList.add('open'); renderIcons(); }
+      function closeModals() { document.querySelectorAll('.modal-backdrop').forEach(function (modal) { modal.classList.remove('open'); }); }
+
+      function setMaterialTab(tab) {
+        var labels = { notes: '第 12 节 · 快速记录', transcript: '第 12 节 · 逐字稿', report: '林澄 · 个案报告', timeline: '林澄 · 个案时间线' };
+        document.querySelectorAll('[data-material-tab]').forEach(function (button) { button.classList.toggle('active', button.dataset.materialTab === tab); });
+        document.getElementById('material-title').textContent = labels[tab];
+        var body = document.getElementById('material-body');
+        if (tab === 'notes') body.innerHTML = '<div class="editor-label">会谈记录</div><textarea class="note-area" id="note-area" aria-label="会谈记录">来访者连续第三次迟到，并在结束前表达希望延长时间。我注意到自己先是生气，随后很快出现想要补偿她的冲动。今天没有延长，但把“结束似乎很难”带回了关系中。</textarea><div class="structured-grid"><div class="structured-block"><span>本节焦点</span><p>结束边界是否被体验为拒绝，以及咨询师对破坏关系的担心。</p></div><div class="structured-block"><span>下节留意</span><p>观察补偿冲动出现的时点，不急于用延长时间修复焦虑。</p></div></div>';
+        if (tab === 'transcript') body.innerHTML = '<div class="editor-label">逐字稿片段 · 31:20–34:05</div><div class="panel transcript-sample"><p><strong>来访者：</strong>我知道已经到时间了，但你是不是也觉得我总在浪费机会？</p><p><strong>咨询师：</strong>像是如果今天就这样结束，会证明一些你很担心的事情。</p><p><strong>来访者：</strong>可能吧。我就是不喜欢门被关上的感觉。</p></div>';
+        if (tab === 'report') body.innerHTML = '<div class="editor-label">阶段性报告</div><textarea class="note-area" aria-label="阶段性报告">本阶段工作围绕关系中的确认、结束边界与被抛下体验展开。来访者逐渐能够在会谈中表达对结束的不满，而不是仅通过迟到或延长要求行动化。</textarea>';
+        if (tab === 'timeline') body.innerHTML = '<div class="editor-label">连续个案时间线</div><div class="route-list"><div class="route-row"><code>第 12 节</code><span>结束边界与补偿冲动</span><span>今天</span></div><div class="route-row"><code>第 11 节</code><span>担心自己“很麻烦”</span><span>7 月 10 日</span></div><div class="route-row"><code>第 10 节</code><span>迟到后保持沉默</span><span>7 月 3 日</span></div></div>';
+      }
+
+      document.querySelectorAll('.nav-item').forEach(function (button) {
+        var label = button.querySelector('span:not(.nav-lock)');
+        if (label) button.title = label.textContent;
+      });
+      document.getElementById('sidebar-toggle').addEventListener('click', function () {
+        setSidebarCollapsed(!document.querySelector('.app-shell').classList.contains('sidebar-collapsed'), true);
+      });
+      try { setSidebarCollapsed(localStorage.getItem('xj_preview_sidebar_collapsed') === '1', false); } catch (error) { setSidebarCollapsed(false, false); }
+
+      document.querySelectorAll('[data-knowledge-mode]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          knowledgeMode = button.dataset.knowledgeMode;
+          renderKnowledge();
+        });
+      });
+      document.querySelectorAll('[data-knowledge-category]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          knowledgeCategory = button.dataset.knowledgeCategory;
+          document.querySelectorAll('.knowledge-tree-button').forEach(function (item) { item.classList.toggle('active', item === button); });
+          document.getElementById('knowledge-clear-filter').innerHTML = '<i data-lucide="list-filter"></i>' + (knowledgeCategory === '全部' ? '全部资料' : knowledgeCategory);
+          renderKnowledge();
+        });
+      });
+      document.querySelectorAll('[data-knowledge-filter]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          var filter = button.dataset.knowledgeFilter;
+          knowledgeCategory = filter === 'word' ? 'Word 文档' : filter === 'cited' ? '已用于引用' : '全部';
+          document.querySelectorAll('.knowledge-tree-button').forEach(function (item) { item.classList.toggle('active', item === button); });
+          document.getElementById('knowledge-clear-filter').innerHTML = '<i data-lucide="list-filter"></i>' + (filter === 'recent' ? '最近更新' : knowledgeCategory);
+          renderKnowledge();
+        });
+      });
+      document.getElementById('knowledge-search').addEventListener('input', function () {
+        knowledgeQuery = this.value;
+        if (knowledgeMode === 'gallery') knowledgeMode = 'search';
+        renderKnowledge();
+      });
+      document.getElementById('knowledge-clear-filter').addEventListener('click', function () {
+        knowledgeCategory = '全部';
+        knowledgeQuery = '';
+        document.getElementById('knowledge-search').value = '';
+        document.querySelectorAll('.knowledge-tree-button').forEach(function (item) { item.classList.toggle('active', item.dataset.knowledgeCategory === '全部'); });
+        this.innerHTML = '<i data-lucide="list-filter"></i>全部资料';
+        renderKnowledge();
+      });
+      document.getElementById('knowledge-host').addEventListener('click', function (event) {
+        if (event.target.closest('[data-open-plans]')) { openPlans(); return; }
+        var reset = event.target.closest('[data-knowledge-reset]');
+        if (reset) { document.getElementById('knowledge-clear-filter').click(); return; }
+        var sort = event.target.closest('[data-knowledge-sort]');
+        if (sort) { knowledgeSortAscending = !knowledgeSortAscending; renderKnowledge(); showToast(knowledgeSortAscending ? '已按标题升序排列' : '已按标题降序排列'); return; }
+        var toc = event.target.closest('[data-toc]');
+        if (toc) { document.querySelectorAll('[data-toc]').forEach(function (item) { item.classList.toggle('active', item === toc); }); document.getElementById('knowledge-reading-' + toc.dataset.toc)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+        var graph = event.target.closest('[data-graph-label]');
+        if (graph) { showToast('概念“' + graph.dataset.graphLabel + '”关联 3 份本地资料'); return; }
+        var ref = event.target.closest('.knowledge-ref');
+        if (ref) { var next = ref.getAttribute('aria-checked') !== 'true'; ref.setAttribute('aria-checked', next ? 'true' : 'false'); ref.querySelector('.check').textContent = next ? '✓' : ''; return; }
+        var docRow = event.target.closest('[data-knowledge-doc]');
+        if (docRow) {
+          knowledgeSelected = Number(docRow.dataset.knowledgeDoc) || 0;
+          if (docRow.classList.contains('knowledge-hit')) knowledgeMode = 'reading';
+          renderKnowledge();
+          showToast('已选择“' + knowledgeDocs[knowledgeSelected].title + '”');
+        }
+      });
+      document.getElementById('knowledge-host').addEventListener('keydown', function (event) {
+        if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('tr[data-knowledge-doc]')) { event.preventDefault(); event.target.click(); }
+      });
+      document.getElementById('knowledge-host').addEventListener('submit', function (event) {
+        if (event.target.id !== 'knowledge-chat-form') return;
+        event.preventDefault();
+        if (tier() === 'free') { openPlans(); showToast('资料对话需要会员资格，并单独检查 AI 算力'); return; }
+        var input = document.getElementById('knowledge-chat-input');
+        var value = input.value.trim();
+        if (!value) { showToast('请先输入要向资料库提问的问题'); return; }
+        var thread = document.getElementById('knowledge-thread');
+        var message = document.createElement('div');
+        message.className = 'knowledge-message user';
+        message.textContent = value;
+        thread.appendChild(message);
+        input.value = '';
+        thread.scrollTop = thread.scrollHeight;
+        showToast('问题已提交，回答将保留本地资料引用');
+      });
+      document.getElementById('knowledge-detail').addEventListener('click', function (event) {
+        var toggle = event.target.closest('[data-knowledge-toggle]');
+        if (toggle) { var checked = toggle.getAttribute('aria-checked') !== 'true'; toggle.setAttribute('aria-checked', checked ? 'true' : 'false'); showToast((toggle.dataset.knowledgeToggle === 'cite' ? '回答引用' : 'AI 检索') + (checked ? '已启用' : '已关闭')); return; }
+        if (event.target.closest('[data-knowledge-open-reading]')) { knowledgeMode = 'reading'; renderKnowledge(); return; }
+        if (event.target.closest('[data-knowledge-locate]')) showToast('已请求在系统文件夹中定位当前资料');
+      });
+      document.getElementById('knowledge-refresh').addEventListener('click', function () {
+        var button = this;
+        button.disabled = true;
+        button.innerHTML = '<i data-lucide="loader-circle"></i>';
+        renderIcons();
+        window.setTimeout(function () { button.disabled = false; button.innerHTML = '<i data-lucide="refresh-cw"></i>'; renderIcons(); showToast('资料文件夹扫描完成：327 篇，5 个分类'); }, 650);
+      });
+      document.getElementById('knowledge-folder').addEventListener('click', function () { showToast('已打开系统资料文件夹选择器（预览）'); });
+      document.getElementById('knowledge-index').addEventListener('click', function () {
+        if (tier() === 'free') { openPlans(); showToast('向量索引为会员能力；免费版继续使用关键词检索'); return; }
+        var button = this;
+        var progress = document.getElementById('knowledge-index-progress');
+        var bar = progress.querySelector('span');
+        var value = 0;
+        button.disabled = true;
+        progress.hidden = false;
+        bar.style.width = '0%';
+        var timer = window.setInterval(function () {
+          value += 20;
+          bar.style.width = value + '%';
+          if (value >= 100) {
+            window.clearInterval(timer);
+            button.disabled = false;
+            window.setTimeout(function () { progress.hidden = true; }, 500);
+            showToast(tier() === 'flagship' ? '向量与 Rerank 精排索引已更新' : '向量索引已更新');
+          }
+        }, 180);
+      });
+
+      document.getElementById('open-supervisor-picker').addEventListener('click', function () {
+        var picker = document.getElementById('supervisor-picker');
+        var open = picker.hidden;
+        picker.hidden = !open;
+        this.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) { picker.querySelector('.supervisor-option.selected').focus(); renderIcons(); }
+      });
+      document.getElementById('close-supervisor-picker').addEventListener('click', closeSupervisorPicker);
+      document.querySelectorAll('[data-supervisor-id]').forEach(function (button) { button.addEventListener('click', function () { setSupervisor(button.dataset.supervisorId); }); });
+      document.querySelector('[data-supervisor-custom]').addEventListener('click', function () {
+        if (tier() !== 'flagship') { openPlans(); showToast('新建督导师为旗舰定制功能'); return; }
+        closeSupervisorPicker();
+        showToast('已打开联系开发者定制流程：确认理论框架、表达方式与材料边界');
+      });
+
+      document.querySelectorAll('[data-master-mode]').forEach(function (button) { button.addEventListener('click', function () { if (canPreviewMasters()) setMasterMode(button.dataset.masterMode); }); });
+      document.querySelectorAll('[data-school-filter]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          currentMasterSchool = button.dataset.schoolFilter;
+          document.querySelectorAll('.masters-school-tab').forEach(function (item) { item.classList.toggle('active', item === button); });
+          filterMasters();
+        });
+      });
+      document.getElementById('masters-search-input').addEventListener('input', filterMasters);
+      document.querySelectorAll('.masters-person').forEach(function (button) {
+        button.addEventListener('click', function () {
+          if (!canPreviewMasters()) return;
+          var id = button.dataset.masterId;
+          if (masterMode === 'one') selectedMasters = [id];
+          else if (selectedMasters.indexOf(id) >= 0) {
+            if (selectedMasters.length <= 2) { showToast('圆桌至少保留两位大师'); return; }
+            selectedMasters = selectedMasters.filter(function (value) { return value !== id; });
+          } else {
+            if (selectedMasters.length >= 4) { showToast('圆桌最多选择四位大师'); return; }
+            selectedMasters.push(id);
+          }
+          updateMastersSelection();
+        });
+      });
+      document.getElementById('masters-new-round').addEventListener('click', function () { if (canPreviewMasters()) { selectedMasters = ['winnicott', 'bion']; setMasterMode('round'); newMasterConversation(); } });
+      document.querySelectorAll('[data-masters-inspector]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          var tab = button.dataset.mastersInspector;
+          document.querySelectorAll('[data-masters-inspector]').forEach(function (item) { var active = item === button; item.classList.toggle('active', active); item.setAttribute('aria-selected', active ? 'true' : 'false'); });
+          document.getElementById('masters-summary-view').classList.toggle('active', tab === 'summary');
+          document.getElementById('masters-history-view').classList.toggle('active', tab === 'history');
+        });
+      });
+      document.querySelectorAll('[data-master-history]').forEach(function (button) { button.addEventListener('click', function () { document.querySelectorAll('[data-master-history]').forEach(function (item) { item.classList.toggle('active', item === button); }); showToast('已载入历史对话“' + button.dataset.masterHistory + '”'); }); });
+      document.getElementById('masters-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (!canPreviewMasters()) return;
+        var input = document.getElementById('masters-input');
+        var value = input.value.trim();
+        if (!value) { showToast('请先输入要与大师讨论的问题'); return; }
+        var selected = selectedMasterButtons();
+        appendMasterMessage('user', '我', value);
+        selected.forEach(function (button, index) {
+          var responses = {
+            winnicott: '我会先把注意力放在这段关系能否承受这份需要，而不是立即判断它是否合理。设置的稳定与对体验的理解可以同时存在。',
+            bion: '也许可以暂缓寻找答案，先容纳尚未被思想化的压力。你的急迫感可能正是这段材料的一部分。',
+            klein: '这里可能同时存在对好客体的渴望与失去它的愤怒。留意你是否被推向修复或惩罚的位置。',
+            rogers: '先准确回应她在结束时感到的孤单与害怕，让她知道这些感受可以进入关系，而无需靠延长时间证明。',
+            beck: '可以共同辨认那个自动化推论：如果会谈结束，是否就意味着关系或价值也结束了？',
+            sue: '从互动循环看，她越担心失去连接就越要求延长，你越感到压力就越想补偿或退开。先命名这个循环。'
+          };
+          appendMasterMessage('master', button.dataset.masterName, responses[button.dataset.masterId] || '我会从自己的理论传统出发，继续追问这个议题在关系中如何被体验和重复。');
+        });
+        input.value = '';
+        showToast(masterMode === 'round' ? '圆桌中的 ' + selected.length + ' 位大师已分别回应' : '大师已回应当前追问');
+      });
+      document.getElementById('masters-use-docs').addEventListener('click', function () { var on = this.getAttribute('aria-pressed') !== 'true'; this.setAttribute('aria-pressed', on ? 'true' : 'false'); this.classList.toggle('docs-on', on); showToast(on ? '本次对话将引用已选择的本地资料' : '本次对话仅使用当前输入'); });
+      document.getElementById('masters-mention').addEventListener('click', function () { var input = document.getElementById('masters-input'); var selected = selectedMasterButtons()[0]; input.value += '@' + (selected ? selected.dataset.masterName : '大师') + ' '; input.focus(); });
+      document.getElementById('masters-export').addEventListener('click', function () { if (canPreviewMasters()) showToast('当前大师对话已准备导出为本地文档'); });
+      document.getElementById('masters-delete').addEventListener('click', function () { if (canPreviewMasters() && window.confirm('删除当前大师对话？此操作不会影响督导记录。')) { newMasterConversation(); showToast('当前大师对话已删除'); } });
+      document.getElementById('masters-quote').addEventListener('click', function () { if (canPreviewMasters()) showToast('已进入引用模式，可选择上一轮大师回应'); });
+      document.getElementById('masters-save-point').addEventListener('click', function () { if (canPreviewMasters()) showToast('大师观点已保存到独立对话摘要'); });
+      document.getElementById('masters-to-supervision').addEventListener('click', function () { if (canPreviewMasters()) showToast('已将当前议题保存为督导草稿，未自动生成督导结论'); });
+      document.getElementById('masters-warmth').addEventListener('change', function () { showToast('回应温度已调整为 ' + this.value + '%'); });
+      document.getElementById('masters-detail').addEventListener('change', function () { showToast('回应详细度已调整为 ' + this.value + '%'); });
+
+      document.querySelectorAll('[data-tier-control]').forEach(function (button) { button.addEventListener('click', function () { setTier(button.dataset.tierControl, false); }); });
+      document.querySelectorAll('[data-skin-control]').forEach(function (button) { button.addEventListener('click', function () { setSkin(button.dataset.skinControl); }); });
+      document.querySelectorAll('.nav-item').forEach(function (button) { button.addEventListener('click', function () { showView(button.dataset.view, button.dataset.memberTab); }); });
+      document.querySelectorAll('[data-go]').forEach(function (button) { button.addEventListener('click', function () { showView(button.dataset.go); }); });
+      document.querySelectorAll('[data-material-tab]').forEach(function (button) { button.addEventListener('click', function () { setMaterialTab(button.dataset.materialTab); }); });
+      document.querySelectorAll('[data-material-jump]').forEach(function (button) { button.addEventListener('click', function () { setMaterialTab(button.dataset.materialJump); }); });
+      document.querySelectorAll('[data-member-tab-button]').forEach(function (button) { button.addEventListener('click', function () { setMemberTab(button.dataset.memberTabButton); }); });
+      document.querySelectorAll('.member-ai-action').forEach(function (button) { button.addEventListener('click', function () { if (tier() === 'free') openPlans(); else showView('member', 'supervision'); }); });
+      document.querySelectorAll('[data-open-plans]').forEach(function (button) { button.addEventListener('click', openPlans); });
+      document.querySelectorAll('[data-close-modal]').forEach(function (button) { button.addEventListener('click', closeModals); });
+      document.querySelectorAll('[data-select-tier]').forEach(function (button) { button.addEventListener('click', function () { setTier(button.dataset.selectTier, button.dataset.selectTier !== 'free'); }); });
+      document.querySelectorAll('.modal-backdrop').forEach(function (modal) { modal.addEventListener('click', function (event) { if (event.target === modal) closeModals(); }); });
+      document.addEventListener('keydown', function (event) { if (event.key === 'Escape') { closeModals(); closeSupervisorPicker(); } });
+
+      document.getElementById('member-entry').addEventListener('click', function () { if (tier() === 'free') openPlans(); else showView('member'); });
+      document.getElementById('gate-back').addEventListener('click', function () { showView('dashboard'); });
+      document.getElementById('open-mapping').addEventListener('click', function () { document.getElementById('mapping-modal').classList.add('open'); renderIcons(); });
+      document.getElementById('mapping-list').innerHTML = mappings.map(function (item) { return '<div class="mapping-row"><code>' + item[0] + '</code><span>' + item[1] + '</span></div>'; }).join('');
+      document.getElementById('save-note').addEventListener('click', function () { showToast('已保存到林澄 · 第 12 节'); });
+      document.getElementById('manual-template').addEventListener('click', function () { showToast('已切换为结构化记录，草稿内容保持不变'); });
+      document.getElementById('new-session').addEventListener('click', function () { showToast('已创建新的本地节次草稿'); });
+      document.getElementById('quick-xiaojing').addEventListener('click', function () { showToast('小镜已读取当前页面与林澄 · 第 12 节上下文'); });
+      document.getElementById('primary-action').addEventListener('click', function () { var key = this.dataset.currentAction; if (key === 'dashboard') showView('clinical'); else if (key === 'knowledge') document.getElementById('knowledge-folder').click(); else if (key === 'member-masters') newMasterConversation(); else showToast(key === 'member' ? '临床抓手已保存到第 12 节' : '当前内容已保存'); });
+      document.getElementById('generic-action').addEventListener('click', function () { showToast('“' + document.querySelector('#generic-action span').textContent + '”入口已触发'); });
+      document.getElementById('add-source').addEventListener('click', function () { showToast('已打开临床材料选择器'); });
+      document.getElementById('save-insight').addEventListener('click', function () { showToast('临床抓手已保存到林澄 · 第 12 节'); });
+      document.getElementById('member-quote').addEventListener('click', function () { showToast('已打开当前个案的可引用材料'); });
+      document.getElementById('custom-supervisor').addEventListener('click', function () { showToast('已打开联系开发者定制流程：确认理论框架、表达方式与材料边界'); });
+      document.querySelectorAll('.session-row').forEach(function (button) {
+        button.addEventListener('click', function () {
+          document.querySelectorAll('.session-row').forEach(function (candidate) { candidate.classList.toggle('active', candidate === button); });
+          showToast('已切换到' + button.dataset.sessionLabel);
+        });
+      });
+      document.getElementById('member-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (tier() === 'free') { openPlans(); return; }
+        var input = document.getElementById('member-input');
+        var value = input.value.trim();
+        if (!value) { showToast('请先输入要围绕临床材料追问的问题'); return; }
+        var thread = document.getElementById('member-thread');
+        var row = document.createElement('div');
+        row.className = 'member-message';
+        row.innerHTML = '<div class="member-avatar">我</div><div><div class="member-message-head"><strong>我的追问</strong><span>刚刚</span></div><p></p></div>';
+        row.querySelector('p').textContent = value;
+        thread.appendChild(row);
+        var selected = document.querySelector('[data-supervisor-id="' + currentSupervisorId + '"]');
+        var profile = supervisorProfile(selected.dataset.promptKey || currentSupervisorId);
+        var reply = document.createElement('div');
+        reply.className = 'member-message';
+        reply.innerHTML = '<div class="member-avatar"></div><div><div class="member-message-head"><strong></strong><span></span></div><p></p></div>';
+        reply.querySelector('.member-avatar').textContent = selected.dataset.supervisorMark;
+        reply.querySelector('strong').textContent = selected.dataset.supervisorName;
+        reply.querySelector('span').textContent = profile.focus;
+        reply.querySelector('p').textContent = profile.copy;
+        thread.appendChild(reply);
+        input.value = '';
+        thread.scrollTop = thread.scrollHeight;
+        showToast('追问已交给“' + selected.dataset.supervisorName + '”从临床材料继续理解');
+      });
+      document.getElementById('context-client').addEventListener('change', function () { document.getElementById('context-summary').textContent = this.value === 'lin' ? '迟到、结束边界与咨询师补偿冲动' : this.value === 'zhou' ? '确认需求与关系中的不确定感' : '选择来访者后显示连续工作摘要'; showToast('来访者上下文已同步到全部任务域'); });
+      document.getElementById('context-session').addEventListener('change', function () { showToast('会谈上下文已同步到记录、账务与督导'); });
+
+      setTier('free', false);
+      setSkin('clinical', true);
+      setMasterMode('one');
+      renderKnowledge();
+      showView('dashboard');
+      renderIcons();
+    })();
+  </script>
+</body>
+</html>

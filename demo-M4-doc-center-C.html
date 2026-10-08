@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心镜 · 文档中心 — 会员版C（AI成长轨迹）</title>
+<style>
+:root{--r-shell:14px;--r-card:10px;--r-ctl:8px;--r-sm:6px;--gap:16px;--ease:cubic-bezier(.22,1,.36,1);--serif:"Noto Serif SC","Songti SC","STSong",serif;--sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;--mono:"JetBrains Mono","SF Mono",ui-monospace,monospace}
+:root{--bg:#F6F8FC;--bg-elevated:#FFFFFF;--bg-sunken:#EDF0F7;--border-c:#E2E7F0;--text-c:#2B3140;--text-secondary-c:#646B7D;--text-muted-c:#99A1B3;--accent:#8B93C7;--accent-hover:#777FBC;--accent-soft:#ECEEF9;--accent-line:#B5BDE0;--success-c:#6FAE8F;--warning-c:#D6A85C;--danger-c:#D98C8C;--shadow-sm:0 1px 3px rgba(43,49,64,.05);--shadow:0 4px 16px rgba(43,49,64,.07);--hover-tint:rgba(43,49,64,.04)}
+:root{--paper:#F6F8FC;--paper-2:#FFFFFF;--sidebar:#EDF0F7;--ink:#2B3140;--ink-2:#646B7D;--ink-3:#99A1B3;--hair:#E2E7F0;--hair-strong:#D2D9E6;--green:#6FAE8F;--orange:#D6A85C;--blue:#9DB8D6;--purple:#8B93C7;--red:#D98C8C;--radius:14px;--radius-sm:10px;--border:var(--hair-strong);--text:var(--ink);--card:var(--paper-2);--bg-soft:var(--sidebar);--transition:.2s var(--ease)}
+.xj-tier-badge{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--sans);padding:2px 8px;border-radius:999px}
+.xj-tier-badge.pro{background:rgba(214,168,92,.15);color:var(--orange);border:1px solid rgba(214,168,92,.25)}
+.xj-premium-btn{position:relative}
+.xj-premium-btn::after{content:'🔒';font-size:9px;position:absolute;top:2px;right:4px;opacity:.6}
+.xj-locked-area{position:relative}
+.xj-locked-area>.xj-lock-overlay{position:absolute;inset:0;z-index:10;background:rgba(246,248,252,.78);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;border-radius:var(--r-card);font:500 13px var(--sans);color:var(--ink-3);pointer-events:auto}
+.xj-locked-area>.xj-lock-overlay::before{content:"🔒";margin-right:6px;font-size:14px;opacity:.7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.preview-bar{display:flex;align-items:center;gap:8px;padding:8px 20px;background:linear-gradient(90deg,var(--accent-soft),rgba(214,168,92,.08));border-bottom:1px solid var(--border);font-size:12px;color:var(--ink-2);flex-shrink:0}
+.preview-bar .sp{flex:1}
+.dc-top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--paper-2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.dc-top .back{font:13px var(--sans);cursor:pointer;border:none;background:none;color:var(--ink-2);padding:4px 8px;border-radius:6px}
+.dc-top h2{font-family:var(--serif);font-size:18px;margin:0}
+.dc-top h2 .sub{font:400 11px var(--sans);color:var(--ink-3);margin-left:6px}
+.dc-top .sp{flex:1}
+.dc-top select{border:1px solid var(--border);border-radius:8px;padding:5px 10px;font:12px var(--sans);background:var(--paper-2);color:var(--text)}
+.dc-body{flex:1;display:grid;grid-template-columns:280px 1fr;min-height:0;overflow:hidden}
+.dc-left{background:var(--paper-2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.dc-left .dl-head{padding:14px 16px;border-bottom:1px solid var(--border);font:600 14px var(--serif);flex-shrink:0}
+.dc-left .dl-stats{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.dc-left .dl-stats .stat-row{display:flex;justify-content:space-between;align-items:center;font:12px var(--sans);color:var(--ink-2)}
+.dc-left .dl-stats .stat-row b{font-family:var(--serif);color:var(--ink);font-size:16px}
+.dc-left .dl-stats .stat-bar{height:6px;border-radius:3px;background:var(--bg-sunken);margin-top:3px;overflow:hidden}
+.dc-left .dl-stats .stat-bar .fill{height:100%;border-radius:3px;transition:width .5s}
+.dc-right{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.dc-right .dr-head{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--paper-2);flex-shrink:0;display:flex;align-items:center;gap:8px}
+.dc-right .dr-head .title{font:600 16px var(--serif)}
+.dc-right .dr-head .badge{font:10px var(--sans);padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.dc-right .dr-head .sp{flex:1}
+.dc-right .dr-head button{border:1px solid var(--border);background:var(--paper-2);border-radius:7px;padding:5px 12px;font:11px var(--sans);cursor:pointer;color:var(--ink-2)}
+.timeline{flex:1;overflow-y:auto;padding:24px 32px;position:relative}
+.timeline::before{content:'';position:absolute;left:72px;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--accent-soft),var(--accent-line),var(--accent-soft));border-radius:2px}
+.tl-item{position:relative;padding-left:40px;margin-bottom:28px}
+.tl-item .tl-dot{position:absolute;left:-2px;top:6px;width:18px;height:18px;border-radius:50%;border:3px solid var(--accent);background:var(--paper-2);z-index:2;transition:all .2s}
+.tl-item.active .tl-dot{background:var(--accent);box-shadow:0 0 0 4px rgba(139,147,199,.25)}
+.tl-item .tl-date{position:absolute;left:-80px;top:4px;font:600 11px var(--sans);color:var(--ink-3);text-align:right;width:60px}
+.tl-card{background:var(--paper-2);border:1px solid var(--border);border-radius:12px;padding:16px;transition:all .2s;cursor:pointer}
+.tl-card:hover{border-color:var(--accent-line);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.tl-card.active{border-color:var(--accent);box-shadow:0 4px 16px rgba(139,147,199,.2)}
+.tl-card .tc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tl-card .tc-head .tc-num{font:700 13px var(--sans);color:var(--accent)}
+.tl-card .tc-head .tc-type{font:10px var(--sans);padding:2px 7px;border-radius:4px}
+.tl-card .tc-head .tc-type.session{background:var(--accent-soft);color:var(--accent)}
+.tl-card .tc-head .tc-type.supervision{background:rgba(139,147,199,.12);color:var(--purple)}
+.tl-card .tc-head .tc-type.report{background:rgba(111,174,143,.12);color:var(--green)}
+.tl-card .tc-summary{font:13px/1.7 var(--sans);color:var(--ink);margin-bottom:8px}
+.tl-card .tc-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tl-card .tc-tags .tag{font:10px var(--sans);padding:2px 7px;border-radius:4px;background:var(--bg-sunken);color:var(--ink-3)}
+.tl-card .tc-insight{margin-top:12px;padding:10px 14px;background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:4px;font:12px/1.7 var(--sans);color:var(--ink-2)}
+.tl-card .tc-insight .insight-label{font-weight:600;color:var(--accent);margin-bottom:2px;font-size:11px}
+.tl-connector{position:relative;margin-left:40px;margin-bottom:0;height:0}
+.tl-connector .conn-line{position:absolute;bottom:0;left:-2px;width:18px;height:28px;border-left:2px dashed rgba(139,147,199,.3)}
+.tl-connector .conn-text{position:absolute;bottom:-8px;left:24px;font:11px var(--sans);color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:10px;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="preview-bar">
+  <span>🔒</span>
+  <span>会员预览模式 · 这是 <b>AI 成长轨迹</b> 会员增值页面，升级 <span class="xj-tier-badge pro" style="display:inline">会员</span> 后 AI 将自动分析所有材料，生成成长洞察</span>
+  <span class="sp"></span>
+  <span style="font:11px var(--sans);color:var(--ink-3)">基础版（方案E）→ <a href="doc-center.html" style="color:var(--accent)">返回</a></span>
+</div>
+
+<div class="dc-top">
+  <button class="back" onclick="history.back()">← 返回</button>
+  <h2>AI 成长轨迹 <span class="sub">· 会员版C · 时间轴+AI洞察</span></h2>
+  <span class="sp"></span>
+  <select><option>林小满 · 8次咨询 · 2026.03—2026.07</option><option>陈默 · 3次咨询</option></select>
+  <span class="xj-tier-badge pro">会员</span>
+</div>
+
+<div class="dc-body">
+  <div class="dc-left">
+    <div class="dl-head">📊 林小满 · 材料概览</div>
+    <div class="dl-stats">
+      <div class="stat-row"><span>咨询节次</span><b>8</b></div>
+      <div class="stat-row"><span>督导记录</span><b>3</b></div>
+      <div class="stat-row"><span>案例报告</span><b>1</b></div>
+      <div class="stat-row"><span>逐字稿</span><b>5</b></div>
+      <div class="stat-row"><span>跨越天数</span><b>127</b></div>
+      <div style="padding-top:8px;border-top:1px solid var(--border);margin-top:4px">
+        <div class="stat-row" style="margin-bottom:4px"><span>成长阶段</span><span style="color:var(--green);font-weight:600">第2阶段</span></div>
+        <div class="stat-bar"><div class="fill" style="width:62%;background:linear-gradient(90deg,var(--accent),var(--green))"></div></div>
+        <div style="font:10px var(--sans);color:var(--ink-3);margin-top:4px">从"防御模式"向"觉察模式"过渡</div>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:14px 16px">
+      <div style="font:600 11px var(--sans);color:var(--ink-3);margin-bottom:10px;letter-spacing:.05em">🔒 AI 核心议题变化</div>
+      <div style="padding:10px;border-radius:8px;background:var(--accent-soft);margin-bottom:8px;font:12px/1.7 var(--sans);color:var(--ink-2)">
+        <div style="font-weight:600;color:var(--accent);margin-bottom:2px">讨好模式</div>
+        <div style="font-size:11px">⬆ 早期高频（1-4节）→ ⬇ 后期减少（5-8节）</div>
+      </div>
+      <div style="padding:10px;border-radius:8px;background:var(--bg-sunken);margin-bottom:8px;font:12px/1.7 var(--sans);color:var(--ink-2)">
+        <div style="font-weight:600;color:var(--purple);margin-bottom:2px">自主表达</div>
+        <div style="font-size:11px">⬇ 早期缺失 → ⬆ 后期出现（第6节起）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dc-right">
+    <div class="dr-head">
+      <span class="title">⏱ 成长时间轴</span>
+      <span class="badge">12个节点</span>
+      <span class="sp"></span>
+      <button class="xj-premium-btn" disabled>重新分析</button>
+      <button disabled>导出报告</button>
+    </div>
+
+    <div class="timeline">
+
+      <div class="tl-item active">
+        <div class="tl-date">03.15</div>
+        <div class="tl-dot"></div>
+        <div class="tl-card active">
+          <div class="tc-head">
+            <span class="tc-num">第1节</span>
+            <span class="tc-type session">咨询</span>
+          </div>
+          <div class="tc-summary">首次来访，主诉与母亲关系紧张。表现为高度防御，频繁使用"还行""挺好的"敷衍。评估为假自体功能主导。</div>
+          <div class="tc-tags">
+            <span class="tag">防御模式</span>
+            <span class="tag">假自体</span>
+            <span class="tag">初始评估</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">03.22</div>
+        <div class="tl-dot"></div>
+        <div class="tl-card">
+          <div class="tc-head">
+            <span class="tc-num">第2节</span>
+            <span class="tc-type session">咨询</span>
+          </div>
+          <div class="tc-summary">出现第一次"裂缝"——来访者说"我其实不太想笑"。移情初现：在咨询中也试图讨好咨询师。</div>
+          <div class="tc-tags">
+            <span class="tag">假自体裂缝</span>
+            <span class="tag">移情</span>
+          </div>
+          <div class="tc-insight">
+            <div class="insight-label">💡 AI 洞察</div>
+            这节是重要转折。来访者在"不想笑"说出口的瞬间，真自体开始有微弱浮现。温尼科特认为这种"不一致"恰恰是健康信号。
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">04.05</div>
+        <div class="tl-dot"></div>
+        <div class="tl-card">
+          <div class="tc-head">
+            <span class="tc-num">督导#1</span>
+            <span class="tc-type supervision">督导</span>
+          </div>
+          <div class="tc-summary">讨论讨好模式的反移情张力。督导建议使用"抱持"而非解释性干预。</div>
+          <div class="tc-tags">
+            <span class="tag">反移情</span>
+            <span class="tag">抱持</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-connector">
+        <div class="conn-line"></div>
+        <div class="conn-text">🔗 AI识别变化：从防御模式向觉察模式过渡</div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">05.10</div>
+        <div class="tl-dot"></div>
+        <div class="tl-card">
+          <div class="tc-head">
+            <span class="tc-num">第5节</span>
+            <span class="tc-type session">咨询</span>
+          </div>
+          <div class="tc-summary">第一次主动表达对咨询师的不满："你上次说的我不同意。"自主浮现的里程碑事件。</div>
+          <div class="tc-tags" style="border-left:3px solid var(--green);padding-left:8px">
+            <span class="tag" style="background:rgba(111,174,143,.12);color:var(--green)">⬆ 自主表达</span>
+            <span class="tag">攻击性健康表达</span>
+          </div>
+          <div class="tc-insight">
+            <div class="insight-label">💡 AI 洞察</div>
+            来访者能够"不同意"咨询师，说明信任程度已到达可以承受冲突的水平。温尼科特会认为这是"使用客体"能力的萌芽。
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">06.14</div>
+        <div class="tl-dot"></div>
+        <div class="tl-card">
+          <div class="tc-head">
+            <span class="tc-num">案例报告</span>
+            <span class="tc-type report">报告</span>
+          </div>
+          <div class="tc-summary">中期评估报告。诊断为适应障碍（讨好型），工作联盟良好，建议继续动力学咨询。</div>
+          <div class="tc-tags">
+            <span class="tag">中期评估</span>
+            <span class="tag">动力学取向</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-date">07.12</div>
+        <div class="tl-dot"></div>
+        <div class="tl-card">
+          <div class="tc-head">
+            <span class="tc-num">第8节</span>
+            <span class="tc-type session">咨询</span>
+          </div>
+          <div class="tc-summary">来访者说"我觉得我不是在讨好你，而是真的不想笑"。从防御性讨好到自主表达的质变。</div>
+          <div class="tc-tags" style="border-left:3px solid var(--green);padding-left:8px">
+            <span class="tag" style="background:rgba(111,174,143,.12);color:var(--green)">⬆⬆ 自主表达</span>
+            <span class="tag">真自体浮现</span>
+          </div>
+          <div class="tc-insight">
+            <div class="insight-label">💡 AI 洞察</div>
+            质变时刻。来访者区分了"讨好"和"真实意愿"，这正是温尼科特所说的"自发姿态"（spontaneous gesture）。真自体开始占据主导地位。下一阶段目标：强化自主表达的安全感。
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "data": [
+    {
+      "id": "page-index",
+      "title": "首页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1784073600000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/index.html",
+        "interactions": [
+          {
+            "domId": "cta-consult-notes",
+            "targetPageId": "page-consult-notes",
+            "transitionLabel": "新建来访"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-consult-notes",
+      "title": "咨询记录",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1784073600000,
+      "canvasData": {
+        "x": 620,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/consult-notes.html",
+        "interactions": [
+          {
+            "domId": "nav-index",
+            "targetPageId": "page-index",
+            "hideEdge": true,
+            "transitionLabel": "返回首页"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "心镜 · 治愈书房重设计"
+  }
+}

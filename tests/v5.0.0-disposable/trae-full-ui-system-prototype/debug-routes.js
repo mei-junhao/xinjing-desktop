@@ -1,0 +1,13 @@
+const fs = require('fs');
+const appJs = fs.readFileSync('d:/xinjing-electron/design-previews/5.0.0-trae-full-ui-system-prototype/app.js','utf8');
+const re = /routes\s*\[\s*['"]([A-Za-z0-9_-]+)['"]\s*\]\s*=\s*(?:async\s+)?function/g;
+const defRe2 = /routes\s*\.\s*([A-Za-z0-9_-]+)\s*=\s*(?:async\s+)?function/g;
+const m1=[],m2=[];
+let m;
+while((m=re.exec(appJs))!==null) m1.push(m[1]);
+while((m=defRe2.exec(appJs))!==null) m2.push(m[1]);
+console.log('bracket style:', m1.length, m1);
+console.log('dot style:', m2.length, m2);
+const all = [...m1, ...m2];
+const dupes = all.filter((r,i) => all.indexOf(r) !== i);
+console.log('dupes:', [...new Set(dupes)]);

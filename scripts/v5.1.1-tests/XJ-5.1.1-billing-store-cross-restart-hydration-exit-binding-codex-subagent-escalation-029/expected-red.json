@@ -1,0 +1,21 @@
+{
+  "version": "expected-red-029-v1",
+  "taskId": "XJ-5.1.1-billing-store-cross-restart-hydration-exit-binding-codex-subagent-escalation-029",
+  "requiredCases": [
+    { "caseId": "wrong-db-name", "mutation": "wrong-db-name", "reason": "writes the records into a different IndexedDB database" },
+    { "caseId": "wrong-object-store", "mutation": "wrong-object-store", "reason": "uses a different IndexedDB object store" },
+    { "caseId": "wrong-key", "mutation": "wrong-key", "reason": "writes records under keys that hydrate never reads" },
+    { "caseId": "skip-await", "mutation": "skip-await", "reason": "starts durable persistence and exits before awaiting it" },
+    { "caseId": "swallow-ok-false", "mutation": "swallow-ok-false", "reason": "discards an explicit durable {ok:false} result" },
+    { "caseId": "object-as-array", "mutation": "object-as-array", "reason": "passes objects where the durable API requires arrays" },
+    { "caseId": "old-memory-reuse", "mutation": "old-memory-reuse", "reason": "reports a same-process cache value instead of fresh hydrate data" },
+    { "caseId": "cross-userdata-origin", "mutation": "cross-userdata-origin", "reason": "reads from different userData and a different origin" }
+  ],
+  "stageContract": {
+    "order": ["baseline", "mutated", "restore"],
+    "baselineVerdict": "PASS",
+    "mutatedVerdict": "REJECTED",
+    "restoreVerdict": "PASS",
+    "rawFiles": ["stdout.txt", "stderr.txt", "meta.json"]
+  }
+}

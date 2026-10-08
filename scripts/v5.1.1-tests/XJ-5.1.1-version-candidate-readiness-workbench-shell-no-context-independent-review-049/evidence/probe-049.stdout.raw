@@ -1,0 +1,13 @@
+{
+  "probe": "shell-structure-inventory",
+  "utc": "2026-08-29T06:42:30Z",
+  "title": "心镜 · 今日工作台",
+  "quickMods": 11,
+  "visibleQuick": 6,
+  "moreBtn": "more-mod-btn",
+  "navItems": 26,
+  "sidebarWidth": 178,
+  "theme": "#eef3f1 (light)",
+  "consoleErrors": 0,
+  "note": "11 mod cards (7 visible quick + qr-entry + more-btn; 5 in more-modules hidden); nav includes 3 locked groups with nav-unlock buttons"
+}

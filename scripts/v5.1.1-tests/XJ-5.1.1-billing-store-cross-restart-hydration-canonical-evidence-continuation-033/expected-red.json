@@ -1,0 +1,16 @@
+{
+  "version": "expected-red-033-v1",
+  "taskId": "XJ-5.1.1-billing-store-cross-restart-hydration-canonical-evidence-continuation-033",
+  "fixedOrigin": "http://127.0.0.1:19503",
+  "stageOrder": ["baseline", "mutated", "restore"],
+  "requiredCases": [
+    { "caseId": "wrong-db-name", "mutation": "wrong-db-name", "reason": "durable write lands in a different IndexedDB database; reader hydrates the real db and finds nothing" },
+    { "caseId": "wrong-object-store", "mutation": "wrong-object-store", "reason": "durable write lands in a different object store; the kv store stays empty" },
+    { "caseId": "wrong-key", "mutation": "wrong-key", "reason": "durable write uses wrong kv keys; hydrate reads clients/sessions keys and finds nothing" },
+    { "caseId": "skip-await", "mutation": "skip-await", "reason": "writer fires the durable save without awaiting it and force-exits; the pending write never settles" },
+    { "caseId": "swallow-ok-false", "mutation": "swallow-ok-false", "reason": "durable call returns {ok:false}; the flow swallows it and claims saved" },
+    { "caseId": "object-as-array", "mutation": "object-as-array", "reason": "billing batch payload uses objects where arrays are required; no real durable row is created" },
+    { "caseId": "old-memory-reuse", "mutation": "old-memory-reuse", "reason": "writer reuses the in-memory cache as if durable after overwriting durable clients with an empty array" },
+    { "caseId": "cross-userdata-origin", "mutation": "cross-userdata-origin", "reason": "reader hydrates from a different userData profile, breaking the restart isolation contract" }
+  ]
+}

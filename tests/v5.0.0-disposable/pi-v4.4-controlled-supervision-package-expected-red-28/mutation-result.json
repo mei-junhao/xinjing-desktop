@@ -1,0 +1,229 @@
+{
+  "task_id": "XJ-5.0.0-pi-v4.4-controlled-supervision-package-expected-red-28",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "contract_id": "v4.4-controlled-supervision-package-v1",
+  "write_lock_id": "lock-XJ-5.0.0-pi-v4.4-controlled-supervision-package-expected-red-28",
+  "grant_id": "local-codex-20260727T192730Z-pi-v4.4-supervision-package-expected-red-28",
+  "protected_files_manifest_sha256": "5941356B7B24CB1D24A6B6A011C37E024F4763A13BBFB4E91263B28115A18033",
+  "determinism": "no volatile fields; no timestamps/random/hash-bound values; volatile diagnostics are stdout-only",
+  "minimum_required": 12,
+  "killed_count": 14,
+  "total": 14,
+  "survivors": 0,
+  "overall": "ALL_KILLED",
+  "families": {
+    "family_a_production_logic": 7,
+    "family_b_harness_logic": 5,
+    "family_c_drift_before_write": 2
+  },
+  "contract_coverage": {
+    "fabricated missing API": "B8",
+    "parser bypass": "B8",
+    "decrypt-before-signature": "B9",
+    "dual-active grant": "A2",
+    "old envelope reuse": "A3",
+    "delayed revocation": "B12",
+    "grace extension": "A4",
+    "clock rollback acceptance": "A5",
+    "revocation rollback (epoch)": "A1",
+    "grant rollback (stale-revision)": "A6",
+    "entitlement/handler bypass": "A7",
+    "plaintext persistence/logging": "B10",
+    "forced exit zero after semantic failure": "B11",
+    "protected manifest drift gate": "C13",
+    "protected per-file drift gate": "C14"
+  },
+  "probes": [
+    {
+      "id": "A1",
+      "family": "family_a_production_logic",
+      "contract_refs": [
+        "revocation/grant rollback (revocation-epoch)"
+      ],
+      "target": "commercial-state-machine.js validateSecurity (event.revocationEpoch < current.revocationEpoch -> < -1)",
+      "mutation": "revocation-epoch rollback guard bypassed (lower epoch accepted)",
+      "intended_reason": "a known revocation-epoch rollback must be rejected; accepting it silently revives revoked authority",
+      "killed": true,
+      "detection": "C-CSM-REVOKE-ROLLBACK invariant broke: res.ok=true (rollback accepted) instead of res.ok=false/code=revocation-rollback",
+      "evidence": "res.ok=true code= invariantHeld=false"
+    },
+    {
+      "id": "A2",
+      "family": "family_a_production_logic",
+      "contract_refs": [
+        "dual-active grant",
+        "migration atomicity"
+      ],
+      "target": "commercial-state-machine.js transfer-completed (next.deviceBindingHash = pendingTarget -> keep current)",
+      "mutation": "migration does not swap device binding; old device retains authority, new device never enabled",
+      "intended_reason": "a transfer must revoke the old device and enable only the new one; keeping the old binding is a dual-active authority leak",
+      "killed": true,
+      "detection": "C-CSM-TRANSFER-ATOMIC invariant broke: deviceSwapped=false (old device not revoked on migration)",
+      "evidence": "completedDevice=dev-old-hash deviceSwapped=false newActiveAfter=false oldDeniedAfter=false invariantHeld=false"
+    },
+    {
+      "id": "A3",
+      "family": "family_a_production_logic",
+      "contract_refs": [
+        "old envelope reuse",
+        "stale pending target"
+      ],
+      "target": "commercial-state-machine.js transfer-completed (pendingTargetDeviceBindingHash not cleared)",
+      "mutation": "pending target device is not cleared after transfer-completed, allowing the old envelope/target to be reused",
+      "intended_reason": "after a completed transfer the old pending target must be cleared so the old wrapped-key/envelope cannot be reused",
+      "killed": true,
+      "detection": "C-CSM-TRANSFER-FINALITY invariant broke: pendingCleared=false (stale pending target retained)",
+      "evidence": "deviceBound=true pendingCleared=false pendingTarget=\"dev-new-hash\" invariantHeld=false"
+    },
+    {
+      "id": "A4",
+      "family": "family_a_production_logic",
+      "contract_refs": [
+        "grace extension",
+        "7-day ceiling"
+      ],
+      "target": "commercial-state-machine.js offline-grace ceiling (offlineGraceEndsAtMs > maximum -> false)",
+      "mutation": "offline-grace ceiling disabled; grace can be extended beyond 7*24h",
+      "intended_reason": "package content/settings/clock changes cannot extend grace beyond 7*24h; an over-7d grace must be rejected",
+      "killed": true,
+      "detection": "C-CSM-GRACE-CEILING invariant broke: over.ok=true (over-7d grace accepted)",
+      "evidence": "over.ok=true over.code= within.ok=true maxMs=604800000 invariantHeld=false"
+    },
+    {
+      "id": "A5",
+      "family": "family_a_production_logic",
+      "contract_refs": [
+        "clock rollback acceptance",
+        "clock anomaly fail-closed"
+      ],
+      "target": "commercial-state-machine.js validateSecurity (event.clockValid guard neutralized)",
+      "mutation": "clock-anomaly guard bypassed in transition validation; bad-clock transition accepted",
+      "intended_reason": "a clock anomaly must fail closed; accepting a bad-clock transition permits rollback/forward-dated authority",
+      "killed": true,
+      "detection": "C-CSM-CLOCK-ANOMALY invariant broke: res.ok=true (bad-clock transition accepted)",
+      "evidence": "res.ok=true res.code= invariantHeld=false"
+    },
+    {
+      "id": "A6",
+      "family": "family_a_production_logic",
+      "contract_refs": [
+        "revocation/grant rollback (grant-sequence/stale-revision)"
+      ],
+      "target": "commercial-state-machine.js applySubscriptionTransition stale-revision guard (event.revision <= current.revision -> <= -1)",
+      "mutation": "grant-sequence stale-revision guard bypassed; a replayed/lower revision is accepted",
+      "intended_reason": "grant-sequence rollback/replay must be rejected; accepting a stale revision lets an old grant replay over a newer one",
+      "killed": true,
+      "detection": "C-CSM-STALE-REVISION invariant broke: stale.ok=true (stale revision accepted)",
+      "evidence": "stale.ok=true stale.code= idem.ok=true idem.idem=true conflict.ok=false conflict.code=operation-conflict invariantHeld=false"
+    },
+    {
+      "id": "A7",
+      "family": "family_a_production_logic",
+      "contract_refs": [
+        "entitlement/handler bypass",
+        "compute/provider gate"
+      ],
+      "target": "entitlements.js access() (computeAvailable: !isAiFeature || aiUnlocked -> true)",
+      "mutation": "compute/provider permission gate removed; AI compute available even when aiUnlocked=false",
+      "intended_reason": "compute/provider permission is a separate gate from Flagship entitlement; bypassing it grants paid compute without provider authorization",
+      "killed": true,
+      "detection": "C-ENT-COMPUTE invariant broke: locked.computeAvailable=true (compute gate bypassed)",
+      "evidence": "locked.eligible=true locked.computeAvailable=true unlocked.computeAvailable=true invariantHeld=false"
+    },
+    {
+      "id": "B8",
+      "family": "family_b_harness_logic",
+      "contract_refs": [
+        "fabricated missing API",
+        "parser bypass"
+      ],
+      "target": "contract-result.json doctored CONFIRMED label claiming XJSUP parser",
+      "mutation": "fabricate a missing XJSUP parser API as a CONFIRMED capability (counts doctored to match)",
+      "intended_reason": "a fabricated missing-API must NOT be counted as a confirmed capability; the verifier independently rejects it via the false-runtime regex",
+      "killed": true,
+      "detection": "verify-artifacts.js exit=1 (false-runtime regex rejected fabricated parser)",
+      "evidence": "exit=1 matchedFalseRuntime=true"
+    },
+    {
+      "id": "B9",
+      "family": "family_b_harness_logic",
+      "contract_refs": [
+        "decrypt-before-signature",
+        "signature-before-decrypt promotion"
+      ],
+      "target": "contract-result.json E-SIGNATURE-BEFORE-DECRYPT promoted EXPECTED_RED -> CONFIRMED",
+      "mutation": "promote the signature-before-decrypt gap to CONFIRMED (claiming a real decrypt/signature path exists)",
+      "intended_reason": "no signature-before-decrypt path exists; promoting it to CONFIRMED must be independently rejected (no false confirmed runtime, no expected-red promotion)",
+      "killed": true,
+      "detection": "verify-artifacts.js exit=1 (promoted=true falseRuntime=true)",
+      "evidence": "exit=1 promoted=true falseRuntime=true"
+    },
+    {
+      "id": "B10",
+      "family": "family_b_harness_logic",
+      "contract_refs": [
+        "plaintext persistence/logging",
+        "key non-exposure"
+      ],
+      "target": "contract-result.json injected with a secret-like key marker",
+      "mutation": "inject plaintext/key-like material into an artifact (simulating plaintext persistence or logging)",
+      "intended_reason": "no package plaintext or device-key material may appear in renderer, store, logs, backup, export or release evidence; the verifier must reject it",
+      "killed": true,
+      "detection": "verify-artifacts.js exit=1 (secret-marker scan rejected injected key material)",
+      "evidence": "exit=1 matchedSecret=true"
+    },
+    {
+      "id": "B11",
+      "family": "family_b_harness_logic",
+      "contract_refs": [
+        "forced exit zero after semantic failure"
+      ],
+      "target": "contract-result.json doctored: one check pass=false but failed=0 (forced-exit-zero mutant)",
+      "mutation": "a mutant that forces exit(0) after writing a result with a semantic failure (pass=false, failed doctored to 0)",
+      "intended_reason": "a forced exit(0) cannot hide a semantic failure; the verifier reads the result data and independently recounts pass!=true as failed",
+      "killed": true,
+      "detection": "verify-artifacts.js exit=1 (independent recount detected pass=false despite doctored failed=0)",
+      "evidence": "exit=1 recounted=true"
+    },
+    {
+      "id": "B12",
+      "family": "family_b_harness_logic",
+      "contract_refs": [
+        "delayed revocation",
+        "online revocation fetch"
+      ],
+      "target": "contract-matrix.json E-ONLINE-REVOCATION-FETCH entry_point doctored to a real surface",
+      "mutation": "fabricate an immediate online package-revocation fetch entry point (claiming no delayed-revocation gap)",
+      "intended_reason": "no online package-revocation fetch exists; claiming one must be independently rejected so the delayed-revocation gap stays EXPECTED_RED",
+      "killed": true,
+      "detection": "verify-artifacts.js exit=1 (matrix entry-point check rejected fabricated revocation surface)",
+      "evidence": "exit=1 matchedEntryCheck=true"
+    },
+    {
+      "id": "C13",
+      "family": "family_c_drift_before_write",
+      "contract_refs": [
+        "protected manifest byte-hash drift gate"
+      ],
+      "target": "protected-files-manifest.json tampered recorded hash (byte content changed)",
+      "mutation": "drift the protected-files manifest byte hash before any task write",
+      "intended_reason": "any protected-manifest tampering must block before any artifact write; the harness must not silently write under a drifted manifest",
+      "killed": true,
+      "detection": "run-contract.js exit=1 at byte-hash gate, zero artifacts written",
+      "evidence": "exit=1 blocked=true wroteResult=false wroteMatrix=false zeroWrites=true"
+    },
+    {
+      "id": "C14",
+      "family": "family_c_drift_before_write",
+      "contract_refs": [
+        "protected per-file hash drift gate"
+      ],
+      "target": "protected main.js tampered in a temp PROTECTED_ROOT (real manifest unchanged)",
+      "mutation": "drift a protected production file hash while the manifest byte hash still matches",
+      "intended_reason": "a tampered protected production file must block before any artifact write even when the manifest byte hash is valid; the per-file gate is independent",
+      "killed": true,
+      "detection": "run-contract.js exit=1 at per-file gate (byte-hash gate passed), zero artifacts written",
+      "evidence": "exit=1 blocked=true wroteResult=false wroteMatrix=false zeroWrites=true"
+    }
+  ]
+}

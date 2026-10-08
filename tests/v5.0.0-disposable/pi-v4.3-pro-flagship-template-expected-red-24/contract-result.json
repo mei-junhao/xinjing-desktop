@@ -1,0 +1,155 @@
+{
+  "task_id": "XJ-5.0.0-pi-v4.3-pro-flagship-template-expected-red-24",
+  "base_commit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "contract_id": "v4.3-pro-flagship-template-expected-red-v1",
+  "write_lock_id": "lock-XJ-5.0.0-pi-v4.3-pro-flagship-template-expected-red-24",
+  "grant_id": "local-codex-20260728T005553Z-pi-template-expected-red-24",
+  "protected_files_manifest_sha256": "D2364BA0FDBF3D4776C0B89FB61D98D76E94DF4CFBAAF82AC3BF9D0E33B65D5D",
+  "module_hashes": {
+    "store.js": "2C4BA0F392AEAE91F0D8F6DF5D41B8117A01363AA74992E58885D529062D9A1E",
+    "entitlements.js": "BD56F1106CD316402F82D9EA1629594F53B96A39B152F7DE4DA1C11DFEF3078B",
+    "session-template-view-model.js": "CC72F514CF15F0830030B928C6A01D3E4FAE239B4F1CD2E25FC1EE3F4C6FEF8E",
+    "quick-record.js": "73ACFA7F40BD7BACE82AA57338912B677B43E7D055ACB8F584A50D1CA3E503AA"
+  },
+  "determinism": "no volatile fields; no timestamps/random/hashes inside artifact; hash-stable across healthy runs",
+  "confirmed": 13,
+  "expected_red": 4,
+  "unverified": 0,
+  "failed": 0,
+  "row_counts": {
+    "total": 17,
+    "positive": 4,
+    "fail_closed": 5,
+    "boundary": 2,
+    "expected_red": 4
+  },
+  "invariants": {
+    "totalRowsAtLeast12": true,
+    "positiveAtLeast4": true,
+    "failClosedAtLeast2": true,
+    "expectedRedAtLeast4": true,
+    "expectedRedAllGreen": true,
+    "zeroFailed": true
+  },
+  "checks": [
+    {
+      "id": "F1-LIST",
+      "label": "Free tier lists manual-session-v1 only (no ai-session-v1 / flagship-session-v1)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "positive"
+    },
+    {
+      "id": "F1-SELECT",
+      "label": "Free tier selects manual-session-v1 via real select()",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "positive"
+    },
+    {
+      "id": "F1-SELECT-FLAGSHIP-DENIED",
+      "label": "Free tier cannot select flagship-session-v1 (fail closed, not promoted)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "F1-DURABLE",
+      "label": "Free manual selection persists durably, preserves unrelated session fields, survives Store reload",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "positive"
+    },
+    {
+      "id": "F1-DURABLE-FAILURE",
+      "label": "durable template failure returns {ok:false} and preserves prior authoritative selection",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "F1-QUICKRECORD",
+      "label": "real QuickRecord creates session + persists Free manual template selection + manual task (not paywalled)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "positive"
+    },
+    {
+      "id": "FC-QUICKRECORD-TIER",
+      "label": "QuickRecord rejects Pro/Flagship templateId (Free manual is the only wired quick-record template)",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "FC-ENT-TIER",
+      "label": "unknown/malformed/expired/revoked entitlement tier fails closed to free, never Pro/Flagship/custom",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "FC-STORE-BODY-BRAND",
+      "label": "Store rejects body-like clinical text + invalid customTemplateId; arbitrary brand payloads are DROPPED so persisted selection stays bounded metadata",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "fail-closed"
+    },
+    {
+      "id": "TRIAL-NOT-RAISED",
+      "label": "Trial unlocks only trialEligible pro features; effectiveTier stays free; custom/Flagship not granted",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "trial-quota"
+    },
+    {
+      "id": "QUOTA-BYOK-NOT-RAISED",
+      "label": "quota/BYOK does not raise tier; effectiveTier stays pro; custom remains denied; no tier-raise function on entitlements API",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "trial-quota"
+    },
+    {
+      "id": "PRO-SEL-BOUNDARY",
+      "label": "Pro ai-session-v1 selection persistence BOUNDARY exists (Store allows Pro tier/template) — defensive boundary, NOT the AI-assisted capability",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "boundary"
+    },
+    {
+      "id": "FLAG-SEL-BOUNDARY",
+      "label": "Flagship selection + bounded customTemplateId persistence BOUNDARY exists and survives reload — defensive boundary, NOT the custom brand capability",
+      "pass": true,
+      "classification": "CONFIRMED",
+      "category": "boundary"
+    },
+    {
+      "id": "PRO-AI-GEN",
+      "label": "No production entry for AI-assisted session template content GENERATION (SessionTemplateViewModel exposes only static list/select/apply)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "PRO-AI-ORCH",
+      "label": "No AI provider/orchestration wired into the session template path; apply() yields only an empty-value skeleton draft",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "FLAG-DEF",
+      "label": "No production entry for custom brand template DEFINITION (only a static built-in flagship-session-v1; no define/create brand template API)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    },
+    {
+      "id": "FLAG-VAL",
+      "label": "No production entry for brand ASSET validation (Store validates only customTemplateId string format, not brand assets/content)",
+      "pass": true,
+      "classification": "EXPECTED_RED",
+      "category": "expected-red"
+    }
+  ]
+}

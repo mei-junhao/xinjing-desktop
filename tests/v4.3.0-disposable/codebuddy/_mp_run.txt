@@ -1,0 +1,24 @@
+=== 4.3.0 CodeBuddy mutation probes（rework-02：真实变异真实源码） ===
+prototype 模块（case-atlas-view-model.js / source-ref-adapter.js）存在: true
+mutant 总数=19  {"PASS":17,"EXPECTED_RED":0,"UNSUPPORTED_EXPECTED_RED":2,"DEGRADED":0,"BLOCKED":0,"FAIL":0}
+prototype 级分类: {"killed":7,"syntax-error":1,"no-op":1,"unsupported-expected-red":2}
+[PASS] M-01 删除一个 SourceRef 字段（sourceContentHash） — ran=true killed=true — mutant 被结构契约捕获
+[PASS] M-02 减少 30 节 fixture（删除一节会谈） — ran=true killed=true — mutant 被结构契约捕获
+[PASS] M-03 错 client 会谈（unknown client 改为 accept 的 fixture 表现） — ran=true killed=true — mutant 被结构契约捕获
+[PASS] M-04 跳过 quarantine 检测（删除 sourceRef.status） — ran=true killed=true — mutant 被结构契约捕获
+[PASS] M-05 复用旧 client snapshot 到新 client（跨个案污染） — ran=true killed=true — mutant 被结构契约捕获
+[PASS] M-06 断链 material 检测（锚点被篡改为不匹配） — ran=true killed=true — mutant 被 detectBrokenLinks 捕获
+[PASS] M-11 控制 mutant：修改无关代码不改变契约结果 — ran=true killed=true — 无关改动无影响；真实 mutant 仍被捕获
+[PASS] M-03b 未把真实 prototype require 改成测试内复制实现 — ran=true killed=true — 本任务未创建任何替代实现/假 ViewModel
+[PASS] PM-01 validateViewModel 删除 timeline<30 检查 — ran=true killed=true category=killed — 真实源码变异后探针由 true 变 false，mutant 被契约杀死
+[PASS] PM-02 validateViewModel 删除 sourceContentHash 缺失检查 — ran=true killed=true category=killed — 真实源码变异后探针由 true 变 false，mutant 被契约杀死
+[PASS] PM-03 filterNodes confirmed 过滤器放行 ai-draft — ran=true killed=true category=killed — 真实源码变异后探针由 true 变 false，mutant 被契约杀死
+[PASS] PM-04 rejectAiEdgePersistence 对 AI edge 返回 ok:true（直接调用） — ran=true killed=true category=killed — 真实源码变异后探针由 true 变 false，mutant 被契约杀死
+[PASS] PM-04b rejectAiEdgePersistence 放行后 validateViewModel 链路检出 — ran=true killed=true category=killed — 真实源码变异后探针由 true 变 false，mutant 被契约杀死
+[PASS] PM-05 needsCacheInvalidation 忽略 sourceVersion 变化 — ran=true killed=true category=killed — 真实源码变异后探针由 true 变 false，mutant 被契约杀死
+[PASS] PM-06 quarantineSourceRef 跳过 quarantined 标记 — ran=true killed=true category=killed — 真实源码变异后探针由 true 变 false，mutant 被契约杀死
+[PASS] PM-07 语法破坏控制 mutant（预期编译失败） — ran=true killed=true category=syntax-error — 预期编译失败并确实失败（证明 harness 真实编译变异源码）：Unexpected token 'var'
+[PASS] PM-08 no-op 控制 mutant（仅注释变化） — ran=true killed=false category=no-op — 控制 mutant（仅注释变化）不影响行为，探针仍为 true
+[UNSUPPORTED_EXPECTED_RED] PM-09 删除关键 await（异步路径攻击） — ran=false killed=false category=unsupported-expected-red — 真实源码不含 await（实测扫描），createViewModel 同步返回非 Promise（实测调用）；无异步 API 可施加该攻击，不伪造假 Promise。进入生产前需要异步加载/刷新契约后重施
+[UNSUPPORTED_EXPECTED_RED] PM-10 允许 AI edge 经 persistAIEdge 写入持久化对象 — ran=false killed=false category=unsupported-expected-red — typeof persistAIEdge === undefined（实测）；唯一持久化入口 rejectAiEdgePersistence 已在 PM-04/PM-04b 被真实变异并被杀死。进入生产前该 API 必须不存在或永久拒绝
+SURVIVING(被测试漏掉、却伪装成绿)=0

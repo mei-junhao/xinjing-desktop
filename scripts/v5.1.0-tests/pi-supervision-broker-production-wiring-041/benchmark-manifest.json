@@ -1,0 +1,31 @@
+{
+  "schema": "xj-v510-benchmark-manifest-v1",
+  "taskId": "XJ-5.1.0-pi-supervision-broker-production-wiring-041",
+  "contractId": "contract-v510-pi-supervision-membership-broker-v1",
+  "baseCommit": "9971787eb6e443ab5a5c80aee118b9b43285c093",
+  "protectedFilesManifestSha256": "D52755D4AED2E9E8D8A4CFF316B3B5F8B2D937B33AA766523998006DAA8B336C",
+  "runtimeFiles": [
+    { "file": "app/js/pi/bridge/pi-production-runtime-v1.js", "sha256": "8F3C213D17A571AA9BD3DFDCB4BF92A97CAA07461D59D4AF6FE96F4EFE551606", "bytes": 19110 },
+    { "file": "main.js", "sha256": "635229127AD9A7D279C5451E07D8DB2453C5994A81E2BBFA25860969F1411DAD", "bytes": 158729 },
+    { "file": "preload.js", "sha256": "6A34FF942967200A7EB76D0EE546ED7EA02E3BD9AD113F54D39D6D8D2E4E2606", "bytes": 24966 },
+    { "file": "app/js/app.js", "sha256": "BCEDC560BEB21B29DFFA737B240BE343DD84B6A095718E1920E260E3EE106F1D", "bytes": 85556 }
+  ],
+  "commands": [
+    { "id": "node-check", "command": "node --check main.js && node --check preload.js && node --check app/js/app.js && node --check app/js/pi/bridge/pi-production-runtime-v1.js", "expected": "exit=0" },
+    { "id": "contract", "command": "node scripts/v5.1.0-tests/pi-supervision-broker-production-wiring-041/contract-tests.js", "expected": "16/16 PASS" },
+    { "id": "fixture", "command": "node scripts/v5.1.0-tests/pi-supervision-broker-production-wiring-041/fixture-tests.js", "expected": "12/12 PASS" },
+    { "id": "mutation", "command": "node scripts/v5.1.0-tests/pi-supervision-broker-production-wiring-041/mutation-tests.js", "expected": "8/8 KILLED" },
+    { "id": "electron", "command": "node scripts/v5.1.0-tests/pi-supervision-broker-production-wiring-041/electron-tests.js", "expected": "37 PASS / 0 FAIL" },
+    { "id": "self-test", "command": "node scripts/self-test.js", "expected": "284 PASS / 0 FAIL" },
+    { "id": "diff-check", "command": "git diff --check", "expected": "exit=0" }
+  ],
+  "evidence": {
+    "contract": "qa/task-scratch/XJ-5.1.0-pi-supervision-broker-production-wiring-041/evidence/contract-results.json",
+    "fixtures": "qa/task-scratch/XJ-5.1.0-pi-supervision-broker-production-wiring-041/evidence/fixture-results.json",
+    "mutations": "qa/task-scratch/XJ-5.1.0-pi-supervision-broker-production-wiring-041/evidence/mutation-results.json",
+    "electron": "qa/task-scratch/XJ-5.1.0-pi-supervision-broker-production-wiring-041/evidence/electron-results.json",
+    "matrix": "qa/task-scratch/XJ-5.1.0-pi-supervision-broker-production-wiring-041/evidence/electron-matrix.json",
+    "summary": "qa/task-scratch/XJ-5.1.0-pi-supervision-broker-production-wiring-041/evidence/evidence-summary.json",
+    "commands": "qa/task-scratch/XJ-5.1.0-pi-supervision-broker-production-wiring-041/evidence/command-evidence.json"
+  }
+}

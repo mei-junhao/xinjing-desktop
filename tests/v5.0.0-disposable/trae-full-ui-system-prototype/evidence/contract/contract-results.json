@@ -1,0 +1,212 @@
+{
+  "passCount": 41,
+  "failCount": 0,
+  "results": [
+    {
+      "name": "C1-默认皮肤为Clinical",
+      "pass": true,
+      "detail": "data-skin=clinical"
+    },
+    {
+      "name": "C1-默认字体包含系统无衬线栈",
+      "pass": true,
+      "detail": "font=-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Microsoft YaHei\", \"PingFang SC\", \"Noto Sans SC\", sans-serif"
+    },
+    {
+      "name": "C2-路由切换index",
+      "pass": true,
+      "detail": "hash=index, main=true"
+    },
+    {
+      "name": "C2-路由切换chat-home",
+      "pass": true,
+      "detail": "hash=chat-home, main=true"
+    },
+    {
+      "name": "C2-路由切换session-calendar",
+      "pass": true,
+      "detail": "hash=session-calendar, main=true"
+    },
+    {
+      "name": "C2-路由切换consult-notes",
+      "pass": true,
+      "detail": "hash=consult-notes, main=true"
+    },
+    {
+      "name": "C2-路由切换transcript",
+      "pass": true,
+      "detail": "hash=transcript, main=true"
+    },
+    {
+      "name": "C2-路由切换transcript-guide",
+      "pass": true,
+      "detail": "hash=transcript-guide, main=true"
+    },
+    {
+      "name": "C2-路由切换report-writing",
+      "pass": true,
+      "detail": "hash=report-writing, main=true"
+    },
+    {
+      "name": "C2-路由切换supervision",
+      "pass": true,
+      "detail": "hash=supervision, main=true"
+    },
+    {
+      "name": "C2-路由切换supervision-mindmap",
+      "pass": true,
+      "detail": "hash=supervision-mindmap, main=true"
+    },
+    {
+      "name": "C2-路由切换real-supervision",
+      "pass": true,
+      "detail": "hash=real-supervision, main=true"
+    },
+    {
+      "name": "C3-Free权益下Masters有锁定提示",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C3-Free权益下Supervision有锁定提示",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C3-未知权益键fail-closed",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C4-Ctrl+S保存后unsavedChanges=false",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C4-保存后显示Toast提示",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C5-对话框已打开",
+      "pass": true,
+      "detail": "dialog=true"
+    },
+    {
+      "name": "C5-Escape关闭对话框",
+      "pass": true,
+      "detail": "before=true, after=false"
+    },
+    {
+      "name": "C6-Transcript页面存在文件选择input",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C6-Ctrl+O触发文件选择器点击",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C7-导航栏有role=navigation",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C7-主内容区可编程聚焦",
+      "pass": true,
+      "detail": "focusable=true, focused=true"
+    },
+    {
+      "name": "C7-对话框有role=dialog",
+      "pass": true,
+      "detail": "role=dialog"
+    },
+    {
+      "name": "C7-对话框有aria-modal=true",
+      "pass": true,
+      "detail": "modal=true"
+    },
+    {
+      "name": "C8-横向溢出检查index",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C8-横向溢出检查consult-notes",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C8-横向溢出检查transcript",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C8-横向溢出检查masters",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C8-横向溢出检查supervision",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C8-横向溢出检查doc-center",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C8-横向溢出检查settings",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C9-无未处理console error",
+      "pass": true,
+      "detail": "consoleErrors=0, pageErrors=0, first="
+    },
+    {
+      "name": "C10-全部22路由布局稳定",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C11-reduced-motion媒体查询生效",
+      "pass": true,
+      "detail": "matchMedia=true"
+    },
+    {
+      "name": "C11-reduced-motion下transition为0s",
+      "pass": true,
+      "detail": "duration=0s"
+    },
+    {
+      "name": "C12-长中文内容无横向溢出",
+      "pass": true,
+      "detail": "ok"
+    },
+    {
+      "name": "C13-对话框打开后焦点在对话框内",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "C14-圆角token r-1=4px",
+      "pass": true,
+      "detail": "r-1=4px"
+    },
+    {
+      "name": "C14-圆角token r-2=6px",
+      "pass": true,
+      "detail": "r-2=6px"
+    },
+    {
+      "name": "C14-圆角token r-3=8px",
+      "pass": true,
+      "detail": "r-3=8px"
+    }
+  ],
+  "timestamp": "2026-07-27T15:20:54.621Z"
+}

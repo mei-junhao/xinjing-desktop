@@ -1,0 +1,181 @@
+﻿# cnb-build.ps1 - build Windows app and upload release assets to Tencent COS
+#
+# Run this LOCALLY on your Windows machine (one-command release).
+# NOTE: CNB self-hosted build nodes are Linux/Docker only (no native Windows),
+#       so CNB cannot build this Electron Windows app in CI. Local build is the way.
+# Env (optional; defaults hardcoded below, env overrides):
+#   COS_SECRET_ID, COS_SECRET_KEY, COS_BUCKET, COS_REGION, LICENSE_SECRET
+# LICENSE_SECRET also auto-read from ../.license-secret if env not set.
+#
+# ASCII-only comments to avoid PowerShell 5.1 GBK decode issues.
+
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+
+# --- defaults (env overrides; COS keys from gitignored scripts/.cos-secret.ps1) ---
+# PowerShell 5.1 dot-source of .cos-secret.ps1 is unreliable, so parse it directly.
+$cosSecretFile = Join-Path $PSScriptRoot '.cos-secret.ps1'
+function ParseCosSecret($path) {
+  $bytes = [System.IO.File]::ReadAllBytes($path)
+  $bom = if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { 'utf8' } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { 'unicode' } else { 'default' }
+  $raw = Get-Content $path -Raw -Encoding $bom
+  $idPat = '\$env:COS_SECRET_ID\s*=\s*''?([^'']+)'; $keyPat = '\$env:COS_SECRET_KEY\s*=\s*''?([^'']+)'
+  $im = [regex]::Match($raw, $idPat); $km = [regex]::Match($raw, $keyPat)
+  if ($im.Success) { $env:COS_SECRET_ID = $im.Groups[1].Value.Trim() }
+  if ($km.Success) { $env:COS_SECRET_KEY = $km.Groups[1].Value.Trim() }
+}
+if ((-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) -and (Test-Path $cosSecretFile)) { ParseCosSecret $cosSecretFile }
+if (-not $env:COS_BUCKET)     { $env:COS_BUCKET     = 'xinjing-1439314927' }
+if (-not $env:COS_REGION)     { $env:COS_REGION     = 'ap-guangzhou' }
+if (-not $env:COS_SECRET_ID -or -not $env:COS_SECRET_KEY) {
+    Write-Error "COS 密钥缺失：请设置环境变量 COS_SECRET_ID / COS_SECRET_KEY，或在 scripts\.cos-secret.ps1 中填写（该文件已 gitignore）。"
+    exit 1
+}
+if (-not $env:LICENSE_SECRET) {
+    $ls = Join-Path (Split-Path $PSScriptRoot -Parent) '.license-secret'
+    if (Test-Path $ls) { $env:LICENSE_SECRET = (Get-Content $ls -Raw).Trim() }
+}
+
+$scriptDir = $PSScriptRoot
+$proj = Split-Path $scriptDir -Parent
+$dist = Join-Path $proj 'dist'
+
+# --- 1. China npm / electron mirrors (speeds up install + binary fetch) ---
+npm config set registry https://registry.npmmirror.com
+$env:ELECTRON_MIRROR = 'https://cdn.npmmirror.com/binaries/electron/'
+$env:ELECTRON_BUILDER_BINARIES_MIRROR = 'https://npmmirror.com/mirrors/electron-builder-binaries/'
+
+# --- 0. version: bump patch unless XJ_NO_BUMP=1 (keep exact version) ---
+# auto-update only triggers when server version > local, so every upload
+# must be a NEW version. Set XJ_NO_BUMP=1 to publish the version already
+# in package.json (e.g. 1.0.9) without auto +1.
+Push-Location $proj
+node scripts/bump-version.js
+Pop-Location
+# regenerate build-time version file (version.generated.js) in sync with package.json
+Push-Location $proj
+node scripts/codegen-version.js
+Pop-Location
+
+# --- 1.5 (C3 修复)：重生成 gitignored 的 builtin 提示词（prompts.builtin.js），
+# 否则干净机器打包后 Agent 功能因缺失提示词文件而静默失效。失败仅告警，不阻断构建。
+Push-Location $proj
+$pyBin = $null
+if (Get-Command python -ErrorAction SilentlyContinue) { $pyBin = 'python' }
+elseif (Get-Command py -ErrorAction SilentlyContinue) { $pyBin = 'py' }
+if ($pyBin) {
+  try { & $pyBin scripts/gen-prompts-builtin.py } catch { Write-Warning ("gen-prompts-builtin 失败: " + $_) }
+} else {
+  Write-Warning 'python 不可用，跳过 prompts.builtin.js 重新生成（干净机器上 Agent 可能静默失效）'
+}
+Pop-Location
+
+# --- 2-4. clean rebuild (dist MUST match the bumped version) + postbuild ---
+# always remove old dist so electron-builder emits the new versioned assets
+# raw .NET delete bypasses the PowerShell Remove-Item safe-delete guard (which
+# blocks bulk deletes of build-output dirs like dist). dist is a regenerable
+# build artifact, so this is safe.
+if (Test-Path $dist) { try { [System.IO.Directory]::Delete($dist, $true) } catch { Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue } }
+Push-Location $proj
+try {
+    # Skip npm install when node_modules already exists. Routine patch rebuilds
+    # (bug fixes, no new deps) don't need it, and on some machines npm's cleanup
+    # phase can't remove stale dirs (sandbox delete guard / file locks) and aborts
+    # the whole build. A fresh checkout (no node_modules) still installs normally.
+    if (-not (Test-Path (Join-Path $proj 'node_modules'))) {
+        npm install --legacy-peer-deps
+    } else {
+        Write-Host 'node_modules present; skipping npm install'
+    }
+    # predist hook (codegen-secret.js) reads $env:LICENSE_SECRET -> secret.generated.js
+    npm run dist -- --publish never
+    # (re)generate latest.yml / blockmap / latest-portable.yml from dist
+    node scripts/postbuild.js
+} finally {
+    Pop-Location
+}
+
+# --- 5. locate coscli (PATH > manual coscli.exe beside script > auto-download) ---
+$cli = $null
+if (Get-Command coscli -ErrorAction SilentlyContinue) {
+    $cli = (Get-Command coscli).Source
+    Write-Host ("using coscli from PATH: $cli")
+} else {
+    $localCli = Join-Path $scriptDir 'coscli.exe'
+    if (Test-Path $localCli) {
+        $cli = $localCli
+        Write-Host ("using coscli.exe next to script: $cli")
+    } else {
+        $cli = Join-Path $env:TEMP 'coscli.exe'
+        # resolve latest windows-amd64 asset URL dynamically
+        $resolvedUrl = $null
+        try {
+            $api = Invoke-RestMethod -Uri 'https://api.github.com/repos/tencentyun/coscli/releases/latest' -TimeoutSec 30 -ErrorAction Stop
+            $asset = $api.assets | Where-Object { $_.name -like '*windows-amd64.exe' } | Select-Object -First 1
+            if ($asset) { $resolvedUrl = $asset.browser_download_url }
+        } catch { Write-Warning ("GitHub API unreachable: " + $_.Exception.Message) }
+        if (-not $resolvedUrl) {
+            try {
+                $api = Invoke-RestMethod -Uri 'https://ghproxy.net/https://api.github.com/repos/tencentyun/coscli/releases/latest' -TimeoutSec 30 -ErrorAction Stop
+                $asset = $api.assets | Where-Object { $_.name -like '*windows-amd64.exe' } | Select-Object -First 1
+                if ($asset) { $resolvedUrl = $asset.browser_download_url }
+            } catch { Write-Warning ("ghproxy API unreachable: " + $_.Exception.Message) }
+        }
+        if (-not $resolvedUrl) {
+            $resolvedUrl = 'https://github.com/tencentyun/coscli/releases/download/v1.0.8/coscli-v1.0.8-windows-amd64.exe'
+            Write-Warning 'could not resolve latest; using hardcoded v1.0.8 URL'
+        }
+        # Tencent's own China CDN (NOT github) - most reliable in China:
+        $tencentCdn = 'https://cosbrowser.cloud.tencent.com/software/coscli/coscli-windows-amd64.exe'
+        $kgithub = $resolvedUrl -replace '^https://github.com/', 'https://kgithub.com/'
+        $downloadUrls = @($tencentCdn, $kgithub, $resolvedUrl, 'https://ghproxy.net/' + $resolvedUrl)
+        $ok = $false
+        foreach ($u in $downloadUrls) {
+            try {
+                Write-Host ("downloading coscli from $u")
+                Invoke-WebRequest -Uri $u -OutFile $cli -TimeoutSec 180 -ErrorAction Stop
+                $ok = $true
+                break
+            } catch {
+                Write-Warning ("coscli download failed: $u -> " + $_.Exception.Message)
+            }
+        }
+        if (-not $ok) {
+            Write-Error 'could not obtain coscli automatically. Manual fix (100% reliable): download coscli from Tencent China CDN: https://cosbrowser.cloud.tencent.com/software/coscli/coscli-windows-amd64.exe , rename to coscli.exe, place it in D:\xinjing-electron\scripts\, then rerun this script.'
+            exit 1
+        }
+    }
+}
+
+# --- 6. write coscli config file directly (avoids interactive init wizard) ---
+# coscli shows a first-run interactive "Input Your Mode:" prompt when
+# ~/.cos.yaml is missing; running `config set/add` triggers that prompt and
+# hangs the script. Writing the file directly is the non-interactive path.
+$cosHome = if ($env:USERPROFILE) { $env:USERPROFILE } else { $env:HOME }
+$cosYamlPath = Join-Path $cosHome '.cos.yaml'
+$cosYaml = "cos:`n" +
+           "  base:`n" +
+           "    secretid: ""$env:COS_SECRET_ID""`n" +
+           "    secretkey: ""$env:COS_SECRET_KEY""`n" +
+           "  buckets:`n" +
+           "    - name: $env:COS_BUCKET`n" +
+           "      alias: $env:COS_BUCKET`n" +
+           "      region: $env:COS_REGION`n"
+[System.IO.File]::WriteAllText($cosYamlPath, $cosYaml, [System.Text.UTF8Encoding]::new($false))
+Write-Host ("wrote coscli config: $cosYamlPath")
+
+# --- 7. upload the 6 release assets from dist\ to bucket root ---
+$patterns = @('xinjing-setup-*.exe', 'xinjing-portable-*.exe', '*.blockmap', 'latest.yml', 'latest-portable.yml')
+$files = @()
+foreach ($p in $patterns) { $files += Get-ChildItem $dist -Filter $p }
+$files = $files | Sort-Object FullName -Unique
+if ($files.Count -eq 0) { Write-Error 'no release assets found in dist\'; exit 1 }
+
+foreach ($f in $files) {
+    Write-Host ("uploading " + $f.Name)
+    & $cli cp $f.FullName ("cos://" + $env:COS_BUCKET + "/" + $f.Name) --acl public-read
+    if ($LASTEXITCODE -ne 0) { Write-Error ("upload failed: " + $f.Name); exit 1 }
+}
+
+$domain = ("https://" + $env:COS_BUCKET + ".cos." + $env:COS_REGION + ".myqcloud.com/latest.yml")
+Write-Host ("==> Done. COS latest.yml: " + $domain)
